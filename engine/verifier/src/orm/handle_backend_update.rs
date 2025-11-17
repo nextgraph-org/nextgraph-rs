@@ -55,22 +55,22 @@ impl Verifier {
         let inserts = patch.inserts;
         let removes = patch.removes;
 
-        log_info!(
-            "inserts\n{}",
-            inserts
-                .iter()
-                .map(|q| format!("{q}",))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-        log_info!(
-            "removes\n{}",
-            removes
-                .iter()
-                .map(|q| format!("{q}",))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
+        // log_info!(
+        //     "inserts\n{}",
+        //     inserts
+        //         .iter()
+        //         .map(|q| format!("{q}",))
+        //         .collect::<Vec<_>>()
+        //         .join("\n")
+        // );
+        // log_info!(
+        //     "removes\n{}",
+        //     removes
+        //         .iter()
+        //         .map(|q| format!("{q}",))
+        //         .collect::<Vec<_>>()
+        //         .join("\n")
+        // );
         // TODO: Omit sending patches back to the subscription where they came from.
 
         // Apply changes to all affected scopes and send patches to clients
@@ -127,7 +127,7 @@ impl Verifier {
                 //     Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
                 // }
 
-                log_info!("[apply_changes_to_all_scopes]: Create and send patches for orm_subscription.session_id {} and origin_session_id {}", orm_subscription.session_id, origin_session_id);
+                //log_info!("[apply_changes_to_all_scopes]: Create and send patches for orm_subscription.session_id {} and origin_session_id {}", orm_subscription.session_id, origin_session_id);
                 Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
             }
 
@@ -165,13 +165,13 @@ impl Verifier {
         for (shape_iri, graph_changes) in orm_changes.iter() {
             for (graph_iri, subject_changes) in graph_changes.iter() {
                 for (subject_iri, change) in subject_changes {
-                    log_info!(
-                        "[PATCH TRACE] Begin subject changes: subject='{}' graph='{}' shape='{}' #changed_preds={}",
-                        subject_iri,
-                        graph_iri,
-                        shape_iri,
-                        change.predicates.len()
-                    );
+                    // log_info!(
+                    //     "[PATCH TRACE] Begin subject changes: subject='{}' graph='{}' shape='{}' #changed_preds={}",
+                    //     subject_iri,
+                    //     graph_iri,
+                    //     shape_iri,
+                    //     change.predicates.len()
+                    // );
 
                     // Log changes
                     for (_pred_iri, pred_change) in &change.predicates {
@@ -182,24 +182,24 @@ impl Verifier {
                         let pred_name = schema_arc.readablePredicate.clone();
 
                         // Log all added/removed values for this predicate change
-                        if !pred_change.values_added.is_empty() {
-                            for v in &pred_change.values_added {
-                                log_info!(
-                                    "[PATCH TRACE]    + Added value for pred='{}': {:?}",
-                                    pred_name,
-                                    v
-                                );
-                            }
-                        }
-                        if !pred_change.values_removed.is_empty() {
-                            for v in &pred_change.values_removed {
-                                log_info!(
-                                    "[PATCH TRACE]    - Removed value for pred='{}': {:?}",
-                                    pred_name,
-                                    v
-                                );
-                            }
-                        }
+                        // if !pred_change.values_added.is_empty() {
+                        //     for v in &pred_change.values_added {
+                        //         log_info!(
+                        //             "[PATCH TRACE]    + Added value for pred='{}': {:?}",
+                        //             pred_name,
+                        //             v
+                        //         );
+                        //     }
+                        // }
+                        // if !pred_change.values_removed.is_empty() {
+                        //     for v in &pred_change.values_removed {
+                        //         log_info!(
+                        //             "[PATCH TRACE]    - Removed value for pred='{}': {:?}",
+                        //             pred_name,
+                        //             v
+                        //         );
+                        //     }
+                        // }
                     }
 
                     // Get the tracked orm object for this (subject, shape) pair
@@ -285,15 +285,15 @@ impl Verifier {
                         for diff_op in diff_ops {
                             let mut path = vec![escape_json_pointer_segment(&pred_name)];
 
-                            log_info!(
-                                "[PATCH TRACE]   Diff op enqueued: subject='{}' graph='{}' op={:?} valType={:?} value_present={} starting_path_segs={:?}",
-                                tracked_orm_object.subject_iri,
-                                tracked_orm_object.graph_iri,
-                                diff_op.op,
-                                diff_op.val_type,
-                                diff_op.value.is_some(),
-                                path
-                            );
+                            // log_info!(
+                            //     "[PATCH TRACE]   Diff op enqueued: subject='{}' graph='{}' op={:?} valType={:?} value_present={} starting_path_segs={:?}",
+                            //     tracked_orm_object.subject_iri,
+                            //     tracked_orm_object.graph_iri,
+                            //     diff_op.op,
+                            //     diff_op.val_type,
+                            //     diff_op.value.is_some(),
+                            //     path
+                            // );
 
                             // Start recursion from this tracked orm object
                             build_path_to_root_and_create_patches(
@@ -333,11 +333,11 @@ impl Verifier {
                 .map(|(segments, _)| format!("/{}", segments.join("/")))
                 .collect();
 
-            log_info!(
-                "[PATCH TRACE]  Objects to create: {}. Created paths: {:?}",
-                objects_to_create.len(),
-                created_paths
-            );
+            // log_info!(
+            //     "[PATCH TRACE]  Objects to create: {}. Created paths: {:?}",
+            //     objects_to_create.len(),
+            //     created_paths
+            // );
 
             // Partition patches into independent and dependent
             let mut independent: Vec<OrmPatch> = Vec::new();
@@ -372,15 +372,15 @@ impl Verifier {
             // Send response with patches.
             let total_patches = final_patches.len();
             if total_patches > 0 {
-                for p in &final_patches {
-                    log_info!(
-                        "[PATCH TRACE]  Final patch: op={:?} valType={:?} path={} value_present={}",
-                        p.op,
-                        p.valType,
-                        p.path,
-                        p.value.is_some()
-                    );
-                }
+                // for p in &final_patches {
+                //     log_info!(
+                //         "[PATCH TRACE]  Final patch: op={:?} valType={:?} path={} value_present={}",
+                //         p.op,
+                //         p.valType,
+                //         p.path,
+                //         p.value.is_some()
+                //     );
+                // }
                 let _ = orm_subscription
                     .sender
                     .clone()
@@ -405,10 +405,10 @@ fn create_object_and_graph_and_id_patches(
     for (path_segments, maybe_iri) in sorted_objects {
         let json_pointer = format!("/{}", path_segments.join("/"));
 
-        log_info!(
-            "[PATCH TRACE]  Creating object container at path={}",
-            json_pointer
-        );
+        // log_info!(
+        //     "[PATCH TRACE]  Creating object container at path={}",
+        //     json_pointer
+        // );
 
         // Always create the object itself.
         patches.push(OrmPatch {
@@ -420,12 +420,12 @@ fn create_object_and_graph_and_id_patches(
 
         // If this object has an IRI (it's a real subject), add the graph then id fields
         if let Some((subject_iri, graph_iri)) = maybe_iri {
-            log_info!(
-                "[PATCH TRACE]   Adding @graph/@id for subject='{}' graph='{}' at base={}",
-                subject_iri,
-                graph_iri,
-                json_pointer
-            );
+            // log_info!(
+            //     "[PATCH TRACE]   Adding @graph/@id for subject='{}' graph='{}' at base={}",
+            //     subject_iri,
+            //     graph_iri,
+            //     json_pointer
+            // );
             patches.push(OrmPatch {
                 op: OrmPatchOp::add,
                 valType: None,
@@ -529,11 +529,11 @@ fn check_should_create_parent_predicate_object(
         if is_multi {
             // Check if any siblings were previously valid
             if !any_sibling_was_valid(tracked_orm_object, &tracked_children, orm_changes) {
-                log_info!(
-                    "[PATCH TRACE]   Will create intermediate object container for multi-valued predicate linking parent='{}' -> child='{}'",
-                    parent_ts.subject_iri,
-                    tracked_orm_object.subject_iri
-                );
+                // log_info!(
+                //     "[PATCH TRACE]   Will create intermediate object container for multi-valued predicate linking parent='{}' -> child='{}'",
+                //     parent_ts.subject_iri,
+                //     tracked_orm_object.subject_iri
+                // );
                 return true;
             }
         }
@@ -636,13 +636,13 @@ fn build_path_segment_for_parent(
                 // Add the readable predicate name
                 new_path.insert(0, escape_json_pointer_segment(&pred_arc.readablePredicate));
 
-                log_info!(
-                    "[PATCH TRACE]    build_path_segment_for_parent: parent='{}' pred='{}' is_multi={} -> new_path_segs={:?}",
-                    parent_ts.subject_iri,
-                    pred_arc.readablePredicate,
-                    is_multi,
-                    new_path
-                );
+                // log_info!(
+                //     "[PATCH TRACE]    build_path_segment_for_parent: parent='{}' pred='{}' is_multi={} -> new_path_segs={:?}",
+                //     parent_ts.subject_iri,
+                //     pred_arc.readablePredicate,
+                //     is_multi,
+                //     new_path
+                // );
 
                 return Some(new_path);
             }
@@ -668,24 +668,24 @@ fn build_path_to_root_and_create_patches(
     let shape_iri = tracked_orm_object
         .shape_iri()
         .unwrap_or("<dropped-shape>".into());
-    log_info!(
-        "[PATCH TRACE] build_path_to_root: subject='{}' graph='{}' shape='{}' parents={} current_path_segs={:?} op={:?} valType={:?}",
-        tracked_orm_object.subject_iri,
-        tracked_orm_object.graph_iri,
-        shape_iri,
-        tracked_orm_object.parents.len(),
-        path,
-        diff_op.op,
-        diff_op.val_type
-    );
+    // log_info!(
+    //     "[PATCH TRACE] build_path_to_root: subject='{}' graph='{}' shape='{}' parents={} current_path_segs={:?} op={:?} valType={:?}",
+    //     tracked_orm_object.subject_iri,
+    //     tracked_orm_object.graph_iri,
+    //     shape_iri,
+    //     tracked_orm_object.parents.len(),
+    //     path,
+    //     diff_op.op,
+    //     diff_op.val_type
+    // );
 
     // Check if subject is valid for this patch creation
     if !is_valid_for_patch_creation(tracked_orm_object, &diff_op) {
-        log_info!(
-            "[PATCH TRACE]  Skipping patch creation due to invalid tormo (and not an object remove): subject='{}' graph='{}'",
-            tracked_orm_object.subject_iri,
-            tracked_orm_object.graph_iri
-        );
+        // log_info!(
+        //     "[PATCH TRACE]  Skipping patch creation due to invalid tormo (and not an object remove): subject='{}' graph='{}'",
+        //     tracked_orm_object.subject_iri,
+        //     tracked_orm_object.graph_iri
+        // );
         return;
     }
 
@@ -734,11 +734,11 @@ fn build_path_to_root_and_create_patches(
                 child_subject_graph_iri,
             );
         } else {
-            log_info!(
-                "[PATCH TRACE]  build_path_segment_for_parent returned None: parent='{}' child='{}'",
-                parent_ts.subject_iri,
-                tracked_orm_object.subject_iri
-            );
+            // log_info!(
+            //     "[PATCH TRACE]  build_path_segment_for_parent returned None: parent='{}' child='{}'",
+            //     parent_ts.subject_iri,
+            //     tracked_orm_object.subject_iri
+            // );
         }
     }
 }
@@ -784,16 +784,16 @@ fn handle_root_reached(
     };
 
     // Create the patch for the actual value change
-    log_info!(
-        "[PATCH TRACE]  handle_root_reached: root='{}|{}' full_path='{}' op={:?} valType={:?} value_present={} prev_valid={:?}",
-        tracked_orm_object.graph_iri,
-        tracked_orm_object.subject_iri,
-        path_str,
-        diff_op.op,
-        diff_op.val_type,
-        diff_op.value.is_some(),
-        prev_valid
-    );
+    // log_info!(
+    //     "[PATCH TRACE]  handle_root_reached: root='{}|{}' full_path='{}' op={:?} valType={:?} value_present={} prev_valid={:?}",
+    //     tracked_orm_object.graph_iri,
+    //     tracked_orm_object.subject_iri,
+    //     path_str,
+    //     diff_op.op,
+    //     diff_op.val_type,
+    //     diff_op.value.is_some(),
+    //     prev_valid
+    // );
     patches.push(OrmPatch {
         op: diff_op.op.clone(),
         valType: diff_op.val_type.clone(),
@@ -827,13 +827,13 @@ fn handle_root_reached(
         let mut final_path = vec![root_key_segment];
         final_path.extend_from_slice(&object_path_segments);
 
-        log_info!(
-            "[PATCH TRACE]   Queue objects to create due to prev_valid={:?}: final_object_path_segs={:?} child_subject='{}' child_graph='{}'",
-            prev_valid,
-            final_path,
-            child_subject_graph_iri.0,
-            child_subject_graph_iri.1
-        );
+        // log_info!(
+        //     "[PATCH TRACE]   Queue objects to create due to prev_valid={:?}: final_object_path_segs={:?} child_subject='{}' child_graph='{}'",
+        //     prev_valid,
+        //     final_path,
+        //     child_subject_graph_iri.0,
+        //     child_subject_graph_iri.1
+        // );
         if let Some(shape_iri2) = tracked_orm_object.shape_iri() {
             queue_objects_to_create(
                 tracked_orm_object,
@@ -859,7 +859,7 @@ fn create_patches_for_predicate_change(
 ) -> (Vec<OrmPatch>, Vec<DiffOperation>) {
     let tracked_predicate = pred_change.tracked_predicate.read().unwrap();
     let Some(schema_arc) = tracked_predicate.schema_arc() else {
-        log_info!("[PATCH TRACE]   Skipping predicate change: schema dropped");
+        //log_info!("[PATCH TRACE]   Skipping predicate change: schema dropped");
         return (vec![], vec![]);
     };
     let is_multi = schema_arc.maxCardinality > 1 || schema_arc.maxCardinality == -1;
@@ -872,16 +872,16 @@ fn create_patches_for_predicate_change(
 
     // Handle object-valued predicates
     if is_object {
-        log_info!(
-            "[PATCH TRACE] object-valued predicate: parent_subject='{}' parent_graph='{}' pred='{}' is_multi={} additions_count={} tracked_children_count={} readable='{}'",
-            tracked_orm_object.subject_iri,
-            tracked_orm_object.graph_iri,
-            schema_arc.iri,
-            is_multi,
-            pred_change.values_added.len(),
-            tracked_predicate.tracked_children.len(),
-            schema_arc.readablePredicate
-        );
+        // log_info!(
+        //     "[PATCH TRACE] object-valued predicate: parent_subject='{}' parent_graph='{}' pred='{}' is_multi={} additions_count={} tracked_children_count={} readable='{}'",
+        //     tracked_orm_object.subject_iri,
+        //     tracked_orm_object.graph_iri,
+        //     schema_arc.iri,
+        //     is_multi,
+        //     pred_change.values_added.len(),
+        //     tracked_predicate.tracked_children.len(),
+        //     schema_arc.readablePredicate
+        // );
 
         for added in &pred_change.values_added {
             if let BasicType::Str(child_subject_iri) = added {
@@ -898,10 +898,10 @@ fn create_patches_for_predicate_change(
 
                     found_child = true;
 
-                    log_info!(
-                        "[PATCH TRACE]  Found tracked child: subject='{}' graph='{}' (parent_subj='{}' pred='{}')", 
-                        child.subject_iri, child.graph_iri, tracked_orm_object.subject_iri, schema_arc.readablePredicate
-                    );
+                    // log_info!(
+                    //     "[PATCH TRACE]  Found tracked child: subject='{}' graph='{}' (parent_subj='{}' pred='{}')",
+                    //     child.subject_iri, child.graph_iri, tracked_orm_object.subject_iri, schema_arc.readablePredicate
+                    // );
 
                     // Build patches starting from the child up to the root
                     let mut path: Vec<String> = Vec::new();
@@ -931,12 +931,12 @@ fn create_patches_for_predicate_change(
                 // Fallback: if the tracked children list did not contain the child (e.g., cross-graph link),
                 // construct the object and its @graph/@id patches directly using the child's graph from orm_changes.
                 if !found_child {
-                    log_info!(
-                        "[PATCH TRACE]  Fallback path for child subject='{}' (parent='{}' pred='{}'): attempting to resolve child graph from orm_changes",
-                        child_subject_iri,
-                        tracked_orm_object.subject_iri,
-                        schema_arc.readablePredicate
-                    );
+                    // log_info!(
+                    //     "[PATCH TRACE]  Fallback path for child subject='{}' (parent='{}' pred='{}'): attempting to resolve child graph from orm_changes",
+                    //     child_subject_iri,
+                    //     tracked_orm_object.subject_iri,
+                    //     schema_arc.readablePredicate
+                    // );
                     // Try to find the child's graph IRI from orm_changes
                     let mut child_graph_opt: Option<String> = None;
                     for (_shape_k, graphs) in orm_changes.iter() {
@@ -954,11 +954,11 @@ fn create_patches_for_predicate_change(
                     let child_graph =
                         child_graph_opt.unwrap_or_else(|| tracked_orm_object.graph_iri.clone());
                     if !child_graph.is_empty() {
-                        log_info!(
-                            "[PATCH TRACE]   Fallback child_graph='{}' for child='{}'",
-                            child_graph,
-                            child_subject_iri
-                        );
+                        // log_info!(
+                        //     "[PATCH TRACE]   Fallback child_graph='{}' for child='{}'",
+                        //     child_graph,
+                        //     child_subject_iri
+                        // );
                         // Build parent root composite key
                         let parent_root_key = format!(
                             "{}|{}",
@@ -994,13 +994,13 @@ fn create_patches_for_predicate_change(
                             path: format!("{}/@id", final_path),
                             value: Some(json!(child_subject_iri.clone())),
                         });
-                        log_info!("[PATCH TRACE]   Fallback created object add at path='{}' with @graph/@id", final_path);
+                        //log_info!("[PATCH TRACE]   Fallback created object add at path='{}' with @graph/@id", final_path);
                     } else {
                         // child_graph empty. Skipping emitting fallback patches.
-                        log_info!(
-                            "[PATCH TRACE]   Fallback failed: empty child_graph for child='{}'",
-                            child_subject_iri
-                        );
+                        // log_info!(
+                        //     "[PATCH TRACE]   Fallback failed: empty child_graph for child='{}'",
+                        //     child_subject_iri
+                        // );
                     }
                 }
             }
@@ -1016,13 +1016,13 @@ fn create_patches_for_predicate_change(
         if pred_change.values_added.len() == 1 {
             // A value was added. Another one might have been removed
             // but the add patch overwrites previous values.
-            log_info!(
-                "[PATCH TRACE]  Literal single-valued add: subject='{}' graph='{}' pred='{}' value={:?}",
-                tracked_orm_object.subject_iri,
-                tracked_orm_object.graph_iri,
-                schema_arc.readablePredicate,
-                pred_change.values_added[0]
-            );
+            // log_info!(
+            //     "[PATCH TRACE]  Literal single-valued add: subject='{}' graph='{}' pred='{}' value={:?}",
+            //     tracked_orm_object.subject_iri,
+            //     tracked_orm_object.graph_iri,
+            //     schema_arc.readablePredicate,
+            //     pred_change.values_added[0]
+            // );
             ops.push(DiffOperation {
                 op: OrmPatchOp::add,
                 val_type: None,
@@ -1030,12 +1030,12 @@ fn create_patches_for_predicate_change(
             });
         } else {
             // Since there is only one possible value, removing the path is enough.
-            log_info!(
-                "[PATCH TRACE]  Literal single-valued remove: subject='{}' graph='{}' pred='{}' (no new value)",
-                tracked_orm_object.subject_iri,
-                tracked_orm_object.graph_iri,
-                schema_arc.readablePredicate
-            );
+            // log_info!(
+            //     "[PATCH TRACE]  Literal single-valued remove: subject='{}' graph='{}' pred='{}' (no new value)",
+            //     tracked_orm_object.subject_iri,
+            //     tracked_orm_object.graph_iri,
+            //     schema_arc.readablePredicate
+            // );
             ops.push(DiffOperation {
                 op: OrmPatchOp::remove,
                 val_type: None,
@@ -1045,13 +1045,13 @@ fn create_patches_for_predicate_change(
     } else {
         // Multi-valued literals
         if pred_change.values_added.len() > 0 {
-            log_info!(
-                "[PATCH TRACE]  Literal multi-valued add-set: subject='{}' graph='{}' pred='{}' values={:?}",
-                tracked_orm_object.subject_iri,
-                tracked_orm_object.graph_iri,
-                schema_arc.readablePredicate,
-                pred_change.values_added
-            );
+            // log_info!(
+            //     "[PATCH TRACE]  Literal multi-valued add-set: subject='{}' graph='{}' pred='{}' values={:?}",
+            //     tracked_orm_object.subject_iri,
+            //     tracked_orm_object.graph_iri,
+            //     schema_arc.readablePredicate,
+            //     pred_change.values_added
+            // );
             ops.push(DiffOperation {
                 op: OrmPatchOp::add,
                 val_type: Some(OrmPatchType::set),
@@ -1059,13 +1059,13 @@ fn create_patches_for_predicate_change(
             });
         }
         if pred_change.values_removed.len() > 0 {
-            log_info!(
-                "[PATCH TRACE]  Literal multi-valued remove-set: subject='{}' graph='{}' pred='{}' values={:?}",
-                tracked_orm_object.subject_iri,
-                tracked_orm_object.graph_iri,
-                schema_arc.readablePredicate,
-                pred_change.values_removed
-            );
+            // log_info!(
+            //     "[PATCH TRACE]  Literal multi-valued remove-set: subject='{}' graph='{}' pred='{}' values={:?}",
+            //     tracked_orm_object.subject_iri,
+            //     tracked_orm_object.graph_iri,
+            //     schema_arc.readablePredicate,
+            //     pred_change.values_removed
+            // );
             ops.push(DiffOperation {
                 op: OrmPatchOp::remove,
                 val_type: Some(OrmPatchType::set),

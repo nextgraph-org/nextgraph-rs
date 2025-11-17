@@ -99,7 +99,7 @@ impl Verifier {
             .await
         {
             Err(e) => {
-                log_info!("[orm_frontend_update] query failed: {:?}", e);
+                //log_info!("[orm_frontend_update] query failed: {:?}", e);
 
                 Err(e)
             }

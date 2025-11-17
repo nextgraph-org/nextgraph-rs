@@ -191,10 +191,10 @@ export class OrmConnection<T extends BaseType> {
         this.ready = true;
     };
     private onBackendUpdate = (patches: Patch[]) => {
-        console.log(
-            "connectionHandler: onBackendUpdate. Got patches:",
-            patches
-        );
+        // console.log(
+        //     "connectionHandler: onBackendUpdate. Got patches:",
+        //     patches
+        // );
 
         this.suspendDeepWatcher = true;
         applyPatchesToDeepSignal(this.signalObject, patches);

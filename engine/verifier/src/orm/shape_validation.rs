@@ -34,11 +34,11 @@ impl Verifier {
         let mut tracked_orm_object = s_change.tracked_orm_object.write().unwrap();
         let previous_validity = s_change.prev_valid.clone();
 
-        log_info!(
-            "[Validating] {} against shape {}",
-            tracked_orm_object.subject_iri,
-            tracked_orm_object.shape.upgrade().unwrap().iri
-        );
+        // log_info!(
+        //     "[Validating] {} against shape {}",
+        //     tracked_orm_object.subject_iri,
+        //     tracked_orm_object.shape.upgrade().unwrap().iri
+        // );
 
         // Keep track of objects that need to be validated against a shape to fetch and validate.
         let mut children_to_eval: Vec<(Arc<RwLock<TrackedOrmObject>>, bool)> = vec![];
@@ -136,14 +136,14 @@ impl Verifier {
 
             // Check 3.1) Cardinality
             if count < p_schema.minCardinality {
-                log_info!(
-                    "  - Invalid: minCardinality not met | predicate: {:?} | count: {} | min: {} | schema: {:?} | changed: {:?}",
-                    p_schema.iri,
-                    count,
-                    p_schema.minCardinality,
-                    shape.iri,
-                    p_change
-                );
+                // log_info!(
+                //     "  - Invalid: minCardinality not met | predicate: {:?} | count: {} | min: {} | schema: {:?} | changed: {:?}",
+                //     p_schema.iri,
+                //     count,
+                //     p_schema.minCardinality,
+                //     shape.iri,
+                //     p_change
+                // );
                 set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                 if count <= 0 {
                     // If cardinality is 0, we can remove the tracked predicate.
@@ -157,14 +157,14 @@ impl Verifier {
                 && p_schema.maxCardinality != -1
                 && p_schema.extra != Some(true)
             {
-                log_info!(
-                    "  - Invalid: maxCardinality exceeded | predicate: {:?} | count: {} | max: {} | schema: {:?} | changed: {:?}",
-                    p_schema.iri,
-                    count,
-                    p_schema.maxCardinality,
-                    shape.iri,
-                    p_change
-                );
+                // log_info!(
+                //     "  - Invalid: maxCardinality exceeded | predicate: {:?} | count: {} | max: {} | schema: {:?} | changed: {:?}",
+                //     p_schema.iri,
+                //     count,
+                //     p_schema.maxCardinality,
+                //     shape.iri,
+                //     p_change
+                // );
                 // If cardinality is too high and no extra allowed, invalid.
                 set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                 break;
@@ -203,12 +203,12 @@ impl Verifier {
                     },
                 );
                 if !some_valid {
-                    log_info!(
-                        "  - Invalid: required literals missing | predicate: {:?} | schema: {:?} | changed: {:?}",
-                        p_schema.iri,
-                        shape.iri,
-                        p_change
-                    );
+                    // log_info!(
+                    //     "  - Invalid: required literals missing | predicate: {:?} | schema: {:?} | changed: {:?}",
+                    //     p_schema.iri,
+                    //     shape.iri,
+                    //     p_change
+                    // );
                     // If there are more valid children than what's allowed, break.
                     set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
@@ -234,16 +234,16 @@ impl Verifier {
                         &children_upgraded,
                     );
 
-                    log_info!(
-                        "  - Nested shape assessment: heuristic={:?}, considered={}, valid={}, pending={}, untracked={}, invalid={}, satisfies={}",
-                        assessed.heuristic_used,
-                        assessed.considered.len(),
-                        assessed.counts.valid,
-                        assessed.counts.pending,
-                        assessed.counts.untracked,
-                        assessed.counts.invalid,
-                        assessed.satisfies
-                    );
+                    // log_info!(
+                    //     "  - Nested shape assessment: heuristic={:?}, considered={}, valid={}, pending={}, untracked={}, invalid={}, satisfies={}",
+                    //     assessed.heuristic_used,
+                    //     assessed.considered.len(),
+                    //     assessed.counts.valid,
+                    //     assessed.counts.pending,
+                    //     assessed.counts.untracked,
+                    //     assessed.counts.invalid,
+                    //     assessed.satisfies
+                    // );
 
                     if assessed.satisfies {
                         // Cardinality satisfied, predicate is valid
@@ -264,24 +264,24 @@ impl Verifier {
 
                         // Schedule children for re-evaluation
                         for child in assessed.children_to_reevaluate {
-                            log_info!(
-                                "  - adding subject {} with graph {} to child evaluation",
-                                child.read().unwrap().subject_iri,
-                                child.read().unwrap().graph_iri,
-                            );
+                            // log_info!(
+                            //     "  - adding subject {} with graph {} to child evaluation",
+                            //     child.read().unwrap().subject_iri,
+                            //     child.read().unwrap().graph_iri,
+                            // );
                             children_to_eval.push((child, false));
                         }
                         continue;
                     }
 
                     // Neither satisfied nor pending - invalid
-                    log_info!(
-                        "  - Invalid: nested shape constraint not met | predicate: {:?} | valid_count: {} | min: {} | schema: {:?}",
-                        p_schema.iri,
-                        assessed.counts.valid,
-                        p_schema.minCardinality,
-                        shape.iri
-                    );
+                    // log_info!(
+                    //     "  - Invalid: nested shape constraint not met | predicate: {:?} | valid_count: {} | min: {} | schema: {:?}",
+                    //     p_schema.iri,
+                    //     assessed.counts.valid,
+                    //     p_schema.minCardinality,
+                    //     shape.iri
+                    // );
                     set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
                 }
@@ -304,14 +304,14 @@ impl Verifier {
                         }),
                     };
                     if !matches {
-                        log_info!(
-                            "  - Invalid: value type mismatch | predicate: {:?} | value: {:?} | allowed_types: {:?} | schema: {:?} | changed: {:?}",
-                            p_schema.iri,
-                            val_added,
-                            allowed_types,
-                            shape.iri,
-                            p_change
-                        );
+                        // log_info!(
+                        //     "  - Invalid: value type mismatch | predicate: {:?} | value: {:?} | allowed_types: {:?} | schema: {:?} | changed: {:?}",
+                        //     p_schema.iri,
+                        //     val_added,
+                        //     allowed_types,
+                        //     shape.iri,
+                        //     p_change
+                        // );
                         set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                         break;
                     }
