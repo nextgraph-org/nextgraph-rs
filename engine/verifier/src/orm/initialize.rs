@@ -45,6 +45,7 @@ impl Verifier {
         // TODO: Validate schema:
         // If multiple data types are present for the same predicate, they must be of of the same type.
         // All referenced shapes must be available.
+        // All shapes must have predicate
 
         // Create new subscription and add to self.orm_subscriptions
         let orm_subscription = OrmSubscription::new(
@@ -75,7 +76,7 @@ impl Verifier {
         mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
-        let shape_quads = self.query_quads_for_shape_type(
+        let shape_quads = self.query_quads_for_shape(
             Some(orm_subscription.nuri.clone()),
             &orm_subscription.shape_type.schema,
             &orm_subscription.shape_type.shape,
@@ -90,7 +91,7 @@ impl Verifier {
             &[],
             &mut changes,
             true,
-        );
+        )?;
 
         let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
         let root_shape = schema.get(&orm_subscription.shape_type.shape).unwrap();
@@ -169,12 +170,17 @@ pub(crate) fn materialize_orm_object(
             // Use tracked children and assessment to determine which children to materialize.
             let parent_guard = change.tracked_orm_object.read().unwrap();
             let tracked_predicate_guard = pred_change.tracked_predicate.read().unwrap();
+            let upgraded_children: Vec<_> = tracked_predicate_guard
+                .tracked_children
+                .iter()
+                .filter_map(|w| w.upgrade())
+                .collect();
             let assessed = assess_and_rank_children(
                 &parent_guard.graph_iri,
                 &parent_guard.subject_iri,
                 pred_schema.minCardinality,
                 pred_schema.maxCardinality,
-                &tracked_predicate_guard.tracked_children,
+                &upgraded_children,
             );
             drop(tracked_predicate_guard);
             drop(parent_guard);
@@ -185,7 +191,7 @@ pub(crate) fn materialize_orm_object(
                 if child.valid != TrackedOrmObjectValidity::Valid {
                     return None;
                 }
-                let shape_iri_for_child = child.shape.iri.clone();
+                let shape_iri_for_child = child.shape_iri().unwrap();
                 let graph_changes = changes.get(&shape_iri_for_child)?;
                 let subj_changes = graph_changes.get(&child.graph_iri)?;
                 let nested_change = subj_changes.get(&child.subject_iri)?;

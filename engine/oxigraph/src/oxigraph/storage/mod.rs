@@ -2157,9 +2157,10 @@ impl<'a> StorageWriter<'a> {
         quad: QuadRef<'_>,
         value: u8,
         cv: bool,
-    ) -> Result<(), StorageError> {
+    ) -> Result<bool, StorageError> {
         let encoded = quad.into();
-        if self.ng_insert_encoded(&encoded, value, cv)? {
+        let is_new = self.ng_insert_encoded(&encoded, value, cv)?;
+        if is_new {
             self.insert_term(quad.subject.into(), &encoded.subject)?;
             self.insert_term(quad.predicate.into(), &encoded.predicate)?;
             self.insert_term(quad.object, &encoded.object)?;
@@ -2175,7 +2176,7 @@ impl<'a> StorageWriter<'a> {
             self.insert_graph_name(quad.graph_name, &encoded.graph_name)?;
             //}
         }
-        Ok(())
+        Ok(is_new)
     }
 
     pub fn ng_insert_encoded(
@@ -2187,7 +2188,13 @@ impl<'a> StorageWriter<'a> {
         let value = [value];
         self.buffer.clear();
         write_spog_quad(&mut self.buffer, encoded);
-        let result = {
+        let result = if self.transaction.contains_key_value_for_update(
+            &self.storage.spog_cf,
+            &self.buffer,
+            &value,
+        )? {
+            false
+        } else {
             self.transaction
                 .insert(&self.storage.spog_cf, &self.buffer, &value)?;
 
@@ -2381,6 +2388,7 @@ impl<'a> StorageWriter<'a> {
 
     fn remove_encoded(&mut self, quad: &EncodedQuad) -> Result<bool, StorageError> {
         self.buffer.clear();
+        //TODO: remove is_default_graph
         let result = if quad.graph_name.is_default_graph() {
             write_spo_quad(&mut self.buffer, quad);
 

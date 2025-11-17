@@ -303,6 +303,18 @@ impl<'a> Transaction<'a> {
             .map_or(false, |cf| cf.contains_key(key)))
     }
 
+    pub fn contains_key_value_for_update(
+        &self,
+        column_family: &ColumnFamily,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<bool, StorageError> {
+        Ok((*self.db)
+            .borrow()
+            .get(column_family)
+            .map_or(false, |cf| cf.get(key).map_or(false, |val| val == value)))
+    }
+
     fn rollback(&mut self) {
         let inserts = self.inserts.read().unwrap();
         for ((column_family, key), val) in inserts.iter() {

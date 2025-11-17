@@ -592,17 +592,34 @@ impl Verifier {
                         } else {
                             ADDED_IN_OTHER
                         };
-                        for triple in update.transaction.inserts.iter() {
+
+                        let mut to_remove_from_inserts: HashSet<usize> = HashSet::new();
+
+                        for (pos, triple) in update.transaction.inserts.iter().enumerate() {
                             let triple_ref: TripleRef = triple.into();
                             let quad_ref = triple_ref.in_graph(cv_graphname_ref);
                             transaction.insert(quad_ref, value, true)?;
+                            //TODO: deal with to_remote_from_inserts if not on main_branch
                             if let Some(ov_graphname) = ov_main.as_ref() {
                                 let ov_graphname_ref = GraphNameRef::NamedNode(ov_graphname.into());
                                 let triple_ref: TripleRef = triple.into();
                                 let quad_ref = triple_ref.in_graph(ov_graphname_ref);
-                                transaction.insert(quad_ref, REPO_IN_MAIN, false)?;
+                                if !transaction.insert(quad_ref, REPO_IN_MAIN, false)? {
+                                    to_remove_from_inserts.insert(pos);
+                                }
                             }
                         }
+
+                        // removing the inserts that where already present in the dataset for main branch
+                        let mut idx: usize = 0;
+                        update.transaction.inserts.retain(|t| {
+                            let retain = !to_remove_from_inserts.remove(&idx);
+                            // if !retain {
+                            //     log_info!("REMOVED INSERT {t}");
+                            // }
+                            idx += 1;
+                            retain
+                        });
 
                         let topic_encoded =
                             numeric_encoder::StrHash::new(&NuriV0::topic_id(&update.topic_id));

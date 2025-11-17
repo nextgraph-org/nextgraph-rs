@@ -14,6 +14,7 @@
 
 mod model;
 
+use async_std::prelude::Future;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -862,11 +863,16 @@ pub async fn add_in_memory_wallet(lws: JsValue) -> Result<(), String> {
 #[cfg(not(wasmpack_target = "nodejs"))]
 #[wasm_bindgen(module = "/jsland/browser.js")]
 extern "C" {
-    fn session_save(key: String, value: String) -> Option<String>;
-    fn session_get(key: String) -> Option<String>;
+    #[wasm_bindgen(catch)]
+    async fn session_save(key: String, value: String) -> Result<(), JsValue>;
+    #[wasm_bindgen(catch)]
+    async fn session_get(key: String) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(catch)]
+    async fn local_save(key: String, value: String) -> Result<(), JsValue>;
+    #[wasm_bindgen(catch)]
+    async fn local_get(key: String) -> Result<JsValue, JsValue>;
+
     fn session_remove(key: String);
-    fn local_save(key: String, value: String) -> Option<String>;
-    fn local_get(key: String) -> Option<String>;
     fn is_browser() -> bool;
     fn storage_clear();
 }
@@ -889,26 +895,60 @@ extern "C" {
     ) -> Result<JsValue, JsValue>;
 }
 
-fn local_read(key: String) -> Result<String, NgError> {
-    local_get(key).ok_or(NgError::JsStorageReadError)
+fn local_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>> + Send + Sync> {
+    //log_info!("local_read {key}");
+    Box::new(async {
+        async_std::task::spawn_local(async move {
+            local_get(key)
+                .await
+                .map(|s| s.as_string().unwrap())
+                .map_err(|_| NgError::JsStorageReadError)
+        })
+        .await
+    })
 }
 
-fn local_write(key: String, value: String) -> Result<(), NgError> {
-    match local_save(key, value) {
-        Some(err) => Err(NgError::JsStorageWriteError(err)),
-        None => Ok(()),
-    }
+fn local_write(
+    key: String,
+    value: String,
+) -> Box<dyn Future<Output = Result<(), NgError>> + Send + Sync> {
+    Box::new(async {
+        async_std::task::spawn_local(async move {
+            match local_save(key, value).await {
+                Err(err) => Err(NgError::JsStorageWriteError(err.as_string().unwrap())),
+                Ok(_) => Ok(()),
+            }
+        })
+        .await
+    })
 }
 
-fn session_read(key: String) -> Result<String, NgError> {
-    session_get(key).ok_or(NgError::JsStorageReadError)
+fn session_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>> + Send + Sync> {
+    //log_info!("session_read {key}");
+    Box::new(async {
+        async_std::task::spawn_local(async move {
+            session_get(key)
+                .await
+                .map(|s| s.as_string().unwrap())
+                .map_err(|_| NgError::JsStorageReadError)
+        })
+        .await
+    })
 }
 
-fn session_write(key: String, value: String) -> Result<(), NgError> {
-    match session_save(key, value) {
-        Some(err) => Err(NgError::JsStorageWriteError(err)),
-        None => Ok(()),
-    }
+fn session_write(
+    key: String,
+    value: String,
+) -> Box<dyn Future<Output = Result<(), NgError>> + Send + Sync> {
+    Box::new(async {
+        async_std::task::spawn_local(async move {
+            match session_save(key, value).await {
+                Err(err) => Err(NgError::JsStorageWriteError(err.as_string().unwrap())),
+                Ok(_) => Ok(()),
+            }
+        })
+        .await
+    })
 }
 
 fn session_del(key: String) -> Result<(), NgError> {
@@ -1816,7 +1856,7 @@ pub async fn orm_start(
     } else {
         NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
     };
-    log_info!("[orm_start] parameters parsed, calling new_orm_start");
+    //log_info!("[orm_start] parameters parsed, calling new_orm_start");
     let mut request = AppRequest::new_orm_start(scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await

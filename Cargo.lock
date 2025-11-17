@@ -36,7 +36,6 @@ dependencies = [
  "nextgraph",
  "ng-async-tungstenite",
  "ng-net",
- "ng-repo",
  "ng-wallet",
  "oxrdf",
  "serde",
@@ -6919,7 +6918,6 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-barcode-scanner"
 version = "2.4.2"
-source = "git+https://github.com/nextgraph-org/plugins-workspace.git?branch=v2#9b6e9d223619992e3c7497f822c6ac30cc67af1a"
 dependencies = [
  "log",
  "serde",

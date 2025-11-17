@@ -9,6 +9,7 @@
 
 //! Types for Verifier
 
+use async_std::prelude::Future;
 use core::fmt;
 use std::path::PathBuf;
 
@@ -223,14 +224,26 @@ impl VerifierType {
 }
 #[doc(hidden)]
 //type LastSeqFn = fn(peer_id: PubKey, qty: u16) -> Result<u64, NgError>;
-pub type LastSeqFn = dyn Fn(PubKey, u16) -> Result<u64, NgError> + 'static + Sync + Send;
+pub type LastSeqFn = dyn Fn(PubKey, u16) -> Box<dyn Future<Output = Result<u64, NgError>> + 'static + Sync + Send>
+    + 'static
+    + Sync
+    + Send;
 #[doc(hidden)]
 // peer_id: PubKey, seq_num:u64, event_ser: vec<u8>,
-pub type OutboxWriteFn =
-    dyn Fn(PubKey, u64, Vec<u8>) -> Result<(), NgError> + 'static + Sync + Send;
+pub type OutboxWriteFn = dyn Fn(
+        PubKey,
+        u64,
+        Vec<u8>,
+    ) -> Box<dyn Future<Output = Result<(), NgError>> + 'static + Sync + Send>
+    + 'static
+    + Sync
+    + Send;
 #[doc(hidden)]
 // peer_id: PubKey,
-pub type OutboxReadFn = dyn Fn(PubKey) -> Result<Vec<Vec<u8>>, NgError> + 'static + Sync + Send;
+pub type OutboxReadFn = dyn Fn(PubKey) -> Box<dyn Future<Output = Result<Vec<Vec<u8>>, NgError>> + 'static + Sync + Send>
+    + 'static
+    + Sync
+    + Send;
 
 #[doc(hidden)]
 pub struct JsSaveSessionConfig {

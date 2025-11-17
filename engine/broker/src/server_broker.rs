@@ -278,7 +278,8 @@ impl ServerBroker {
                 locator: Locator::empty(),
             },
             block_storage,
-        )?;
+        )
+        .await?;
         if !partial_credentials {
             verifier.connected_broker = BrokerPeerId::Local(local_peer_id);
             // start the local transport connection
