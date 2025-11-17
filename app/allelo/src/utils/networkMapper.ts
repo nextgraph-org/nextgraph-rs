@@ -1,6 +1,7 @@
 import { Contact } from '@/types/contact';
 import { GraphNode, GraphEdge, NodePriority } from '@/types/network';
 import { resolveFrom } from '@/utils/socialContact/contactUtils';
+import { defaultTemplates, renderTemplate } from '@/utils/templateRenderer';
 
 const calculatePriority = (contact: Contact): NodePriority => {
   const hasRecentInteraction = contact.lastInteractionAt &&
@@ -31,9 +32,26 @@ export const mapContactsToNodes = (
   centeredContactId?: string
 ): GraphNode[] => {
   return contacts.map((contact) => {
-    const name = resolveFrom(contact, 'name');
+    // Handle name - can be a Set-like object or an array
+    let name = resolveFrom(contact, 'name');
+
+    // If resolveFrom returns undefined but contact.name exists, try to extract it
+    if (!name && contact.name) {
+      // Try to convert to array if it has toArray method (Set-like object)
+      const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
+        ? (contact.name as any).toArray()
+        : Array.isArray(contact.name)
+        ? contact.name
+        : [contact.name];
+
+      if (nameArray.length > 0) {
+        // Find preferred/selected name, or use first one
+        name = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
+      }
+    }
+
     const photo = resolveFrom(contact, 'photo');
-    const nameValue = name?.value || 'Unknown';
+    const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
 
     return {
       id: contact['@id'] || nameValue,

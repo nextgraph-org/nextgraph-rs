@@ -6,7 +6,6 @@ import {ContactMapTab} from '@/components/contacts/ContactMapTab';
 import {ContactListTab} from '@/components/contacts/ContactListTab';
 import {ContactNetworkTab} from '@/components/contacts/ContactNetworkTab';
 import {useSearchParams} from 'react-router-dom';
-import {useNetworkGraph} from '@/hooks/network/useNetworkGraph';
 import {TabItem, TabManager} from "@/components/ui/TabManager/TabManager.tsx";
 import {Box, List} from '@mui/material';
 import {Hub, Map} from '@mui/icons-material';
@@ -14,8 +13,6 @@ import {Hub, Map} from '@mui/icons-material';
 const ContactListPage = () => {
   const [manageMode, setManageMode] = useState(false);
   const [searchParams] = useSearchParams();
-
-  useNetworkGraph({maxNodes: 30});
 
   const mode = searchParams.get('mode');
 

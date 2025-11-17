@@ -48,11 +48,12 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
 
     const handleEdit = () => {
       setIsEditing(true);
-      setShowNameDetails(true)
+      setShowNameDetails(true);
     };
 
     const handleSave = () => {
       setIsEditing(false);
+      setShowNameDetails(false);
     };
 
     const handleGreencheckConnect = () => {
@@ -75,40 +76,37 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
         };*/
 
     return (
-      <Box ref={ref}>
+      <Box ref={ref} sx={{position: 'relative'}}>
         <Card>
           <CardContent>
-            {/* Header with Edit/Save/Cancel buttons */}
+            {/* Header with Avatar on mobile, title on desktop */}
             <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
               <Typography variant="h6" sx={{fontWeight: 600}}>
                 Profile Information
               </Typography>
-                <Box>
-                  {!isEditing ? (
-                    <Button
-                      variant="outlined"
-                      startIcon={<UilEdit size="20"/>}
-                      onClick={handleEdit}
-                    >
-                      Edit
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outlined"
-                      startIcon={<UilEdit size="20"/>}
-                      onClick={handleSave}
-                    >
-                      Exit
-                    </Button>
-                  )}
-                </Box>
+              <Box sx={{display: {xs: 'block', md: 'none'}}}>
+                <Avatar
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    bgcolor: 'primary.main',
+                    fontSize: '3rem'
+                  }}
+                  alt="Profile"
+                  src={avatar?.value}
+                >
+                  {displayName?.charAt(0)}
+                </Avatar>
+              </Box>
             </Box>
 
             <Grid container spacing={3}>
               {/* Left side - Avatar and basic info */}
               <Grid size={{xs: 12, md: 4}}>
                 <Box>
-                  <Box sx={{position: 'relative', display: 'inline-block'}}>
+                  <Box sx={{
+                    display: {xs: 'none', md: 'inline-block'},
+                  }}>
                     <Avatar
                       sx={{
                         width: 120,
@@ -149,7 +147,19 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       </>
                     )}*/}
                   </Box>
-                  <Box sx={{display: "flex", flexDirection: "row", justifyContent: "start", alignItems: "start"}}>
+                  <Box sx={{
+                    display: "flex",
+                    flexDirection: "row",
+                    justifyContent: "start",
+                    alignItems: "start",
+                    width: {xs: '100%', md: 'auto'},
+                    cursor: 'pointer',
+                    '&:hover .name-caret': {
+                      color: 'primary.main',
+                    }
+                  }}
+                  onClick={() => setShowNameDetails(!showNameDetails)}
+                  >
                     <PropertyWithSources
                       propertyKey={"name"}
                       textVariant={"h5"}
@@ -161,13 +171,25 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       resource={resource}
                     />
                     <IconButton
-                      sx={{padding: 0, ml: 1}}
-                      onClick={() => setShowNameDetails(!showNameDetails)}
-                    >{showNameDetails ? <UilAngleUp size="20"/> : <UilAngleDown size="20"/>}
+                      className="name-caret"
+                      sx={{
+                        padding: 0,
+                        ml: 1,
+                        color: 'text.primary',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                        }
+                      }}
+                      disableRipple
+                    >{showNameDetails ? <UilAngleUp size="24"/> : <UilAngleDown size="24"/>}
                     </IconButton>
                   </Box>
                   <Collapse in={showNameDetails}>
-                    <Box sx={{mt: 1, ml: 3}}>
+                    <Box sx={{
+                      mt: 1,
+                      ml: {xs: 2, md: 3},
+                      width: {xs: '100%', md: 'auto'},
+                    }}>
                       <PropertyWithSources
                         propertyKey={"name"}
                         subKey={"firstName"}
@@ -220,17 +242,22 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       />
                     </Box>
                   </Collapse>
-                  <PropertyWithSources
-                    propertyKey={"headline"}
-                    label={"Headline"}
-                    hideLabel={true}
-                    textVariant={"body2"}
-                    contact={initialProfileData}
-                    isEditing={isEditing}
-                    template={defaultTemplates.headline}
-                    templateProperty={"organization"}
-                    resource={resource}
-                  />
+                  <Box sx={{
+                    width: {xs: '100%', md: 'auto'},
+                    mt: {xs: 1, md: 0}
+                  }}>
+                    <PropertyWithSources
+                      propertyKey={"headline"}
+                      label={"Headline"}
+                      hideLabel={true}
+                      textVariant={"body2"}
+                      contact={initialProfileData}
+                      isEditing={isEditing}
+                      template={defaultTemplates.headline}
+                      templateProperty={"organization"}
+                      resource={resource}
+                    />
+                  </Box>
                 </Box>
                 <Box>
                   <ContactTags contact={initialProfileData} resource={resource}/>
@@ -362,8 +389,60 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 </Box>
               </Grid>
             </Grid>
+
+            {/* Edit/Exit button - FAB position on mobile, inline on desktop */}
+            <Box sx={{
+              display: {xs: 'none', md: 'flex'},
+              justifyContent: 'flex-end',
+              mt: 3
+            }}>
+              {!isEditing ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<UilEdit size="20"/>}
+                  onClick={handleEdit}
+                >
+                  Edit
+                </Button>
+              ) : (
+                <Button
+                  variant="outlined"
+                  startIcon={<UilEdit size="20"/>}
+                  onClick={handleSave}
+                >
+                  Exit
+                </Button>
+              )}
+            </Box>
           </CardContent>
         </Card>
+
+        {/* Edit/Exit button - Fixed position bottom right on mobile, above tabs */}
+        <Box sx={{
+          display: {xs: 'block', md: 'none'},
+          position: 'fixed',
+          bottom: 72,
+          right: 16,
+          zIndex: 1000,
+        }}>
+          {!isEditing ? (
+            <Button
+              variant="outlined"
+              startIcon={<UilEdit size="20"/>}
+              onClick={handleEdit}
+            >
+              Edit
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              startIcon={<UilEdit size="20"/>}
+              onClick={handleSave}
+            >
+              Exit
+            </Button>
+          )}
+        </Box>
 
         {/* Greencheck Connection Dialog */}
         <Dialog open={showGreencheckDialog} onClose={() => setShowGreencheckDialog(false)} maxWidth="sm" fullWidth>

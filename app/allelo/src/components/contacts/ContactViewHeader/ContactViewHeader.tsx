@@ -127,7 +127,18 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               flexDirection: 'column',
               gap: 1
             }}>
-              <Box sx={{display: "flex", flexDirection: "row", justifyContent: "start", alignItems: "start"}}>
+              <Box sx={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "start",
+                alignItems: "start",
+                cursor: 'pointer',
+                '&:hover .name-caret': {
+                  color: 'primary.main',
+                }
+              }}
+              onClick={() => setShowNameDetails(!showNameDetails)}
+              >
                 <PropertyWithSources
                   label={"Contact name"}
                   contact={contact}
@@ -141,9 +152,17 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 resource={resource}
                 />
                 <IconButton
-                  sx={{padding: 0, ml: 1}}
-                  onClick={() => setShowNameDetails(!showNameDetails)}
-                >{showNameDetails ? <UilAngleUp size="20"/> : <UilAngleDown size="20"/>}
+                  className="name-caret"
+                  sx={{
+                    padding: 0,
+                    ml: 1,
+                    color: 'text.primary',
+                    '&:hover': {
+                      backgroundColor: 'transparent',
+                    }
+                  }}
+                  disableRipple
+                >{showNameDetails ? <UilAngleUp size="24"/> : <UilAngleDown size="24"/>}
                 </IconButton>
               </Box>
 

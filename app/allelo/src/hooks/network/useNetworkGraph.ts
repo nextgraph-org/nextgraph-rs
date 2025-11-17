@@ -1,6 +1,4 @@
 import { useEffect, useMemo } from 'react';
-import { useContacts } from '@/hooks/contacts/useContacts';
-import { useContactsByNuris } from '@/hooks/contacts/useContactsByNuris';
 import { useNetworkGraphStore } from '@/stores/networkGraphStore';
 import { useNetworkViewStore } from '@/stores/networkViewStore';
 import { mapContactsToNodes, addUserNode } from '@/utils/networkMapper';
@@ -8,11 +6,13 @@ import { calculateNetworkCentrality } from '@/utils/networkCentrality';
 import { GraphNode, GraphEdge } from '@/types/network';
 import { resolveFrom } from '@/utils/socialContact/contactUtils';
 import { Contact } from '@/types/contact';
+import { defaultTemplates, renderTemplate } from '@/utils/templateRenderer';
 
 interface UseNetworkGraphOptions {
   userId?: string;
   userName?: string;
   maxNodes?: number;
+  contacts: Contact[]; // Accept contacts as input instead of fetching
 }
 
 const getInitials = (name: string): string => {
@@ -151,9 +151,20 @@ const buildEntityNetwork = (
     if (isConnected) {
       connectedContacts.push(contact);
 
-      const contactName = resolveFrom(contact, 'name');
+      let contactName = resolveFrom(contact, 'name');
+      // Handle Set-like object or array when resolveFrom returns undefined
+      if (!contactName && contact.name) {
+        const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
+          ? (contact.name as any).toArray()
+          : Array.isArray(contact.name)
+          ? contact.name
+          : [contact.name];
+        if (nameArray.length > 0) {
+          contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
+        }
+      }
       const contactPhoto = resolveFrom(contact, 'photo');
-      const contactNameValue = contactName?.value || 'Unknown';
+      const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
 
       nodes.push({
         id: contact['@id'] || contactNameValue,
@@ -213,9 +224,20 @@ const buildContactNetwork = (
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
 
-  const centeredName = resolveFrom(centeredContact, 'name');
+  let centeredName = resolveFrom(centeredContact, 'name');
+  // Handle Set-like object or array when resolveFrom returns undefined
+  if (!centeredName && centeredContact.name) {
+    const nameArray = typeof centeredContact.name === 'object' && 'toArray' in centeredContact.name
+      ? (centeredContact.name as any).toArray()
+      : Array.isArray(centeredContact.name)
+      ? centeredContact.name
+      : [centeredContact.name];
+    if (nameArray.length > 0) {
+      centeredName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
+    }
+  }
   const centeredPhoto = resolveFrom(centeredContact, 'photo');
-  const centeredNameValue = centeredName?.value || 'Unknown';
+  const centeredNameValue = centeredName?.value || renderTemplate(defaultTemplates.contactName, centeredName) || 'Unknown';
 
   const centeredNode: GraphNode = {
     id: centeredContact['@id'] || centeredNameValue,
@@ -350,9 +372,20 @@ const buildContactNetwork = (
       .slice(0, 5);
 
     sortedContacts.forEach((contact) => {
-      const contactName = resolveFrom(contact, 'name');
+      let contactName = resolveFrom(contact, 'name');
+      // Handle Set-like object or array when resolveFrom returns undefined
+      if (!contactName && contact.name) {
+        const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
+          ? (contact.name as any).toArray()
+          : Array.isArray(contact.name)
+          ? contact.name
+          : [contact.name];
+        if (nameArray.length > 0) {
+          contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
+        }
+      }
       const contactPhoto = resolveFrom(contact, 'photo');
-      const contactNameValue = contactName?.value || 'Unknown';
+      const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
 
       if (!nodes.find((n) => n.id === contact['@id'])) {
         nodes.push({
@@ -390,31 +423,33 @@ export const useNetworkGraph = ({
   userId = 'me',
   userName = 'ME',
   maxNodes = 30,
-}: UseNetworkGraphOptions = {}) => {
-  const { contactNuris, isLoading: nurisLoading } = useContacts({ limit: 0 });
-  const { contacts, isLoading: contactsLoading } = useContactsByNuris(contactNuris);
-  const { setNodes, setEdges, centeredNodeId } = useNetworkGraphStore();
-  const { setAvailableViews, currentView } = useNetworkViewStore();
+  contacts = [],
+}: UseNetworkGraphOptions) => {
+  // Use selectors to avoid subscribing to the entire store
+  const setNodes = useNetworkGraphStore(state => state.setNodes);
+  const setEdges = useNetworkGraphStore(state => state.setEdges);
+  const centeredNodeId = useNetworkGraphStore(state => state.centeredNodeId);
+  const setAvailableViews = useNetworkViewStore(state => state.setAvailableViews);
+  const currentView = useNetworkViewStore(state => state.currentView);
 
-  const isLoading = nurisLoading || contactsLoading;
+  // Limit contacts to maxNodes
+  const limitedContacts = useMemo(() => {
+    return contacts.slice(0, maxNodes);
+  }, [contacts, maxNodes]);
 
-  console.log(`🔍 Network Graph - NURIs: ${contactNuris.length}, Contacts: ${contacts.length}, Loading: ${isLoading}`);
-
-  const { nodes, edges } = useMemo(() => {
-    if (!contacts || contacts.length === 0) {
-      console.log('⚠️ Network Graph - No contacts available, returning empty graph');
-      return { nodes: [], edges: [] };
+  // Separate the base graph generation from view-specific filtering
+  // This prevents unnecessary recalculation when only the view changes
+  const baseGraphData = useMemo(() => {
+    if (!limitedContacts || limitedContacts.length === 0) {
+      return { nodes: [], edges: [], centeredNodeId: null, graphType: 'empty' as const };
     }
-
-    console.log(`📊 Network Graph - Building graph with ${contacts.length} contacts`);
-
 
     if (centeredNodeId && centeredNodeId !== userId) {
       if (centeredNodeId.startsWith('org-') || centeredNodeId.startsWith('proj-') || centeredNodeId.startsWith('edu-')) {
         const entityType = centeredNodeId.startsWith('org-') ? 'org' : centeredNodeId.startsWith('proj-') ? 'proj' : 'edu';
 
         let entityName = '';
-        for (const contact of contacts) {
+        for (const contact of limitedContacts) {
           if (entityType === 'org' && contact.organization) {
             const orgArray = Array.from(contact.organization);
             for (const org of orgArray) {
@@ -447,44 +482,69 @@ export const useNetworkGraph = ({
         }
 
         if (entityName) {
-          return buildEntityNetwork(centeredNodeId, entityName, entityType, contacts, userId, userName);
+          const result = buildEntityNetwork(centeredNodeId, entityName, entityType, limitedContacts, userId, userName);
+          return { ...result, centeredNodeId, graphType: 'entity' as const };
         }
       } else {
-        const centeredContact = contacts.find((c) => c['@id'] === centeredNodeId);
+        const centeredContact = limitedContacts.find((c) => c['@id'] === centeredNodeId);
         if (centeredContact) {
-          return buildContactNetwork(centeredContact, contacts, userId, userName, currentView);
+          return { centeredContact, centeredNodeId, graphType: 'contact' as const, nodes: [], edges: [] };
         }
       }
     }
 
-    return buildUserNetwork(contacts, centeredNodeId, userId, userName, maxNodes);
-  }, [contacts, centeredNodeId, userId, userName, maxNodes, currentView]);
+    const result = buildUserNetwork(limitedContacts, centeredNodeId, userId, userName, maxNodes);
+    return { ...result, centeredNodeId, graphType: 'user' as const };
+  }, [limitedContacts, centeredNodeId, userId, userName, maxNodes]);
+
+  // Apply view-specific filtering without recalculating the entire graph
+  const { nodes, edges } = useMemo(() => {
+    if (baseGraphData.graphType === 'empty') {
+      return { nodes: [], edges: [] };
+    }
+
+    if (baseGraphData.graphType === 'contact' && baseGraphData.centeredContact) {
+      return buildContactNetwork(baseGraphData.centeredContact, limitedContacts, userId, userName, currentView);
+    }
+
+    return { nodes: baseGraphData.nodes, edges: baseGraphData.edges };
+  }, [baseGraphData, limitedContacts, userId, userName, currentView]);
 
   useEffect(() => {
-    if (nodes.length > 0) {
-      const currentNodes = useNetworkGraphStore.getState().nodes;
-      const nodeCountChanged = currentNodes.length !== nodes.length;
-      const nodeStructureChanged = nodeCountChanged || nodes.some((n, i) => {
-        const current = currentNodes[i];
-        return !current || current.id !== n.id || current.type !== n.type;
-      });
+    if (nodes.length === 0) return; // Don't update if no nodes
 
-      if (nodeStructureChanged) {
-        setNodes(nodes);
-      }
+    const currentNodes = useNetworkGraphStore.getState().nodes;
+
+    // Quick check: different lengths means structure changed
+    if (currentNodes.length !== nodes.length) {
+      setNodes(nodes);
+      return;
+    }
+
+    // Use Set for O(1) lookups instead of O(n) for each comparison
+    const currentNodeIds = new Set(currentNodes.map(n => `${n.id}-${n.type}`));
+    const hasStructureChanged = nodes.some(n => !currentNodeIds.has(`${n.id}-${n.type}`));
+
+    if (hasStructureChanged) {
+      setNodes(nodes);
     }
   }, [nodes, setNodes]);
 
   useEffect(() => {
     if (edges.length > 0) {
       const currentEdges = useNetworkGraphStore.getState().edges;
-      const edgeCountChanged = currentEdges.length !== edges.length;
-      const edgeStructureChanged = edgeCountChanged || edges.some((e, i) => {
-        const current = currentEdges[i];
-        return !current || current.id !== e.id;
-      });
 
-      if (edgeStructureChanged) {
+      // Quick check: different lengths means structure changed
+      if (currentEdges.length !== edges.length) {
+        setEdges(edges);
+        return;
+      }
+
+      // Use Set for O(1) lookups instead of O(n) for each comparison
+      const currentEdgeIds = new Set(currentEdges.map(e => e.id));
+      const hasStructureChanged = edges.some(e => !currentEdgeIds.has(e.id));
+
+      if (hasStructureChanged) {
         setEdges(edges);
       }
     }
@@ -513,9 +573,6 @@ export const useNetworkGraph = ({
     }
   }, [centeredNodeId, userId, contacts, setAvailableViews]);
 
-  return {
-    nodes,
-    edges,
-    isLoading,
-  };
+  // No longer return isLoading since we don't manage loading state here
+  // Loading is handled by the probes in ContactNetworkTab
 };

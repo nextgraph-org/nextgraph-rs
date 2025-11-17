@@ -296,7 +296,6 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
 
     // @ts-expect-error TODO output format of ng sparql query
     const totalContactsInDB = contactsCountResult.results.bindings[0].totalCount.value as number;
-    console.log(`📊 NextGraph contacts query - Page: ${page}, Limit: ${limit}, Offset: ${offset}, Total in DB: ${totalContactsInDB}`);
 
     setTotalCount(totalContactsInDB);
     const containerOverlay = session.privateStoreId!.substring(46);
@@ -305,7 +304,6 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
       (binding) => binding.contactUri.value + containerOverlay
     );
 
-    console.log(`📋 Returning ${contactNuris.length} contact NURIs for page ${page}`);
     return contactNuris;
   }, [session, filters, limit]);
 
