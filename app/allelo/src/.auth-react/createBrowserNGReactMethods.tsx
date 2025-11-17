@@ -5,6 +5,7 @@ import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.j
 
 import ng from "./api";
 import {ng as ng3, init} from "@ng-org/web";
+import { initNg } from "@ng-org/signals";
 
 import type { ConnectedLdoDataset, ConnectedPlugin } from "@ldo/connected";
 import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/connected-nextgraph";
@@ -65,6 +66,8 @@ export function createBrowserNGReactMethods(
               ng: ng3,
               sessionId: event.session.session_id as string
             });
+
+            initNg(ng, event.session);
           }
           else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
             setSession({ ng: undefined });
@@ -104,6 +107,8 @@ export function createBrowserNGReactMethods(
                 ng,
                 sessionId: event.session.session_id as string
               });
+
+              initNg(ng, event.session);
             }
             else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
               setSession({ ng: undefined });

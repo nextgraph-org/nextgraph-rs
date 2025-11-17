@@ -5,7 +5,9 @@ import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContact} from "@/.ldo/contact.typings";
 import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
+import {SocialContactShapeType as Shape} from "@/.shapes/orm/contact.shapeTypes";
 import {useMockContactSubject} from "@/hooks/contacts/useMockContactSubject";
+import { useShape } from "@ng-org/signals/react";
 
 export const useContactData = (nuri: string | null, isProfile = false) => {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
@@ -29,6 +31,9 @@ export const useContactData = (nuri: string | null, isProfile = false) => {
     SocialContactShapeType,
     sessionId && nuri ? nuri.substring(0, 53) : undefined
   );
+
+  const state = useShape(Shape);
+  console.log(state)
 
   const mockNuri = !isNextGraph ? nuri : null;
   const mockContact = useMockContactSubject(mockNuri);
