@@ -53,6 +53,9 @@ importers:
       '@mui/material':
         specifier: ^7.2.0
         version: 7.3.4(@emotion/react@11.14.0(@types/react@19.1.10)(react@19.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.1.10)(react@19.1.1))(@types/react@19.1.10)(react@19.1.1))(@types/react@19.1.10)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@ng-org/signals':
+        specifier: workspace:*
+        version: link:../../sdk/js/signals
       '@ng-org/web':
         specifier: ^0.1.2-alpha.2
         version: 0.1.2-alpha.2
@@ -81,8 +84,8 @@ importers:
         specifier: ^2.9.0
         version: 2.9.0
       '@tauri-apps/plugin-barcode-scanner':
-        specifier: '2'
-        version: 2.4.2
+        specifier: git+https://github.com/nextgraph-org/plugins-workspace.git#v2&path:plugins/barcode-scanner
+        version: https://codeload.github.com/nextgraph-org/plugins-workspace/tar.gz/9b6e9d223619992e3c7497f822c6ac30cc67af1a#path:plugins/barcode-scanner
       '@tauri-apps/plugin-log':
         specifier: ^2.7.0
         version: 2.7.1
@@ -294,9 +297,6 @@ importers:
       '@tauri-apps/api':
         specifier: ^2
         version: 2.8.0
-      '@tauri-apps/plugin-barcode-scanner':
-        specifier: '2'
-        version: 2.4.2
       '@tauri-apps/plugin-opener':
         specifier: ^2
         version: 2.5.0
@@ -4512,8 +4512,9 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
-  '@tauri-apps/plugin-barcode-scanner@2.4.2':
-    resolution: {integrity: sha512-7gKa5StXcvBzdT52fYRdq8TNiRq1ZvnjK+XYK847gnbYcoubTN00NOuR344rAgndWyTR9rtJAfQX7rvykLHnmw==}
+  '@tauri-apps/plugin-barcode-scanner@https://codeload.github.com/nextgraph-org/plugins-workspace/tar.gz/9b6e9d223619992e3c7497f822c6ac30cc67af1a#path:plugins/barcode-scanner':
+    resolution: {path: plugins/barcode-scanner, tarball: https://codeload.github.com/nextgraph-org/plugins-workspace/tar.gz/9b6e9d223619992e3c7497f822c6ac30cc67af1a}
+    version: 2.4.2
 
   '@tauri-apps/plugin-log@2.7.1':
     resolution: {integrity: sha512-jdb+o0wxQc8PjnLktgGpOs9Dh1YupaOGDXzO+Y8peA1UZ1ep3eXv4E1oiJ7nIQVN0XUFDDhnn3aBszl8ijhR+A==}
@@ -10342,7 +10343,7 @@ snapshots:
 
   '@astrojs/svelte@7.1.0(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(svelte@5.39.12)(typescript@5.9.2)(yaml@2.8.1)':
     dependencies:
-      '@sveltejs/vite-plugin-svelte': 5.1.1(svelte@5.39.12)(vite@7.1.3(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
+      '@sveltejs/vite-plugin-svelte': 5.1.1(svelte@5.39.12)(vite@6.3.6(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
       astro: 5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
       svelte: 5.39.12
       svelte2tsx: 0.7.43(svelte@5.39.12)(typescript@5.9.2)
@@ -10364,7 +10365,7 @@ snapshots:
 
   '@astrojs/svelte@7.2.0(@types/node@24.3.0)(astro@5.14.4(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(svelte@5.39.12)(typescript@5.9.2)(yaml@2.8.1)':
     dependencies:
-      '@sveltejs/vite-plugin-svelte': 5.1.1(svelte@5.39.12)(vite@6.3.6(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
+      '@sveltejs/vite-plugin-svelte': 5.1.1(svelte@5.39.12)(vite@7.1.3(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
       astro: 5.14.4(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
       svelte: 5.39.12
       svelte2tsx: 0.7.43(svelte@5.39.12)(typescript@5.9.2)
@@ -14525,7 +14526,7 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.9.2
       '@tauri-apps/cli-win32-x64-msvc': 2.9.2
 
-  '@tauri-apps/plugin-barcode-scanner@2.4.2':
+  '@tauri-apps/plugin-barcode-scanner@https://codeload.github.com/nextgraph-org/plugins-workspace/tar.gz/9b6e9d223619992e3c7497f822c6ac30cc67af1a#path:plugins/barcode-scanner':
     dependencies:
       '@tauri-apps/api': 2.9.0
 
