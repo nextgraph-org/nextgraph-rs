@@ -364,11 +364,11 @@
 
           <div class="wallet-button-container">
             <Button
-                variant="outlined"
+                variant="unelevated"
                 tabindex="-1"
-                style="overflow-wrap: anywhere;"
-                class="mui-button-outlined form-button wallet-security-button"
+                class="mui-button-primary form-button action-button"
                 type="button"
+                style="border-radius: 20px !important; font-size: 2.5rem!important;height: fit-content!important; word-break: break-all;"
             >
               <Label>{$wallet_from_import.V0.content.security_txt}</Label>
             </Button>
