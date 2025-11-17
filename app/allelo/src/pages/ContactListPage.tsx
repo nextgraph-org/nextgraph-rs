@@ -15,7 +15,7 @@ const ContactListPage = () => {
   const [manageMode, setManageMode] = useState(false);
   const [searchParams] = useSearchParams();
 
-  useNetworkGraph({maxNodes: 30});
+  //useNetworkGraph({maxNodes: 30});
 
   const mode = searchParams.get('mode');
 
@@ -24,7 +24,7 @@ const ContactListPage = () => {
   const tabItems = useMemo<TabItem[]>(
     () => [
       {label: "List", icon: <List/>, content: <ContactListTab manageMode={manageMode}/>},
-      {label: "Network", icon: <Hub/>, content: <ContactNetworkTab/>},
+      //{label: "Network", icon: <Hub/>, content: <ContactNetworkTab/>},
       {label: "Map", icon: <Map/>, content: <ContactMapTab/>},
     ],
     [manageMode]

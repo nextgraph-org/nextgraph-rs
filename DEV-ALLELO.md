@@ -89,8 +89,8 @@ first create a wallet at nextgraph.eu
 
 ```
 cd app/allelo
-bun i
-bun webdev3
+pnpm i
+pnpm webdev3
 ```
 
 open http://localhost:1421
