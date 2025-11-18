@@ -20,7 +20,7 @@
 <script lang="ts">
   import Button, { Label } from '@smui/button';
   import Typography from "./lib/components/Typography.svelte";
-  import Textfield from "@smui/textfield";
+  import TextField from "@smui/textfield";
   import { t } from "svelte-i18n";
   import CenteredLayout from "./lib/CenteredLayout.svelte";
   import PasswordInput from "./lib/components/PasswordInput.svelte";
@@ -453,8 +453,14 @@
                 <svg class="input-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
-                <Textfield
+                <TextField
                   variant="outlined"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  inputProps={{
+                    autocapitalize: 'none',
+                    autocorrect:'off'
+                  }}
                   bind:value={username}
                   label={$t("pages.wallet_create.type_username_placeholder")}
                   input$id="username-input"
