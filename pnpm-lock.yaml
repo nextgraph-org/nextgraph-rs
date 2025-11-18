@@ -40,7 +40,7 @@ importers:
         version: 1.0.0-alpha.15(encoding@0.1.13)
       '@ldo/ldo':
         specifier: 1.0.0-alpha.14
-        version: 1.0.0-alpha.14
+        version: 1.0.0-alpha.14(encoding@0.1.13)
       '@ldo/rdf-utils':
         specifier: 1.0.0-alpha.30
         version: 1.0.0-alpha.30
@@ -179,7 +179,7 @@ importers:
         version: 2.4.3(svelte@5.39.13)(vite@7.1.10(@types/node@22.18.3)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.1)(yaml@2.8.1))
       '@ldo/cli':
         specifier: 1.0.0-alpha.15
-        version: 1.0.0-alpha.15
+        version: 1.0.0-alpha.15(encoding@0.1.13)
       '@ng-org/shex-orm':
         specifier: workspace:*
         version: link:../../sdk/js/shex-orm
@@ -1025,14 +1025,14 @@ importers:
   sdk/js/examples/react-ldo:
     dependencies:
       '@ldo/connected-nextgraph':
-        specifier: ^1.0.0-alpha.15
-        version: 1.0.0-alpha.32
+        specifier: 1.0.0-alpha.15
+        version: 1.0.0-alpha.15(encoding@0.1.13)
       '@ldo/ldo':
-        specifier: ^1.0.0-alpha.15
-        version: 1.0.0-alpha.32(encoding@0.1.13)
+        specifier: 1.0.0-alpha.14
+        version: 1.0.0-alpha.14(encoding@0.1.13)
       '@ldo/react':
-        specifier: ^1.0.0-alpha.15
-        version: 1.0.0-alpha.33
+        specifier: 1.0.0-alpha.15
+        version: 1.0.0-alpha.15(encoding@0.1.13)
       '@ng-org/web':
         specifier: workspace:*
         version: link:../../web
@@ -1047,8 +1047,8 @@ importers:
         specifier: ^9.22.0
         version: 9.37.0
       '@ldo/cli':
-        specifier: ^1.0.0-alpha.15
-        version: 1.0.0-alpha.32
+        specifier: 1.0.0-alpha.15
+        version: 1.0.0-alpha.15(encoding@0.1.13)
       '@types/jsonld':
         specifier: ^1.5.15
         version: 1.5.15
@@ -1128,7 +1128,7 @@ importers:
         version: 10.1.0
       jsonld2graphobject:
         specifier: ^0.0.5
-        version: 0.0.5
+        version: 0.0.5(encoding@0.1.13)
       loading-cli:
         specifier: ^1.1.0
         version: 1.1.2
@@ -3390,21 +3390,11 @@ packages:
     resolution: {integrity: sha512-O0pcjzAi3sxKPWzTI+/OcPeGZb9Opc6E0wf8U/8J+OBYzJQqRCUzMnCUNNuLcp5wZNdClF58vkMbpHsiBx82KQ==}
     hasBin: true
 
-  '@ldo/cli@1.0.0-alpha.32':
-    resolution: {integrity: sha512-lXBsoF4d9bZtguxnwF74vqmtjWvpBy6DrqnfTSl91NJz9h6NeQxqZsaabRroX1JBbcSTFElo200Ese5Es17qgg==}
-    hasBin: true
-
   '@ldo/connected-nextgraph@1.0.0-alpha.15':
     resolution: {integrity: sha512-NBnUqk7l5BbsVx1kb/rWRcLx4xpstpRFJIV6BLMDTL7Rv+t3MQRwzGQvdvGPgUgQa1TKkcY3rPpochsNzH+cYg==}
 
-  '@ldo/connected-nextgraph@1.0.0-alpha.32':
-    resolution: {integrity: sha512-k+Wg3FVaLQ4jzPQ7MVQ0VvmE613z4A9QoYIWA/k1yiACB7V4CjVtIQQcTzja3KAMopQrdsJ5nhiN/a85+apdIA==}
-
   '@ldo/connected@1.0.0-alpha.15':
     resolution: {integrity: sha512-B+L8HDozIiuufmqWBrOGwJOkpsrhtPUuibaEhFjM8kO9NHP0hJxxPBMdRYxGVgL5AOla0YOVfUk075KKtVhIjA==}
-
-  '@ldo/connected@1.0.0-alpha.32':
-    resolution: {integrity: sha512-zH9MHnPNA9fGRbWB5ON6iXg8XYgwdig03Cpg/5XhHiWi7Kvm5/yiZHVFWBQTxR2d6C0KkrCEp9jdJgyY8SDSqw==}
 
   '@ldo/dataset@0.0.1-alpha.24':
     resolution: {integrity: sha512-Jlh6DjvLN4gOOT8SYCKQaHZB8taeHvoriQRbF3s5CtYFf8Ne20job+02cToE1kVcBCinBrjZ/qnZ777wje+Z7A==}
@@ -3435,9 +3425,6 @@ packages:
 
   '@ldo/react@1.0.0-alpha.15':
     resolution: {integrity: sha512-KPruUI4zTLWtmwNjzeeRbQD+qA8RojGEVyFbGa+RH1dfrVXnOpUkGHXvJJiVWqiL4DS9y5c3m12uyVTS3GAcuA==}
-
-  '@ldo/react@1.0.0-alpha.33':
-    resolution: {integrity: sha512-DF/j1ZGtUIp7qo1ZQbHukgXrqdg3F7S0sLTt50Ua5no97YiorG/BXbRgrhy3tPn6azLkl4yGWPNuOm5JppA6Tg==}
 
   '@ldo/schema-converter-shex@1.0.0-alpha.32':
     resolution: {integrity: sha512-qLIr3xGv0ptmLxkyOyt4afKMZhr3L3UvrMeLiImloOAtCunWdPoRVtd2y0Em/szWiGOW24XW3Pw/42/9Y9sSZA==}
@@ -12167,9 +12154,9 @@ snapshots:
       - encoding
       - mocha
 
-  '@covector/assemble@0.12.0(encoding@0.1.13)(mocha@10.8.2)':
+  '@covector/assemble@0.12.0(encoding@0.1.13)':
     dependencies:
-      '@covector/command': 0.8.0(encoding@0.1.13)(mocha@10.8.2)
+      '@covector/command': 0.8.0(encoding@0.1.13)
       '@covector/files': 0.8.0
       effection: 2.0.8(encoding@0.1.13)(mocha@10.8.2)
       js-yaml: 4.1.0
@@ -12180,10 +12167,9 @@ snapshots:
       unified: 9.2.2
     transitivePeerDependencies:
       - encoding
-      - mocha
       - supports-color
 
-  '@covector/changelog@0.12.0(encoding@0.1.13)(mocha@10.8.2)':
+  '@covector/changelog@0.12.0(encoding@0.1.13)':
     dependencies:
       '@covector/files': 0.8.0
       effection: 2.0.8(encoding@0.1.13)(mocha@10.8.2)
@@ -12193,16 +12179,14 @@ snapshots:
       unified: 9.2.2
     transitivePeerDependencies:
       - encoding
-      - mocha
       - supports-color
 
-  '@covector/command@0.8.0(encoding@0.1.13)(mocha@10.8.2)':
+  '@covector/command@0.8.0(encoding@0.1.13)':
     dependencies:
-      '@effection/process': 2.1.4
+      '@effection/process': 2.1.4(encoding@0.1.13)
       effection: 2.0.8(encoding@0.1.13)(mocha@10.8.2)
     transitivePeerDependencies:
       - encoding
-      - mocha
 
   '@covector/files@0.8.0':
     dependencies:
@@ -12299,7 +12283,7 @@ snapshots:
   '@effection/fetch@2.0.7(encoding@0.1.13)(mocha@10.8.2)':
     dependencies:
       '@effection/core': 2.2.3
-      '@effection/mocha': 2.0.8(mocha@10.8.2)
+      '@effection/mocha': 2.0.8(encoding@0.1.13)(mocha@10.8.2)
       cross-fetch: 3.1.5(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
@@ -12311,17 +12295,21 @@ snapshots:
       chalk: 4.1.2
       stacktrace-parser: 0.1.11
 
-  '@effection/mocha@2.0.8(mocha@10.8.2)':
+  '@effection/mocha@2.0.8(encoding@0.1.13)(mocha@10.8.2)':
     dependencies:
       effection: 2.0.8(encoding@0.1.13)(mocha@10.8.2)
       mocha: 10.8.2
+    transitivePeerDependencies:
+      - encoding
 
-  '@effection/process@2.1.4':
+  '@effection/process@2.1.4(encoding@0.1.13)':
     dependencies:
       cross-spawn: 7.0.6
       ctrlc-windows: 2.2.0
       effection: 2.0.8(encoding@0.1.13)(mocha@10.8.2)
       shellwords: 0.1.1
+    transitivePeerDependencies:
+      - encoding
 
   '@effection/stream@2.0.6':
     dependencies:
@@ -13323,10 +13311,10 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@ldo/cli@1.0.0-alpha.15':
+  '@ldo/cli@1.0.0-alpha.15(encoding@0.1.13)':
     dependencies:
-      '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
-      '@ldo/schema-converter-shex': 1.0.0-alpha.32
+      '@ldo/ldo': 1.0.0-alpha.14(encoding@0.1.13)
+      '@ldo/schema-converter-shex': 1.0.0-alpha.32(encoding@0.1.13)
       '@shexjs/parser': 1.0.0-alpha.28
       child-process-promise: 2.2.1
       commander: 9.5.0
@@ -13335,26 +13323,6 @@ snapshots:
       loading-cli: 1.1.2
       prettier: 3.6.2
       prompts: 2.4.2
-      ts-morph: 24.0.0
-      type-fest: 2.19.0
-    transitivePeerDependencies:
-      - encoding
-
-  '@ldo/cli@1.0.0-alpha.32':
-    dependencies:
-      '@jeswr/shacl2shex': 1.5.0
-      '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
-      '@ldo/schema-converter-shex': 1.0.0-alpha.32
-      '@shexjs/parser': 1.0.0-alpha.28
-      child-process-promise: 2.2.1
-      commander: 9.5.0
-      ejs: 3.1.10
-      fs-extra: 10.1.0
-      loading-cli: 1.1.2
-      prettier: 3.6.2
-      prompts: 2.4.2
-      rdf-dereference-store: 1.4.0
-      rdf-namespaces: 1.16.0
       ts-morph: 24.0.0
       type-fest: 2.19.0
     transitivePeerDependencies:
@@ -13364,7 +13332,7 @@ snapshots:
     dependencies:
       '@ldo/connected': 1.0.0-alpha.15(encoding@0.1.13)
       '@ldo/dataset': 1.0.0-alpha.30
-      '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
+      '@ldo/ldo': 1.0.0-alpha.14(encoding@0.1.13)
       '@ldo/rdf-utils': 1.0.0-alpha.30
       '@solid-notifications/subscription': 0.1.2(encoding@0.1.13)
       cross-fetch: 3.2.0(encoding@0.1.13)
@@ -13375,29 +13343,7 @@ snapshots:
       - encoding
       - utf-8-validate
 
-  '@ldo/connected-nextgraph@1.0.0-alpha.32':
-    dependencies:
-      '@ldo/connected': 1.0.0-alpha.32
-      '@ldo/dataset': 1.0.0-alpha.30
-      '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
-      '@ldo/rdf-utils': 1.0.0-alpha.30
-      '@solid-notifications/subscription': 0.1.2(encoding@0.1.13)
-      cross-fetch: 3.2.0(encoding@0.1.13)
-      ws: 8.18.3
-    transitivePeerDependencies:
-      - bufferutil
-      - encoding
-      - utf-8-validate
-
   '@ldo/connected@1.0.0-alpha.15(encoding@0.1.13)':
-    dependencies:
-      '@ldo/dataset': 1.0.0-alpha.30
-      '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
-      '@ldo/rdf-utils': 1.0.0-alpha.30
-    transitivePeerDependencies:
-      - encoding
-
-  '@ldo/connected@1.0.0-alpha.32':
     dependencies:
       '@ldo/dataset': 1.0.0-alpha.30
       '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
@@ -13448,7 +13394,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@ldo/ldo@1.0.0-alpha.14':
+  '@ldo/ldo@1.0.0-alpha.14(encoding@0.1.13)':
     dependencies:
       '@ldo/dataset': 1.0.0-alpha.30
       '@ldo/jsonld-dataset-proxy': 1.0.0-alpha.32(encoding@0.1.13)
@@ -13485,7 +13431,7 @@ snapshots:
     dependencies:
       '@ldo/connected': 1.0.0-alpha.15(encoding@0.1.13)
       '@ldo/jsonld-dataset-proxy': 1.0.0-alpha.32(encoding@0.1.13)
-      '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
+      '@ldo/ldo': 1.0.0-alpha.14(encoding@0.1.13)
       '@ldo/rdf-utils': 1.0.0-alpha.30
       '@ldo/subscribable-dataset': 1.0.0-alpha.32
       '@rdfjs/data-model': 1.3.4
@@ -13493,22 +13439,11 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@ldo/react@1.0.0-alpha.33':
-    dependencies:
-      '@ldo/connected': 1.0.0-alpha.32
-      '@ldo/jsonld-dataset-proxy': 1.0.0-alpha.32(encoding@0.1.13)
-      '@ldo/ldo': 1.0.0-alpha.32(encoding@0.1.13)
-      '@ldo/rdf-utils': 1.0.0-alpha.30
-      '@ldo/subscribable-dataset': 1.0.0-alpha.32
-      cross-fetch: 3.2.0(encoding@0.1.13)
-    transitivePeerDependencies:
-      - encoding
-
-  '@ldo/schema-converter-shex@1.0.0-alpha.32':
+  '@ldo/schema-converter-shex@1.0.0-alpha.32(encoding@0.1.13)':
     dependencies:
       '@ldo/traverser-shexj': 1.0.0-alpha.28
       dts-dom: 3.6.0
-      jsonld2graphobject: 0.0.5
+      jsonld2graphobject: 0.0.5(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
 
@@ -17705,9 +17640,9 @@ snapshots:
     dependencies:
       '@clack/prompts': 0.7.0
       '@covector/apply': 0.10.0(encoding@0.1.13)(mocha@10.8.2)
-      '@covector/assemble': 0.12.0(encoding@0.1.13)(mocha@10.8.2)
-      '@covector/changelog': 0.12.0(encoding@0.1.13)(mocha@10.8.2)
-      '@covector/command': 0.8.0(encoding@0.1.13)(mocha@10.8.2)
+      '@covector/assemble': 0.12.0(encoding@0.1.13)
+      '@covector/changelog': 0.12.0(encoding@0.1.13)
+      '@covector/command': 0.8.0(encoding@0.1.13)
       '@covector/files': 0.8.0
       effection: 2.0.8(encoding@0.1.13)(mocha@10.8.2)
       globby: 11.1.0
@@ -19882,7 +19817,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  jsonld2graphobject@0.0.5:
+  jsonld2graphobject@0.0.5(encoding@0.1.13):
     dependencies:
       '@rdfjs/types': 1.1.2
       '@types/jsonld': 1.5.15
