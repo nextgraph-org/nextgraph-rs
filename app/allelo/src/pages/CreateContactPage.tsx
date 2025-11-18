@@ -79,7 +79,7 @@ const CreateContactPage = () => {
         Back to Contacts
       </Button>
       <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
-        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
+        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: -5}}>
           <Box></Box>
           <Box sx={{display: 'flex', gap: 1}}>
             <Button

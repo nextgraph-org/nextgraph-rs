@@ -322,7 +322,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
   if (isEditing) {
     return (
-      <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 1}}>
+      <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 1, mt: 1}}>
         <TextField
           fullWidth
           value={localValue}

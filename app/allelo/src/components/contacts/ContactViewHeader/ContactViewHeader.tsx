@@ -96,11 +96,13 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
           textAlign: {xs: 'left', sm: 'left'},
           gap: {xs: 3, sm: '20px'}
         }}>
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: 3
-          }}>
+          <Box>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              gap: 3
+            }}>
+          
             <Box
               sx={{
                 width: {xs: 100, sm: 120},
@@ -117,11 +119,12 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 color: 'white',
                 fontSize: {xs: '2rem', sm: '3rem'},
                 fontWeight: 'bold',
-                flexShrink: 0
+                flexShrink: 0,
               }}
             >
               {!photo?.value && (name?.value?.charAt(0) || '')}
             </Box>
+          </Box>
             <Box sx={{
               display: 'flex',
               flexDirection: 'column',
@@ -129,6 +132,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
             }}>
               <Box sx={{
                 display: "flex",
+                mt: 3,
                 flexDirection: "row",
                 justifyContent: "start",
                 alignItems: "start",
@@ -167,7 +171,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               </Box>
 
               <Collapse in={showNameDetails}>
-                <Box sx={{mb: 5, ml: 3}}>
+                <Box sx={{mb: 2, ml: 3, mt: 0.2}}>
                   <PropertyWithSources
                     propertyKey={"name"}
                     subKey={"firstName"}
