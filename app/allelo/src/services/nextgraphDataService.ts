@@ -123,21 +123,38 @@ class NextgraphDataService {
 `;
   };
 
-  async getContactAllProperties(session: NextGraphSession, nuri: string) {
+  async getContactAllProperties(session: NextGraphSession, nuri: string, property?: string) {
     const sparql = `
       ${this.contactPrefixes}
 
-      SELECT ?mainProperty ?subProperty ?value
+      SELECT ?mainProperty ?subProperty ?value ?node
       WHERE {
         <${nuri}> ?mainPropertyUri ?node .
         ?node ?subPropertyUri ?value .
         BIND(REPLACE(STR(?mainPropertyUri), ".*[#/]", "") AS ?mainProperty)
         BIND(REPLACE(STR(?subPropertyUri), ".*[#/]", "") AS ?subProperty)
         
+        ${property ? `FILTER(?mainProperty = "${property}")` : ""}
         FILTER(?subPropertyUri != "rdf:type")
-  }`
+      }`;
 
     return await session.ng!.sparql_query(session.sessionId, sparql);
+  }
+
+  async getContactPropertiesList(session: NextGraphSession, nuri: string, property?: string) {
+    const allProperties = await this.getContactAllProperties(session, nuri, property);
+
+    const result: Record<string, Record<string, Record<string, string>>> = {};
+    allProperties.results?.bindings?.forEach(binding => {
+      const prop = binding.mainProperty.value;
+      const id = binding.node.value;
+
+      result[prop] ??= {};
+      result[prop][id] ??= {id};
+      result[prop][id][binding.subProperty.value] = binding.value.value;
+    });
+
+    return result;
   }
 
   contactPrefixes = `
@@ -229,7 +246,7 @@ WHERE {
 
   async isProfileCreated(session: NextGraphSession, base?: string, nuri?: string) {
     base ??= "did:ng:" + session.protectedStoreId?.substring(0, 46);
-    nuri ??="did:ng:" + session.protectedStoreId;
+    nuri ??= "did:ng:" + session.protectedStoreId;
     const sparql = `
       PREFIX ngc: <did:ng:x:contact:class#>
       ASK { <> a ngc:Me . }`;
@@ -238,10 +255,10 @@ WHERE {
   }
 
   private async commitProperty<T extends import("@ldo/ldo").LdoBase>(
-    contactObj: T,
+    obj: T,
     commitData: CommitDataFunction
   ) {
-    const result = await commitData(contactObj);
+    const result = await commitData(obj);
     if (result.isError) {
       throw new Error(`Failed to commit: ${result.message}`);
     }
@@ -296,10 +313,18 @@ WHERE {
     const base = "did:ng:" + session.protectedStoreId?.substring(0, 46);
     const isProfileCreated = await nextgraphDataService.isProfileCreated(session, base, protectedStoreId);
     if (!isProfileCreated) {
-     await this.createProfile(session, protectedStoreId);
+      await this.createProfile(session, protectedStoreId);
     }
     const subject = dataset.usingType(SocialContactShapeType).fromSubject(base);
     await this.persistSocialContact(session, contact, commitData, changeData, resource, subject);
+  }
+
+  getProfileNuri = (session: NextGraphSession) => ("did:ng:" + session.protectedStoreId).substring(0, 53);
+
+  isContactProfile(session: NextGraphSession, contact?: SocialContact): boolean {
+    if (!contact) return false;
+    const profileNuri = this.getProfileNuri(session);
+    return contact["@id"] === profileNuri;
   }
 
   async createProfile(session: NextGraphSession, protectedStoreId?: string) {
@@ -575,6 +600,24 @@ WHERE {
     const contactObj = changeData(contact, resource);
 
     await this.persistSocialContact(session, changes, commitData, changeData, resource, contactObj);
+  }
+
+  async getRCardsIDs(session?: NextGraphSession) {
+    if (!session) return [];
+    const sparql = `PREFIX ngrcard: <did:ng:x:social:rcard#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+SELECT ?rcardUri ?order
+WHERE {
+  ?rcardUri a ngrcard:Card .
+  OPTIONAL { ?rcardUri ngrcard:order ?orderRaw . }
+  BIND(xsd:integer(?orderRaw) AS ?order)
+}
+ORDER BY DESC(BOUND(?order)) ASC(?order) ASC(?rcardUri)
+`;
+    const sparqlResult = await session.ng!.sparql_query(session.sessionId, sparql);
+    return sparqlResult?.results?.bindings?.map(
+      (binding) => binding.rcardUri.value
+    ) ?? [];
   }
 }
 

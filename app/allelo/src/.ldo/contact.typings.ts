@@ -1677,7 +1677,7 @@ export interface Publication {
   /**
    * Publication URL
    */
-  url2?: string;
+  url1?: string;
   /**
    * Source of the publication data
    */

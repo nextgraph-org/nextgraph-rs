@@ -1,13 +1,13 @@
-import {RelationshipCategory} from "@/constants/relationshipCategories.ts";
 import {Box} from "@mui/material";
 import {RCardProperty} from "./RCardProperty";
-import {ContentItem, useRCards, ZoneContent} from "@/hooks/rCards/useRCards.ts";
+import {ContentItem} from "@/models/rcards";
+import {useRCards, ZoneContent} from "@/hooks/rCards/useRCards.ts";
 import {useCallback, useState} from "react";
 
-interface RCardEditProps { card: RelationshipCategory; }
+interface RCardEditProps { nuri: string; }
 
-export const RCardEdit = ({card}: RCardEditProps) => {
-  const {zoneContent, togglePermission, changeLocation} = useRCards({card, isEditing: true});
+export const RCardEdit = ({nuri}: RCardEditProps) => {
+  const {zoneContent, changeLocation} = useRCards(nuri, true);
   const [draggedItem, setDraggedItem] = useState<ContentItem | null>(null);
   const [activeDropZone, setActiveDropZone] = useState<keyof ZoneContent | null>(null);
   const [dropTarget, setDropTarget] = useState<{ zone: keyof ZoneContent, index: number } | null>(null);
@@ -133,11 +133,10 @@ export const RCardEdit = ({card}: RCardEditProps) => {
           item={item}
           zone={zone}
           isEditing
-          togglePermission={() => togglePermission(item)}
         />
       </Box>
     )
-  }, [draggedItem, dropTarget, handleDragStart, handleDragEnd, handleDragEnter, handleDragOver, handleDrop, handleTouchStart, handleTouchMove, handleTouchEnd, togglePermission, hasTouchMoved]);
+  }, [draggedItem, dropTarget, handleDragStart, handleDragEnd, handleDragEnter, handleDragOver, handleDrop, handleTouchStart, handleTouchMove, handleTouchEnd, hasTouchMoved]);
 
   const propertyMapperTop = useCallback((item: ContentItem, idx: number) => propertyMapper(item, idx, "top"), [propertyMapper]);
   const propertyMapperMiddle = useCallback((item: ContentItem, idx: number) => propertyMapper(item, idx, "middle"), [propertyMapper]);

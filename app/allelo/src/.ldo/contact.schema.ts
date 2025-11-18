@@ -4898,7 +4898,7 @@ export const contactSchema: Schema = {
             },
             {
               type: "TripleConstraint",
-              predicate: "did:ng:x:core#url",
+              predicate: "did:ng:x:core#url1",
               valueExpr: {
                 type: "NodeConstraint",
                 datatype: "http://www.w3.org/2001/XMLSchema#string",

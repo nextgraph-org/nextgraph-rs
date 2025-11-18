@@ -1,17 +1,17 @@
 import {UilEllipsisH as MoreHoriz} from "@iconscout/react-unicons";
 import {Box} from "@mui/material";
 import {useCallback, useLayoutEffect, useMemo, useRef, useState} from "react";
-import {RelationshipCategory} from "@/constants/relationshipCategories.ts";
-import {ContentItem, useRCards, ZoneContent} from "@/hooks/rCards/useRCards.ts";
+import {ContentItem} from "@/models/rcards";
+import {useRCards, ZoneContent} from "@/hooks/rCards/useRCards.ts";
 import {RCardProperty} from "@/components/rcards/RCard/RCardProperty.tsx";
 
 interface RCardViewProps {
-  card: RelationshipCategory;
+  nuri: string;
   disabled:  boolean;
 }
 
-export const RCardView = ({card, disabled = false}: RCardViewProps) => {
-  const {zoneContent} = useRCards({card});
+export const RCardView = ({nuri, disabled = false}: RCardViewProps) => {
+  const {zoneContent} = useRCards(nuri);
 
   const [foldPercent, setFoldPercent] = useState(1);
   const [isMiddleRevealed, setIsMiddleRevealed] = useState(false);
@@ -48,7 +48,7 @@ export const RCardView = ({card, disabled = false}: RCardViewProps) => {
     if (fold2Ref.current) ro.observe(fold2Ref.current);
 
     return () => ro.disconnect();
-  }, [card, zoneContent]);
+  }, [nuri, zoneContent]);
 
 
   // Easing + animation (unchanged)

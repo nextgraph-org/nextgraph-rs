@@ -23,6 +23,7 @@ import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
 import {renderTemplate} from "@/utils/templateRenderer";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 
 type ResolvableKey = ContactKeysWithSelected;
 
@@ -79,6 +80,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   const {commitData, changeData} = useLdo();
 
   const isNextgraph = useMemo(() => isNextGraphEnabled(), []);
+  const {updatePermissionsNode} = useUpdatePermission(contact);
 
   const [currentValue, setCurrentValue] = useState<string>();
   const [localValue, setLocalValue] = useState<string>("");
@@ -178,12 +180,14 @@ export const PropertyWithSources = <K extends ResolvableKey>({
         editPropertyWithUserSource(changedContactObj);
 
         commitData(changedContactObj);
+        
+        updatePermissionsNode(propertyKey);
       }
     } else {
       editPropertyWithUserSource(contact, true);
       handleChange();
     }
-  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, changeData, commitData, handleChange, resource]);
+  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, resource, changeData, commitData, updatePermissionsNode, handleChange]);
 
   // Handle page navigation/unload to persist any unsaved changes
   useEffect(() => {
@@ -222,6 +226,8 @@ export const PropertyWithSources = <K extends ResolvableKey>({
           updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");
         }
         commitData(changedContactObj);
+        updatePermissionsNode(propertyKey, item["@id"]);
+        updatePermissionsNode(propertyKey, item["@id"]);
       }
     } else {
       if (!isMultipleField) {
@@ -231,7 +237,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
     handleClose();
     handleChange();
-  }, [changeData, commitData, contact, handleChange, isMultipleField, isNextgraph, propertyKey, resource]);
+  }, [changeData, commitData, contact, handleChange, isMultipleField, isNextgraph, propertyKey, resource, updatePermissionsNode]);
 
   const [isValid, setIsValid] = useState(true);
 

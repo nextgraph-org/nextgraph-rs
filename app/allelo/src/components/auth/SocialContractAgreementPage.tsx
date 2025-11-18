@@ -21,6 +21,7 @@ import {
   UilChartLine,
   UilShieldCheck,
 } from '@iconscout/react-unicons';
+import {useSaveRCards} from "@/hooks/rCards/useSaveRCards.ts";
 
 export const SocialContractAgreementPage = () => {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export const SocialContractAgreementPage = () => {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const {saveDefaultRCards} = useSaveRCards();
 
   const handleSubmit = async () => {
     if (!agreed) {
@@ -38,6 +40,7 @@ export const SocialContractAgreementPage = () => {
     setIsSubmitting(true);
 
     try {
+      saveDefaultRCards();
       nextStep();
       navigate('/onboarding/claim-identity');
     } catch (error) {

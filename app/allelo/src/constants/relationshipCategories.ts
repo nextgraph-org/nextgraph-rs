@@ -4,11 +4,9 @@ import { UilBuilding as Business, UilUsersAlt as Groups, UilQuestionCircle as He
 import {
   businessPermissions,
   communityPermissions,
-  ContactPermissions,
-  defaultPermissions,
-  familyPermissions,
-  friendsPermissions
+  defaultPermissions, familyPermissions, friendsPermissions,
 } from "./rPermissions.ts";
+import {RCardPermission} from "@/.ldo/rcard.typings.ts";
 
 export interface CategoryColorScheme {
   main: string;
@@ -24,7 +22,7 @@ export interface RelationshipCategory {
   color: string;
   colorScheme: CategoryColorScheme;
   count?: number;
-  permissions: ContactPermissions;
+  permissions: RCardPermission[];
   rerender?: {
     shouldRerender: boolean;
   }

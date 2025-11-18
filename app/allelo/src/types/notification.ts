@@ -9,9 +9,6 @@ export interface ProfileCard {
   updatedAt: Date;
 }
 
-// Legacy alias for backwards compatibility
-export type RCard = ProfileCard;
-
 export interface Vouch {
   id: string;
   fromUserId: string;
