@@ -52,6 +52,7 @@ export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(
             placeholder={"Phone number"}
             validateType={"phone"}
             resource={resource}
+            required={false}
           />
 
           <PropertyWithSources

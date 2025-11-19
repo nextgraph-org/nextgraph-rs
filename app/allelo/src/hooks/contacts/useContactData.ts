@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
 import type {Contact} from "@/types/contact";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
-import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";
+import {useNextGraphAuth, useResource, useSubject, useSubscribeToResource} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContact} from "@/.ldo/contact.typings";
 import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
@@ -9,7 +9,7 @@ import {SocialContactShapeType as Shape} from "@/.orm/shapes/contact.shapeTypes"
 import {useMockContactSubject} from "@/hooks/contacts/useMockContactSubject";
 import { useShape } from "@ng-org/signals/react";
 
-export const useContactData = (nuri: string | null, isProfile = false) => {
+export const useContactData = (nuri: string | null, isProfile = false, refreshKey = 0) => {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,20 +23,19 @@ export const useContactData = (nuri: string | null, isProfile = false) => {
     nuri = "did:ng:" + session?.protectedStoreId;
   }
 
-  // NextGraph subscription
-  const resource = useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
+  // NextGraph subscription - subscribe to updates
+  const resource = useResource(sessionId && nuri ? nuri : undefined);
 
+  // Explicitly subscribe to resource changes
+  useSubscribeToResource(sessionId && nuri ? nuri : undefined);
 
   const socialContact: SocialContact | undefined = useSubject(
     SocialContactShapeType,
     sessionId && nuri ? nuri.substring(0, 53) : undefined
   );
 
-  const state = useShape(Shape);
-  console.log(state)
-
   const mockNuri = !isNextGraph ? nuri : null;
-  const mockContact = useMockContactSubject(mockNuri);
+  const mockContact = useMockContactSubject(mockNuri, refreshKey);
 
   useEffect(() => {
     if (!nuri) {
@@ -52,13 +51,29 @@ export const useContactData = (nuri: string | null, isProfile = false) => {
         setError(null);
       }
     } else {
-      if (socialContact) {
-        setContact(socialContact as Contact);
-        setIsLoading(false);
-        setError(null);
+      // Force a re-fetch when refreshKey changes
+      if (refreshKey > 0) {
+        setIsLoading(true);
+        // Delay to allow NextGraph to propagate the changes
+        const timeout = setTimeout(() => {
+          if (socialContact) {
+            setContact(socialContact as Contact);
+            setIsLoading(false);
+            setError(null);
+          } else {
+            setIsLoading(false);
+          }
+        }, 500);
+        return () => clearTimeout(timeout);
+      } else {
+        if (socialContact) {
+          setContact(socialContact as Contact);
+          setIsLoading(false);
+          setError(null);
+        }
       }
     }
-  }, [nuri, isNextGraph, socialContact, sessionId, mockContact]);
+  }, [nuri, isNextGraph, socialContact, sessionId, mockContact, refreshKey]);
 
   return {contact, isLoading, error, setContact, resource};
 };

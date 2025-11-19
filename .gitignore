@@ -17,3 +17,4 @@ node_modules
 .vscode/settings.json
 .env.local
 /public_dev
+/infra/ngaccount/.env

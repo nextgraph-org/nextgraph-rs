@@ -51,6 +51,7 @@ interface MultiPropertyWithVisibilityProps<K extends ResolvableKey> {
   validateType?: ValidationType;
   hasPreferred?: boolean;
   resource: NextGraphResource;
+  required?: boolean;
 }
 
 export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
@@ -67,7 +68,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
                                                                        placeholder,
                                                                        validateType = "text",
                                                                        hasPreferred = true,
-                                                                       resource
+                                                                       resource,
+                                                                       required = true
                                                                      }: MultiPropertyWithVisibilityProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -431,7 +433,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
       setNewItemValue,
       contact,
       validateType,
-      resource
+      resource,
+      required
     };
 
     switch (variant) {

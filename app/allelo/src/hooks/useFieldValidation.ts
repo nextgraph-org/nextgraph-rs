@@ -27,19 +27,29 @@ const getValidationRules = (type: ValidationType, options: UseFieldValidationOpt
   switch (type) {
     case 'phone':
       rules.validate = (el: any) => {
+        // Allow empty values if not required
+        if (!el || el.trim() === '') {
+          return options.required ? "This field is required" : true;
+        }
         return !isValidPhoneNumber(el) ? "Invalid phone format, use E.164 format, e.g. +15551234567" : true;
       }
       break;
     case 'email':
-      rules.pattern = {
-        value: /^\S+@\S+\.\S+$/,
-        message: 'Invalid email format'
+      rules.validate = (el: any) => {
+        // Allow empty values if not required
+        if (!el || el.trim() === '') {
+          return options.required ? "This field is required" : true;
+        }
+        return /^\S+@\S+\.\S+$/.test(el) ? true : 'Invalid email format';
       };
       break;
     case 'url':
-      rules.pattern = {
-        value: /^https?:\/\/.+\..+/,
-        message: 'Invalid URL format'
+      rules.validate = (el: any) => {
+        // Allow empty values if not required
+        if (!el || el.trim() === '') {
+          return options.required ? "This field is required" : true;
+        }
+        return /^https?:\/\/.+\..+/.test(el) ? true : 'Invalid URL format';
       };
       break;
     case 'linkedin':
