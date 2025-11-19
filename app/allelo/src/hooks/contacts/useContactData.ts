@@ -1,7 +1,7 @@
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import type {Contact} from "@/types/contact";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
-import {useNextGraphAuth, useResource, useSubject, useSubscribeToResource} from "@/lib/nextgraph";
+import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContact} from "@/.ldo/contact.typings";
 import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
@@ -26,13 +26,13 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
   // NextGraph subscription - subscribe to updates
   const resource = useResource(sessionId && nuri ? nuri : undefined);
 
-  // Explicitly subscribe to resource changes
-  useSubscribeToResource(sessionId && nuri ? nuri : undefined);
-
   const socialContact: SocialContact | undefined = useSubject(
     SocialContactShapeType,
     sessionId && nuri ? nuri.substring(0, 53) : undefined
   );
+
+  const ormContacts = useShape(Shape, nuri ? nuri : undefined);
+  const ormContact = useMemo(() => ormContacts?.values().next().value, [ormContacts]);
 
   const mockNuri = !isNextGraph ? nuri : null;
   const mockContact = useMockContactSubject(mockNuri, refreshKey);
@@ -75,5 +75,5 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
     }
   }, [nuri, isNextGraph, socialContact, sessionId, mockContact, refreshKey]);
 
-  return {contact, isLoading, error, setContact, resource};
+  return {contact, isLoading, error, setContact, resource, ormContact};
 };
