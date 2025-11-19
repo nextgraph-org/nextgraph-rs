@@ -296,8 +296,7 @@
                   const method = e.data.method;
                   const args = e.data.args;
                   const port = e.data.port;
-                  // TODO: add other streamed RPC methods
-                  if ( method === "doc_subscribe" || method === "orm_start" || method === "app_request_stream" || method === "file_get" ) {
+                  if ( e.data.streamed ) {
                     //console.log("processing streamed request ...",method, args);
                     args.push((callbacked)=> {
                       port.postMessage({stream:true, ret:callbacked});
@@ -308,6 +307,7 @@
                         cancel_function();
                       };
                       cancel_function = await Reflect.apply(ng[method], null, args);
+                      port.postMessage({stream:true});
                     } catch (e) {
                       port.postMessage({ok:false, ret:e});
                       port.close();

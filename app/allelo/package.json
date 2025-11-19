@@ -35,7 +35,7 @@
     "@mui/icons-material": "^7.2.0",
     "@mui/material": "^7.2.0",
     "@ng-org/signals": "workspace:*",
-    "@ng-org/web": "^0.1.2-alpha.2",
+    "@ng-org/web": "workspace:*",
     "@rdfjs/data-model": "^1.2.0",
     "@rdfjs/types": "^1.0.1",
     "@react-oauth/google": "^0.12.2",

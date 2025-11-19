@@ -181,7 +181,7 @@ export const ContactCardDetailed = forwardRef<
     );
 
     const renderAccountButtons = () => {
-      let accountProtocols = contact?.account?.map(account => account.protocol!) ?? [];
+      let accountProtocols = contact?.account?.map(account => account.protocol!).filter(p => p!==undefined) ?? [];
       accountProtocols = [...new Set(accountProtocols)];
       return accountProtocols.map((protocol) => <IconButton
           key={protocol}

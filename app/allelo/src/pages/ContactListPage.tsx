@@ -21,7 +21,7 @@ const ContactListPage = () => {
   const tabItems = useMemo<TabItem[]>(
     () => [
       {label: "List", icon: <List/>, content: <ContactListTab manageMode={manageMode}/>},
-      //{label: "Network", icon: <Hub/>, content: <ContactNetworkTab/>},
+      {label: "Network", icon: <Hub/>, content: <ContactNetworkTab/>},
       {label: "Map", icon: <Map/>, content: <ContactMapTab/>},
     ],
     [manageMode]
