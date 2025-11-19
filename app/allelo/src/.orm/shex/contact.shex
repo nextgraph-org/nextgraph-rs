@@ -288,10 +288,10 @@ ngc:Organization {
 }
 
 ngc:Photo {
-  ngcore:value xsd:string
+  ngcore:photoUrl xsd:string
     // rdfs:comment "The URL of the photo" ;
-  ngcontact:data xsd:base64Binary ?
-    // rdfs:comment "The binary photo data" ;
+  ngcore:photoIRI IRI ?
+    // rdfs:comment "The IRI of blob" ;
   ngcontact:preferred xsd:boolean ?
     // rdfs:comment "True if the photo is a default photo" ;
   ngcore:source xsd:string ?

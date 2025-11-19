@@ -5,7 +5,6 @@ import {
   Grid,
   Card,
   CardContent,
-  Avatar,
   Button,
   Dialog,
   DialogTitle,
@@ -28,9 +27,10 @@ import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
 import {MultiPropertyWithVisibility} from "@/components/contacts/MultiPropertyWithVisibility";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {ContactTags} from "@/components/contacts";
+import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
-  ({initialProfileData, resource}, ref) => {
+  ({initialProfileData, resource, ormProfile}, ref) => {
     const navigate = useNavigate();
 
     const [isEditing, setIsEditing] = useState(false);
@@ -85,18 +85,8 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 Profile Information
               </Typography>
               <Box sx={{display: {xs: 'block', md: 'none'}}}>
-                <Avatar
-                  sx={{
-                    width: 120,
-                    height: 120,
-                    bgcolor: 'primary.main',
-                    fontSize: '3rem'
-                  }}
-                  alt="Profile"
-                  src={avatar?.value}
-                >
-                  {displayName?.charAt(0)}
-                </Avatar>
+                <ContactAvatarUpload ormContact={ormProfile} initial={displayName} photoNuri={avatar?.photoIRI?.["@id"]}
+                                     isEditing={isEditing} forProfile={true}/>
               </Box>
             </Box>
 
@@ -107,45 +97,8 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   <Box sx={{
                     display: {xs: 'none', md: 'inline-block'},
                   }}>
-                    <Avatar
-                      sx={{
-                        width: 120,
-                        height: 120,
-                        mb: 2,
-                        bgcolor: 'primary.main',
-                        fontSize: '3rem'
-                      }}
-                      alt="Profile"
-                      src={avatar?.value}
-                    >
-                      {displayName?.charAt(0)}
-                    </Avatar>
-                    {/* {isEditing && (
-                      <>
-                        <input
-                          accept="image/*"
-                          id="avatar-upload"
-                          type="file"
-                          hidden
-                          onChange={handleAvatarUpload}
-                        />
-                        <label htmlFor="avatar-upload">
-                          <IconButton
-                            component="span"
-                            sx={{
-                              position: 'absolute',
-                              bottom: 16,
-                              right: -8,
-                              bgcolor: 'background.paper',
-                              boxShadow: 2,
-                              '&:hover': { bgcolor: 'background.paper' }
-                            }}
-                          >
-                            <PhotoCamera />
-                          </IconButton>
-                        </label>
-                      </>
-                    )}*/}
+                    <ContactAvatarUpload ormContact={ormProfile} initial={displayName}
+                                         photoNuri={avatar?.photoIRI?.["@id"]} isEditing={isEditing} forProfile={true}/>
                   </Box>
                   <Box sx={{
                     display: "flex",

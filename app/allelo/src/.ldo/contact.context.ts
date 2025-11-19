@@ -904,9 +904,13 @@ export const contactContext: LdoJsonldContext = {
     "@type": "@id",
     "@isCollection": true,
   },
-  data: {
-    "@id": "did:ng:x:contact#data",
-    "@type": "http://www.w3.org/2001/XMLSchema#base64Binary",
+  photoUrl: {
+    "@id": "did:ng:x:core#photoUrl",
+    "@type": "http://www.w3.org/2001/XMLSchema#string",
+  },
+  photoIRI: {
+    "@id": "did:ng:x:core#photoIRI",
+    "@type": "@id",
   },
   coverPhoto: {
     "@id": "did:ng:x:contact#coverPhoto",
@@ -1250,10 +1254,6 @@ export const contactContext: LdoJsonldContext = {
   },
   publisher: {
     "@id": "did:ng:x:contact#publisher",
-    "@type": "http://www.w3.org/2001/XMLSchema#string",
-  },
-  url2: {
-    "@id": "did:ng:x:core#url",
     "@type": "http://www.w3.org/2001/XMLSchema#string",
   },
   naoStatus: {

@@ -1625,7 +1625,7 @@ export const contactSchema: Schema = {
           expressions: [
             {
               type: "TripleConstraint",
-              predicate: "did:ng:x:core#value",
+              predicate: "did:ng:x:core#photoUrl",
               valueExpr: {
                 type: "NodeConstraint",
                 datatype: "http://www.w3.org/2001/XMLSchema#string",
@@ -1642,10 +1642,10 @@ export const contactSchema: Schema = {
             },
             {
               type: "TripleConstraint",
-              predicate: "did:ng:x:contact#data",
+              predicate: "did:ng:x:core#photoIRI",
               valueExpr: {
                 type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#base64Binary",
+                nodeKind: "iri",
               },
               min: 0,
               max: 1,
@@ -1654,7 +1654,7 @@ export const contactSchema: Schema = {
                   type: "Annotation",
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
-                    value: "The binary photo data",
+                    value: "The IRI of blob",
                   },
                 },
               ],

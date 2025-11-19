@@ -468,11 +468,13 @@ export interface Photo {
   /**
    * The URL of the photo
    */
-  value: string;
+  photoUrl: string;
   /**
-   * The binary photo data
+   * The IRI of blob
    */
-  data?: string;
+  photoIRI?: {
+    "@id": string;
+  };
   /**
    * True if the photo is a default photo
    */

@@ -1321,19 +1321,19 @@ export const contactSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
+        iri: "did:ng:x:core#photoUrl",
+        readablePredicate: "photoUrl",
       },
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "iri",
           },
         ],
         maxCardinality: 1,
         minCardinality: 0,
-        iri: "did:ng:x:contact#data",
-        readablePredicate: "data",
+        iri: "did:ng:x:core#photoIRI",
+        readablePredicate: "photoIRI",
       },
       {
         dataTypes: [
@@ -4013,19 +4013,19 @@ export const contactSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
+        iri: "did:ng:x:core#photoUrl",
+        readablePredicate: "photoUrl",
       },
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "iri",
           },
         ],
         maxCardinality: 1,
         minCardinality: 0,
-        iri: "did:ng:x:contact#data",
-        readablePredicate: "data",
+        iri: "did:ng:x:core#photoIRI",
+        readablePredicate: "photoIRI",
       },
       {
         dataTypes: [
