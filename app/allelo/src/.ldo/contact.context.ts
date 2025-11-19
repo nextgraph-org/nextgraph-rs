@@ -227,6 +227,10 @@ export const contactContext: LdoJsonldContext = {
         "@type": "@id",
         "@isCollection": true,
       },
+      centralityScore: {
+        "@id": "did:ng:x:contact#centralityScore",
+        "@type": "http://www.w3.org/2001/XMLSchema#integer",
+      },
     },
   },
   Person: {
@@ -446,6 +450,10 @@ export const contactContext: LdoJsonldContext = {
         "@type": "@id",
         "@isCollection": true,
       },
+      centralityScore: {
+        "@id": "did:ng:x:contact#centralityScore",
+        "@type": "http://www.w3.org/2001/XMLSchema#integer",
+      },
     },
   },
   Person2: {
@@ -664,6 +672,10 @@ export const contactContext: LdoJsonldContext = {
         "@id": "did:ng:x:contact#mergedFrom",
         "@type": "@id",
         "@isCollection": true,
+      },
+      centralityScore: {
+        "@id": "did:ng:x:contact#centralityScore",
+        "@type": "http://www.w3.org/2001/XMLSchema#integer",
       },
     },
   },
@@ -1252,10 +1264,6 @@ export const contactContext: LdoJsonldContext = {
     "@id": "did:ng:x:contact#publisher",
     "@type": "http://www.w3.org/2001/XMLSchema#string",
   },
-  url2: {
-    "@id": "did:ng:x:core#url",
-    "@type": "http://www.w3.org/2001/XMLSchema#string",
-  },
   naoStatus: {
     "@id": "did:ng:x:contact#naoStatus",
     "@type": "@id",
@@ -1289,5 +1297,9 @@ export const contactContext: LdoJsonldContext = {
     "@id": "did:ng:x:contact#mergedFrom",
     "@type": "@id",
     "@isCollection": true,
+  },
+  centralityScore: {
+    "@id": "did:ng:x:contact#centralityScore",
+    "@type": "http://www.w3.org/2001/XMLSchema#integer",
   },
 };
