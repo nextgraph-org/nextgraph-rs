@@ -1,6 +1,6 @@
-import type {ReactElement} from 'react';
-import type { SvgIconComponent } from '@mui/icons-material';
-import type { UniconComponent } from '@iconscout/react-unicons';
+import {ReactElement, useCallback} from 'react';
+import type {SvgIconComponent} from '@mui/icons-material';
+import type {UniconComponent} from '@iconscout/react-unicons';
 import React from 'react';
 import {
   CategoryColorScheme,
@@ -22,43 +22,45 @@ export interface UseRelationshipCategoriesReturn {
 }
 
 const createIcon = (iconComponent: SvgIconComponent | UniconComponent, fontSize?: number) =>
-  React.createElement(iconComponent as any, { sx: { fontSize }, size: fontSize ? `${fontSize}` : '20' });
+  React.createElement(iconComponent as any, {sx: {fontSize}, size: fontSize ? `${fontSize}` : '20'});
 
 export const useRelationshipCategories = (): UseRelationshipCategoriesReturn => {
-  const getCategoryById = (id?: string): RelationshipCategory => {
+  const getCategoryById = useCallback((id?: string): RelationshipCategory => {
     if (!id) {
       return defaultRelationshipCategory;
     }
     return relationshipCategoriesMap.get(id) ?? defaultRelationshipCategory;
-  };
+  }, []);
 
-  const getCategoryIcon = (id?: string, fontSize?: number): ReactElement => {
+  const getCategoryIcon = useCallback((id?: string, fontSize?: number): ReactElement => {
     return createIcon(getCategoryById(id).icon, fontSize);
-  };
+  }, [getCategoryById]);
 
-  const getCategoryDisplayName = (id?: string): string => {
+  const getCategoryDisplayName = useCallback((id?: string): string => {
     return getCategoryById(id).name;
-  };
+  }, [getCategoryById]);
 
-  const getCategoryColor = (id?: string): string => {
+  const getCategoryColor = useCallback((id?: string): string => {
     return getCategoryById(id).color;
-  };
+  }, [getCategoryById]);
 
-  const getCategoryColorScheme = (id?: string): CategoryColorScheme => {
+  const getCategoryColorScheme = useCallback((id?: string): CategoryColorScheme => {
     if (!id) return defaultRelationshipCategory.colorScheme;
     return getCategoryById(id).colorScheme;
-  };
+  }, [getCategoryById]);
 
-  const getMenuItems = () => [
+  const getMenuItems = useCallback(() => [
     {value: 'all', label: 'All Relationships'},
     ...Array.from(relationshipCategories)
       .map(cat => ({
         value: cat.id,
         label: cat.name
       }))
-  ];
+  ], []);
 
-  const getCategoriesArray = () => Array.from(relationshipCategories).filter(c => c.id !== 'default');
+  const getCategoriesArray = useCallback(() => Array
+    .from(relationshipCategories)
+    .filter(c => c.id !== 'default'), []);
 
   return {
     categories: relationshipCategories,
