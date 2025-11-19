@@ -1571,16 +1571,8 @@ impl Verifier {
         Ok(())
     }
 
-    pub async fn get_qrcode_for_profile(
-        &self,
-        public: bool,
-        size: u32,
-    ) -> Result<String, VerifierError> {
-        let profile_id = if public {
-            self.public_store_id()
-        } else {
-            self.protected_store_id()
-        };
+    pub async fn get_qrcode_for_profile(&self, size: u32) -> Result<String, VerifierError> {
+        let profile_id = self.protected_store_id();
 
         let repo = self.repos.get(&profile_id).ok_or(NgError::RepoNotFound)?;
         let inbox = repo

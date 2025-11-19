@@ -1082,12 +1082,7 @@ impl Verifier {
                     } else {
                         return Err(NgError::InvalidPayload);
                     };
-                let public = match nuri.target {
-                    NuriTargetV0::PublicProfile => true,
-                    NuriTargetV0::ProtectedProfile => false,
-                    _ => return Err(NgError::InvalidPayload),
-                };
-                return match self.get_qrcode_for_profile(public, size).await {
+                return match self.get_qrcode_for_profile(size).await {
                     Err(e) => Ok(AppResponse::error(e.to_string())),
                     Ok(qrcode) => Ok(AppResponse::text(qrcode)),
                 };
