@@ -98,7 +98,7 @@ export const useNetworkSimulation = (
           },
           centerX,
           centerY
-        ).strength(0.3)
+        ).strength(0.8)
       )
       .on('tick', () => {
         if (simulation.alpha() < 0.01) {

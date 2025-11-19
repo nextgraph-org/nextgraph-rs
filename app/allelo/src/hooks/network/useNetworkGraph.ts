@@ -33,10 +33,20 @@ const buildUserNetwork = (
 ) => {
   const sortedContacts = [...contacts]
     .sort((a, b) => {
+      // LinkedIn centrality: lower values = more central = higher priority
+      // Treat null/undefined as 51 (least central)
+      // Convert to score where 0 (most central) = highest score, 51 (least central) = lowest score
+      const aCentrality = (51 - (a.linkedinCentrality ?? 51)) * 2;
+      const bCentrality = (51 - (b.linkedinCentrality ?? 51)) * 2;
+
       const aScore =
-        (a.interactionCount || 0) * 10 + ((a.vouchesSent || 0) + (a.vouchesReceived || 0)) * 5;
+        aCentrality +
+        (a.interactionCount || 0) * 10 +
+        ((a.vouchesSent || 0) + (a.vouchesReceived || 0)) * 5;
       const bScore =
-        (b.interactionCount || 0) * 10 + ((b.vouchesSent || 0) + (b.vouchesReceived || 0)) * 5;
+        bCentrality +
+        (b.interactionCount || 0) * 10 +
+        ((b.vouchesSent || 0) + (b.vouchesReceived || 0)) * 5;
       return bScore - aScore;
     })
     .slice(0, maxNodes - 1);
@@ -44,6 +54,7 @@ const buildUserNetwork = (
   const contactNodes = mapContactsToNodes(sortedContacts, centeredNodeId || undefined);
   const userNode = addUserNode(userId, userName);
   userNode.isCentered = !centeredNodeId || centeredNodeId === userId;
+  userNode.centrality = 1; // User is always at the center
   const allNodes: GraphNode[] = [userNode, ...contactNodes];
 
   const userEdges: GraphEdge[] = sortedContacts.map((contact) => {
@@ -82,14 +93,10 @@ const buildUserNetwork = (
     priority: node.id === userId ? ('high' as const) : node.priority,
   }));
 
-  const centralityScores = calculateNetworkCentrality(nodesWithPriorities, userEdges, userId);
+  // LinkedIn centrality is already set on nodes from mapContactsToNodes
+  // No need to recalculate
 
-  const nodesWithCentrality = nodesWithPriorities.map((node) => ({
-    ...node,
-    centrality: centralityScores.get(node.id) || 0,
-  }));
-
-  return { nodes: nodesWithCentrality, edges: userEdges };
+  return { nodes: nodesWithPriorities, edges: userEdges };
 };
 
 const buildEntityNetwork = (

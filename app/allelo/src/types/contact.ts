@@ -16,6 +16,7 @@ export interface Contact extends SocialContact {
   recentInteractionScore?: number;
   sharedTagsCount?: number;
   isDraft?: boolean;
+  linkedinCentrality?: number; // LinkedIn centrality score (0-51, where 0 is most central)
 }
 
 export interface SimpleMockContact {

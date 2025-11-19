@@ -11,7 +11,12 @@ const calculatePriority = (contact: Contact): NodePriority => {
   const photo = resolveFrom(contact, 'photo');
   const hasPhoto = !!photo?.value;
 
-  if ((hasRecentInteraction || hasHighInteractionCount || hasVouches) && hasPhoto) {
+  // LinkedIn centrality: 0-10 is high centrality, 11-30 is medium, 31+ is low
+  // Treat null/undefined as 51 (least central)
+  const centralityValue = contact.linkedinCentrality ?? 51;
+  const isCentralContact = centralityValue <= 10;
+
+  if ((hasRecentInteraction || hasHighInteractionCount || hasVouches || isCentralContact) && hasPhoto) {
     return 'high';
   }
 
@@ -53,6 +58,11 @@ export const mapContactsToNodes = (
     const photo = resolveFrom(contact, 'photo');
     const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
 
+    // Convert LinkedIn centrality (0-51) to normalized centrality score (0-1)
+    // Lower LinkedIn centrality = more central = higher score
+    const linkedinCentrality = contact.linkedinCentrality ?? 51;
+    const normalizedCentrality = 1 - (linkedinCentrality / 51);
+
     return {
       id: contact['@id'] || nameValue,
       type: 'person' as const,
@@ -61,6 +71,7 @@ export const mapContactsToNodes = (
       initials: getInitials(nameValue),
       isCentered: contact['@id'] === centeredContactId,
       priority: calculatePriority(contact),
+      centrality: normalizedCentrality,
     };
   });
 };
