@@ -289,6 +289,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         validateType={"phone"}
                         resource={resource}
+                        required={false}
                       />
                     </Grid>
                     <Grid size={{xs: 12, sm: 6}}>

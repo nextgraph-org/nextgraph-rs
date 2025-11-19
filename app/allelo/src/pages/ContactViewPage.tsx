@@ -41,6 +41,9 @@ const ContactViewPage = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [vouchesRefreshKey, setVouchesRefreshKey] = useState(0);
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const {
     contact,
     contactGroups,
@@ -49,9 +52,7 @@ const ContactViewPage = () => {
     toggleHumanityVerification,
     inviteToNAO,
     resource
-  } = useContactView(id || null);
-
-  const [isEditing, setIsEditing] = useState(false);
+  } = useContactView(id || null, refreshKey);
   
   useEffect(() => {
     if (id) {
@@ -95,7 +96,13 @@ const ContactViewPage = () => {
   };
 
   const handleEditToggle = () => {
+    const wasEditing = isEditing;
     setIsEditing(!isEditing);
+
+    // Refresh contact data when exiting edit mode to reflect saved changes
+    if (wasEditing) {
+      setRefreshKey(prev => prev + 1);
+    }
   };
 
   const handleUnblock = () => {

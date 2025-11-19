@@ -24,6 +24,7 @@ interface ChipsVariantProps {
   setNewItemValue: (value: string) => void;
   validateType?: ValidationType;
   variant?: "default" | "url";
+  required?: boolean;
 }
 
 export const ChipsVariant = ({
@@ -43,7 +44,8 @@ export const ChipsVariant = ({
                                setIsAddingNew,
                                setNewItemValue,
                                validateType = "text",
-                               variant = "default"
+                               variant = "default",
+                               required = true
                              }: ChipsVariantProps) => {
   const [isValid, setIsValid] = useState(true);
 
@@ -60,6 +62,7 @@ export const ChipsVariant = ({
       onBlur={() => onBlur(itemId)}
       placeholder={placeholder ?? ""}
       validateType={validateType}
+      required={required}
     />
   };
 
@@ -122,6 +125,7 @@ export const ChipsVariant = ({
           placeholder={placeholder || `Add new ${label?.toLowerCase() || 'item'}`}
           validateType={validateType}
           validateParent={setIsValid}
+          required={required}
       />}
       <Button
         disabled={isAddingNew && !isValid}
