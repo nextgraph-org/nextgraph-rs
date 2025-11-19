@@ -126,8 +126,11 @@ function call_sdk(method:string, args?: any) {
                         });
                         resolved = true;
                     }
-                    (callback)(m.data.ret);
+                    if (m.data.ret !== undefined) {
+                        (callback)(m.data.ret);
+                    }
                 } else if (!m.data.ok) {
+                    console.error("error in call_sdk", m.data.ret);
                     if (!resolved) {
                         reject(m.data.ret);
                         resolved = true;
@@ -145,7 +148,7 @@ function call_sdk(method:string, args?: any) {
         myWorker.postMessage({ method, args, port: port2 }, [port2]);
         return new Promise((resolve, reject)=> {
             port1.onmessage = (m) => {
-                //console.log(m.data);
+                //console.log("GOT",m.data);
                 if (m.data.ok) {
                     resolve(m.data.ret);
                 } else {

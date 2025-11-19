@@ -49,10 +49,10 @@ function rpc( method:string, args?: any) : Promise<any> {
   const { port1, port2 } = new MessageChannel();
   //console.log("POSTING",method, args);
   let callback_idx = streamed_api[method];
-  if (callback_idx) { //TODO: add all the streamed functions
+  if (callback_idx !== undefined) { //TODO: add all the streamed functions
     let callback = args[callback_idx];
     let new_args = args.slice(0, -1);
-    parent.postMessage({ method, args:new_args, port: port2 }, config.origin, [port2]);
+    parent.postMessage({ method, streamed:true, args:new_args, port: port2 }, config.origin, [port2]);
     let unsub = new Promise((resolve, reject)=> {
       let resolved = false;
       port1.onmessage = (m) => {
@@ -63,7 +63,9 @@ function rpc( method:string, args?: any) : Promise<any> {
             });
             resolved = true;
           }
-          (callback)(m.data.ret);
+          if (m.data.ret !== undefined) {
+            (callback)(m.data.ret);
+          }
         } else if (!m.data.ok) {
           if (!resolved) {
             reject(m.data.ret);
