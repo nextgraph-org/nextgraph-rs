@@ -46,7 +46,8 @@ export const useSaveRCards = (): SaveRCardsReturn => {
     rCardObj.type = {"@id": "Card"};
     rCardObj.order = order;
     rCardObj.cardId = id;
-    permissions.forEach((el: any) => {
+    permissions.forEach((el: any, index) => {
+      el.order = index;
       rCardObj.permission?.add(el);
     });
 
