@@ -118,31 +118,60 @@ export default defineConfig((): UserConfig => {
         config.plugins.push(wasm());
         worker_plugins.push(topLevelAwait());
         worker_plugins.push(wasm());
-        config.plugins.push(
-            {
-                name: 'inject-web-script',
-                transformIndexHtml: {
-                    order: 'pre', // Tells Vite to run this before other processes
-                    handler: function transform() {
-                        return [
-                        {
+        if (process.env.NG_ENV_WEB === 1) {
+          config.plugins.push(
+              {
+                  name: 'inject-web-script',
+                  transformIndexHtml: {
+                      order: 'pre', // Tells Vite to run this before other processes
+                      handler: function transform() {
+                          return [
+                          {
+                              tag: "script",
+                              children: "check_supported=true;",
+                              injectTo: "head"
+                          },
+                          {
+                              tag: "script",
+                              attrs: {
+                                  "type": "module",
+                                  "src": "/src/main-web.tsx",
+                                  "defer": true
+                              },
+                              injectTo: "head"
+                          }]
+                      }
+                  }
+              }
+          );
+        } else {
+          config.plugins.push(
+              {
+                  name: 'inject-web-script',
+                  transformIndexHtml: {
+                      order: 'pre', // Tells Vite to run this before other processes
+                      handler: function transform() {
+                          return [
+                          {
                             tag: "script",
-                            children: "check_supported=true;",
+                            children: "check_supported=false;",
                             injectTo: "head"
-                        },
-                        {
-                            tag: "script",
-                            attrs: {
-                                "type": "module",
-                                "src": "/src/main-web.tsx",
-                                "defer": true
-                            },
-                            injectTo: "head"
-                        }]
-                    }
-                }
-            }
-        );
+                          },
+                          {
+                              tag: "script",
+                              attrs: {
+                                  "type": "module",
+                                  "src": "/src/main-web3.tsx",
+                                  "defer": true
+                              },
+                              injectTo: "head"
+                          }]
+                      }
+                  }
+              }
+          );
+        }
+        
     } else {
         //config.plugins.push(topLevelAwait());
         config.plugins.push(

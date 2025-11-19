@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { FunctionComponent, PropsWithChildren } from "react";
 import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.js";
 
-import ng from "./api";
+import { default as ng, init_api} from "./api";
 import {ng as ng3, init} from "@ng-org/web";
 import { initNg } from "@ng-org/signals";
 
@@ -49,7 +49,7 @@ export function createBrowserNGReactMethods(
                         public_store_id: unknown; }; 
             }) => {
           //console.log("called back in react", event)
-          
+          init_api(ng3);
           // callback
           // once you receive event.status == "loggedin"
           // you can use the full API
@@ -68,6 +68,7 @@ export function createBrowserNGReactMethods(
             });
 
             initNg(ng, event.session);
+            window.location.hash = "#/";
           }
           else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
             setSession({ ng: undefined });
