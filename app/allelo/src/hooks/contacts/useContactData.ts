@@ -9,7 +9,7 @@ import {SocialContactShapeType as Shape} from "@/.orm/shapes/contact.shapeTypes"
 import {useMockContactSubject} from "@/hooks/contacts/useMockContactSubject";
 import { useShape } from "@ng-org/signals/react";
 
-export const useContactData = (nuri: string | null, isProfile = false, refreshKey = 0) => {
+export const useContactData = (nuri: string | null, isProfile = false, /*refreshKey = 0*/) => {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
   const ormContact = useMemo(() => ormContacts?.values().next().value, [ormContacts]);
 
   const mockNuri = !isNextGraph ? nuri : null;
-  const mockContact = useMockContactSubject(mockNuri, refreshKey);
+  const mockContact = useMockContactSubject(mockNuri/*, refreshKey*/);
 
   useEffect(() => {
     if (!nuri) {
@@ -51,7 +51,7 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
         setError(null);
       }
     } else {
-      // Force a re-fetch when refreshKey changes
+      /*// Force a re-fetch when refreshKey changes
       if (refreshKey > 0) {
         setIsLoading(true);
         // Delay to allow NextGraph to propagate the changes
@@ -65,15 +65,15 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
           }
         }, 500);
         return () => clearTimeout(timeout);
-      } else {
+      } else {*/
         if (socialContact) {
           setContact(socialContact as Contact);
           setIsLoading(false);
           setError(null);
         }
-      }
+      //}
     }
-  }, [nuri, isNextGraph, socialContact, sessionId, mockContact, refreshKey]);
+  }, [nuri, isNextGraph, socialContact, sessionId, mockContact/*, refreshKey*/]);
 
   return {contact, isLoading, error, setContact, resource, ormContact};
 };
