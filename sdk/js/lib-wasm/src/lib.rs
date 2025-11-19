@@ -1148,21 +1148,13 @@ pub async fn import_contact_from_qrcode(
 }
 
 #[wasm_bindgen]
-pub async fn get_qrcode_for_profile(
-    session_id: JsValue,
-    public: bool,
-    size: JsValue,
-) -> Result<String, String> {
+pub async fn get_qrcode_for_profile(session_id: JsValue, size: JsValue) -> Result<String, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)
         .map_err(|_| "Deserialization error of size".to_string())?;
 
-    let nuri = if public {
-        NuriV0::new_public_store_target()
-    } else {
-        NuriV0::new_protected_store_target()
-    };
+    let nuri = NuriV0::new_protected_store_target();
 
     let mut request = AppRequest::new(
         AppRequestCommandV0::QrCodeProfile,

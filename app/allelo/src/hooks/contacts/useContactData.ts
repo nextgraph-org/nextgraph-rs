@@ -1,7 +1,7 @@
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import type {Contact} from "@/types/contact";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
-import {useNextGraphAuth, useResource, useSubject, useSubscribeToResource} from "@/lib/nextgraph";
+import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContact} from "@/.ldo/contact.typings";
 import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
@@ -9,7 +9,7 @@ import {SocialContactShapeType as Shape} from "@/.orm/shapes/contact.shapeTypes"
 import {useMockContactSubject} from "@/hooks/contacts/useMockContactSubject";
 import { useShape } from "@ng-org/signals/react";
 
-export const useContactData = (nuri: string | null, isProfile = false, refreshKey = 0) => {
+export const useContactData = (nuri: string | null, isProfile = false, /*refreshKey = 0*/) => {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,18 +24,18 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
   }
 
   // NextGraph subscription - subscribe to updates
-  const resource = useResource(sessionId && nuri ? nuri : undefined);
-
-  // Explicitly subscribe to resource changes
-  useSubscribeToResource(sessionId && nuri ? nuri : undefined);
+  const resource = useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
 
   const socialContact: SocialContact | undefined = useSubject(
     SocialContactShapeType,
     sessionId && nuri ? nuri.substring(0, 53) : undefined
   );
 
+  const ormContacts = useShape(Shape, nuri ? nuri : undefined);
+  const ormContact = useMemo(() => ormContacts?.values().next().value, [ormContacts]);
+
   const mockNuri = !isNextGraph ? nuri : null;
-  const mockContact = useMockContactSubject(mockNuri, refreshKey);
+  const mockContact = useMockContactSubject(mockNuri/*, refreshKey*/);
 
   useEffect(() => {
     if (!nuri) {
@@ -51,7 +51,7 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
         setError(null);
       }
     } else {
-      // Force a re-fetch when refreshKey changes
+      /*// Force a re-fetch when refreshKey changes
       if (refreshKey > 0) {
         setIsLoading(true);
         // Delay to allow NextGraph to propagate the changes
@@ -65,15 +65,15 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
           }
         }, 500);
         return () => clearTimeout(timeout);
-      } else {
+      } else {*/
         if (socialContact) {
           setContact(socialContact as Contact);
           setIsLoading(false);
           setError(null);
         }
-      }
+      //}
     }
-  }, [nuri, isNextGraph, socialContact, sessionId, mockContact, refreshKey]);
+  }, [nuri, isNextGraph, socialContact, sessionId, mockContact/*, refreshKey*/]);
 
-  return {contact, isLoading, error, setContact, resource};
+  return {contact, isLoading, error, setContact, resource, ormContact};
 };

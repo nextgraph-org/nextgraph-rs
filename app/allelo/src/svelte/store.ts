@@ -356,26 +356,29 @@ export const disconnections_subscribe = async function() {
 
 /************************************************* */
 
-export let bootstrapped = false;
+export let bootstrapped : Promise<undefined> | undefined = undefined;
 let boostrapper;
 
 export const init_store = (b) => {
     boostrapper = b;
 };
 
-export const boot = async function() {
-    if (bootstrapped) return;
+export const boot = async function() : Promise<undefined> {
+    if (bootstrapped) return bootstrapped;
     if (!boostrapper) return;
-    bootstrapped = true;
+    bootstrapped = new Promise(async (resolve) => {
 
-    await (boostrapper)();
+        await (boostrapper)();
 
-    try {
-        await disconnections_subscribe();
-    } catch (e) {
-        console.warn(e);
-        //console.log("called disconnections_subscribe twice");
-    }
+        try {
+            await disconnections_subscribe();
+        } catch (e) {
+            console.warn(e);
+            //console.log("called disconnections_subscribe twice");
+        }
+        resolve(undefined);
+    });
+    return bootstrapped;
 }
 
 /************************************************* */
