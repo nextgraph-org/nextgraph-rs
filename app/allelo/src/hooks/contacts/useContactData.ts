@@ -24,7 +24,7 @@ export const useContactData = (nuri: string | null, isProfile = false, refreshKe
   }
 
   // NextGraph subscription - subscribe to updates
-  const resource = useResource(sessionId && nuri ? nuri : undefined);
+  const resource = useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
 
   const socialContact: SocialContact | undefined = useSubject(
     SocialContactShapeType,
