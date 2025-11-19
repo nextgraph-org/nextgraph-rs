@@ -44,4 +44,4 @@ export interface LinkedInData {
   };
 }
 
-export const DEBUG = false;
+export const DEBUG = true;

@@ -13,11 +13,12 @@ import {useUpdateProfile} from "@/hooks/useUpdateProfile";
 import {LinkedInData} from "./linkedInTypes";
 import {LinkedInLoginForm} from "./LinkedInLoginForm";
 import {LinkedInVerification} from "./LinkedInVerification";
+import {LinkedInChallenge} from "./LinkedInChallenge";
 import {LinkedInArchiveStatus} from "./LinkedInArchiveStatus";
 import {LinkedInDragDropFallback} from "./LinkedInDragDropFallback";
 import {mapLinkedInPerson} from "@/importers/linkedin/linkedinDataMap";
 
-type FlowStep = 'LOGIN' | 'VERIFICATION' | 'ARCHIVE_STATUS' | 'DRAG_DROP';
+type FlowStep = 'LOGIN' | 'VERIFICATION' | 'ARCHIVE_STATUS' | 'DRAG_DROP' | 'CHALLENGE';
 
 export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunnerProps) {
   const isNextGraph = useMemo(() => isNextGraphEnabled(), []);
@@ -77,6 +78,11 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
   const handleVerificationRequired = useCallback((newSessionId: string) => {
     setSessionId(newSessionId);
     setCurrentStep('VERIFICATION');
+  }, []);
+
+  const handleChallengeRequired = useCallback((newSessionId: string) => {
+    setSessionId(newSessionId);
+    setCurrentStep('CHALLENGE');
   }, []);
 
   const handleCaptchaRequired = useCallback(() => {
@@ -141,6 +147,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
           <LinkedInLoginForm
             onSuccess={handleLoginSuccess}
             onVerificationRequired={handleVerificationRequired}
+            onChallengeRequired={handleChallengeRequired}
             onCaptchaRequired={handleCaptchaRequired}
             preservedUsername={preservedUsername}
           />
@@ -148,6 +155,14 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
       case 'VERIFICATION':
         return (
           <LinkedInVerification
+            sessionId={sessionId}
+            onSuccess={handleVerificationSuccess}
+            onRestart={handleVerificationRestart}
+          />
+        );
+      case 'CHALLENGE':
+        return (
+          <LinkedInChallenge
             sessionId={sessionId}
             onSuccess={handleVerificationSuccess}
             onRestart={handleVerificationRestart}

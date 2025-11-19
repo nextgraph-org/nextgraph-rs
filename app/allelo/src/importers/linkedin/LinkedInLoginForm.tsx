@@ -8,6 +8,7 @@ import {UilEye, UilEyeSlash} from "@iconscout/react-unicons";
 interface LinkedInLoginFormProps {
   onSuccess: (linkedInUsername?: string) => void;
   onVerificationRequired: (sessionId: string) => void;
+  onChallengeRequired: (sessionId: string) => void;
   onCaptchaRequired: () => void;
   preservedUsername?: string;
 }
@@ -15,6 +16,7 @@ interface LinkedInLoginFormProps {
 export function LinkedInLoginForm({
                                     onSuccess,
                                     onVerificationRequired,
+                                    onChallengeRequired,
                                     onCaptchaRequired,
                                     preservedUsername
                                   }: LinkedInLoginFormProps) {
@@ -47,6 +49,10 @@ export function LinkedInLoginForm({
       if (response.status === 200) {
         if (data.status === 'verification_required') {
           onVerificationRequired(data.sessionId);
+          return;
+        }
+        if (data.status === 'app_challenge_required') {
+          onChallengeRequired(data.sessionId);
           return;
         }
       }
