@@ -456,12 +456,15 @@ WHERE {
     createData: CreateDataFunction,
     commitData: CommitDataFunction,
     changeData: ChangeDataFunction,
+    onProgress?: (current: number, total: number) => void
   ) {
     const startTime = Date.now();
     console.log(`Starting to save ${contacts.length} contacts...`);
 
     for (let i = 0; i < contacts.length; i++) {
       await this.createContact(session, contacts[i], createData, commitData, changeData);
+
+      onProgress?.(i + 1, contacts.length);
 
       // Log progress every 30 contacts
       if ((i + 1) % 30 === 0) {

@@ -9,7 +9,7 @@ import {ContactCard} from "@/components/contacts/ContactCard";
 import {useNavigate} from "react-router-dom";
 import {useSearchParams} from "react-router-dom";
 
-export const ContactListTab = ({manageMode}: {manageMode: boolean}) => {
+export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean, setManageMode: any}) => {
   const {
     contactNuris,
     isLoading,
@@ -206,6 +206,7 @@ export const ContactListTab = ({manageMode}: {manageMode: boolean}) => {
   const autoMerge = () => {
     setIsMerging(true);
     setMergeProgress(0);
+    setManageMode(false);
     (async () => {
       const duplicatedContacts = await getDuplicatedContacts();
       if (duplicatedContacts.length === 0) {
@@ -232,6 +233,7 @@ export const ContactListTab = ({manageMode}: {manageMode: boolean}) => {
   const manualMerge = () => {
     setIsMerging(true);
     setMergeProgress(0);
+    setManageMode(false);
 
     // Simulate progress
     const interval = Math.ceil(100 / selectedContacts.length);
