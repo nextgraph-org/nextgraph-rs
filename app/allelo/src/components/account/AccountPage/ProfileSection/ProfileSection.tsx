@@ -30,7 +30,7 @@ import {ContactTags} from "@/components/contacts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
-  ({initialProfileData, resource, ormProfile}, ref) => {
+  ({initialProfileData, resource}, ref) => {
     const navigate = useNavigate();
 
     const [isEditing, setIsEditing] = useState(false);
@@ -85,7 +85,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 Profile Information
               </Typography>
               <Box sx={{display: {xs: 'block', md: 'none'}}}>
-                <ContactAvatarUpload ormContact={ormProfile} initial={displayName} photoNuri={avatar?.photoIRI?.["@id"]}
+                <ContactAvatarUpload contactNuri={resource.uri} initial={displayName} photoNuri={avatar?.photoIRI?.["@id"]}
                                      isEditing={isEditing} forProfile={true}/>
               </Box>
             </Box>
@@ -97,7 +97,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   <Box sx={{
                     display: {xs: 'none', md: 'inline-block'},
                   }}>
-                    <ContactAvatarUpload ormContact={ormProfile} initial={displayName}
+                    <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}
                                          photoNuri={avatar?.photoIRI?.["@id"]} isEditing={isEditing} forProfile={true}/>
                   </Box>
                   <Box sx={{

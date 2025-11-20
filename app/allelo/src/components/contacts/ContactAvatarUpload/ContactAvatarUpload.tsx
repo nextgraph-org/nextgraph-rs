@@ -3,30 +3,31 @@ import {Box, Button, Avatar, CircularProgress} from '@mui/material';
 import {UilCamera} from '@iconscout/react-unicons';
 import {imageService} from '@/services/imageService';
 import {useNextGraphAuth} from "@/lib/nextgraph";
-import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 export interface ContactAvatarUploadProps {
   photoUrl?: string;
   photoNuri?: string;
-  ormContact: SocialContact | undefined;
+  contactNuri?: string | undefined;
   initial?: string;
   isEditing?: boolean;
   size?: { xs: number; sm: number };
   forProfile?: boolean;
 }
 
-export const  ContactAvatarUpload = ({
+export const ContactAvatarUpload = ({
                                       photoUrl,
                                       photoNuri,
                                       initial = '',
                                       isEditing = false,
-                                      ormContact,
                                       size = {xs: 100, sm: 120},
-                                      forProfile
+                                      forProfile,
+                                      contactNuri
                                     }: ContactAvatarUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextGraphAuth = useNextGraphAuth();
   const sessionId = nextGraphAuth?.session?.sessionId;
+  const {ormContact} = useContactOrm(contactNuri, forProfile);
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -127,7 +128,7 @@ export const  ContactAvatarUpload = ({
         >
           <CircularProgress
             size={size.sm / 2}
-            sx={{ color: 'white' }}
+            sx={{color: 'white'}}
             variant={isUploading && uploadProgress > 0 ? "determinate" : "indeterminate"}
             value={uploadProgress}
           />

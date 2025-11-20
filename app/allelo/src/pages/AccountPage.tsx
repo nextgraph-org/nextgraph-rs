@@ -31,7 +31,6 @@ import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 export const AccountPageContent = ({
                                      profileData,
                                      resource,
-                                     ormProfile
                                    }: AccountPageProps) => {
 
   const [personhoodCredentials] = useState<PersonhoodCredentials>(mockPersonhoodCredentials);
@@ -39,7 +38,7 @@ export const AccountPageContent = ({
 
   const tabItems = useMemo<TabItem[]>(
     () => [
-      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={profileData} ormProfile={ormProfile} resource={resource}/>},
+      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={profileData} resource={resource}/>},
       {label: "Alerts", icon: <UilBell size="20"/>, content: <NotificationsPage/>},
       {label: "My Stream", icon: <UilRss size="20"/>, content: <MyStream/>},
       {label: "My Docs", icon: <UilFileAlt size="20"/>, content: <MyDocs/>},
@@ -52,7 +51,7 @@ export const AccountPageContent = ({
       },
       {label: "Wallet", icon: <UilWallet size="20"/>, content:<ReactWalletInfo/>},
     ],
-    [profileData, ormProfile, resource, personhoodCredentials, ReactWalletInfo]
+    [profileData, resource, personhoodCredentials, ReactWalletInfo]
   );
 
   return (
@@ -116,7 +115,7 @@ export const AccountPageContent = ({
 const NextGraphAccountPage = () => {
   const navigate = useNavigate();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
-  const {contact, resource, isLoading, ormContact} = useContactData(null, true);
+  const {contact, resource, isLoading} = useContactData(null, true);
 
   useEffect(() => {
     if (!nextGraphAuth.session || !nextGraphAuth.session.sessionId) {
@@ -143,7 +142,7 @@ const NextGraphAccountPage = () => {
     return null; // Or a loading spinner
   }
 
-  return <AccountPageContent profileData={contact} ormProfile={ormContact} handleLogout={handleLogout} isNextGraph={true} resource={resource}/>;
+  return <AccountPageContent profileData={contact} handleLogout={handleLogout} isNextGraph={true} resource={resource}/>;
 };
 
 const MockAccountPage = () => {
