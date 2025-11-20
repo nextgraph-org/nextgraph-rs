@@ -404,35 +404,23 @@ WHERE {
   private async persistProperty<K extends keyof SocialContact>(
     contactToImport: Partial<SocialContact>,
     propertyKey: K,
-    commitData: CommitDataFunction,
-    changeData: ChangeDataFunction,
-    resource: NextGraphResource,
-    subject: SocialContact
+    changedContact: SocialContact,
   ) {
     const importValue = contactToImport[propertyKey];
 
     if (importValue != undefined) { //just in case
-      const newContactObj = changeData(subject, resource);
-
       if (contactLdSetProperties.includes(propertyKey as keyof ContactLdSetProperties)) {
-        const newTargetProperty = newContactObj[propertyKey as keyof ContactLdSetProperties];
+        const newTargetProperty = changedContact[propertyKey as keyof ContactLdSetProperties];
         const importLdSet = importValue as LdSet<any>;
 
         importLdSet.forEach((el: any) => {
           newTargetProperty?.add(el);
         });
       } else {
-        newContactObj[propertyKey] = importValue;
-      }
-
-      try {
-        await this.commitProperty(newContactObj, commitData);
-      } catch (e) {
-        console.log("Failed to save property: " + propertyKey);
-        console.log(contactToImport.name);
-        throw e;
+        changedContact[propertyKey] = importValue;
       }
     }
+    return changedContact;
   }
 
   private async persistSocialContact(
@@ -447,11 +435,18 @@ WHERE {
       throw new Error('No active session available');
     }
 
+    const changedContact = changeData(subject, resource);
+
     for (const propertyKey in contactToImport) {
       if (["@id", "@context", "type"].includes(propertyKey)) {
         continue;
       }
-      await this.persistProperty(contactToImport, propertyKey as keyof SocialContact, commitData, changeData, resource, subject);
+      await this.persistProperty(contactToImport, propertyKey as keyof SocialContact, changedContact);
+    }
+
+    const result = await commitData(changedContact);
+    if (result.isError) {
+      throw new Error(`Failed to commit: ${result.message}`);
     }
   }
 
@@ -462,9 +457,23 @@ WHERE {
     commitData: CommitDataFunction,
     changeData: ChangeDataFunction,
   ) {
-    for (const contact of contacts) {
-      await this.createContact(session, contact, createData, commitData, changeData);
+    const startTime = Date.now();
+    console.log(`Starting to save ${contacts.length} contacts...`);
+
+    for (let i = 0; i < contacts.length; i++) {
+      await this.createContact(session, contacts[i], createData, commitData, changeData);
+
+      // Log progress every 30 contacts
+      if ((i + 1) % 30 === 0) {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+        const contactsPerSecond = ((i + 1) / (Date.now() - startTime) * 1000).toFixed(2);
+        console.log(`✓ Saved ${i + 1}/${contacts.length} contacts | ${elapsed}s elapsed | ${contactsPerSecond} contacts/sec`);
+      }
     }
+
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    const avgSpeed = (contacts.length / (Date.now() - startTime) * 1000).toFixed(2);
+    console.log(`✅ Completed saving ${contacts.length} contacts in ${totalTime}s | Average: ${avgSpeed} contacts/sec`);
   };
 
   async getDuplicatedContacts(session?: NextGraphSession): Promise<string[][]> {
