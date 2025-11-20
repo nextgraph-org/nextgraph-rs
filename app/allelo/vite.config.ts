@@ -118,7 +118,7 @@ export default defineConfig((): UserConfig => {
         config.plugins.push(wasm());
         worker_plugins.push(topLevelAwait());
         worker_plugins.push(wasm());
-        if (process.env.NG_ENV_WEB === 1) {
+        if (process.env.NG_ENV_WEB === "1") {
           config.plugins.push(
               {
                   name: 'inject-web-script',
