@@ -69,6 +69,7 @@ export interface SocialContact {
   joinedAt?: JoinedAt;
   mergedInto?: LdSet<SocialContact>;
   mergedFrom?: LdSet<SocialContact>;
+  centralityScore?: number;
 }
 
 /**

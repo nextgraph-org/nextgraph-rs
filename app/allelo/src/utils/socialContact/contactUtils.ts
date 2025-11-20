@@ -14,6 +14,7 @@ export const contactCommonProperties = [
   "createdAt",
   "updatedAt",
   "joinedAt",
+  "centralityScore"
 ] as const satisfies readonly (keyof SocialContact)[];
 
 export type ContactLdSetProperties = Omit<
@@ -306,6 +307,10 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
   });
 
   await geoApiService.initContactGeoCodes(contact);
+
+  //TODO: remove this when we would have real data
+  contact.centralityScore = Math.round(100 * Math.random());
+  //// TODO:
 
   return contact;
 }

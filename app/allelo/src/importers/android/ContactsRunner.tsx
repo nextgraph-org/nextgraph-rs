@@ -38,12 +38,12 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
       }
 
       // Step 4: Permission granted - import contacts
-      setStatus('✅ Permission granted! Importing contacts...');
+      setStatus('Permission granted! Importing contacts...');
       const result = await importContacts();
       const importedContactsJson = result.contacts || [];
 
       // Step 5: Process imported JSON using processContactFromJSON
-      setStatus('🔄 Processing contacts with processContactFromJSON...');
+      setStatus('Processing contacts...');
       const processedContacts: Contact[] = [];
       for (const contactJson of importedContactsJson) {
         try {
@@ -54,7 +54,7 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
         }
       }
 
-      setStatus('💾 Saving contacts to Nextgraph...');
+      setStatus('Saving contacts to Nextgraph...');
       //TODO: here should be also nextgraph persistence
       try {
         await dataService.addContacts(processedContacts);
@@ -62,7 +62,7 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
         console.warn('Failed to add contacts to dataService: ', err);
       }
 
-      setStatus(`🎉 Successfully imported and processed ${processedContacts.length} contacts! Redirecting to contacts...`);
+      setStatus(`Successfully imported and processed ${processedContacts.length} contacts! Redirecting to contacts...`);
       setSuccess(true);
       onGetResult(processedContacts);
 

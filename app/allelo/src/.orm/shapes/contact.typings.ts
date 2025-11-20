@@ -192,6 +192,10 @@ export interface SocialContact {
    * Original IRI: did:ng:x:contact#mergedFrom
    */
   mergedFrom?: Set<IRI>;
+  /**
+   * Original IRI: did:ng:x:contact#centralityScore
+   */
+  centralityScore?: number;
 }
 
 /**

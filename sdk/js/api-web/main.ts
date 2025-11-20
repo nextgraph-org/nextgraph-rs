@@ -127,7 +127,7 @@ function call_sdk(method:string, args?: any) {
                         });
                         resolved = true;
                     }
-                    if (m.data.ret) {
+                    if (m.data.ret !== undefined) {
                         (callback)(m.data.ret);
                     }
                 } else if (!m.data.ok) {

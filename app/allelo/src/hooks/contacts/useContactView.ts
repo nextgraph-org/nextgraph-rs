@@ -4,12 +4,12 @@ import {useEffect, useState, useCallback} from 'react';
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
 
 
-export const useContactView = (id: string | null, refreshKey = 0) => {
+export const useContactView = (id: string | null/*, refreshKey = 0*/) => {
   const [contactGroups, setContactGroups] = useState<Group[]>([]);
   const [humanityDialogOpen, setHumanityDialogOpen] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
 
-  const {contact, isLoading: contactLoading, error: contactError, setContact, resource} = useContactData(id, false, refreshKey);
+  const {contact, isLoading: contactLoading, error: contactError, setContact, resource} = useContactData(id, false/*, refreshKey*/);
 
   // Load and filter groups when contact changes
   useEffect(() => {

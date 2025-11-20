@@ -579,6 +579,17 @@ export const contactSchema: Schema = {
         iri: "did:ng:x:contact#mergedFrom",
         readablePredicate: "mergedFrom",
       },
+      {
+        dataTypes: [
+          {
+            valType: "number",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#centralityScore",
+        readablePredicate: "centralityScore",
+      },
     ],
   },
   "did:ng:x:contact:class#SocialContact||did:ng:x:contact#phoneNumber": {

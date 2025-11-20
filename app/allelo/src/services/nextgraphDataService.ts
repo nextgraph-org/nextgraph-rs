@@ -462,44 +462,9 @@ WHERE {
     commitData: CommitDataFunction,
     changeData: ChangeDataFunction,
   ) {
-    console.log(`📥 Starting to save ${contacts.length} contacts...`);
-    let successCount = 0;
-    let errorCount = 0;
-    const batchSize = 5; // Process 5 contacts at a time
-
-    for (let i = 0; i < contacts.length; i += batchSize) {
-      const batch = contacts.slice(i, i + batchSize);
-      const batchPromises = batch.map(async (contact, index) => {
-        try {
-          await this.createContact(session, contact, createData, commitData, changeData);
-          return { success: true, index: i + index };
-        } catch (error) {
-          console.error(`❌ Failed to save contact ${i + index + 1}:`, error);
-          return { success: false, index: i + index, error };
-        }
-      });
-
-      const results = await Promise.all(batchPromises);
-
-      results.forEach(result => {
-        if (result.success) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      });
-
-      if ((i + batch.length) % 10 === 0 || (i + batch.length) >= contacts.length) {
-        console.log(`✅ Saved ${Math.min(i + batch.length, contacts.length)}/${contacts.length} contacts`);
-      }
-
-      // Small delay between batches to avoid overwhelming the system
-      if (i + batchSize < contacts.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+    for (const contact of contacts) {
+      await this.createContact(session, contact, createData, commitData, changeData);
     }
-
-    console.log(`✅ Import complete: ${successCount} succeeded, ${errorCount} failed out of ${contacts.length} total`);
   };
 
   async getDuplicatedContacts(session?: NextGraphSession): Promise<string[][]> {

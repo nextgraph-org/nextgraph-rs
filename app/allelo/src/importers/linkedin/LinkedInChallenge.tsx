@@ -28,7 +28,7 @@ export function LinkedInChallenge({sessionId, onSuccess, onRestart}: LinkedInCha
 
       const data = await response.json();
 
-      if (response.status === 422) {
+      if (response.status === 422 && data.sessionId) {
         setError('Challenge in app is not accepted yet. Please try again.');
         setIsIncorrectCode(true);
         setLoading(false);
