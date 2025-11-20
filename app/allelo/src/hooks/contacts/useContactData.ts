@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useState} from "react";
 import type {Contact} from "@/types/contact";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";

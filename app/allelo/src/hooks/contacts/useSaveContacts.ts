@@ -7,7 +7,7 @@ import {dataService} from "@/services/dataService.ts";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
 
 interface UseSaveContactsReturn {
-  saveContacts: (contacts: Contact[]) => Promise<void>;
+  saveContacts: (contacts: Contact[], onProgress?: (current: number, total: number) => void) => Promise<void>;
   createContact: (contact: Contact) => Promise<Contact | undefined>;
   updateContact: (contactId: string, updates: Partial<Contact>) => Promise<void>;
   isLoading: boolean;
@@ -24,7 +24,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
 
   const isNextGraph = isNextGraphEnabled();
 
-  const saveContacts = useCallback(async (contacts: Contact[]) => {
+  const saveContacts = useCallback(async (contacts: Contact[], onProgress?: (current: number, total: number) => void) => {
     if (isNextGraph && !session) {
       const errorMsg = 'No active session available';
       setError(errorMsg);
@@ -36,7 +36,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
 
     try {
       if (isNextGraph) {
-        await nextgraphDataService.saveContacts(session!, contacts, createData, commitData, changeData);
+        await nextgraphDataService.saveContacts(session!, contacts, createData, commitData, changeData, onProgress);
       } else {
         await dataService.addContacts(contacts);
       }
