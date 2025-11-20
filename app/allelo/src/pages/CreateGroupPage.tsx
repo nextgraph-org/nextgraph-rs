@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import {useState, useRef, useCallback} from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -44,7 +44,7 @@ const CreateGroupPage = () => {
     navigate('/groups');
   };
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     // Validate form before proceeding
     if (!formData.name.trim()) {
       return; // TODO: Show validation error
@@ -55,7 +55,7 @@ const CreateGroupPage = () => {
     params.set('returnTo', 'create-group');
     params.set('groupData', encodeURIComponent(JSON.stringify(formData)));
     navigate(`/contacts?${params.toString()}`);
-  };
+  }, [formData, navigate] );
 
   const handleInputChange = (field: keyof GroupFormData, value: string) => {
     setFormData(prev => ({
@@ -193,7 +193,7 @@ const CreateGroupPage = () => {
               {/* Group Name */}
               <TextField
                 fullWidth
-                label="Group Name"
+                placeholder="Group Name"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 sx={{ mb: 3 }}
@@ -203,13 +203,12 @@ const CreateGroupPage = () => {
               {/* Description */}
               <TextField
                 fullWidth
-                label="Description"
+                placeholder="Description"
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 multiline
                 rows={4}
                 sx={{ mb: 3 }}
-                placeholder="What is this group about?"
               />
 
               {/* Tags */}
