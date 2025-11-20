@@ -58,7 +58,7 @@ export const useRelationshipCategories = (): UseRelationshipCategoriesReturn => 
       }))
   ];
 
-  const getCategoriesArray = () => Array.from(relationshipCategories).filter(c => c.id !== 'default');
+  const getCategoriesArray = () => Array.from(relationshipCategories);
 
   return {
     categories: relationshipCategories,
