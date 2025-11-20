@@ -20,11 +20,11 @@ const ContactListPage = () => {
 
   const tabItems = useMemo<TabItem[]>(
     () => [
-      {label: "List", icon: <List/>, content: <ContactListTab manageMode={manageMode}/>},
+      {label: "List", icon: <List/>, content: <ContactListTab manageMode={manageMode} setManageMode={setManageMode}/>},
       {label: "Network", icon: <Hub/>, content: <ContactNetworkTab/>},
       {label: "Map", icon: <Map/>, content: <ContactMapTab/>},
     ],
-    [manageMode]
+    [manageMode, setManageMode]
   );
   return <Box sx={{
     width: '100%',
