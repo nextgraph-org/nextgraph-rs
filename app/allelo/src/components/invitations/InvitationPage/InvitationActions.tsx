@@ -5,59 +5,31 @@ import {
   Paper,
   Button,
   Grid,
-  Divider,
-  IconButton,
-  TextField,
-  InputAdornment,
 } from '@mui/material';
 import {
-  UilShareAlt,
-  UilCopy,
-  UilEnvelope,
-  UilMessage,
   UilDownloadAlt,
-  UilSync,
 } from '@iconscout/react-unicons';
-import { WhatsApp } from '@mui/icons-material';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Group } from '@/types/group';
 
 export interface InvitationActionsProps {
-  invitationUrl: string;
-  invitationId: string;
-  personalizedInvite: {
-    inviteeName?: string;
-    inviterName?: string;
-  };
   group: Group | null;
   isGroupInvite: boolean;
-  onCopyToClipboard: () => void;
-  onShare: () => void;
-  onEmailShare: () => void;
-  onWhatsAppShare: () => void;
-  onSMSShare: () => void;
   onDownloadQR: () => void;
   onNewInvitation: () => void;
 }
 
 export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsProps>(
   ({ 
-    invitationUrl,
-    invitationId,
     group,
     isGroupInvite,
-    onCopyToClipboard,
-    onShare,
-    onEmailShare,
-    onWhatsAppShare,
-    onSMSShare,
     onDownloadQR,
-    onNewInvitation,
   }, ref) => {
+    //TODO: replace with real QR
     return (
       <Box ref={ref}>
         <Grid container spacing={4}>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 12 }}>
             <Paper sx={{ p: 3, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" gutterBottom>
                 QR Code
@@ -65,7 +37,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
               <Box sx={{ mb: 2 }}>
                 <QRCodeSVG
                   id="qr-code-svg"
-                  value={invitationUrl}
+                  value={"balue"}
                   size={200}
                   level="M"
                   includeMargin={true}
@@ -88,19 +60,11 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
                 >
                   Download
                 </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<UilSync size="20" />}
-                  onClick={onNewInvitation}
-                  size="small"
-                >
-                  New QR
-                </Button>
               </Box>
             </Paper>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
+          {/*<Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" gutterBottom>
                 Share Link
@@ -170,7 +134,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
                 </Button>
               </Box>
             </Paper>
-          </Grid>
+          </Grid>*/}
         </Grid>
       </Box>
     );

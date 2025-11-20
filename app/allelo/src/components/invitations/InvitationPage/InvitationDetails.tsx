@@ -9,17 +9,17 @@ import { UilUsersAlt } from '@iconscout/react-unicons';
 import type { Group } from '@/types/group';
 
 export interface InvitationDetailsProps {
-  personalizedInvite: {
-    inviteeName?: string;
-    inviterName?: string;
-    relationshipType?: string;
-  };
   group: Group | null;
   isGroupInvite: boolean;
 }
 
 export const InvitationDetails = forwardRef<HTMLDivElement, InvitationDetailsProps>(
-  ({ personalizedInvite, group, isGroupInvite }, ref) => {
+  ({ group, isGroupInvite }, ref) => {
+    //TODO: this is hard-coded for now
+    const personalizedInvite = {
+      inviteeName: "Chuvak",
+    }
+
     return (
       <Box ref={ref} sx={{ textAlign: 'center', mb: 4 }}>
         {isGroupInvite && (
