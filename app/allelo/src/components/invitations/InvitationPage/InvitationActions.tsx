@@ -30,7 +30,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
       <Box ref={ref}>
         <Grid container spacing={4}>
           <Grid size={{ xs: 12, md: 12 }}>
-            <Paper sx={{ p: 3, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ p: 3, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" gutterBottom>
                 QR Code
               </Typography>

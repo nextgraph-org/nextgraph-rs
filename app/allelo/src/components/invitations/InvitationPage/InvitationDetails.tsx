@@ -1,69 +1,73 @@
-import { forwardRef } from 'react';
+import {forwardRef} from 'react';
 import {
   Typography,
   Box,
   Avatar,
   Chip,
 } from '@mui/material';
-import { UilUsersAlt } from '@iconscout/react-unicons';
-import type { Group } from '@/types/group';
+import {UilUsersAlt} from '@iconscout/react-unicons';
+import type {Group} from '@/types/group';
+import {SocialContact} from "@/.ldo/contact.typings.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
 export interface InvitationDetailsProps {
   group: Group | null;
   isGroupInvite: boolean;
+  contact?: SocialContact | undefined;
 }
 
 export const InvitationDetails = forwardRef<HTMLDivElement, InvitationDetailsProps>(
-  ({ group, isGroupInvite }, ref) => {
-    //TODO: this is hard-coded for now
-    const personalizedInvite = {
-      inviteeName: "Chuvak",
-    }
+  ({group, isGroupInvite, contact}, ref) => {
+
+    const name = resolveFrom(contact, "name");
+    const resolvedName = name?.value || renderTemplate(defaultTemplates.contactName, name);
 
     return (
-      <Box ref={ref} sx={{ textAlign: 'center', mb: 4 }}>
-        {isGroupInvite && (
-          <Typography variant="h3" component="h1" gutterBottom sx={{ mb: 3 }}>
-            {personalizedInvite.inviteeName
-              ? `Invite ${personalizedInvite.inviteeName} to ${group?.name}`
-              : `Invite to ${group?.name}`
-            }
-          </Typography>
-        )}
-        
-        {!isGroupInvite && (
-          <Typography variant="h3" component="h1" gutterBottom>
-            {personalizedInvite.inviteeName 
-              ? `Invite ${personalizedInvite.inviteeName} to Your Network`
-              : 'Invite to Your Network'
-            }
-          </Typography>
-        )}
-        
-        {isGroupInvite && group && (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
-            <Avatar
-              src={group.image}
-              alt={group.name}
-              sx={{ 
-                width: 64, 
-                height: 64, 
-                bgcolor: 'white',
-                border: 1,
-                borderColor: 'primary.main',
-                color: 'primary.main'
-              }}
-            >
-              <UilUsersAlt size="20" />
-            </Avatar>
-            <Box>
-              {group.isPrivate && (
-                <Chip label="Private Group" size="small" variant="outlined" />
-              )}
+
+        <Box ref={ref} sx={{textAlign: 'center'}}>
+          {isGroupInvite && (
+            <Typography variant="h3" component="h1" gutterBottom sx={{mb: 3}}>
+              {resolvedName
+                ? `Invite ${resolvedName} to ${group?.name}`
+                : `Invite to ${group?.name}`
+              }
+            </Typography>
+          )}
+
+          {!isGroupInvite && (
+            <Typography variant="h3" component="h1" gutterBottom>
+              {resolvedName
+                ? `Invite ${resolvedName} to Your Network`
+                : 'Invite to Your Network'
+              }
+            </Typography>
+          )}
+
+          {isGroupInvite && group && (
+            <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2}}>
+              <Avatar
+                src={group.image}
+                alt={group.name}
+                sx={{
+                  width: 64,
+                  height: 64,
+                  bgcolor: 'white',
+                  border: 1,
+                  borderColor: 'primary.main',
+                  color: 'primary.main'
+                }}
+              >
+                <UilUsersAlt size="20"/>
+              </Avatar>
+              <Box>
+                {group.isPrivate && (
+                  <Chip label="Private Group" size="small" variant="outlined"/>
+                )}
+              </Box>
             </Box>
-          </Box>
-        )}
-      </Box>
+          )}
+        </Box>
     );
   }
 );

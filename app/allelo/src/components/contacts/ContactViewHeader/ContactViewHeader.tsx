@@ -1,4 +1,4 @@
-import {forwardRef, useState} from 'react';
+import {forwardRef, useCallback, useState} from 'react';
 import {
   Typography,
   Box,
@@ -32,6 +32,7 @@ import {PropertyWithSources} from '../PropertyWithSources';
 import {ContactTags} from '../ContactTags';
 import {defaultTemplates} from "@/utils/templateRenderer.ts";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {useNavigate} from "react-router-dom";
 
 export interface ContactViewHeaderProps {
   contact: Contact | null;
@@ -47,16 +48,12 @@ export interface ContactViewHeaderProps {
 export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderProps>(
   ({contact, isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent, resource}, ref) => {
     const [showNameDetails, setShowNameDetails] = useState(false);
+    const navigate = useNavigate();
 
     const theme = useTheme();
     const {getCategoryIcon, getCategoryById} = useRelationshipCategories();
 
-    if (!contact) return null;
-
-    const name = resolveFrom(contact, 'name');
-    const photo = resolveFrom(contact, 'photo');
-
-    const getNaoStatusIndicator = (contact: Contact) => {
+    const getNaoStatusIndicator = useCallback((contact: Contact) => {
       switch (contact.naoStatus?.value) {
         case 'member':
           return {
@@ -83,7 +80,19 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
             borderColor: theme.palette.divider
           };
       }
-    };
+    },[theme.palette.divider, theme.palette.success.light, theme.palette.success.main, theme.palette.text.secondary, theme.palette.warning.light, theme.palette.warning.main]);
+
+    const navigateToQR = useCallback(() => {
+      const params = new URLSearchParams();
+      params.set('contactNuri', resource.uri ?? "");
+      navigate(`/invite?${params.toString()}`);
+    }, [navigate, contact]);
+
+    if (!contact) return null;
+
+    const name = resolveFrom(contact, 'name');
+    const photo = resolveFrom(contact, 'photo');
+
     const naoStatus = getNaoStatusIndicator(contact);
 
     return (
@@ -323,13 +332,12 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               mt: 2
             }}>
               {/* Invite to NAO button for non-members */}
-              {contact.naoStatus?.value === 'not_invited' && (
+              {contact.naoStatus?.value !== 'member' && contact.naoStatus?.value !== 'invited' && (
                 <Button
                   variant="contained"
                   startIcon={<UilMessage size="20"/>}
                   size="small"
-                  onClick={/*handleInviteToNao*/() => {
-                  }}
+                  onClick={navigateToQR}
                   color="primary"
                 >
                   Invite to NAO
