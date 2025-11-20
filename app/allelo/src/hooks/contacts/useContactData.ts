@@ -32,8 +32,10 @@ export const useContactData = (nuri: string | null, isProfile = false, /*refresh
   );
 
   const ormContacts = useShape(Shape, nuri ? nuri : undefined);
-  const ormContact = useMemo(() => ormContacts?.values().next().value, [ormContacts]);
-
+  const objects = [...(ormContacts || [])];
+  //console.log(objects[0]);
+  const ormContact = objects[0];
+  //console.log("ormContact",ormContact,ormContacts?.values().next().value);
   const mockNuri = !isNextGraph ? nuri : null;
   const mockContact = useMockContactSubject(mockNuri/*, refreshKey*/);
 

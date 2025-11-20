@@ -33,7 +33,6 @@ export const  ContactAvatarUpload = ({
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [displayUrl, setDisplayUrl] = useState<string | undefined>(photoUrl);
 
-
   // Load image from nuri when component mounts or photoNuri changes
   useEffect(() => {
     if (!ormContact) {

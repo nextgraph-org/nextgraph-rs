@@ -1,4 +1,4 @@
-import {ng} from "@ng-org/web";
+import { default as ng } from "../.auth-react/api";
 
 export class ImageService {
   private static instance: ImageService;
@@ -72,7 +72,7 @@ export class ImageService {
     const chunkSize = 1_048_564;
     const fileSize = file.size;
     let offset = 0;
-    const readBlock = null;
+    let readBlock = null;
     progress({ total: fileSize, current: offset });
 
     return new Promise((resolve, reject) => {

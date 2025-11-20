@@ -229,12 +229,12 @@ export class OrmConnection<T extends BaseType> {
         if (object["@id"] && object["@id"] !== "") {
             subjectIri = object["@id"];
         } else {
-            console.debug(
-                "Generating new random id for path",
-                path,
-                "object:",
-                object
-            );
+            // console.debug(
+            //     "Generating new random id for path",
+            //     path,
+            //     "object:",
+            //     object
+            // );
 
             // Generate 33 random bytes using Web Crypto API
             const b = new Uint8Array(33);

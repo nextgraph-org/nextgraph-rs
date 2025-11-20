@@ -1873,7 +1873,7 @@ pub async fn orm_update(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     request.set_session_id(session_id);
-    log_info!("[orm_update] calling orm_update");
+    //log_info!("[orm_update] calling orm_update");
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
