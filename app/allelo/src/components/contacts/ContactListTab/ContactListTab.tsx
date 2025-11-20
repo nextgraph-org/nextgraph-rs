@@ -325,7 +325,7 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
           isContactSelected={isContactSelected}
           selectedContacts={selectedContacts}
           onSetIconFilter={setIconFilter}
-          inManageMode={manageMode}
+          inManageMode={manageMode || mode === 'create-group'}
         />
       </Box>
     )}
