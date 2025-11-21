@@ -29,6 +29,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
   const [sessionId, setSessionId] = useState<string>('');
   const [linkedInUsername, setLinkedInUsername] = useState<string>('');
   const [preservedUsername, setPreservedUsername] = useState<string>('');
+  const [closeButtonText, setCloseButtonText] = useState<string>('Cancel');
 
   const processLinkedInData = useCallback(async (data: LinkedInData) => {
     try {
@@ -175,6 +176,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
             onSuccess={handleArchiveSuccess}
             onFallbackToDragDrop={handleArchiveFallback}
             onRelogin={handleArchiveRelogin}
+            setCloseButtonText={setCloseButtonText}
           />
         );
       case 'DRAG_DROP':
@@ -185,7 +187,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
           />
         );
     }
-  }, [currentStep, handleArchiveFallback, handleArchiveRelogin, handleArchiveSuccess, handleCaptchaRequired, handleDragDropError, handleDragDropSuccess, handleLoginSuccess, handleVerificationRequired, handleVerificationRestart, handleVerificationSuccess, linkedInUsername, preservedUsername, sessionId]);
+  }, [currentStep, handleArchiveFallback, handleArchiveRelogin, handleArchiveSuccess, handleCaptchaRequired, handleChallengeRequired, handleDragDropError, handleDragDropSuccess, handleLoginSuccess, handleVerificationRequired, handleVerificationRestart, handleVerificationSuccess, linkedInUsername, preservedUsername, sessionId]);
 
   return (
     <Dialog
@@ -201,7 +203,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
       <DialogActions>
         {renderButtons()}
         <Button onClick={handleClose}>
-          Cancel
+          {closeButtonText}
         </Button>
       </DialogActions>
     </Dialog>

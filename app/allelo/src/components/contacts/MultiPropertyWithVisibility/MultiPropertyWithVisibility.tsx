@@ -299,7 +299,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
   const visibleItems = getVisibleItems(contact, propertyKey);
 
   const renderManageMenu = () => {
-    if (!showManageButton || allItems.length <= 1 && !isEditing) return null;
+    if (!showManageButton || allItems.length === 0 && !isEditing) return null;
 
     return (
       <>
@@ -450,13 +450,6 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
         return <ChipsVariant {...commonProps} />;
     }
   };
-
-  if (!isEditing && visibleItems.length === 0) {
-    if (open) {
-      handleClose();
-    }
-    return null;
-  }
 
   return (
     <Box sx={{mb: 2}}>

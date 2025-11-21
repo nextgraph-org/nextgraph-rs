@@ -66,8 +66,8 @@ export const ContactFilters = ({
       {inManageMode && <>
         {totalCount && (
           <Box sx={{
-            mb: 1,
-            mt: {xs: 1, md: 0},
+            mb: 0,
+            mt: {xs: 0, md: 0},
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -86,7 +86,8 @@ export const ContactFilters = ({
                   color: 'primary.main',
                   fontWeight: 500,
                   minWidth: 'auto',
-                  width: 'auto'
+                  width: 'auto',
+                  height: "10px"
                 }}
               >
                 {hasSelection ? 'Deselect All' : 'Select All'}
@@ -118,7 +119,8 @@ export const ContactFilters = ({
                     color: 'primary.main',
                     fontWeight: 500,
                     minWidth: 'auto',
-                    width: 'auto'
+                    width: 'auto',
+                    height: "10px"
                   }}
                 >
                   Merge Contacts

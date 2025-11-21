@@ -57,10 +57,13 @@ const BottomNavigation = ({navigationItems}: BottomNavigationProps) => {
         showLabels
         sx={{ pb:1.5,
           '& .MuiBottomNavigationAction-root': {
+            minWidth: 'auto',
+            padding: '6px 4px',
             color: 'text.secondary',
             '&.Mui-selected': {
               color: 'primary.main',
             },
+
           },
         }}
       >

@@ -104,7 +104,7 @@ export const MultiPropertyItem = ({
     }}>
       {renderTextField()}
       {source && (
-        <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5, width: "135px"}}>
+        <Box sx={{display: {xs: 'none', md: 'flex'}, alignItems: 'center', gap: 0.5, width: "135px"}}>
           {getSourceIcon(source)}
           <Typography variant="caption" color="text.secondary">
             {getSourceLabel(source)}

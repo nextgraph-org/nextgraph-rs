@@ -74,7 +74,7 @@ const CreateContactPage = () => {
   };
 
   return (
-    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.paper'}}>
+    <Box sx={{p: {xs: 0, md: 3}, backgroundColor: 'background.paper'}}>
       <Button
         startIcon={<UilArrowLeft size="20"/>}
         onClick={handleBack}
@@ -83,10 +83,8 @@ const CreateContactPage = () => {
         Back to Contacts
       </Button>
       <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
-        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: -15}}>
-          <Box></Box>
+        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0}}>
           <Box sx={{display: 'block', gap: 1}}>
-          <Box>
             <Button
               style={{float: 'right'}}
               variant={"text"}
@@ -109,19 +107,6 @@ const CreateContactPage = () => {
               Save
             </Button>
             </Box>
-            <Box>
-            <Button
-              style={{float: 'right'}}
-              variant={"text"}
-              startIcon={<UilImage size="20"/>}
-              onClick={updateAvatar}
-              loading={loading}
-              disabled={true}
-            >
-              Avatar
-            </Button>
-            </Box>
-          </Box>
         </Box>
 
         <ContactViewHeader
