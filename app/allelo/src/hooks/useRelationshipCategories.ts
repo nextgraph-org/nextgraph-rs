@@ -58,9 +58,7 @@ export const useRelationshipCategories = (): UseRelationshipCategoriesReturn => 
       }))
   ], []);
 
-  const getCategoriesArray = useCallback(() => Array
-    .from(relationshipCategories)
-    .filter(c => c.id !== 'default'), []);
+  const getCategoriesArray = () => Array.from(relationshipCategories);
 
   return {
     categories: relationshipCategories,

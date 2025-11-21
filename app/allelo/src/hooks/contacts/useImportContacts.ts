@@ -1,6 +1,5 @@
 import {useState, useEffect, useCallback} from 'react';
 import {useSaveContacts} from "@/hooks/contacts/useSaveContacts";
-import {useNavigate} from "react-router-dom";
 import {ImportSourceConfig} from "@/types/importSource";
 import {ImportSourceRegistry} from "@/importers/importSourceRegistry";
 import {Contact} from "@/types/contact";
@@ -20,7 +19,6 @@ export const useImportContacts = (onImportDone: () => void): UseImportContactsRe
   const [isImporting, setIsImporting] = useState(false);
 
   const {saveContacts} = useSaveContacts();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const sources = ImportSourceRegistry.getAllSources();
@@ -31,34 +29,22 @@ export const useImportContacts = (onImportDone: () => void): UseImportContactsRe
     setImportProgress(0);
     setIsImporting(true);
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setImportProgress(prev => {
-        const newProgress = prev + Math.random() * 15;
-        if (newProgress >= 100) {
-          clearInterval(progressInterval);
-          setTimeout(() => {
-            setIsImporting(false);
-            onImportDone();
-          }, 1000);
-          return 100;
-        }
-        return newProgress;
-      });
-    }, 200);
-
     try {
-      await saveContacts(socialContacts);
+      await saveContacts(socialContacts, (current, total) => {
+        const progress = (current / total) * 100;
+        setImportProgress(progress);
+      });
+
       // Add a small delay to ensure NextGraph has processed the data
       await new Promise(resolve => setTimeout(resolve, 1000));
-      // setImportedCount(socialContacts.length);
       setIsLoading(false);
+      setIsImporting(false);
+      onImportDone();
     } catch (error) {
       console.error('Import failed:', error);
-      clearInterval(progressInterval);
       setIsImporting(false);
     }
-  }, [navigate, onImportDone, saveContacts]);
+  }, [onImportDone, saveContacts]);
 
   return {
     importSources,

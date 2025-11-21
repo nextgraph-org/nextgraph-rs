@@ -185,7 +185,7 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
         position: "fixed",
         pt: {xs: 'var(--safe-area-inset-top)'},
         pr: {md:2, xs: 0},
-        pb: {md:3, xs: 'var(--safe-area-inset-bottom)'}
+        pb: {xs:'var(--safe-area-inset-bottom)'}
       }}>
 
         {/* Logo Header Bar */}
