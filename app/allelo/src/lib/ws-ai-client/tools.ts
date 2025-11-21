@@ -12,7 +12,7 @@ export const tools: Tool[] = [
 		type: 'function',
 		function: {
 			name: 'get_contact_by_nuri',
-			description: 'Get the contact information by its NURI (Nextgraph Resource Identifier)',
+			description: 'Get the contact information by its NURI (Nextgraph Resource Identifier). Note that this is a random unique identifier.',
 			parameters: {
 				type: 'object',
 				properties: {
