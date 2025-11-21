@@ -105,13 +105,11 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
           textAlign: {xs: 'left', sm: 'left'},
           gap: {xs: 3, sm: '20px'}
         }}>
-          <Box>
-            <Box sx={{
-              display: 'flex',
-              flexDirection: 'row',
-              gap: 3
-            }}>
-          
+          <Box sx={{
+            display: 'flex',
+            gap: 2,
+            alignItems: "center"
+          }}>
             <Box
               sx={{
                 width: {xs: 100, sm: 120},
@@ -133,108 +131,101 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
             >
               {!photo?.value && (name?.value?.charAt(0) || '')}
             </Box>
-          </Box>
             <Box sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1
-            }}>
-              <Box sx={{
-                display: "flex",
-                mt: 3,
-                flexDirection: "row",
-                justifyContent: "start",
-                alignItems: "start",
-                cursor: 'pointer',
-                '&:hover .name-caret': {
-                  color: 'primary.main',
-                }
-              }}
-              onClick={() => setShowNameDetails(!showNameDetails)}
-              >
-                <PropertyWithSources
-                  label={"Contact name"}
-                  contact={contact}
-                  propertyKey="name"
-                  variant="header"
-                  textVariant="h4"
-                  isEditing={isEditing}
-                  placeholder="Contact Name"
-                  validateParent={validateParent}
-                  template={defaultTemplates.contactName}
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "start",
+              alignItems: "start",
+              width: {xs: '100%', md: 'auto'},
+              cursor: 'pointer',
+              '&:hover .name-caret': {
+                color: 'primary.main',
+              }
+            }}
+                 onClick={() => setShowNameDetails(!showNameDetails)}
+            >
+              <PropertyWithSources
+                label={"Contact name"}
+                contact={contact}
+                propertyKey="name"
+                variant="header"
+                textVariant="h6"
+                isEditing={isEditing}
+                placeholder="Contact Name"
+                validateParent={validateParent}
+                template={defaultTemplates.contactName}
                 resource={resource}
-                />
-                <IconButton
-                  className="name-caret"
-                  sx={{
-                    padding: 0,
-                    ml: 1,
-                    color: 'text.primary',
-                    '&:hover': {
-                      backgroundColor: 'transparent',
-                    }
-                  }}
-                  disableRipple
-                >{showNameDetails ? <UilAngleUp size="24"/> : <UilAngleDown size="24"/>}
-                </IconButton>
-              </Box>
-
-              <Collapse in={showNameDetails}>
-                <Box sx={{mb: 2, ml: 3, mt: 0.2}}>
-                  <PropertyWithSources
-                    propertyKey={"name"}
-                    subKey={"firstName"}
-                    textVariant={"body1"}
-                    contact={contact}
-                    isEditing={isEditing}
-                    label={"First name"}
-                    hideSources={true}
-                  resource={resource}
-                  />
-                  <PropertyWithSources
-                    propertyKey={"name"}
-                    subKey={"middleName"}
-                    textVariant={"body1"}
-                    contact={contact}
-                    isEditing={isEditing}
-                    label={"Middle name"}
-                    hideSources={true}
-                  resource={resource}
-                  />
-                  <PropertyWithSources
-                    propertyKey={"name"}
-                    subKey={"familyName"}
-                    textVariant={"body1"}
-                    contact={contact}
-                    isEditing={isEditing}
-                    label={"Last name"}
-                    hideSources={true}
-                  resource={resource}
-                  />
-                  <PropertyWithSources
-                    propertyKey={"name"}
-                    subKey={"honorificPrefix"}
-                    textVariant={"body1"}
-                    contact={contact}
-                    isEditing={isEditing}
-                    label={"Honorific prefix"}
-                    hideSources={true}
-                  resource={resource}
-                  />
-                  <PropertyWithSources
-                    propertyKey={"name"}
-                    subKey={"honorificSuffix"}
-                    textVariant={"body1"}
-                    contact={contact}
-                    isEditing={isEditing}
-                    label={"Honorific suffix"}
-                    hideSources={true}
-                  resource={resource}
-                  />
-                </Box>
-              </Collapse>
+              />
+              <IconButton
+                className="name-caret"
+                sx={{
+                  padding: 0,
+                  ml: 1,
+                  color: 'text.primary',
+                  '&:hover': {
+                    backgroundColor: 'transparent',
+                  }
+                }}
+                disableRipple
+              >{showNameDetails ? <UilAngleUp size="24"/> : <UilAngleDown size="24"/>}
+              </IconButton>
             </Box>
+
           </Box>
+          <Collapse in={showNameDetails}>
+            <Box sx={{mb: 2, ml: 3, mt: 0.2}}>
+              <PropertyWithSources
+                propertyKey={"name"}
+                subKey={"firstName"}
+                textVariant={"body1"}
+                contact={contact}
+                isEditing={isEditing}
+                label={"First name"}
+                hideSources={true}
+                resource={resource}
+              />
+              <PropertyWithSources
+                propertyKey={"name"}
+                subKey={"middleName"}
+                textVariant={"body1"}
+                contact={contact}
+                isEditing={isEditing}
+                label={"Middle name"}
+                hideSources={true}
+                resource={resource}
+              />
+              <PropertyWithSources
+                propertyKey={"name"}
+                subKey={"familyName"}
+                textVariant={"body1"}
+                contact={contact}
+                isEditing={isEditing}
+                label={"Last name"}
+                hideSources={true}
+                resource={resource}
+              />
+              <PropertyWithSources
+                propertyKey={"name"}
+                subKey={"honorificPrefix"}
+                textVariant={"body1"}
+                contact={contact}
+                isEditing={isEditing}
+                label={"Honorific prefix"}
+                hideSources={true}
+                resource={resource}
+              />
+              <PropertyWithSources
+                propertyKey={"name"}
+                subKey={"honorificSuffix"}
+                textVariant={"body1"}
+                contact={contact}
+                isEditing={isEditing}
+                label={"Honorific suffix"}
+                hideSources={true}
+                resource={resource}
+              />
+            </Box>
+          </Collapse>
 
           <Box sx={{flex: 1, minWidth: 0}}>
 

@@ -442,6 +442,8 @@ export const createAppTheme = (mode: PaletteMode) => {
               borderRadius: 'var(--textfield-border-radius)',
               backgroundColor: isDark ? alpha('#e2e8f0', 0.02) : colors.neutral[5],
               border: `1px solid ${isDark ? alpha('#e2e8f0', 0.12) : colors.neutral[30]}`,
+              paddingBottom: "0px !important",
+              paddingTop: "0px !important",
               '&:hover': {
                 backgroundColor: isDark ? alpha('#e2e8f0', 0.04) : colors.neutral[5],
                 borderColor: isDark ? alpha('#e2e8f0', 0.16) : colors.neutral[30],
@@ -551,6 +553,14 @@ export const createAppTheme = (mode: PaletteMode) => {
           },
         },
       },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            margin: 10,
+            width: 'calc(100% - 20px)'
+          }
+        }
+      }
     },
     cssVariables: true
   });

@@ -170,7 +170,7 @@ const ContactViewPage = () => {
   }
 
   return (
-    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.paper'}}>
+    <Box sx={{p: {xs: 0, md: 3}, backgroundColor: 'background.paper'}}>
       <Button
         startIcon={<ArrowBack size="20"/>}
         onClick={handleBack}
@@ -220,7 +220,7 @@ const ContactViewPage = () => {
         </Alert>
       )}
       
-      <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
+      <Paper sx={{p: {xs: 1, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
         <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
           <Box></Box>
           <Button

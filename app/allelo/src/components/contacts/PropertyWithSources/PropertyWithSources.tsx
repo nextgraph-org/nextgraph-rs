@@ -279,7 +279,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
           <IconButton
             size="small"
             onClick={handleClick}
-            sx={{ml: 1}}
+            sx={{ml: {md: 1, xs: 0}}}
           >
             <MoreVert size="16" style={{color: "rgba(0,0,0,0.19)"}}/>
           </IconButton>

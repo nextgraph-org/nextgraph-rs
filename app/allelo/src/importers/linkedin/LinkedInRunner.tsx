@@ -185,7 +185,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
           />
         );
     }
-  }, [currentStep, handleArchiveFallback, handleArchiveRelogin, handleArchiveSuccess, handleCaptchaRequired, handleDragDropError, handleDragDropSuccess, handleLoginSuccess, handleVerificationRequired, handleVerificationRestart, handleVerificationSuccess, linkedInUsername, preservedUsername, sessionId]);
+  }, [currentStep, handleArchiveFallback, handleArchiveRelogin, handleArchiveSuccess, handleCaptchaRequired, handleChallengeRequired, handleDragDropError, handleDragDropSuccess, handleLoginSuccess, handleVerificationRequired, handleVerificationRestart, handleVerificationSuccess, linkedInUsername, preservedUsername, sessionId]);
 
   return (
     <Dialog
