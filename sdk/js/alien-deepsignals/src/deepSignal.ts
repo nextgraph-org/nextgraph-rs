@@ -276,6 +276,18 @@ function queueDeepPatches(
                     object: entry,
                 });
 
+                // Apply extraProps to the object
+                if (result.extraProps) {
+                    for (const [key, value] of Object.entries(
+                        result.extraProps
+                    )) {
+                        // Only apply if property doesn't exist or is empty string
+                        if (!(key in entry) || entry[key] === "") {
+                            entry[key] = value;
+                        }
+                    }
+                }
+
                 // Add synthetic id if specified and not already present
                 if (
                     options.syntheticIdPropertyName &&
@@ -767,6 +779,18 @@ function getFromSet(
                                 inSet: true,
                                 object: entry,
                             });
+
+                            // Apply extraProps to the object
+                            if (result.extraProps) {
+                                for (const [key, value] of Object.entries(
+                                    result.extraProps
+                                )) {
+                                    // Only apply if property doesn't exist or is empty string
+                                    if (!(key in entry) || entry[key] === "") {
+                                        entry[key] = value;
+                                    }
+                                }
+                            }
 
                             // Add synthetic id if specified and not already present
                             if (
