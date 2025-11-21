@@ -80,8 +80,7 @@ export const ContactListHeader = ({
       width: '100%',
       overflow: 'hidden',
       minWidth: 0,
-      position: 'sticky',
-      top: 0
+      flexShrink: 0,
     }}>
       <Box sx={{flex: 1, minWidth: 0, overflow: 'hidden', display: "flex", alignItems: 'center', gap: 1}}>
         {manageMode && (
