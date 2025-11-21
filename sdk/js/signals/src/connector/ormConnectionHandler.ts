@@ -151,13 +151,14 @@ export class OrmConnection<T extends BaseType> {
         });
     };
 
-    private onBackendMessage = ({ V0: data }: any) => {
-        if (data.OrmInitial) {
+    private onBackendMessage = (message: any) => {
+        const data = message?.V0;
+        if (data?.OrmInitial) {
             this.handleInitialResponse(data.OrmInitial);
-        } else if (data.OrmUpdate) {
+        } else if (data?.OrmUpdate) {
             this.onBackendUpdate(data.OrmUpdate);
         } else {
-            console.warn("Received unknown ORM message from backend", data);
+            console.warn("Received unknown ORM message from backend", message);
         }
     };
 
@@ -166,6 +167,8 @@ export class OrmConnection<T extends BaseType> {
         //     "[handleInitialResponse] handleInitialResponse called with",
         //     initialData
         // );
+
+        // TODO: We could add a feature to alien deep signals, to  prevent emitting patches here.
 
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
