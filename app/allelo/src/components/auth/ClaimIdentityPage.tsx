@@ -173,7 +173,7 @@ export const ClaimIdentityPage = () => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 2
+        p: {xs:1, md: 2}
       }}
     >
       <Paper
@@ -181,7 +181,7 @@ export const ClaimIdentityPage = () => {
         sx={{
           width: '100%',
           maxWidth: {xs: 480, md: 640},
-          p: {xs: 3, sm: 4, md: 5},
+          p: {xs: 2, sm: 4, md: 5},
           borderRadius: 3,
           backgroundColor: 'background.paper'
         }}
