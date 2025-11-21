@@ -77,8 +77,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
 
     return (
       <Box ref={ref} sx={{position: 'relative'}}>
-        <Card>
-          <CardContent>
+
             {/* Header with Avatar on mobile, title on desktop */}
             <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
               <Typography variant="h6" sx={{fontWeight: 600}}>
@@ -415,8 +414,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 </Button>
               )}
             </Box>
-          </CardContent>
-        </Card>
+
 
         {/* Edit/Exit button - Fixed position bottom right on mobile, above tabs */}
         <Box sx={{
