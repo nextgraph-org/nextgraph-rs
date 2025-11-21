@@ -226,7 +226,9 @@ WHERE {
       `FILTER NOT EXISTS { ?contactUri ngcontact:mergedInto ?mergedIntoNode }`
     ];
     for (const [key, value] of filterParams) {
-      if (key === "fts") {
+      if (key === "hasAddress" && value === "true") {
+        filterData.push(`FILTER EXISTS { ?contactUri ngcontact:address ?addressNode }`);
+      } else if (key === "fts") {
         filterData.push(...this.getFtsFilterData(value));
       } else {
         filterData.push(`

@@ -16,6 +16,7 @@ export interface ContactsFilters extends SortParams {
   accountFilter?: string;
   groupFilter?: string;
   currentUserGroupIds?: string[];
+  hasAddressFilter?: boolean;
 }
 
 export type iconFilter = 'relationshipFilter' | 'naoStatusFilter' | 'accountFilter' | 'vouchFilter' | 'praiseFilter';
@@ -38,7 +39,24 @@ export interface ContactsReturn {
 }
 
 
-export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
+const defaultFilters: ContactsFilters = {
+  searchQuery: '',
+  relationshipFilter: 'all',
+  naoStatusFilter: 'all',
+  accountFilter: 'all',
+  groupFilter: 'all',
+  sortBy: 'mostActive',
+  sortDirection: 'asc',
+  currentUserGroupIds: [],
+  hasAddressFilter: false
+};
+
+export interface UseContactsParams {
+  limit?: number;
+  initialFilters?: Partial<ContactsFilters>;
+}
+
+export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}): ContactsReturn => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactNuris, setContactNuris] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,16 +64,10 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
-  const [filters, setFilters] = useState<ContactsFilters>({
-    searchQuery: '',
-    relationshipFilter: 'all',
-    naoStatusFilter: 'all',
-    accountFilter: 'all',
-    groupFilter: 'all',
-    sortBy: 'mostActive',
-    sortDirection: 'asc',
-    currentUserGroupIds: []
-  });
+  const [filters, setFilters] = useState<ContactsFilters>(() => ({
+    ...defaultFilters,
+    ...initialFilters
+  }));
 
   const {updateContact: editContact} = useSaveContacts();
   const isNextGraph = isNextGraphEnabled();
@@ -93,7 +105,8 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
       groupFilter = 'all',
       sortBy = 'name',
       sortDirection = 'asc',
-      currentUserGroupIds = []
+      currentUserGroupIds = [],
+      hasAddressFilter = false
     } = filters;
 
     const filtered = allContacts.filter(contact => {
@@ -146,7 +159,10 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
       const matchesPraises = sortBy !== 'praiseTotal' ||
         ((contact.praisesSent || 0) + (contact.praisesReceived || 0)) > 0;
 
-      return matchesSearch && matchesRelationship && matchesNaoStatus && matchesSource && matchesGroup && matchesVouches && matchesPraises && inGroup;
+      // Address filter - only show contacts with at least one address
+      const matchesHasAddress = !hasAddressFilter || (contact.address && contact.address.size > 0);
+
+      return matchesSearch && matchesRelationship && matchesNaoStatus && matchesSource && matchesGroup && matchesVouches && matchesPraises && matchesHasAddress && inGroup;
     });
 
     // Sort the filtered results
@@ -277,7 +293,8 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
       sortBy = 'name',
       sortDirection = 'asc',
       accountFilter = 'all',
-      searchQuery
+      searchQuery,
+      hasAddressFilter = false
     } = filters;
 
 
@@ -287,6 +304,9 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
     }
     if (searchQuery) {
       filterParams.set('fts', searchQuery);
+    }
+    if (hasAddressFilter) {
+      filterParams.set('hasAddress', 'true');
     }
 
     const offset = page * limit;
@@ -327,7 +347,8 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
       accountFilter: 'all',
       groupFilter: 'all',
       sortBy: 'mostActive',
-      sortDirection: 'asc'
+      sortDirection: 'asc',
+      hasAddressFilter: false
     }));
   }, []);
 
