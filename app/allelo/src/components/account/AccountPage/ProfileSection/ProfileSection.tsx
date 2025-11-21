@@ -332,35 +332,8 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
               </Grid>
             </Grid>
 
-            {/* Edit/Exit button - FAB position on mobile, inline on desktop */}
-            <Box sx={{
-              display: {xs: 'none', md: 'flex'},
-              justifyContent: 'flex-end',
-              mt: 3
-            }}>
-              {!isEditing ? (
-                <Button
-                  variant="outlined"
-                  startIcon={<UilEdit size="20"/>}
-                  onClick={handleEdit}
-                >
-                  Edit
-                </Button>
-              ) : (
-                <Button
-                  variant="outlined"
-                  startIcon={<UilEdit size="20"/>}
-                  onClick={handleSave}
-                >
-                  Exit
-                </Button>
-              )}
-            </Box>
-
-
-        {/* Edit/Exit button - Fixed position bottom right on mobile, above tabs */}
         <Box sx={{
-          display: {xs: 'block', md: 'none'},
+          display: {xs: 'block', md: 'block'},
           position: 'fixed',
           top: 10,
           right: 16,
