@@ -45,8 +45,8 @@ const defaultFilters: ContactsFilters = {
   naoStatusFilter: 'all',
   accountFilter: 'all',
   groupFilter: 'all',
-  sortBy: 'mostActive',
-  sortDirection: 'asc',
+  sortBy: 'mostRecentInteraction',
+  sortDirection: 'desc',
   currentUserGroupIds: [],
   hasAddressFilter: false
 };
@@ -195,13 +195,13 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
           compareValue = aGroups - bGroups;
           break;
         }
-        case 'lastInteractionAt': {
-          const aDate = a.lastInteractionAt?.getTime() || 0;
-          const bDate = b.lastInteractionAt?.getTime() || 0;
+        case 'mostRecentInteraction': {
+          const aDate = a.mostRecentInteraction ? new Date(a.mostRecentInteraction).getTime() : 0;
+          const bDate = b.mostRecentInteraction ? new Date(b.mostRecentInteraction).getTime() : 0;
           compareValue = aDate - bDate;
           break;
         }
-        case 'mostActive': {
+        /*case 'mostActive': {
           const now = Date.now();
           const dayInMs = 24 * 60 * 60 * 1000;
           const weekInMs = 7 * dayInMs;
@@ -232,7 +232,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
           const bActivity = calculateActivityScore(b);
           compareValue = bActivity - aActivity;
           break;
-        }
+        }*/
         /* TODO: I don't think we would have this one
            case 'nearMeNow': {
            const aAddress = resolveFrom(a, 'address');
@@ -290,8 +290,8 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     }
 
     const {
-      sortBy = 'name',
-      sortDirection = 'asc',
+      sortBy = 'mostRecentInteraction',
+      sortDirection = 'desc',
       accountFilter = 'all',
       searchQuery,
       hasAddressFilter = false

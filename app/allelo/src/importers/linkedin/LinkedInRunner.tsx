@@ -51,7 +51,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
       if (data.data.contactsData && Array.isArray(data.data.contactsData)) {
         for (const connection of data.data.contactsData) {
           // Skip empty contacts
-          if (!connection.firstName && !connection.lastName && !connection.fullName) {
+          if (!connection.firstName && !connection.lastName) {
             continue;
           }
 
