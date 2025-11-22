@@ -9,6 +9,7 @@ import {ContactCardDetailed} from './ContactCardDetailed';
 import {iconFilter} from "@/hooks/contacts/useContacts";
 import {useContactData} from "@/hooks/contacts/useContactData";
 import {useDraggable} from "@dnd-kit/core";
+import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 
 export interface ContactCardProps {
   nuri: string;
@@ -64,6 +65,12 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
           return <UilMessage size="16" color={theme.palette.primary.main}/>;
       }
     };
+
+    //TODO: investigate why do we have empty contacts sometimes
+    const name = resolveFrom(contact, 'name');
+    if (!name) {
+      return ;
+    }
 
     return (
       <Card
