@@ -48,7 +48,7 @@ const streamed_api: Record<string,number> = {
 
 function rpc( method:string, args?: any) : Promise<any> {
   const { port1, port2 } = new MessageChannel();
-  console.log("POSTING",method, args);
+  //console.log("POSTING",method, args);
   let callback_idx = streamed_api[method];
   if (callback_idx !== undefined) { 
     let callback = args[callback_idx];
