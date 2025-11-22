@@ -89,7 +89,7 @@ every time you modify the SDK, re-run (at the root of mono-repo) :
 
 ```bash
 cargo run-script libwasmdev3
-# Or in the sdk/js/lib-wasm folder run cargo run-script appdev3
+# Or in the sdk/js/lib-wasm folder run: cargo run-script appdev3
 ```
 
 ## Production build
