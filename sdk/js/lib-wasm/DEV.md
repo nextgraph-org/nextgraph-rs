@@ -73,7 +73,7 @@ In this setup you can only have one account. if you need to reset the account/wa
 
 - take note of the PeerID of the node that is displayed in the log output of ngd (you will maybe need it later)
 - open your web-browser's console log, and copy the USER PRIV_KEY that is displayed in a warning (you will maybe need it later)
-- the follow [the steps here](../../../DEV-ALLELO.md#setting-up-local-account-server) to install and run your ngaccount server
+- the follow [the steps in chapter "setting up local account server" of this readme](../../../DEV-ALLELO.md#setting-up-local-account-server) to install and run your ngaccount server
 
 finally, start your local third party webapp you will use to test the WASM SDK.
 in a separate terminal, from the root of the mono-repo,
