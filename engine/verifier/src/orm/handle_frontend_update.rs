@@ -86,6 +86,8 @@ impl Verifier {
 
             let sparql_update = create_sparql_update_query_for_patches(orm_subscription, patches);
 
+            log_debug!("[orm_frontend_update] SPARQL update:\n{}", sparql_update);
+
             (doc_nuri, sparql_update)
         };
 
@@ -130,15 +132,14 @@ fn create_sparql_update_query_for_patches(
     orm_subscription: &OrmSubscription,
     patches: OrmPatches,
 ) -> String {
-    // Pre-resolve new object creations: map from base path to (subject_iri, graph_iri)
-    // Example keys: "/graph|parent/childPred" for single-valued children being created
-    let mut pre_resolved_children: std::collections::HashMap<String, (String, String)> =
-        std::collections::HashMap::new();
+    use std::collections::HashMap;
+
+    // ------------------------- Staged Child Collection -----------------------
+    let mut staged_children: HashMap<String, (String, String)> = HashMap::new();
     for p in patches.iter() {
         if p.op != OrmPatchOp::add {
             continue;
         }
-        // We only consider String values
         let Some(val) = &p.value else {
             continue;
         };
@@ -146,219 +147,451 @@ fn create_sparql_update_query_for_patches(
             continue;
         };
         if p.path.ends_with("/@id") {
-            let base = p.path.strip_suffix("/@id").unwrap().to_string();
-            pre_resolved_children
+            let base = p.path.trim_end_matches("/@id").to_string();
+            staged_children
                 .entry(base)
-                .and_modify(|(sid, _gid)| {
-                    *sid = str_val.to_string();
-                })
+                .and_modify(|(sid, _)| *sid = str_val.to_string())
                 .or_insert((str_val.to_string(), String::new()));
         } else if p.path.ends_with("/@graph") {
-            let base = p.path.strip_suffix("/@graph").unwrap().to_string();
-            pre_resolved_children
+            let base = p.path.trim_end_matches("/@graph").to_string();
+            staged_children
                 .entry(base)
-                .and_modify(|(_sid, gid)| {
-                    *gid = str_val.to_string();
-                })
+                .and_modify(|(_, gid)| *gid = str_val.to_string())
                 .or_insert((String::new(), str_val.to_string()));
         }
     }
 
-    log_debug!(
-        "[create_sparql_update_query_for_patches] Starting with {} patches",
-        patches.len()
-    );
+    // ------------------------- Path Target Struct ----------------------------
+    struct PathTarget {
+        graph: String,
+        subject: String, // IRI string without angle brackets
+        predicate_iri: String,
+        pred_schema: Arc<OrmSchemaPredicate>,
+        child_iri: Option<String>, // IRI of object referenced directly (for link ops)
+        _is_link_terminal: bool,   // path ends at object predicate itself (link add/remove)
+    }
 
-    // First sort patches.
-    // - Process delete patches first.
-
-    let delete_patches: Vec<_> = patches
-        .iter()
-        .filter(|patch| patch.op == OrmPatchOp::remove)
-        .collect();
-
-    // Ignore metadata patches that only stage identity/location for single-nested children.
-    // Those are consumed via the pre_resolved_children map above and must not produce SPARQL.
-    let add_primitive_patches: Vec<_> = patches
-        .iter()
-        .filter(|patch| {
-            patch.op == OrmPatchOp::add
-                && !patch.path.ends_with("/@id")
-                && !patch.path.ends_with("/@graph")
-                && match &patch.valType {
-                    Some(vt) => *vt != OrmPatchType::object,
-                    _ => true,
-                }
-        })
-        .collect();
-
-    // For each diff op, we create a separate INSERT or DELETE block.
-    let mut sparql_sub_queries: Vec<String> = vec![];
-
-    // If a single-nested child was staged via @id/@graph, ensure the parent link triple exists.
-    // We do this once per base path present in pre_resolved_children, before processing field patches.
-    for (base_path, (child_subject, child_graph)) in pre_resolved_children.iter() {
-        if child_subject.is_empty() || child_graph.is_empty() {
-            continue; // need both to link
+    // ------------------------- Schema Selection Helper ----------------------
+    fn select_child_schema(
+        subject_iri: Option<&String>,
+        pred_schema: &OrmSchemaPredicate,
+        orm_subscription: &OrmSubscription,
+    ) -> Arc<OrmSchemaShape> {
+        for data_type in pred_schema.dataTypes.iter() {
+            let Some(shape_iri) = data_type.shape.as_ref() else {
+                continue;
+            };
+            let tracked = subject_iri
+                .map(|iri| orm_subscription.get_tracked_objects_any_graph(iri, shape_iri))
+                .unwrap_or_default();
+            if let Some(obj) = tracked
+                .iter()
+                .find(|o| o.read().unwrap().valid == TrackedOrmObjectValidity::Valid)
+            {
+                let _ = obj; // we found a valid object; choose this schema
+                return orm_subscription
+                    .shape_type
+                    .schema
+                    .get(shape_iri)
+                    .unwrap()
+                    .clone();
+            } else if !tracked.is_empty() {
+                return orm_subscription
+                    .shape_type
+                    .schema
+                    .get(shape_iri)
+                    .unwrap()
+                    .clone();
+            } else {
+                return orm_subscription
+                    .shape_type
+                    .schema
+                    .get(shape_iri)
+                    .unwrap()
+                    .clone();
+            }
         }
-        // Build a synthetic patch targeting the base path to resolve subject/predicate in the current schema
-        let synthetic = OrmPatch {
-            op: OrmPatchOp::add,
-            path: base_path.clone(),
-            valType: None,
-            value: None,
-        };
-        let mut var_counter: i32 = 0;
-        let (where_statements, target, pred_schema_opt) = create_where_statements_for_patch(
-            &synthetic,
-            &mut var_counter,
-            &orm_subscription,
-            Some(&pre_resolved_children),
+        panic!(
+            "No child schema selectable for predicate {}",
+            pred_schema.iri
         );
-        let (graph_iri, subject_var, target_predicate, _target_object) = target;
-        // Only handle object predicates (single-valued) here; multi-valued should use composite key paths, not @id/@graph
-        if let Some(pred_schema) = pred_schema_opt {
-            if !pred_schema.is_object() || pred_schema.is_multi() {
+    }
+
+    // ------------------------- Path Resolver ---------------------------------
+    fn resolve_path(
+        path: &str,
+        orm_subscription: &OrmSubscription,
+        staged_children: &HashMap<String, (String, String)>,
+    ) -> Option<PathTarget> {
+        let segs: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        if segs.is_empty() {
+            return None;
+        }
+        // Helper used locally to decode JSON Pointer encoded IRIs appearing in path segments
+        let decode = |s: &str| s.replace("~1", "/").replace("~0", "~");
+        // root composite
+        let mut root_split = segs[0].split('|');
+        let graph = root_split.next()?.to_string();
+        let subject = root_split.next()?.to_string();
+        let mut idx = 1;
+        let mut current_graph = graph.clone();
+        let mut current_subject = subject.clone();
+        let mut current_schema = orm_subscription
+            .shape_type
+            .schema
+            .get(&orm_subscription.shape_type.shape)
+            .unwrap()
+            .clone();
+        let mut _pred_schema_opt: Option<Arc<OrmSchemaPredicate>> = None;
+        let mut _child_iri: Option<String> = None;
+        let mut _link_terminal = false;
+
+        while idx < segs.len() {
+            let pred_name = segs[idx];
+            // If path points to staged child base, we might get direct link terminal without extra segment
+            _pred_schema_opt = current_schema
+                .predicates
+                .iter()
+                .find(|p| p.readablePredicate == pred_name)
+                .cloned();
+            let Some(pred_schema) = &_pred_schema_opt else {
+                return None;
+            };
+            idx += 1;
+            if !pred_schema.is_object() {
+                // primitive leaf expected
+                // If more segments follow -> invalid path for primitives
+                if idx != segs.len() {
+                    return None;
+                }
+                return Some(PathTarget {
+                    graph: current_graph,
+                    subject: current_subject,
+                    predicate_iri: pred_schema.iri.clone(),
+                    pred_schema: pred_schema.clone(),
+                    child_iri: None,
+                    _is_link_terminal: false,
+                });
+            }
+            // object predicate
+            if pred_schema.is_multi() {
+                if idx >= segs.len() {
+                    // path ends at multi predicate itself (invalid - need composite child key) -> treat as link terminal? skip
+                    _link_terminal = true; // ambiguous; but without child key we can't act
+                    return Some(PathTarget {
+                        graph: current_graph,
+                        subject: current_subject,
+                        predicate_iri: pred_schema.iri.clone(),
+                        pred_schema: pred_schema.clone(),
+                        child_iri: None,
+                        _is_link_terminal: true,
+                    });
+                }
+                let composite = segs[idx];
+                if !composite.contains('|') {
+                    return None;
+                }
+                let mut cs = composite.split('|');
+                let child_graph = cs.next()?.to_string();
+                let raw_child_subj = cs.next()?.to_string();
+                let child_subj_decoded = decode(&raw_child_subj);
+                current_graph = child_graph.clone();
+                current_subject = child_subj_decoded.clone();
+                idx += 1;
+                if idx == segs.len() {
+                    // link to child object itself
+                    _child_iri = Some(child_subj_decoded);
+                    return Some(PathTarget {
+                        graph: graph,
+                        subject: subject,
+                        predicate_iri: pred_schema.iri.clone(),
+                        pred_schema: pred_schema.clone(),
+                        child_iri: _child_iri,
+                        _is_link_terminal: true,
+                    });
+                } else {
+                    // continue traversal inside child
+                    current_schema =
+                        select_child_schema(Some(&current_subject), pred_schema, orm_subscription);
+                    continue;
+                }
+            } else {
+                // single-valued object predicate
+                // Support two path styles for single-valued object predicates:
+                // 1. Classic staging paths without composite key: /root/pred/@id, /root/pred/type
+                // 2. Composite key style (encoded like multi-valued): /root/pred/<graph|encoded_child_iri>/... (for testing encoded segment decoding)
+                let base_key_no_composite = format!("/{}|{}/{}", graph, subject, pred_name);
+                if idx == segs.len() {
+                    // path ends at predicate => link terminal (no child key provided)
+                    _link_terminal = true;
+                    return Some(PathTarget {
+                        graph: graph,
+                        subject: subject,
+                        predicate_iri: pred_schema.iri.clone(),
+                        pred_schema: pred_schema.clone(),
+                        child_iri: None,
+                        _is_link_terminal: true,
+                    });
+                }
+                // Peek next segment to detect optional composite key usage
+                let next_seg = segs[idx];
+                if next_seg.contains('|') {
+                    // Treat composite key after single-valued predicate similar to multi-valued traversal
+                    let mut cs = next_seg.split('|');
+                    let child_graph = cs.next()?.to_string();
+                    let raw_child_subj = cs.next()?.to_string();
+                    let child_subj_decoded = decode(&raw_child_subj);
+                    idx += 1; // consume composite key segment
+                    if idx == segs.len() {
+                        // Link terminal referencing child object directly
+                        _child_iri = Some(child_subj_decoded.clone());
+                        return Some(PathTarget {
+                            graph: graph,
+                            subject: subject,
+                            predicate_iri: pred_schema.iri.clone(),
+                            pred_schema: pred_schema.clone(),
+                            child_iri: _child_iri.clone(),
+                            _is_link_terminal: true,
+                        });
+                    }
+                    // Descend into child context
+                    current_graph = child_graph.clone();
+                    current_subject = child_subj_decoded.clone();
+                    current_schema = select_child_schema(None, pred_schema, orm_subscription);
+                    // Also allow staged child lookup using composite base key
+                    let composite_base_key = format!("{}/{}", base_key_no_composite, next_seg);
+                    if let Some((child_subj, child_graph)) =
+                        staged_children.get(&composite_base_key)
+                    {
+                        if !child_subj.is_empty() && !child_graph.is_empty() {
+                            current_subject = decode(child_subj);
+                            current_graph = child_graph.clone();
+                        }
+                    }
+                    continue;
+                }
+                // No composite key segment: classic single-valued staging/lookup
+                let parent_schema = current_schema.clone();
+                current_schema = select_child_schema(None, pred_schema, orm_subscription);
+                if let Some((child_subj, child_graph)) = staged_children.get(&base_key_no_composite)
+                {
+                    if !child_subj.is_empty() && !child_graph.is_empty() {
+                        current_subject = decode(child_subj);
+                        current_graph = child_graph.clone();
+                    }
+                }
+                // Attempt to locate existing linked child when not staged
+                if let Some(parent_obj) = orm_subscription.get_tracked_orm_object(
+                    &current_graph,
+                    &current_subject,
+                    &parent_schema.iri,
+                ) {
+                    if let Ok(parent_guard) = parent_obj.read() {
+                        if let Some(tracked_pred) =
+                            parent_guard.tracked_predicates.get(&pred_schema.iri)
+                        {
+                            if let Ok(pred_guard) = tracked_pred.read() {
+                                if let Some(child_arc) = pred_guard
+                                    .tracked_children
+                                    .iter()
+                                    .filter_map(|w| w.upgrade())
+                                    .next()
+                                {
+                                    if let Ok(child_guard) = child_arc.read() {
+                                        current_subject = child_guard.subject_iri.clone();
+                                        current_graph = child_guard.graph_iri.clone();
+                                        if let Some(child_shape_iri) = child_guard.shape_iri() {
+                                            if let Some(child_schema) = orm_subscription
+                                                .shape_type
+                                                .schema
+                                                .get(&child_shape_iri)
+                                            {
+                                                current_schema = child_schema.clone();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 continue;
             }
         }
-        // Delete any existing link values, then insert the concrete child IRI
-        let delete_stmt = format!(
-            "GRAPH <{}> {{  {} {} ?o{} }}",
-            graph_iri, subject_var, target_predicate, var_counter
-        );
-        let mut wheres = where_statements.clone();
-        wheres.push(delete_stmt.clone());
-        sparql_sub_queries.push(format!(
-            "DELETE {{\n{}\n}} WHERE {{\n  {}\n}}",
-            delete_stmt,
-            wheres.join(" .\n  ")
-        ));
-        let insert_stmt = format!(
-            "  {} {} <{}> .",
-            subject_var, target_predicate, child_subject
-        );
-        sparql_sub_queries.push(format!(
-            "INSERT {{\n{}\n}} WHERE {{\n  {}\n}}",
-            insert_stmt,
-            where_statements.join(". \n  ")
-        ));
+        // If we exit loop without return and have predicate schema -> treat as leaf primitive reached earlier.
+        None
     }
 
-    // Create delete statements.
-    //
-    for (idx, del_patch) in delete_patches.iter().enumerate() {
-        let mut var_counter: i32 = 0;
-
-        let (where_statements, target, _pred_schema) = create_where_statements_for_patch(
-            &del_patch,
-            &mut var_counter,
-            &orm_subscription,
-            Some(&pre_resolved_children),
-        );
-        let (graph_iri, subject_var, target_predicate, target_object) = target;
-
-        let delete_statement;
-        if let Some(target_object) = target_object {
-            // Delete the link to exactly one object (IRI referenced in path, i.e. target_object)
-            delete_statement = format!(
-                "GRAPH <{}> {{  {} {} {} }} .",
-                graph_iri, subject_var, target_predicate, target_object
-            )
-        } else {
-            // Delete object or literal referenced by property name.
-            let delete_val = match &del_patch.value {
-                // No value specified, that means we are deleting all values for the given subject and predicate (multi-value scenario).
-                None => {
-                    format!("?{}", var_counter)
-                    // Note: var_counter is not incremented here as it's only used locally
-                }
-                // Delete the specific values only.
-                Some(val) => json_to_sparql_val(&val), // Can be one or more (joined with ", ").
-            };
-            delete_statement = format!(
-                "GRAPH <{}> {{ {} {} {} }} .",
-                graph_iri, subject_var, target_predicate, delete_val
-            );
-        }
-
-        sparql_sub_queries.push(format!(
-            "DELETE {{\n{}\n}}\nWHERE\n{{\n  {}\n}}",
-            delete_statement,
-            where_statements.join(" .\n  ")
-        ));
+    // ------------------------- Builder ---------------------------------------
+    struct SparqlBuilder {
+        queries: Vec<String>,
+        var_counter: usize,
     }
-
-    // Process primitive add patches
-    //
-    for (idx, add_patch) in add_primitive_patches.iter().enumerate() {
-        let mut var_counter: i32 = 0;
-
-        // Create WHERE statements from path.
-        let (where_statements, target, pred_schema) = create_where_statements_for_patch(
-            &add_patch,
-            &mut var_counter,
-            &orm_subscription,
-            Some(&pre_resolved_children),
-        );
-        let (graph_iri, subject_var, target_predicate, target_object) = target;
-
-        if let Some(_target_object) = target_object {
-            // Reference to exactly one object found. This is invalid when inserting literals.
-            log_debug!("[create_sparql_update_query_for_patches] SKIPPING: target_object found for literal add (invalid)");
-            // TODO: Return error?
-            continue;
-        } else {
-            // Add value(s) to <subject> <predicate>
-            let add_val = match &add_patch.value {
-                // Delete the specific values only.
-                Some(val) => json_to_sparql_val(&val), // Can be one or more (joined with ", ").
-                None => {
-                    // A value must be set. This patch is invalid.
-                    log_debug!("[create_sparql_update_query_for_patches] SKIPPING: No value in add patch (invalid)");
-                    // TODO: Return error?
-                    continue;
-                }
-            };
-
-            // Add SPARQL statement.
-
-            // If the schema only has max one value,
-            // then `add` can also overwrite values, so we need to delete the previous one
-            if !pred_schema.unwrap().is_multi() {
-                let remove_statement = format!(
-                    "GRAPH <{}> {{  {} {} ?o{} }}",
-                    graph_iri, subject_var, target_predicate, var_counter
-                );
-
-                let mut wheres = where_statements.clone();
-                wheres.push(remove_statement.clone());
-
-                sparql_sub_queries.push(format!(
-                    "DELETE {{\n{}\n}} WHERE {{\n  {}\n}}",
-                    remove_statement,
-                    wheres.join(" .\n  ")
-                ));
-                // var_counter += 1; // Not necessary because not used afterwards.
+    impl SparqlBuilder {
+        fn new() -> Self {
+            Self {
+                queries: vec![],
+                var_counter: 0,
             }
-            // The actual INSERT.
-            let add_statement = format!(
-                "GRAPH <{}> {{ {} {} {} . }}",
-                graph_iri, subject_var, target_predicate, add_val
+        }
+        fn next_var(&mut self) -> String {
+            let v = format!("?o{}", self.var_counter);
+            self.var_counter += 1;
+            v
+        }
+        fn overwrite_link(&mut self, graph: &str, subj: &str, pred: &str, child: &str) {
+            let var = self.next_var();
+            let combined = format!(
+                "DELETE {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} INSERT {{\n  GRAPH <{}> {{ <{}> <{}> <{}> }}\n}} WHERE {{\n  OPTIONAL {{ GRAPH <{}> {{ <{}> <{}> {} }} }}\n}}",
+                graph, subj, pred, var,
+                graph, subj, pred, child,
+                graph, subj, pred, var
             );
-            sparql_sub_queries.push(format!(
-                "INSERT {{\n{}\n}} WHERE {{\n  {}\n}}",
-                add_statement,
-                where_statements.join(". \n  ")
-            ));
+            self.queries.push(combined);
+        }
+        fn add_link(&mut self, graph: &str, subj: &str, pred: &str, child: &str) {
+            // Use INSERT DATA for unconditional addition (engine appears to ignore plain INSERT without WHERE)
+            let insert = format!(
+                "INSERT DATA {{\n  GRAPH <{}> {{ <{}> <{}> <{}> }}\n}}",
+                graph, subj, pred, child
+            );
+            self.queries.push(insert);
+        }
+        fn remove_link(&mut self, graph: &str, subj: &str, pred: &str, child: &str) {
+            let del = format!(
+                "DELETE DATA {{\n  GRAPH <{}> {{ <{}> <{}> <{}> }}\n}}",
+                graph, subj, pred, child
+            );
+            self.queries.push(del);
+        }
+        fn overwrite_value(&mut self, graph: &str, subj: &str, pred: &str, value: &str) {
+            let var = self.next_var();
+            let combined = format!(
+                "DELETE {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} INSERT {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} WHERE {{\n  OPTIONAL {{ GRAPH <{}> {{ <{}> <{}> {} }} }}\n}}",
+                graph, subj, pred, var,
+                graph, subj, pred, value,
+                graph, subj, pred, var
+            );
+            self.queries.push(combined);
+        }
+        fn add_value(&mut self, graph: &str, subj: &str, pred: &str, value: &str) {
+            // Use INSERT DATA to reliably add multi-valued literal/object without needing a WHERE pattern
+            let insert = format!(
+                "INSERT DATA {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}}",
+                graph, subj, pred, value
+            );
+            self.queries.push(insert);
+        }
+        fn remove_value(&mut self, graph: &str, subj: &str, pred: &str, value: &str) {
+            let del = format!(
+                "DELETE DATA {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}}",
+                graph, subj, pred, value
+            );
+            self.queries.push(del);
+        }
+        fn remove_all(&mut self, graph: &str, subj: &str, pred: &str) {
+            let var = self.next_var();
+            let del = format!(
+                "DELETE {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} WHERE {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}}",
+                graph, subj, pred, var, graph, subj, pred, var
+            );
+            self.queries.push(del);
+        }
+        fn finish(self) -> String {
+            self.queries.join(";\n")
         }
     }
 
+    let mut builder = SparqlBuilder::new();
+
+    // Helper to decode JSON Pointer encoded IRIs that appear in path segments
+    // (e.g., http:~1~1example.org~1exampleAddress -> http://example.org/exampleAddress)
+    fn decode_json_pointer_iri(iri: &str) -> String {
+        iri.replace("~1", "/").replace("~0", "~")
+    }
+
+    // ------------------------- Handle staged single children -----------------
+    for (base, (child_id, child_graph)) in staged_children.iter() {
+        if child_id.is_empty() || child_graph.is_empty() {
+            continue;
+        }
+        if let Some(target) = resolve_path(base, orm_subscription, &staged_children) {
+            if target.pred_schema.is_object() && !target.pred_schema.is_multi() {
+                let decoded_child = decode_json_pointer_iri(child_id);
+                builder.overwrite_link(
+                    &target.graph,
+                    &target.subject,
+                    &target.predicate_iri,
+                    &decoded_child,
+                );
+            }
+        }
+    }
+
+    // ------------------------- Process patches -------------------------------
+    for p in patches.iter() {
+        // Skip metadata staging patches
+        if p.path.ends_with("/@id") || p.path.ends_with("/@graph") {
+            continue;
+        }
+        let Some(target) = resolve_path(&p.path, orm_subscription, &staged_children) else {
+            continue;
+        };
+        let graph = &target.graph;
+        let subj = &target.subject;
+        let pred = &target.predicate_iri;
+        let schema = &target.pred_schema;
+        match p.op {
+            OrmPatchOp::remove => {
+                if schema.is_object() {
+                    if let Some(child) = target.child_iri.as_ref() {
+                        builder.remove_link(graph, subj, pred, child);
+                    } else if p.value.is_none() {
+                        builder.remove_all(graph, subj, pred);
+                    }
+                    // Removing a specific object by value not supported without child IRI
+                } else {
+                    match &p.value {
+                        None => builder.remove_all(graph, subj, pred),
+                        Some(val) => {
+                            let sparql_val = json_to_sparql_val(val);
+                            builder.remove_value(graph, subj, pred, &sparql_val);
+                        }
+                    }
+                }
+            }
+            OrmPatchOp::add => {
+                if schema.is_object() {
+                    if let Some(child) = target.child_iri.as_ref() {
+                        let decoded_child = decode_json_pointer_iri(child);
+                        if schema.is_multi() {
+                            builder.add_link(graph, subj, pred, &decoded_child);
+                        } else {
+                            builder.overwrite_link(graph, subj, pred, &decoded_child);
+                        }
+                    } else {
+                        // For single-valued object predicate without child provided, staging already handled; ignore.
+                    }
+                } else {
+                    if let Some(val) = &p.value {
+                        let sparql_val = json_to_sparql_val(val);
+                        if schema.is_multi() {
+                            builder.add_value(graph, subj, pred, &sparql_val);
+                        } else {
+                            builder.overwrite_value(graph, subj, pred, &sparql_val);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let result = builder.finish();
     log_debug!(
-        "[create_sparql_update_query_for_patches] Finished. Generated {} sub-queries",
-        sparql_sub_queries.len()
+        "[create_sparql_update_query_for_patches] builder produced {} bytes",
+        result.len()
     );
-    return sparql_sub_queries.join(";\n");
+    result
 }
 
 fn find_pred_schema_by_name(
@@ -372,324 +605,4 @@ fn find_pred_schema_by_name(
         }
     }
     panic!("No predicate found in schema for name");
-}
-
-/// Creates sparql WHERE statements to navigate to the JSON pointer path in our ORM mapping.
-/// Returns tuple of
-///  - The WHERE statements as Vec<String>
-///  - The graph, subject, predicate, Option<Object> of the path's ending (to be used for DELETE)
-///  - The Option predicate schema of the tail of the target property.
-fn create_where_statements_for_patch(
-    patch: &OrmPatch,
-    var_counter: &mut i32,
-    orm_subscription: &OrmSubscription,
-    pre_resolved_children: Option<&std::collections::HashMap<String, (String, String)>>,
-) -> (
-    Vec<String>,
-    (String, String, String, Option<String>),
-    Option<Arc<OrmSchemaPredicate>>,
-) {
-    let mut where_statements: Vec<String> = vec![];
-
-    let mut path: Vec<String> = patch
-        .path
-        .split("/")
-        .map(|s| decode_json_pointer(&s.to_string()))
-        .collect();
-
-    // Drop the leading empty segment from the split("/")
-    if !path.is_empty() && path[0].is_empty() {
-        path.remove(0);
-    }
-
-    // We expect the first path segment to be the composite "graph|subject"
-    if path.is_empty() {
-        log_err!("[create_where_statements_for_patch] empty path after decoding");
-        panic!("Invalid patch path: empty");
-    }
-    let root = path.remove(0);
-    let mut split = root.split('|');
-    let graph_iri = split
-        .next()
-        .unwrap_or_else(|| panic!("Invalid root segment, missing graph: {}", root))
-        .to_string();
-    let subject_iri = split
-        .next()
-        .unwrap_or_else(|| panic!("Invalid root segment, missing subject: {}", root))
-        .to_string();
-
-    // Handle special case: only the root object segment was present -> delete entire object
-    if path.is_empty() {
-        where_statements.push(format!(
-            "GRAPH <{}> {{ <{}> ?p ?o }}",
-            graph_iri, subject_iri
-        ));
-        return (
-            where_statements,
-            (
-                graph_iri,
-                format!("<{}>", subject_iri),
-                "?p".to_string(),
-                None,
-            ),
-            None,
-        );
-    }
-
-    // Get root schema.
-    let subj_schema: &Arc<OrmSchemaShape> = orm_subscription
-        .shape_type
-        .schema
-        .get(&orm_subscription.shape_type.shape)
-        .unwrap();
-
-    let mut current_subj_schema: Arc<OrmSchemaShape> = subj_schema.clone();
-    let mut current_graph = graph_iri.clone();
-    let mut subject_ref = format!("<{}>", subject_iri);
-    // Track the concrete subject IRI we are currently traversing (None if bound to a variable)
-    let mut current_subject_iri: Option<String> = Some(subject_iri.clone());
-    // Accumulate traversed predicate segments for building base keys
-    let mut traversed: Vec<String> = vec![];
-
-    while !path.is_empty() {
-        let pred_name = path.remove(0);
-        traversed.push(pred_name.clone());
-
-        // Get predicate schema for current path segment.
-        let pred_schema = find_pred_schema_by_name(&pred_name, &current_subj_schema);
-
-        // Case: We arrived at a leaf value.
-        if path.is_empty() {
-            return (
-                where_statements,
-                (
-                    current_graph.clone(),
-                    subject_ref.clone(),
-                    format!("<{}>", pred_schema.iri.clone()),
-                    None,
-                ),
-                Some(pred_schema),
-            );
-        }
-
-        // Else, we have a nested object.
-
-        // Default traversal for single-valued object properties will add a WHERE triple
-        // For multi-valued properties with an explicit composite key segment, we handle below.
-
-        if !pred_schema.is_object() {
-            panic!(
-                "Predicate schema is not of type shape. Schema: {}, subject_ref: {}",
-                pred_schema.iri, subject_ref
-            );
-        }
-
-        if pred_schema.is_multi() {
-            // Next segment must be a composite child key "graph|subject"
-            if path.is_empty() {
-                panic!(
-                    "Expected composite child key after multi predicate '{}'",
-                    pred_name
-                );
-            }
-            let child_key = path.remove(0);
-            let mut o_split = child_key.split('|');
-            let object_graph_iri = o_split
-                .next()
-                .unwrap_or_else(|| panic!("Invalid child composite segment: {}", child_key))
-                .to_string();
-            let object_subject_iri = o_split
-                .next()
-                .unwrap_or_else(|| panic!("Invalid child composite segment: {}", child_key))
-                .to_string();
-
-            // Update current graph to the child's graph for subsequent leaf targeting
-            current_graph = object_graph_iri;
-
-            // If path ends here, we're targeting the object link itself
-            if path.is_empty() {
-                return (
-                    where_statements,
-                    (
-                        current_graph.clone(),
-                        subject_ref.clone(),
-                        format!("<{}>", pred_schema.iri.clone()),
-                        Some(format!("<{}>", object_subject_iri)),
-                    ),
-                    Some(pred_schema),
-                );
-            }
-
-            // Otherwise, continue traversal from the concrete child IRI
-            current_subj_schema =
-                get_first_child_schema(Some(&object_subject_iri), &pred_schema, &orm_subscription);
-            subject_ref = format!("<{}>", object_subject_iri);
-            current_subject_iri = Some(object_subject_iri.clone());
-            // We no longer need previous WHERE bindings since we have a concrete subject
-            where_statements.clear();
-        } else {
-            // Single-valued: leaf-only targeting. If path ends here, use the current subject and predicate.
-            if path.len() == 0 {
-                return (
-                    where_statements,
-                    (
-                        current_graph.clone(),
-                        subject_ref.clone(),
-                        format!("<{}>", pred_schema.iri.clone()),
-                        None,
-                    ),
-                    Some(pred_schema),
-                );
-            }
-
-            // Try pre-resolved child first
-            let base_key = format!(
-                "/{}|{}/{}",
-                crate::orm::utils::escape_json_pointer_segment(&graph_iri),
-                crate::orm::utils::escape_json_pointer_segment(&subject_iri),
-                traversed.join("/")
-            );
-            if let Some(pre) = pre_resolved_children.and_then(|m| m.get(&base_key)) {
-                let (child_subject, child_graph) = pre.clone();
-                if child_subject.is_empty() || child_graph.is_empty() {
-                    panic!(
-                        "Pre-resolved child requires both @id and @graph: {}",
-                        base_key
-                    );
-                }
-                current_graph = child_graph.clone();
-                current_subj_schema =
-                    get_first_child_schema(Some(&child_subject), &pred_schema, &orm_subscription);
-                subject_ref = format!("<{}>", child_subject);
-                current_subject_iri = Some(child_subject);
-                where_statements.clear();
-
-                continue;
-            }
-
-            // Otherwise, use heuristic on tracked children
-            if let (Some(cur_subj_iri)) = (&current_subject_iri) {
-                if let Some(parent_obj) = orm_subscription.get_tracked_orm_object(
-                    &current_graph,
-                    cur_subj_iri,
-                    &current_subj_schema.iri,
-                ) {
-                    // Scope the guard so it drops before we use any borrowed data
-                    let (parent_graph_guarded, parent_subject_guarded, maybe_tp_children) = {
-                        let parent_guard = parent_obj.read().unwrap();
-                        let maybe_tp_children = parent_guard
-                            .tracked_predicates
-                            .get(&pred_schema.iri)
-                            .map(|t| t.read().unwrap().tracked_children.clone());
-                        (
-                            parent_guard.graph_iri.clone(),
-                            parent_guard.subject_iri.clone(),
-                            maybe_tp_children,
-                        )
-                    };
-
-                    if let Some(tp_children) = maybe_tp_children {
-                        let strong_children: Vec<_> = tp_children
-                            .iter()
-                            .filter_map(|weak| weak.upgrade())
-                            .collect();
-                        let assessed = assess_and_rank_children(
-                            &parent_graph_guarded,
-                            &parent_subject_guarded,
-                            pred_schema.minCardinality,
-                            pred_schema.maxCardinality,
-                            &strong_children,
-                        );
-                        if let Some(child) = assessed.considered.first() {
-                            let ch = child.read().unwrap();
-                            current_graph = ch.graph_iri.clone();
-                            subject_ref = format!("<{}>", ch.subject_iri.clone());
-                            current_subj_schema = get_first_child_schema(
-                                Some(&ch.subject_iri),
-                                &pred_schema,
-                                &orm_subscription,
-                            );
-                            current_subject_iri = Some(ch.subject_iri.clone());
-                            where_statements.clear();
-
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            // TODO: Is that a legitimate use case? We might want to panic or continue instead.
-            // Fallback: previous WHERE binding behavior
-            where_statements.push(format!(
-                "{} <{}> ?o{}",
-                subject_ref, pred_schema.iri, var_counter,
-            ));
-            subject_ref = format!("?o{}", var_counter);
-            current_subject_iri = None; // Bound to a variable now
-                                        // Update schema to the first possible child schema so that next segment resolution works
-            current_subj_schema = get_first_child_schema(None, &pred_schema, &orm_subscription);
-            *var_counter += 1;
-        }
-    }
-    // Can't happen.
-    log_err!("[create_where_statements_for_patch] PANIC: Reached end of function unexpectedly (should be impossible)");
-    panic!();
-}
-
-/// Get the schema for a given subject and predicate schema.
-/// It will return the first schema of which the tracked orm object is valid.
-/// If there is no subject found, return the first subject schema of the predicate schema.
-fn get_first_child_schema(
-    subject_iri: Option<&String>,
-    pred_schema: &OrmSchemaPredicate,
-    orm_subscription: &OrmSubscription,
-) -> Arc<OrmSchemaShape> {
-    for data_type in pred_schema.dataTypes.iter() {
-        let Some(schema_shape) = data_type.shape.as_ref() else {
-            continue;
-        };
-
-        // ORM prioritization: Find first valid tracked object across all graphs
-        let tracked_orm_objects = subject_iri
-            .map(|iri| orm_subscription.get_tracked_objects_any_graph(iri, schema_shape))
-            .unwrap_or_default();
-
-        // Try to find a valid tracked object
-        let valid_obj = tracked_orm_objects
-            .iter()
-            .find(|obj| obj.read().unwrap().valid == TrackedOrmObjectValidity::Valid);
-
-        if let Some(_tracked_orm_object) = valid_obj {
-            // The subject is already being tracked and is valid.
-            return orm_subscription
-                .shape_type
-                .schema
-                .get(schema_shape)
-                .unwrap()
-                .clone();
-        } else if !tracked_orm_objects.is_empty() {
-            // Subject is tracked but not valid yet - still use this schema
-            return orm_subscription
-                .shape_type
-                .schema
-                .get(schema_shape)
-                .unwrap()
-                .clone();
-        } else {
-            // New subject, we need to guess the schema, take the first one.
-            // TODO: We could do that by looking at a distinct property, e.g. @type which must be non-overlapping.
-            return pred_schema
-                .dataTypes
-                .iter()
-                .find_map(|dt| {
-                    dt.shape
-                        .as_ref()
-                        .and_then(|shape_str| orm_subscription.shape_type.schema.get(shape_str))
-                })
-                .unwrap()
-                .clone();
-        }
-    }
-    // TODO: Panicking might be too aggressive.
-    panic!("No valid child schema found.");
 }

@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{doc_sparql_construct, doc_sparql_select, orm_start, orm_update};
+use crate::local_broker::{doc_sparql_select, orm_start, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
@@ -95,7 +95,34 @@ async fn test_orm_apply_patches() {
     test_patch_replace_single_nested_object(session_id).await;
 
     // Test 10: Object deleted after invalidating patch.
-    test_patch_invalidating_object(session_id).await
+    test_patch_invalidating_object(session_id).await;
+
+    // Test 11: Multi-valued object link removal
+    test_patch_multi_valued_object_link_removal(session_id).await;
+
+    // Test 12: Tilde path decoding nested creation
+    test_patch_tilde_path_decoding_creation(session_id).await;
+
+    // Test 13: remove_all multi-valued literal
+    test_patch_remove_all_multi_valued_literal(session_id).await;
+
+    // Test 14: Idempotent add literal
+    test_patch_idempotent_add_literal(session_id).await;
+
+    // Test 15: No-op remove nonexistent literal
+    test_patch_noop_remove_nonexistent_literal(session_id).await;
+
+    // Test 16: Mixed batch operations
+    test_patch_mixed_batch_operations(session_id).await;
+
+    // Test 17: Remove_all vs selective remove sequencing
+    test_patch_remove_all_vs_selective_remove(session_id).await;
+
+    // Test 18: Duplicate object link add
+    test_patch_duplicate_object_link_add(session_id).await;
+
+    // Test 19: Cross-graph object link removal
+    test_patch_cross_graph_object_removal(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -1279,7 +1306,25 @@ INSERT DATA {
     // Apply ORM patch: Add a second address.
     let root = root_path(&doc_nuri, "urn:test:person9");
     let child = composite_key(&doc_nuri, "http://example.org/exampleAddress");
-    let diff = vec![
+    let patches = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}", root, child),
+            valType: Some(OrmPatchType::object),
+            value: None,
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}/@graph", root, child),
+            valType: None,
+            value: Some(json!("http://example.org/Address")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}/@id", root, child),
+            valType: None,
+            value: Some(json!("http://example.org/exampleAddress")),
+        },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/type", root, child),
@@ -1294,7 +1339,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1323,9 +1368,21 @@ INSERT DATA {
             && q.object.to_string().contains("Heaven Avenue")
             && quad_has_graph(q, &doc_nuri)
     });
+    let has_new_address_link = quads.iter().any(|q| {
+        q.subject.to_string().contains("urn:test:person9")
+            && q.predicate.as_str() == "http://example.org/address"
+            && q.object
+                .to_string()
+                .contains("http://example.org/exampleAddress")
+            && quad_has_graph(q, &doc_nuri)
+    });
 
     assert!(has_new_address_type, "New address type should be added");
     assert!(has_new_address_street, "New street should be added");
+    assert!(
+        has_new_address_link,
+        "Link from user to address should be added."
+    );
 
     log_info!("✓ Test passed: Nested object creation");
 }
@@ -1848,4 +1905,1053 @@ INSERT DATA {
     }
 
     log_info!("✓ Test passed: Received object remove patch after patch makes object invalid.");
+}
+
+// Test: remove one link from multi-valued object predicate (address) leaving the other intact.
+async fn test_patch_multi_valued_object_link_removal(session_id: u64) {
+    log_info!("\n\n=== TEST: Multi-valued object link removal ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA {
+  <urn:test:personML> a ex:Person ; ex:address <urn:test:a1>, <urn:test:a2> .
+  <urn:test:a1> a ex:Address ; ex:street "S1" .
+  <urn:test:a2> a ex:Address ; ex:street "S2" .
+}"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    // Person shape with multi-valued address
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/address".to_string(),
+                    readablePredicate: "address".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example.org/Address".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    // Address shape
+    schema.insert(
+        "http://example.org/Address".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Address".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Address".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/street".to_string(),
+                    readablePredicate: "street".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(app_response) = receiver.next().await {
+        if matches!(app_response, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+
+    let root = root_path(&doc_nuri, "urn:test:personML");
+    let child_seg = composite_key(&doc_nuri, "urn:test:a1");
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{}/address/{}", root, child_seg),
+        valType: Some(OrmPatchType::object),
+        value: None,
+    }];
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .unwrap();
+
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    let links: Vec<_> = quads
+        .iter()
+        .filter(|q| {
+            q.subject.to_string().contains("urn:test:personML")
+                && q.predicate.as_str() == "http://example.org/address"
+        })
+        .collect();
+    assert_eq!(links.len(), 1, "Exactly one address link should remain");
+    assert!(
+        links
+            .iter()
+            .any(|q| q.object.to_string().contains("urn:test:a2")),
+        "Remaining link should point to a2"
+    );
+
+    log_info!("✓ Test passed: Multi-valued object link removal");
+}
+
+// Test: tilde path decoding when creating nested object with encoded @id in composite key.
+async fn test_patch_tilde_path_decoding_creation(session_id: u64) {
+    log_info!("\n\n=== TEST: Tilde path decoding nested creation ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:personT> a ex:Person . }"#
+            .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/address".to_string(),
+                    readablePredicate: "address".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example.org/Address".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example.org/Address".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Address".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Address".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/street".to_string(),
+                    readablePredicate: "street".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(app_response) = receiver.next().await {
+        if matches!(app_response, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+
+    let root = root_path(&doc_nuri, "urn:test:personT");
+    let encoded_child_key = format!(
+        "{}|{}",
+        escape_pointer_segment(&doc_nuri),
+        escape_pointer_segment("http://example.org/example~Address/seg")
+    );
+    // Use the document graph for @graph to ensure SPARQL builder applies creation.
+    // Order patches so @id precedes @graph similar to other creation tests.
+    let patches = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}", root, encoded_child_key),
+            valType: Some(OrmPatchType::object),
+            value: None,
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}/@id", root, encoded_child_key),
+            valType: None,
+            value: Some(json!("http://example.org/example~Address/seg")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}/@graph", root, encoded_child_key),
+            valType: None,
+            value: Some(json!(doc_nuri)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}/type", root, encoded_child_key),
+            valType: None,
+            value: Some(json!("http://example.org/Address")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/{}/street", root, encoded_child_key),
+            valType: None,
+            value: Some(json!("Lane")),
+        },
+    ];
+    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+        .await
+        .unwrap();
+
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    let has_street = quads.iter().any(|q| {
+        q.subject
+            .to_string()
+            .contains("http://example.org/example~Address/seg")
+            && q.predicate.as_str() == "http://example.org/street"
+            && q.object.to_string().contains("Lane")
+    });
+    assert!(
+        has_street,
+        "Street literal should exist for decoded subject IRI"
+    );
+
+    log_info!("✓ Test passed: Tilde path decoding nested creation");
+}
+
+// Test 13: remove_all multi-valued literal
+async fn test_patch_remove_all_multi_valued_literal(session_id: u64) {
+    log_info!("\n\n=== TEST: remove_all multi-valued literal ===\n");
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cooking" . }"#
+            .to_string(),
+    )
+    .await;
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/hobby".to_string(),
+                    readablePredicate: "hobby".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(r) = rx.next().await {
+        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+    let root = root_path(&doc_nuri, "urn:test:mv1");
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{}/hobby", root),
+        valType: None,
+        value: None,
+    }];
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .unwrap();
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    // Limit count to hobbies in the current document graph to avoid spillover from previous tests
+    let hobby_remaining = quads
+        .iter()
+        .filter(|q| {
+            q.predicate.as_str() == "http://example.org/hobby" && quad_has_graph(q, &doc_nuri)
+        })
+        .count();
+    assert_eq!(
+        hobby_remaining, 0,
+        "All hobbies should be removed via remove_all"
+    );
+    log_info!("✓ Test passed: remove_all multi-valued literal");
+}
+
+// Test 14: Idempotent add literal
+async fn test_patch_idempotent_add_literal(session_id: u64) {
+    log_info!("\n\n=== TEST: Idempotent add literal ===\n");
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
+            .to_string(),
+    )
+    .await;
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/hobby".to_string(),
+                    readablePredicate: "hobby".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(r) = rx.next().await {
+        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+    let root = root_path(&doc_nuri, "urn:test:idem1");
+    let patch = OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/hobby", root),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!("Reading")),
+    };
+    orm_update(
+        nuri.clone(),
+        shape_type.shape.clone(),
+        vec![patch.clone(), patch],
+        session_id,
+    )
+    .await
+    .unwrap();
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    // Limit to current document graph to avoid spillover and ensure idempotency
+    use ng_oxigraph::oxrdf::Subject as OxSubject;
+    let hobbies: Vec<_> = quads
+        .iter()
+        .filter(|q| {
+            q.predicate.as_str() == "http://example.org/hobby"
+                && quad_has_graph(q, &doc_nuri)
+                && match &q.subject {
+                    OxSubject::NamedNode(nn) => nn.as_str() == "urn:test:idem1",
+                    _ => false,
+                }
+        })
+        .collect();
+    assert_eq!(
+        hobbies.len(),
+        1,
+        "Duplicate add should not create extra triple in set semantics"
+    );
+    log_info!("✓ Test passed: Idempotent add literal");
+}
+
+// Test 15: No-op remove nonexistent literal
+async fn test_patch_noop_remove_nonexistent_literal(session_id: u64) {
+    log_info!("\n\n=== TEST: No-op remove nonexistent literal ===\n");
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
+            .to_string(),
+    )
+    .await;
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/hobby".to_string(),
+                    readablePredicate: "hobby".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(r) = rx.next().await {
+        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+    let root = root_path(&doc_nuri, "urn:test:noopr1");
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{}/hobby", root),
+        valType: None,
+        value: Some(json!("Swimming")),
+    }];
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .unwrap();
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    // Limit to current document graph and subject to avoid spillover from previous tests
+    use ng_oxigraph::oxrdf::Subject as OxSubject;
+    let hobbies_left: Vec<_> = quads
+        .iter()
+        .filter(|q| {
+            q.predicate.as_str() == "http://example.org/hobby"
+                && quad_has_graph(q, &doc_nuri)
+                && match &q.subject {
+                    OxSubject::NamedNode(nn) => nn.as_str() == "urn:test:noopr1",
+                    _ => false,
+                }
+        })
+        .collect();
+    assert_eq!(
+        hobbies_left.len(),
+        1,
+        "Nonexistent remove should not alter existing data"
+    );
+    log_info!("✓ Test passed: No-op remove nonexistent literal");
+}
+
+// Test 16: Mixed batch operations
+async fn test_patch_mixed_batch_operations(session_id: u64) {
+    log_info!("\n\n=== TEST: Mixed batch operations ===\n");
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" . }"#
+            .to_string(),
+    )
+    .await;
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    readablePredicate: "name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/hobby".to_string(),
+                    readablePredicate: "hobby".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(r) = rx.next().await {
+        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+    let root = root_path(&doc_nuri, "urn:test:mix1");
+    let patches = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/hobby", root),
+            valType: Some(OrmPatchType::set),
+            value: Some(json!("Swimming")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/name", root),
+            valType: None,
+            value: Some(json!("Anna")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{}/hobby", root),
+            valType: None,
+            value: Some(json!("Reading")),
+        },
+    ];
+    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+        .await
+        .unwrap();
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    use ng_oxigraph::oxrdf::Subject as OxSubject;
+    let has_new_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/name"
+            && q.object.to_string().contains("Anna")
+            && quad_has_graph(q, &doc_nuri)
+            && matches!(&q.subject, OxSubject::NamedNode(nn) if nn.as_str()=="urn:test:mix1")
+    });
+    let has_swimming = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/hobby"
+            && q.object.to_string().contains("Swimming")
+            && quad_has_graph(q, &doc_nuri)
+            && matches!(&q.subject, OxSubject::NamedNode(nn) if nn.as_str()=="urn:test:mix1")
+    });
+    let has_reading = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/hobby"
+            && q.object.to_string().contains("Reading")
+            && quad_has_graph(q, &doc_nuri)
+            && matches!(&q.subject, OxSubject::NamedNode(nn) if nn.as_str()=="urn:test:mix1")
+    });
+    assert!(
+        has_new_name && has_swimming && !has_reading,
+        "Mixed batch should update name, add Swimming, remove Reading"
+    );
+    log_info!("✓ Test passed: Mixed batch operations");
+}
+
+// Test 17: remove_all vs selective remove sequencing
+async fn test_patch_remove_all_vs_selective_remove(session_id: u64) {
+    log_info!("\n\n=== TEST: remove_all vs selective remove sequencing ===\n");
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
+            .to_string(),
+    )
+    .await;
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/hobby".to_string(),
+                    readablePredicate: "hobby".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(r) = rx.next().await {
+        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+    let root = root_path(&doc_nuri, "urn:test:rar1");
+    // selective remove Reading
+    orm_update(
+        nuri.clone(),
+        shape_type.shape.clone(),
+        vec![OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{}/hobby", root),
+            valType: None,
+            value: Some(json!("Reading")),
+        }],
+        session_id,
+    )
+    .await
+    .unwrap();
+    // remove_all remaining
+    orm_update(
+        nuri.clone(),
+        shape_type.shape.clone(),
+        vec![OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{}/hobby", root),
+            valType: None,
+            value: None,
+        }],
+        session_id,
+    )
+    .await
+    .unwrap();
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    use ng_oxigraph::oxrdf::Subject as OxSubject;
+    // Restrict check to hobbies of the target subject within its document graph
+    let any_hobby_rar1 = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/hobby"
+            && quad_has_graph(q, &doc_nuri)
+            && matches!(&q.subject, OxSubject::NamedNode(nn) if nn.as_str()=="urn:test:rar1")
+    });
+    assert!(
+        !any_hobby_rar1,
+        "All hobbies for rar1 should be gone after selective then remove_all"
+    );
+    log_info!("✓ Test passed: remove_all vs selective remove sequencing");
+}
+
+// Test 18: Duplicate object link add
+async fn test_patch_duplicate_object_link_add(session_id: u64) {
+    log_info!("\n\n=== TEST: Duplicate object link add ===\n");
+    let doc_nuri = create_doc_with_data(session_id, r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <urn:test:addr1> a ex:Address . }"#.to_string()).await;
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/address".to_string(),
+                    readablePredicate: "address".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example.org/Address".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example.org/Address".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Address".to_string(),
+            predicates: vec![Arc::new(OrmSchemaPredicate {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                readablePredicate: "type".to_string(),
+                extra: Some(false),
+                maxCardinality: 1,
+                minCardinality: 1,
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::literal,
+                    literals: Some(vec![BasicType::Str(
+                        "http://example.org/Address".to_string(),
+                    )]),
+                    shape: None,
+                }],
+            })],
+        }),
+    );
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
+    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(r) = rx.next().await {
+        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+    let root = root_path(&doc_nuri, "urn:test:personDL");
+    let child_seg = composite_key(&doc_nuri, "urn:test:addr1");
+    let patch = OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/address/{}", root, child_seg),
+        valType: Some(OrmPatchType::object),
+        value: None,
+    };
+    orm_update(
+        nuri.clone(),
+        shape_type.shape.clone(),
+        vec![patch.clone(), patch],
+        session_id,
+    )
+    .await
+    .unwrap();
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .unwrap();
+    let links: Vec<_> = quads
+        .iter()
+        .filter(|q| {
+            q.subject.to_string().contains("urn:test:personDL")
+                && q.predicate.as_str() == "http://example.org/address"
+                && q.object.to_string().contains("urn:test:addr1")
+        })
+        .collect();
+    assert_eq!(
+        links.len(),
+        1,
+        "Duplicate object link add should not create multiple identical triples"
+    );
+    log_info!("✓ Test passed: Duplicate object link add");
+}
+
+// Test 19: Cross-graph object link removal
+async fn test_patch_cross_graph_object_removal(session_id: u64) {
+    log_info!("\n\n=== TEST: Cross-graph object link removal ===\n");
+    let child_doc = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:child1> a ex:Address . }"#
+            .to_string(),
+    )
+    .await;
+    let parent_doc = create_doc_with_data(
+        session_id,
+        r#"PREFIX ex: <http://example.org/>
+INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }"#
+            .to_string(),
+    )
+    .await;
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/address".to_string(),
+                    readablePredicate: "address".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example.org/Address".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example.org/Address".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Address".to_string(),
+            predicates: vec![Arc::new(OrmSchemaPredicate {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                readablePredicate: "type".to_string(),
+                extra: Some(false),
+                maxCardinality: 1,
+                minCardinality: 1,
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::literal,
+                    literals: Some(vec![BasicType::Str(
+                        "http://example.org/Address".to_string(),
+                    )]),
+                    shape: None,
+                }],
+            })],
+        }),
+    );
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+    let nuri = NuriV0::new_entire_user_site();
+    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .unwrap();
+    while let Some(r) = rx.next().await {
+        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+            break;
+        }
+    }
+    let root = root_path(&parent_doc, "urn:test:personCR");
+    let child_seg = composite_key(&child_doc, "urn:test:child1");
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{}/address/{}", root, child_seg),
+        valType: Some(OrmPatchType::object),
+        value: None,
+    }];
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .unwrap();
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(parent_doc.clone()),
+    )
+    .await
+    .unwrap();
+    let link_exists = quads.iter().any(|q| {
+        q.subject.to_string().contains("urn:test:personCR")
+            && q.predicate.as_str() == "http://example.org/address"
+            && q.object.to_string().contains("urn:test:child1")
+    });
+    assert!(
+        !link_exists,
+        "Cross-graph link should be removed in parent graph"
+    );
+    log_info!("✓ Test passed: Cross-graph object link removal");
 }
