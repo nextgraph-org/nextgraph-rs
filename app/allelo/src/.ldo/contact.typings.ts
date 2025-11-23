@@ -62,6 +62,9 @@ export interface SocialContact {
   language?: LdSet<Language>;
   project?: LdSet<Project>;
   publication?: LdSet<Publication>;
+  rcard?: {
+    "@id": string;
+  };
   naoStatus?: NaoStatus;
   invitedAt?: InvitedAt;
   createdAt?: CreatedAt;

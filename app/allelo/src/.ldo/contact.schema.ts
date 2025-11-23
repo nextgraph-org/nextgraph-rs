@@ -321,6 +321,16 @@ export const contactSchema: Schema = {
             },
             {
               type: "TripleConstraint",
+              predicate: "did:ng:x:contact#rcard",
+              valueExpr: {
+                type: "NodeConstraint",
+                nodeKind: "iri",
+              },
+              min: 0,
+              max: 1,
+            },
+            {
+              type: "TripleConstraint",
               predicate: "did:ng:x:contact#naoStatus",
               valueExpr: "did:ng:x:contact:class#NaoStatus",
               min: 0,
