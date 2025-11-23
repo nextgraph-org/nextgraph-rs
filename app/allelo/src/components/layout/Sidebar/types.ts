@@ -1,5 +1,4 @@
 import type { NavItem } from '../NavigationMenu/types';
-import {RelationshipCategory} from "@/constants/relationshipCategories";
 
 export interface SidebarProps {
   navItems: NavItem[];
@@ -8,5 +7,4 @@ export interface SidebarProps {
   onToggleExpanded: (itemText: string) => void;
   onNavigation: (path: string) => void;
   currentPath: string;
-  relationshipCategories: RelationshipCategory[];
 }
