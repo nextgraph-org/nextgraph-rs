@@ -165,6 +165,10 @@ export interface SocialContact {
    */
   publication?: Set<Publication>;
   /**
+   * Original IRI: did:ng:x:contact#rcard
+   */
+  rcard: IRI;
+  /**
    * Original IRI: did:ng:x:contact#naoStatus
    */
   naoStatus?: NaoStatus;

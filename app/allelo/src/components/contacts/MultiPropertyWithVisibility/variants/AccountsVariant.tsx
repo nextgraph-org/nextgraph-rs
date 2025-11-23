@@ -36,7 +36,7 @@ interface AccountsVariantProps<K extends ResolvableKey> {
   setIsAddingNew: (adding: boolean) => void;
   setNewItemValue: (value: string) => void;
   contact?: Contact;
-  resource: NextGraphResource;
+  resource?: NextGraphResource;
 }
 
 export const AccountsVariant = <K extends ResolvableKey>({

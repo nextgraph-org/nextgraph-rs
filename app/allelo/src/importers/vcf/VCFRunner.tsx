@@ -17,7 +17,7 @@ import {
   useMediaQuery
 } from '@mui/material';
 import {
-  UilUpload,
+  UilCloudUpload as UilUpload,
   UilFileAlt,
   UilTimes,
   UilCheckCircle

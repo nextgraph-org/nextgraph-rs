@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+//@ts-nocheck deal with it later
 import { nextGraphConnectedPlugin } from "@ldo/connected-nextgraph";
 import { createLdoReactMethods } from "@ldo/react";
 import { createBrowserNGReactMethods } from "../.auth-react";

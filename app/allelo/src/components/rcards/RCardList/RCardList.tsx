@@ -74,7 +74,7 @@ const RCardList = () => {
     getRCardIDs().then(setRCardURIs);
   }, [getRCardIDs]);
 
-  const handleScroll = (direction: 'left' | 'right') => {
+  const handleScroll = useCallback((direction: 'left' | 'right') => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -91,7 +91,7 @@ const RCardList = () => {
       left: newScrollLeft,
       behavior: 'smooth',
     });
-  };
+  }, []);
 
   return <Box
     sx={{

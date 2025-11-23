@@ -49,14 +49,15 @@ const buildUserNetwork = (
   const userEdges: GraphEdge[] = sortedContacts.map((contact) => {
     let relationship: string | undefined;
 
-    if (contact.relationshipCategory) {
+    /*if (contact.relationshipCategory) {//TODO use rcards
       const categoryMap: Record<string, string> = {
         'friends_family': 'friend',
         'community': 'community',
         'business': 'business contact',
       };
       relationship = categoryMap[contact.relationshipCategory] || contact.relationshipCategory;
-    } else if (contact.organization && contact.organization.size > 0) {
+    } else */
+    if (contact.organization && contact.organization.size > 0) {
       const orgArray = Array.from(contact.organization);
       const currentOrg = orgArray.find((o) => o.current);
       relationship = currentOrg ? 'colleague' : 'former colleague';
@@ -261,7 +262,7 @@ const buildContactNetwork = (
     target: userId,
     type: 'confirmed',
     strength: 0.8,
-    relationship: centeredContact.relationshipCategory || 'connection',
+    relationship: /*centeredContact.relationshipCategory || */'connection',
   });
 
   const showWorkHistory = !currentView || currentView === 'all-connections' || currentView === 'work-history' || currentView === 'orgs-in-common';

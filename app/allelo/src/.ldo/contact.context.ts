@@ -197,6 +197,10 @@ export const contactContext: LdoJsonldContext = {
         "@type": "@id",
         "@isCollection": true,
       },
+      rcard: {
+        "@id": "did:ng:x:contact#rcard",
+        "@type": "@id",
+      },
       naoStatus: {
         "@id": "did:ng:x:contact#naoStatus",
         "@type": "@id",
@@ -424,6 +428,10 @@ export const contactContext: LdoJsonldContext = {
         "@type": "@id",
         "@isCollection": true,
       },
+      rcard: {
+        "@id": "did:ng:x:contact#rcard",
+        "@type": "@id",
+      },
       naoStatus: {
         "@id": "did:ng:x:contact#naoStatus",
         "@type": "@id",
@@ -650,6 +658,10 @@ export const contactContext: LdoJsonldContext = {
         "@id": "did:ng:x:contact#publication",
         "@type": "@id",
         "@isCollection": true,
+      },
+      rcard: {
+        "@id": "did:ng:x:contact#rcard",
+        "@type": "@id",
       },
       naoStatus: {
         "@id": "did:ng:x:contact#naoStatus",
@@ -1275,6 +1287,10 @@ export const contactContext: LdoJsonldContext = {
   publisher: {
     "@id": "did:ng:x:contact#publisher",
     "@type": "http://www.w3.org/2001/XMLSchema#string",
+  },
+  rcard: {
+    "@id": "did:ng:x:contact#rcard",
+    "@type": "@id",
   },
   naoStatus: {
     "@id": "did:ng:x:contact#naoStatus",

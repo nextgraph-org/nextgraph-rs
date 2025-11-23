@@ -31,6 +31,7 @@ import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {useContactView} from "@/hooks/contacts/useContactView";
 import {VouchesAndPraises} from "@/components/contacts/VouchesAndPraises";
 import {dataService} from "@/services/dataService";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 const ContactViewPage = () => {
   const {id} = useParams<{ id: string }>();
@@ -151,7 +152,7 @@ const ContactViewPage = () => {
     );
   }
 
-  if (error || !contact) {
+  if (error || !contact || !(resource instanceof NextGraphResource)) {
     return (
       <Box sx={{height: '100%', p: {xs: 2, md: 3}, backgroundColor: 'background.default'}}>
         <Button

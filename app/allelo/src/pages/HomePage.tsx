@@ -1,17 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import {
-  Box, Container, Typography, TextField, InputAdornment, IconButton, Grid,
-  Card, CardContent, Button, Switch, Chip, Avatar,
-  Badge, List, ListItem, ListItemAvatar, ListItemText, Tooltip,
-  Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
-  Checkbox, ListItemIcon, ListItemButton, alpha, useTheme, SpeedDial,
-  SpeedDialAction, SpeedDialIcon, useMediaQuery,Paper,FormControlLabel,Divider
+  Box, Container, Typography, TextField, InputAdornment, IconButton, Button,
+  Dialog, DialogTitle, DialogContent, DialogActions, alpha, useTheme,
+  // Card, CardContent, Switch, Chip, Avatar,
+  // Badge, List, ListItem, ListItemAvatar, ListItemText, Tooltip,
+  // Menu, MenuItem, Checkbox, ListItemIcon, ListItemButton, SpeedDial, Grid,
+  // SpeedDialAction, SpeedDialIcon, Paper,FormControlLabel,Divider, useMediaQuery,
 } from '@mui/material';
 import {
-  UilBolt, UilSearch, UilArrowUp, UilPlus, UilEnvelope, UilUsersAlt, UilUserPlus,
-  UilBell, UilClock, UilUser, UilArrowRight, UilRss, UilFileAlt,
-  UilGift, UilChartLine, UilTrophy, UilUsersAlt as UilHandshake, UilTimes, UilDraggabledots,
-  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage, UilSetting, UilApps, UilEstate
+  UilBolt, UilSearch, UilArrowUp,
+  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage,
+  // UilPlus, UilEnvelope, UilUsersAlt, UilUserPlus,
+  // UilBell, UilClock, UilUser, UilArrowRight, UilRss, UilFileAlt,
+  // UilGift, UilChartLine, UilTrophy, UilUsersAlt as UilHandshake, UilTimes, UilDraggabledots,
+  // UilSetting, UilApps, UilEstate
 } from '@iconscout/react-unicons';
 import { useAI } from '@/hooks/useAI';
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
@@ -19,17 +21,17 @@ import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 
 const HomePage = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  // const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [query, setQuery] = useState('');
   const [aiEnabled, setAiEnabled] = useState(true);
   const [response, setResponse] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<'widgets' | 'zen'>('zen');
-  const [widgetMenuAnchor, setWidgetMenuAnchor] = useState<null | HTMLElement>(null);
-  const [addWidgetDialog, setAddWidgetDialog] = useState(false);
-  const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
-  const [dropIndicator, setDropIndicator] = useState<{ widgetId: string; position: 'before' | 'after' } | null>(null);
-  const [speedDialOpen, setSpeedDialOpen] = useState(false);
+  // const [viewMode, setViewMode] = useState<'widgets' | 'zen'>('zen');
+  // const [widgetMenuAnchor, setWidgetMenuAnchor] = useState<null | HTMLElement>(null);
+  // const [addWidgetDialog, setAddWidgetDialog] = useState(false);
+  // const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
+  // const [dropIndicator, setDropIndicator] = useState<{ widgetId: string; position: 'before' | 'after' } | null>(null);
+  // const [speedDialOpen, setSpeedDialOpen] = useState(false);
 
   // Quick Actions modal states
   const [createPostDialog, setCreatePostDialog] = useState(false);
@@ -38,8 +40,8 @@ const HomePage = () => {
   const [messageContent, setMessageContent] = useState<string>('');
 
   // Layout settings
-  const [columnLayout, setColumnLayout] = useState<'1-col' | '2-1-col' | '1-2-col' | '3-col'>('2-1-col');
-  const [layoutMenuAnchor, setLayoutMenuAnchor] = useState<null | HTMLElement>(null);
+  // const [columnLayout, setColumnLayout] = useState<'1-col' | '2-1-col' | '1-2-col' | '3-col'>('2-1-col');
+  // const [layoutMenuAnchor, setLayoutMenuAnchor] = useState<null | HTMLElement>(null);
   
   const { promptStream } = useAI(false);
   const streamingMessageIdRef = useRef<string | null>(null);
@@ -55,7 +57,7 @@ const HomePage = () => {
     'Which of my contacts needs my help?',
     'Show my notifications'
   ];
-  
+/*
   // Default widget configuration
   const defaultWidgets = [
     { id: 'ai-chat', name: 'AI Chat / Smart Command Bar', enabled: true, column: 'col1' },
@@ -131,11 +133,11 @@ const HomePage = () => {
   };
 
   // Handle column layout change
-  const handleLayoutChange = (layout: '1-col' | '2-1-col' | '1-2-col' | '3-col') => {
-    setColumnLayout(layout);
-    localStorage.setItem('nao-homepage-layout', layout);
-    setLayoutMenuAnchor(null);
-  };
+  // const handleLayoutChange = (layout: '1-col' | '2-1-col' | '1-2-col' | '3-col') => {
+  //   setColumnLayout(layout);
+  //   localStorage.setItem('nao-homepage-layout', layout);
+  //   setLayoutMenuAnchor(null);
+  // };*/
   
   const handleQuerySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,7 +152,7 @@ const HomePage = () => {
             console.log('Stream started');
           },
           // onStreamChunk
-          (delta: string, accumulated: string) => {
+          (_delta: string, accumulated: string) => {
             setResponse(accumulated);
           },
           // onStreamEnd
@@ -171,7 +173,7 @@ const HomePage = () => {
     };
   };
 
-  const toggleWidget = (widgetId: string) => {
+/*  const toggleWidget = (widgetId: string) => {
     setAvailableWidgets(prev => {
       const updated = prev.map(widget => 
         widget.id === widgetId ? { ...widget, enabled: !widget.enabled } : widget
@@ -343,7 +345,7 @@ const HomePage = () => {
           justifyContent: 'center'
         }}
       >
-        {/* Insertion line floating in the middle of the gap */}
+        {/!* Insertion line floating in the middle of the gap *!/}
         <Box
           sx={{
             width: '80%',
@@ -1029,164 +1031,164 @@ const HomePage = () => {
     }
 
     return widgetContent;
-  };
-
-  // Widget Dashboard Mode - flexible column layouts
-  const renderWidgetMode = () => {
-    const enabledWidgets = availableWidgets.filter(w => w.enabled);
-    const col1Widgets = enabledWidgets.filter(w => w.column === 'col1');
-    const col2Widgets = enabledWidgets.filter(w => w.column === 'col2');
-    const col3Widgets = enabledWidgets.filter(w => w.column === 'col3');
-    
-    const renderColumn = (widgets: typeof enabledWidgets, colSize: number, columnId: 'col1' | 'col2' | 'col3') => (
-      <Grid size={{ xs: 12, md: colSize }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, position: 'relative', minHeight: 100 }}>
-          {/* Empty column drop zone - shown when column has no widgets */}
-          {draggedWidget && widgets.length === 0 && (
-            <Box
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDropIndicator({ widgetId: `empty-${columnId}`, position: 'before' });
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleDropToEmptyColumn(e, columnId);
-              }}
-              sx={{
-                minHeight: 200,
-                border: '2px dashed',
-                borderColor: dropIndicator?.widgetId === `empty-${columnId}` ? 'primary.main' : 'divider',
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: dropIndicator?.widgetId === `empty-${columnId}` ? alpha(theme.palette.primary.main, 0.04) : 'transparent',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                {dropIndicator?.widgetId === `empty-${columnId}` ? 'Drop widget here' : 'Empty column'}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Top edge drop zone - only when column has widgets and dragged widget is from different column */}
-          {draggedWidget && widgets.length > 0 && availableWidgets.find(w => w.id === draggedWidget)?.column !== columnId && (
-            <Box
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDropIndicator({ widgetId: widgets[0].id, position: 'before' });
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleDrop(e, widgets[0].id, 'before');
-              }}
-              sx={{
-                position: 'absolute',
-                top: -12,
-                left: 0,
-                right: 0,
-                height: 24,
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <Box
-                sx={{
-                  width: '80%',
-                  height: 3,
-                  backgroundColor: 'primary.main',
-                  borderRadius: 2,
-                  opacity: dropIndicator?.widgetId === widgets[0].id && dropIndicator?.position === 'before' ? 1 : 0,
-                  transition: 'opacity 0.2s ease',
-                  boxShadow: dropIndicator?.widgetId === widgets[0].id && dropIndicator?.position === 'before' ? `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}` : 'none'
-                }}
-              />
-            </Box>
-          )}
-          
-          {widgets.map((widget) => (
-            <Box key={widget.id}>
-              {renderWidget(widget)}
-            </Box>
-          ))}
-          
-          {/* Bottom edge drop zone - only when column has widgets and dragged widget is from different column */}
-          {draggedWidget && widgets.length > 0 && availableWidgets.find(w => w.id === draggedWidget)?.column !== columnId && (
-            <Box
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDropIndicator({ widgetId: widgets[widgets.length - 1].id, position: 'after' });
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleDrop(e, widgets[widgets.length - 1].id, 'after');
-              }}
-              sx={{
-                position: 'absolute',
-                bottom: -12,
-                left: 0,
-                right: 0,
-                height: 24,
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <Box
-                sx={{
-                  width: '80%',
-                  height: 3,
-                  backgroundColor: 'primary.main',
-                  borderRadius: 2,
-                  opacity: dropIndicator?.widgetId === widgets[widgets.length - 1].id && dropIndicator?.position === 'after' ? 1 : 0,
-                  transition: 'opacity 0.2s ease',
-                  boxShadow: dropIndicator?.widgetId === widgets[widgets.length - 1].id && dropIndicator?.position === 'after' ? `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}` : 'none'
-                }}
-              />
-            </Box>
-          )}
-        </Box>
-      </Grid>
-    );
-    
-    return (
-      <Box sx={{ py: 3, height: '100%', overflow: 'auto', px: 3 }}>
-        <Grid container spacing={4}>
-          {columnLayout === '1-col' && (
-            <>
-              {renderColumn([...col1Widgets, ...col2Widgets, ...col3Widgets], 12, 'col1')}
-            </>
-          )}
-          
-          {columnLayout === '2-1-col' && (
-            <>
-              {renderColumn(col1Widgets, 8, 'col1')}
-              {renderColumn([...col2Widgets, ...col3Widgets], 4, 'col2')}
-            </>
-          )}
-          
-          {columnLayout === '1-2-col' && (
-            <>
-              {renderColumn([...col1Widgets, ...col2Widgets], 4, 'col1')}
-              {renderColumn(col3Widgets, 8, 'col3')}
-            </>
-          )}
-          
-          {columnLayout === '3-col' && (
-            <>
-              {renderColumn(col1Widgets, 4, 'col1')}
-              {renderColumn(col2Widgets, 4, 'col2')}
-              {renderColumn(col3Widgets, 4, 'col3')}
-            </>
-          )}
-        </Grid>
-      </Box>
-    );
-  };
+  };*/
+  //
+  // // Widget Dashboard Mode - flexible column layouts
+  // const renderWidgetMode = () => {
+  //   const enabledWidgets = availableWidgets.filter(w => w.enabled);
+  //   const col1Widgets = enabledWidgets.filter(w => w.column === 'col1');
+  //   const col2Widgets = enabledWidgets.filter(w => w.column === 'col2');
+  //   const col3Widgets = enabledWidgets.filter(w => w.column === 'col3');
+  //
+  //   const renderColumn = (widgets: typeof enabledWidgets, colSize: number, columnId: 'col1' | 'col2' | 'col3') => (
+  //     <Grid size={{ xs: 12, md: colSize }}>
+  //       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, position: 'relative', minHeight: 100 }}>
+  //         {/* Empty column drop zone - shown when column has no widgets */}
+  //         {draggedWidget && widgets.length === 0 && (
+  //           <Box
+  //             onDragOver={(e) => {
+  //               e.preventDefault();
+  //               setDropIndicator({ widgetId: `empty-${columnId}`, position: 'before' });
+  //             }}
+  //             onDrop={(e) => {
+  //               e.preventDefault();
+  //               handleDropToEmptyColumn(e, columnId);
+  //             }}
+  //             sx={{
+  //               minHeight: 200,
+  //               border: '2px dashed',
+  //               borderColor: dropIndicator?.widgetId === `empty-${columnId}` ? 'primary.main' : 'divider',
+  //               borderRadius: 2,
+  //               display: 'flex',
+  //               alignItems: 'center',
+  //               justifyContent: 'center',
+  //               backgroundColor: dropIndicator?.widgetId === `empty-${columnId}` ? alpha(theme.palette.primary.main, 0.04) : 'transparent',
+  //               transition: 'all 0.2s ease'
+  //             }}
+  //           >
+  //             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+  //               {dropIndicator?.widgetId === `empty-${columnId}` ? 'Drop widget here' : 'Empty column'}
+  //             </Typography>
+  //           </Box>
+  //         )}
+  //
+  //         {/* Top edge drop zone - only when column has widgets and dragged widget is from different column */}
+  //         {draggedWidget && widgets.length > 0 && availableWidgets.find(w => w.id === draggedWidget)?.column !== columnId && (
+  //           <Box
+  //             onDragOver={(e) => {
+  //               e.preventDefault();
+  //               setDropIndicator({ widgetId: widgets[0].id, position: 'before' });
+  //             }}
+  //             onDrop={(e) => {
+  //               e.preventDefault();
+  //               handleDrop(e, widgets[0].id, 'before');
+  //             }}
+  //             sx={{
+  //               position: 'absolute',
+  //               top: -12,
+  //               left: 0,
+  //               right: 0,
+  //               height: 24,
+  //               zIndex: 10,
+  //               display: 'flex',
+  //               alignItems: 'center',
+  //               justifyContent: 'center'
+  //             }}
+  //           >
+  //             <Box
+  //               sx={{
+  //                 width: '80%',
+  //                 height: 3,
+  //                 backgroundColor: 'primary.main',
+  //                 borderRadius: 2,
+  //                 opacity: dropIndicator?.widgetId === widgets[0].id && dropIndicator?.position === 'before' ? 1 : 0,
+  //                 transition: 'opacity 0.2s ease',
+  //                 boxShadow: dropIndicator?.widgetId === widgets[0].id && dropIndicator?.position === 'before' ? `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}` : 'none'
+  //               }}
+  //             />
+  //           </Box>
+  //         )}
+  //
+  //         {widgets.map((widget) => (
+  //           <Box key={widget.id}>
+  //             {renderWidget(widget)}
+  //           </Box>
+  //         ))}
+  //
+  //         {/* Bottom edge drop zone - only when column has widgets and dragged widget is from different column */}
+  //         {draggedWidget && widgets.length > 0 && availableWidgets.find(w => w.id === draggedWidget)?.column !== columnId && (
+  //           <Box
+  //             onDragOver={(e) => {
+  //               e.preventDefault();
+  //               setDropIndicator({ widgetId: widgets[widgets.length - 1].id, position: 'after' });
+  //             }}
+  //             onDrop={(e) => {
+  //               e.preventDefault();
+  //               handleDrop(e, widgets[widgets.length - 1].id, 'after');
+  //             }}
+  //             sx={{
+  //               position: 'absolute',
+  //               bottom: -12,
+  //               left: 0,
+  //               right: 0,
+  //               height: 24,
+  //               zIndex: 10,
+  //               display: 'flex',
+  //               alignItems: 'center',
+  //               justifyContent: 'center'
+  //             }}
+  //           >
+  //             <Box
+  //               sx={{
+  //                 width: '80%',
+  //                 height: 3,
+  //                 backgroundColor: 'primary.main',
+  //                 borderRadius: 2,
+  //                 opacity: dropIndicator?.widgetId === widgets[widgets.length - 1].id && dropIndicator?.position === 'after' ? 1 : 0,
+  //                 transition: 'opacity 0.2s ease',
+  //                 boxShadow: dropIndicator?.widgetId === widgets[widgets.length - 1].id && dropIndicator?.position === 'after' ? `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}` : 'none'
+  //               }}
+  //             />
+  //           </Box>
+  //         )}
+  //       </Box>
+  //     </Grid>
+  //   );
+  //
+  //   return (
+  //     <Box sx={{ py: 3, height: '100%', overflow: 'auto', px: 3 }}>
+  //       <Grid container spacing={4}>
+  //         {columnLayout === '1-col' && (
+  //           <>
+  //             {renderColumn([...col1Widgets, ...col2Widgets, ...col3Widgets], 12, 'col1')}
+  //           </>
+  //         )}
+  //
+  //         {columnLayout === '2-1-col' && (
+  //           <>
+  //             {renderColumn(col1Widgets, 8, 'col1')}
+  //             {renderColumn([...col2Widgets, ...col3Widgets], 4, 'col2')}
+  //           </>
+  //         )}
+  //
+  //         {columnLayout === '1-2-col' && (
+  //           <>
+  //             {renderColumn([...col1Widgets, ...col2Widgets], 4, 'col1')}
+  //             {renderColumn(col3Widgets, 8, 'col3')}
+  //           </>
+  //         )}
+  //
+  //         {columnLayout === '3-col' && (
+  //           <>
+  //             {renderColumn(col1Widgets, 4, 'col1')}
+  //             {renderColumn(col2Widgets, 4, 'col2')}
+  //             {renderColumn(col3Widgets, 4, 'col3')}
+  //           </>
+  //         )}
+  //       </Grid>
+  //     </Box>
+  //   );
+  // };
 
   // Zen Mode - Similar to current AI chat but cleaner
   const renderZenMode = () => (
@@ -1348,9 +1350,9 @@ const HomePage = () => {
     </Box>
   );
 
-  const handleAddWidget = (event: React.MouseEvent<HTMLElement>) => {
-    setWidgetMenuAnchor(event.currentTarget);
-  };
+  // const handleAddWidget = (event: React.MouseEvent<HTMLElement>) => {
+  //   setWidgetMenuAnchor(event.currentTarget);
+  // };
 
   // Quick Actions handlers
   const handleCreatePost = (type: 'post' | 'offer' | 'want') => {
@@ -1369,20 +1371,20 @@ const HomePage = () => {
     }
   };
 
-  const handleAddContact = () => {
-    // Navigate to Network contacts page
-    window.location.href = '/#/network/contacts/add';
-  };
-
-  const handleCreateGroup = () => {
-    // Navigate to Groups create page
-    window.location.href = 'http://localhost:5174/#/groups/create';
-  };
-
-  const handleCreateDoc = () => {
-    // Navigate to My Docs with new document
-    window.location.href = '/#/docs/create';
-  };
+  // const handleAddContact = () => {
+  //   // Navigate to Network contacts page
+  //   window.location.href = '/#/network/contacts/add';
+  // };
+  //
+  // const handleCreateGroup = () => {
+  //   // Navigate to Groups create page
+  //   window.location.href = 'http://localhost:5174/#/groups/create';
+  // };
+  //
+  // const handleCreateDoc = () => {
+  //   // Navigate to My Docs with new document
+  //   window.location.href = '/#/docs/create';
+  // };
 
   return (
     <Box sx={{pb: 10 }}>
@@ -1808,7 +1810,8 @@ const HomePage = () => {
         </DialogActions>
       </Dialog>
 
-      {viewMode === 'widgets' ? renderWidgetMode() : renderZenMode()}
+      {/*{viewMode === 'widgets' ? renderWidgetMode() : renderZenMode()}*/}
+      {renderZenMode()}
     </Box>
   );
 };
