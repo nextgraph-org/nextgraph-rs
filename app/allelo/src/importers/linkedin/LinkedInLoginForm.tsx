@@ -90,8 +90,8 @@ export function LinkedInLoginForm({
           onChange={(e) => setUsername(e.target.value)}
           required
           disabled={loading}
-          autocapitalize="none"
-          autocorrect="off"
+          autoCapitalize="none"
+          autoCorrect="off"
           inputProps={{
             autocapitalize: 'none',
             autocorrect:'off'
