@@ -240,7 +240,8 @@ async fn test_patch_remove_single_literal(session_id: u64) {
 PREFIX ex: <http://example.org/>
 INSERT DATA {
     <urn:test:person2> a ex:Person ;
-        ex:name "Bob" .
+        ex:name "Bob" ;
+        ex:isAdult false .
 }
 "#
         .to_string(),
@@ -275,6 +276,18 @@ INSERT DATA {
                     maxCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/isAdult".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "isAdult".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::boolean,
                         literals: None,
                         shape: None,
                     }],
@@ -302,12 +315,20 @@ INSERT DATA {
 
     // Apply ORM patch: Remove name
     let root = root_path(&doc_nuri, "urn:test:person2");
-    let diff = vec![OrmPatch {
-        op: OrmPatchOp::remove,
-        path: format!("{}/name", root),
-        valType: None,
-        value: Some(json!("Bob")),
-    }];
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{}/name", root),
+            valType: None,
+            value: Some(json!("Bob")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{}/isAdult", root),
+            valType: None,
+            value: None,
+        },
+    ];
 
     orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
         .await
@@ -327,7 +348,12 @@ INSERT DATA {
             && q.object.to_string().contains("Bob")
             && quad_has_graph(q, &doc_nuri)
     });
+    let has_is_adult = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/isAdult" && quad_has_graph(q, &doc_nuri)
+    });
+
     assert!(!has_name, "Name was not removed from the graph");
+    assert!(!has_is_adult, "is_adult was not removed from the graph");
 
     log_info!("✓ Test passed: Remove single literal");
 }
@@ -342,7 +368,8 @@ async fn test_patch_replace_single_literal(session_id: u64) {
 PREFIX ex: <http://example.org/>
 INSERT DATA {
     <urn:test:person3> a ex:Person ;
-        ex:name "Charlie" .
+        ex:name "Charlie" ;
+        ex:isAdult false .
 }
 "#
         .to_string(),
@@ -381,6 +408,18 @@ INSERT DATA {
                         shape: None,
                     }],
                 }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/isAdult".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "isAdult".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::boolean,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
             ],
         }),
     );
@@ -404,12 +443,20 @@ INSERT DATA {
 
     // Apply ORM patch: Replace name (remove old, add new)
     let root = root_path(&doc_nuri, "urn:test:person3");
-    let diff = vec![OrmPatch {
-        op: OrmPatchOp::add,
-        path: format!("{}/name", root),
-        valType: None,
-        value: Some(json!("Charles")),
-    }];
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/name", root),
+            valType: None,
+            value: Some(json!("Charles")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/isAdult", root),
+            valType: None,
+            value: Some(json!(true)),
+        },
+    ];
 
     orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
         .await
@@ -434,9 +481,21 @@ INSERT DATA {
             && q.object.to_string().contains("Charles")
             && quad_has_graph(q, &doc_nuri)
     });
+    let has_old_adult_value = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/isAdult"
+            && q.object.to_string().contains("false")
+            && quad_has_graph(q, &doc_nuri)
+    });
+    let has_new_adult_value = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/isAdult"
+            && q.object.to_string().contains("true")
+            && quad_has_graph(q, &doc_nuri)
+    });
 
     assert!(!has_old_name, "Old name was not removed");
     assert!(has_new_name, "New name was not added");
+    assert!(!has_old_adult_value, "Old isAdult value was not removed");
+    assert!(has_new_adult_value, "New isAdult value was not added");
 
     log_info!("✓ Test passed: Replace single literal");
 }
@@ -831,23 +890,42 @@ INSERT DATA {
 async fn test_patch_multilevel_nested(session_id: u64) {
     log_info!("\n\n=== TEST: Multi-level Nested Modification ===\n");
 
-    let doc_nuri = create_doc_with_data(
+    let person_doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:person7> a ex:Person ;
-        ex:name "Eve" ;
-        ex:company <urn:test:company1> .
-    
-    <urn:test:company1> a ex:Company ;
-        ex:companyName "Acme Corp" ;
-        ex:headquarter <urn:test:address2> .
-    
-    <urn:test:address2> a ex:Address ;
-        ex:street "Business Blvd" ;
-        ex:city "Metropolis" .
-}
+        PREFIX ex: <http://example-test_patch_multilevel_nested.org/>
+        INSERT DATA {
+            ex:person7 a ex:Person ;
+                ex:name "Eve" ;
+                ex:company ex:company1 .
+        }
+"#
+        .to_string(),
+    )
+    .await;
+    let company_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+        PREFIX ex: <http://example-test_patch_multilevel_nested.org/>
+        INSERT DATA {
+            ex:company1 a ex:Company ;
+                ex:companyName "Acme-Corp" ;
+                ex:headquarter ex:address2 ;
+                ex:isMultinational false .
+        }
+"#
+        .to_string(),
+    )
+    .await;
+    let address_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+        PREFIX ex: <http://example-test_patch_multilevel_nested.org/>
+        INSERT DATA {
+            ex:address2 a ex:Address ;
+                ex:street "Business Blvd" ;
+                ex:city "Metropolis" .
+        }
 "#
         .to_string(),
     )
@@ -855,9 +933,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example-test_patch_multilevel_nested.org/Person".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example-test_patch_multilevel_nested.org/Person".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -868,13 +946,13 @@ INSERT DATA {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
+                            "http://example-test_patch_multilevel_nested.org/Person".to_string(),
                         )]),
                         shape: None,
                     }],
                 }),
                 Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/name".to_string(),
+                    iri: "http://example-test_patch_multilevel_nested.org/name".to_string(),
                     extra: Some(false),
                     readablePredicate: "name".to_string(),
                     minCardinality: 0,
@@ -886,14 +964,16 @@ INSERT DATA {
                     }],
                 }),
                 Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/company".to_string(),
+                    iri: "http://example-test_patch_multilevel_nested.org/company".to_string(),
                     extra: Some(false),
                     readablePredicate: "company".to_string(),
                     minCardinality: 0,
                     maxCardinality: -1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::shape,
-                        shape: Some("http://example.org/Company".to_string()),
+                        shape: Some(
+                            "http://example-test_patch_multilevel_nested.org/Company".to_string(),
+                        ),
                         literals: None,
                     }],
                 }),
@@ -901,9 +981,9 @@ INSERT DATA {
         }),
     );
     schema.insert(
-        "http://example.org/Company".to_string(),
+        "http://example-test_patch_multilevel_nested.org/Company".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Company".to_string(),
+            iri: "http://example-test_patch_multilevel_nested.org/Company".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -914,13 +994,13 @@ INSERT DATA {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str(
-                            "http://example.org/Company".to_string(),
+                            "http://example-test_patch_multilevel_nested.org/Company".to_string(),
                         )]),
                         shape: None,
                     }],
                 }),
                 Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/companyName".to_string(),
+                    iri: "http://example-test_patch_multilevel_nested.org/companyName".to_string(),
                     readablePredicate: "companyName".to_string(),
                     extra: Some(false),
                     minCardinality: 0,
@@ -932,14 +1012,29 @@ INSERT DATA {
                     }],
                 }),
                 Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/headquarter".to_string(),
+                    iri: "http://example-test_patch_multilevel_nested.org/isMultinational"
+                        .to_string(),
+                    readablePredicate: "isMultinational".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::boolean,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example-test_patch_multilevel_nested.org/headquarter".to_string(),
                     readablePredicate: "headquarter".to_string(),
                     extra: Some(false),
                     minCardinality: 0,
                     maxCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::shape,
-                        shape: Some("http://example.org/Address".to_string()),
+                        shape: Some(
+                            "http://example-test_patch_multilevel_nested.org/Address".to_string(),
+                        ),
                         literals: None,
                     }],
                 }),
@@ -947,9 +1042,9 @@ INSERT DATA {
         }),
     );
     schema.insert(
-        "http://example.org/Address".to_string(),
+        "http://example-test_patch_multilevel_nested.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Address".to_string(),
+            iri: "http://example-test_patch_multilevel_nested.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -960,13 +1055,13 @@ INSERT DATA {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str(
-                            "http://example.org/Address".to_string(),
+                            "http://example-test_patch_multilevel_nested.org/Address".to_string(),
                         )]),
                         shape: None,
                     }],
                 }),
                 Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/street".to_string(),
+                    iri: "http://example-test_patch_multilevel_nested.org/street".to_string(),
                     readablePredicate: "street".to_string(),
                     extra: Some(false),
                     minCardinality: 0,
@@ -978,7 +1073,7 @@ INSERT DATA {
                     }],
                 }),
                 Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/city".to_string(),
+                    iri: "http://example-test_patch_multilevel_nested.org/city".to_string(),
                     readablePredicate: "city".to_string(),
                     extra: Some(false),
                     minCardinality: 0,
@@ -994,11 +1089,11 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example-test_patch_multilevel_nested.org/Person".to_string(),
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let nuri = NuriV0::new_entire_user_site();
     let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
         .await
         .expect("orm_start failed");
@@ -1011,14 +1106,34 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
-    let root = root_path(&doc_nuri, "urn:test:person7");
-    let child = composite_key(&doc_nuri, "urn:test:company1");
-    let diff = vec![OrmPatch {
-        op: OrmPatchOp::add,
-        path: format!("{}/company/{}/headquarter/street", root, child),
-        valType: None,
-        value: Some(json!("Rich Street")),
-    }];
+    let root = root_path(
+        &person_doc_nuri,
+        "http://example-test_patch_multilevel_nested.org/person7",
+    );
+    let child = composite_key(
+        &company_doc_nuri,
+        "http://example-test_patch_multilevel_nested.org/company1",
+    );
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/{}/headquarter/street", root, child),
+            valType: None,
+            value: Some(json!("Rich Street")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/{}/companyName", root, child),
+            valType: None,
+            value: Some(json!("Acme Corp empty isMultinational")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{}/company/{}/isMultinational", root, child),
+            valType: None,
+            value: None,
+        },
+    ];
 
     orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
         .await
@@ -1028,24 +1143,48 @@ INSERT DATA {
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
-        Some(doc_nuri.clone()),
+        Some(person_doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
+    log_info!("Quads (test_multilevel_nested): {:?}", quads);
+
     let has_old_street = quads.iter().any(|q| {
-        q.predicate.as_str() == "http://example.org/street"
+        q.predicate.as_str() == "http://example-test_patch_multilevel_nested.org/street"
             && q.object.to_string().contains("Business Blvd")
-            && quad_has_graph(q, &doc_nuri)
+            && quad_has_graph(q, &address_doc_nuri)
     });
     let has_new_street = quads.iter().any(|q| {
-        q.predicate.as_str() == "http://example.org/street"
+        q.predicate.as_str() == "http://example-test_patch_multilevel_nested.org/street"
             && q.object.to_string().contains("Rich Street")
-            && quad_has_graph(q, &doc_nuri)
+            && quad_has_graph(q, &address_doc_nuri)
+    });
+    let has_old_company_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example-test_patch_multilevel_nested.org/companyName"
+            && q.object.to_string().contains("Acme-Corp")
+            && quad_has_graph(q, &company_doc_nuri)
+    });
+    let has_new_company_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example-test_patch_multilevel_nested.org/companyName"
+            && q.object
+                .to_string()
+                .contains("Acme Corp empty isMultinational")
+            && quad_has_graph(q, &company_doc_nuri)
+    });
+    let has_is_multinational = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example-test_patch_multilevel_nested.org/isMultinational"
+            && quad_has_graph(q, &company_doc_nuri)
     });
 
     assert!(!has_old_street, "Old street should be removed");
     assert!(has_new_street, "New street should be added");
+    assert!(!has_old_company_name, "Old company name should be removed");
+    assert!(has_new_company_name, "New company name should be added");
+    assert!(
+        !has_is_multinational,
+        "Old isMultinational property should be removed"
+    );
 
     log_info!("✓ Test passed: Multi-level nested modification");
 }
@@ -2082,7 +2221,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
                     iri: "http://example.org/address".to_string(),
                     readablePredicate: "address".to_string(),
                     extra: Some(false),
-                    maxCardinality: 1,
+                    maxCardinality: -1,
                     minCardinality: 0,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::shape,

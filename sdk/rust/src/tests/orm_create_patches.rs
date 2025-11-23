@@ -38,7 +38,7 @@ async fn test_orm_patch_creation() {
 
     test_cross_graph_child_in_separate_graph(session_id).await;
 
-    // test_patch_add_nested_1(session_id).await;  // TODO: Edge case not yet fully implemented
+    // _test_patch_add_nested_1(session_id).await;  // TODO: Edge case not yet fully implemented
 }
 
 /// Test that when a root object references a child object that lives in a different graph,
@@ -597,7 +597,7 @@ DELETE DATA {
 /// Tests edge case that is an open TODO about a modified nested object
 /// that changes so that another allowed shape becomes valid.
 /// See handle_backend_update's TODO comment.
-async fn test_patch_add_nested_1(session_id: u64) {
+async fn _test_patch_add_nested_1(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
