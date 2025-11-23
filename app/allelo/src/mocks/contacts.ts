@@ -79,7 +79,6 @@ export function transformRawContact(rawContact: RawContact): Contact {
       value: rawContact.naoStatus
     } : undefined,
     // Keep Contact-specific properties
-    relationshipCategory: rawContact.relationshipCategory,
     humanityConfidenceScore: rawContact.humanityConfidenceScore || 0,
     vouchesSent: rawContact.vouchesSent || 0,
     vouchesReceived: rawContact.vouchesReceived || 0,

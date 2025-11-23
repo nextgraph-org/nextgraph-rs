@@ -11,7 +11,6 @@ export interface Contact extends SocialContact {
   vouchesReceived?: number;
   praisesSent?: number;
   praisesReceived?: number;
-  relationshipCategory?: 'friends_family' | 'community' | 'business' | string;
   lastInteractionAt?: Date;
   interactionCount?: number;
   recentInteractionScore?: number;
