@@ -470,11 +470,11 @@ export interface Photo {
   /**
    * The URL of the photo
    */
-  photoUrl: string;
+  photoUrl?: string;
   /**
    * The IRI of blob
    */
-  photoIRI?: {
+  photoIRI: {
     "@id": string;
   };
   /**

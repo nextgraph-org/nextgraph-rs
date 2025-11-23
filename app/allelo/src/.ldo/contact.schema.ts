@@ -1650,6 +1650,8 @@ export const contactSchema: Schema = {
                 type: "NodeConstraint",
                 datatype: "http://www.w3.org/2001/XMLSchema#string",
               },
+              min: 0,
+              max: 1,
               annotations: [
                 {
                   type: "Annotation",
@@ -1667,8 +1669,6 @@ export const contactSchema: Schema = {
                 type: "NodeConstraint",
                 nodeKind: "iri",
               },
-              min: 0,
-              max: 1,
               annotations: [
                 {
                   type: "Annotation",

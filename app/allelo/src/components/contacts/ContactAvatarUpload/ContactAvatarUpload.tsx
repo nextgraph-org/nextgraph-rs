@@ -1,4 +1,4 @@
-import {useRef, ChangeEvent, useState, useEffect} from 'react';
+import {useRef, ChangeEvent, useState, useEffect, useCallback} from 'react';
 import {Box, Button, Avatar, CircularProgress} from '@mui/material';
 import {UilCamera} from '@iconscout/react-unicons';
 import {imageService} from '@/services/imageService';
@@ -31,7 +31,7 @@ export const ContactAvatarUpload = ({
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [isLoadingImage, setIsLoadingImage] = useState(true);
   const [displayUrl, setDisplayUrl] = useState<string | undefined>(photoUrl);
 
   // Load image from nuri when component mounts or photoNuri changes
@@ -54,11 +54,12 @@ export const ContactAvatarUpload = ({
           setIsLoadingImage(false);
         });
     } else if (photoUrl) {
+      setIsLoadingImage(false);
       setDisplayUrl(photoUrl);
     }
   }, [photoNuri, photoUrl, ormContact, sessionId]);
 
-  const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     if (!ormContact) {
       return;
     }
@@ -80,11 +81,13 @@ export const ContactAvatarUpload = ({
         );
 
         if (nuri) {
+          ormContact?.photo?.forEach(el => delete el.preferred);
+
           ormContact?.photo?.add({
             photoIRI: nuri,
             "@graph": "",
             "@id": "",
-            photoUrl: ""
+            preferred: true
           })
 
           const url = await imageService.getBlob(ormContact["@id"], nuri, true, sessionId);
@@ -104,13 +107,13 @@ export const ContactAvatarUpload = ({
         setUploadProgress(0);
       }
     }
-  };
+  }, [ormContact, sessionId]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  const renderViewAvatar = () => {
+  const renderViewAvatar = useCallback(() => {
     // Show loading spinner while loading or uploading
     if (isLoadingImage || isUploading) {
       return (
@@ -122,13 +125,11 @@ export const ContactAvatarUpload = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'primary.main',
-            color: 'white',
           }}
         >
           <CircularProgress
             size={size.sm / 2}
-            sx={{color: 'white'}}
+            sx={{color: 'black'}}
             variant={isUploading && uploadProgress > 0 ? "determinate" : "indeterminate"}
             value={uploadProgress}
           />
@@ -148,7 +149,7 @@ export const ContactAvatarUpload = ({
         alt="Profile"
         src={displayUrl}
       >
-        {initial?.charAt(0)}
+          {!isLoadingImage && initial?.charAt(0)}
       </Avatar>
     return <Box
       sx={{
@@ -174,7 +175,7 @@ export const ContactAvatarUpload = ({
     >
       {!displayUrl && initial.charAt(0)}
     </Box>
-  }
+  }, [displayUrl, forProfile, initial, isEditing, isLoadingImage, isUploading, size.sm, size.xs, uploadProgress]);
 
 
   return (

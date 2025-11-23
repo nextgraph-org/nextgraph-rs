@@ -648,13 +648,13 @@ export interface Photo {
    *
    * Original IRI: did:ng:x:core#photoUrl
    */
-  photoUrl: string;
+  photoUrl?: string;
   /**
    * The IRI of blob
    *
    * Original IRI: did:ng:x:core#photoIRI
    */
-  photoIRI?: IRI;
+  photoIRI: IRI;
   /**
    * True if the photo is a default photo
    *

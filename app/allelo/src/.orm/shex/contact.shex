@@ -290,9 +290,9 @@ ngc:Organization {
 }
 
 ngc:Photo {
-  ngcore:photoUrl xsd:string
+  ngcore:photoUrl xsd:string ?
     // rdfs:comment "The URL of the photo" ;
-  ngcore:photoIRI IRI ?
+  ngcore:photoIRI IRI
     // rdfs:comment "The IRI of blob" ;
   ngcontact:preferred xsd:boolean ?
     // rdfs:comment "True if the photo is a default photo" ;
