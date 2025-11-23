@@ -30,12 +30,12 @@ export interface ContactsReturn {
   loadMore: () => void;
   totalCount: number;
   error: Error | null;
-  updateContact: (nuri: string, updates: Partial<Contact>) => Promise<void>;
   addFilter: (key: keyof ContactsFilters, value: ContactsFilters[keyof ContactsFilters]) => void;
   setIconFilter: (key: iconFilter, value: string) => void;
   clearFilters: () => void;
   filters: ContactsFilters;
   reloadContacts: () => void;
+  handleContactsCategorized: (contactIds: string[], rcardId: string) => Promise<void>;
 }
 
 
@@ -69,7 +69,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     ...initialFilters
   }));
 
-  const {updateContact: editContact} = useSaveContacts();
+  const {updateContact} = useSaveContacts();
   const isNextGraph = isNextGraphEnabled();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
@@ -127,10 +127,11 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
         address?.country?.toLowerCase().includes(searchQuery.toLowerCase());
 
       // Relationship filter
+      const contactRCard = contact.rcard ? contact.rcard["@id"] : undefined;
       const matchesRelationship = relationshipFilter === 'all' ||
-        (relationshipFilter === 'undefined' && !contact.relationshipCategory) ||
-        (relationshipFilter === 'default' && !contact.relationshipCategory) ||
-        contact.relationshipCategory === relationshipFilter;
+        (relationshipFilter === 'undefined' && !contactRCard) ||
+        (relationshipFilter === 'default' && !contactRCard) ||
+        contactRCard === relationshipFilter;
 
       // NAO Status filter
       const matchesNaoStatus = naoStatusFilter === 'all' ||
@@ -293,6 +294,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
       sortBy = 'mostRecentInteraction',
       sortDirection = 'desc',
       accountFilter = 'all',
+      relationshipFilter = 'all',
       searchQuery,
       hasAddressFilter = false
     } = filters;
@@ -301,6 +303,9 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     const filterParams = new Map<string, string>();
     if (accountFilter !== 'all') {
       filterParams.set('account', accountFilter);
+    }
+    if (relationshipFilter !== 'all') {
+      filterParams.set('rcard', relationshipFilter);
     }
     if (searchQuery) {
       filterParams.set('fts', searchQuery);
@@ -320,16 +325,10 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     setTotalCount(totalContactsInDB);
     const containerOverlay = session.privateStoreId!.substring(46);
     // @ts-expect-error TODO output format of ng sparql query
-    const contactNuris = contactIDsResult.results.bindings.map(
+    return contactIDsResult.results.bindings.map(
       (binding) => binding.contactUri.value + containerOverlay
     );
-
-    return contactNuris;
   }, [session, filters, limit]);
-
-  const updateContact = async (nuri: string, updates: Partial<Contact>) => {
-    await editContact(nuri, updates);
-  };
 
   const addFilter = useCallback((key: keyof ContactsFilters, value: ContactsFilters[keyof ContactsFilters]) => {
     setFilters(prevFilters => ({
@@ -382,6 +381,15 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     loadContacts(0).finally(() => setIsLoading(false));
   }, [loadContacts]);
 
+  const handleContactsCategorized = useCallback(async (contactIds: string[], rcardId: string) => {
+    for (const contactId of contactIds) {
+      await updateContact(contactId, {rcard: {"@id": rcardId}});
+    }
+    if (filters.relationshipFilter !== 'all') {
+      reloadContacts();
+    }
+  }, [updateContact, filters, reloadContacts]);
+
   useEffect(() => {
     reloadContacts();
   }, [reloadContacts]);
@@ -398,8 +406,8 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     hasMore,
     loadMore,
     totalCount,
-    updateContact,
     setIconFilter,
-    reloadContacts
+    reloadContacts,
+    handleContactsCategorized
   };
 };
