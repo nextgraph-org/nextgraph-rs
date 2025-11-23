@@ -87,7 +87,7 @@ export const rCardPermissionConfig: ContactPermissionsConfig = {
     value: {displayProp: "value"},
   },
   tag: {
-    valueIRI: {template: "#{{valueIRI}}", isMultiple: true, separator: " "},
+    valueIRI: {template: "#{{valueIRI}}", isMultiple: true, separator: " ", shareAll: true},
   },
   interest: {
     value: {displayProp: "value", isMultiple: true, separator: ", "},
