@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "build-importer": "cd ../tauri-plugin-contacts-importer && bun run build",
-    "check": "tsc -p tsconfig.app.json --noEmit && eslint .",
+    "check": "tsc -p tsconfig.json --noEmit && eslint .",
     "build:ldo": "ldo build --input src/.shapes --output src/.ldo && bun scripts/fix-ldo-types.js",
     "build:orm": "npx rdf-orm build --input ./src/.orm/shex --output ./src/.orm/shapes",
     "lint": "eslint .",
