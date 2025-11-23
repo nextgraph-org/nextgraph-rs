@@ -292,7 +292,7 @@ impl Verifier {
                                 },
                             };
 
-                            log_debug!("quad fetched: {:?}", quad);
+                            // log_debug!("quad fetched: {:?}", quad);
                             result_quads.push(quad);
                         }
                     }

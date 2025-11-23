@@ -36,14 +36,14 @@ impl Verifier {
         revert_inserts: Vec<Quad>,
         revert_removes: Vec<Quad>,
     ) -> Result<(), VerifierError> {
-        let (sender, _orm_subscription) =
+        let (_sender, _orm_subscription) =
             self.get_first_orm_subscription_sender_for(scope, Some(&shape_iri), Some(&session_id))?;
 
         log_debug!("[orm_update_self] got subscription");
 
         // Revert changes, if there.
         if revert_inserts.len() > 0 || revert_removes.len() > 0 {
-            let revert_changes = GraphQuadsPatch {
+            let _revert_changes = GraphQuadsPatch {
                 inserts: revert_removes,
                 removes: revert_inserts,
             };
@@ -135,7 +135,11 @@ fn create_sparql_update_query_for_patches(
 
     // ------------------------- Staged Child Collection -----------------------
     let mut staged_children: HashMap<String, (String, String)> = HashMap::new();
-    for p in patches.iter() {
+    // Sort patches by path depth so that shallower object modifications create or track
+    // intermediate objects before deeper nested primitive updates (e.g., companyName before headquarter/street).
+    let mut ordered_patches = patches.clone();
+    ordered_patches.sort_by_key(|p| p.path.matches('/').count());
+    for p in ordered_patches.iter() {
         if p.op != OrmPatchOp::add {
             continue;
         }
@@ -167,7 +171,6 @@ fn create_sparql_update_query_for_patches(
         predicate_iri: String,
         pred_schema: Arc<OrmSchemaPredicate>,
         child_iri: Option<String>, // IRI of object referenced directly (for link ops)
-        _is_link_terminal: bool,   // path ends at object predicate itself (link add/remove)
     }
 
     // ------------------------- Schema Selection Helper ----------------------
@@ -226,12 +229,20 @@ fn create_sparql_update_query_for_patches(
         if segs.is_empty() {
             return None;
         }
-        // Helper used locally to decode JSON Pointer encoded IRIs appearing in path segments
-        let decode = |s: &str| s.replace("~1", "/").replace("~0", "~");
+
         // root composite
         let mut root_split = segs[0].split('|');
-        let graph = root_split.next()?.to_string();
-        let subject = root_split.next()?.to_string();
+        let raw_graph = root_split.next()?.to_string();
+        let raw_subject = root_split.next()?.to_string();
+        let graph = decode_json_pointer(&raw_graph);
+        let subject = decode_json_pointer(&raw_subject);
+        log_debug!(
+            "[resolve_path] START path='{}' root='{}|{}' segs={:?}",
+            path,
+            graph,
+            subject,
+            segs
+        );
         let mut idx = 1;
         let mut current_graph = graph.clone();
         let mut current_subject = subject.clone();
@@ -241,72 +252,97 @@ fn create_sparql_update_query_for_patches(
             .get(&orm_subscription.shape_type.shape)
             .unwrap()
             .clone();
-        let mut _pred_schema_opt: Option<Arc<OrmSchemaPredicate>> = None;
-        let mut _child_iri: Option<String> = None;
-        let mut _link_terminal = false;
 
         while idx < segs.len() {
             let pred_name = segs[idx];
             // If path points to staged child base, we might get direct link terminal without extra segment
-            _pred_schema_opt = current_schema
+            let pred_schema_opt = current_schema
                 .predicates
                 .iter()
                 .find(|p| p.readablePredicate == pred_name)
                 .cloned();
-            let Some(pred_schema) = &_pred_schema_opt else {
+            let Some(pred_schema) = &pred_schema_opt else {
+                log_debug!(
+                    "[resolve_path] FAIL no predicate '{}' in schema '{}' subj='{}' graph='{}'",
+                    pred_name,
+                    current_schema.iri,
+                    current_subject,
+                    current_graph
+                );
                 return None;
             };
+            log_debug!(
+                "[resolve_path] seg[{}]='{}' iri='{}' object={} multi={}",
+                idx,
+                pred_name,
+                pred_schema.iri,
+                pred_schema.is_object(),
+                pred_schema.is_multi()
+            );
             idx += 1;
             if !pred_schema.is_object() {
                 // primitive leaf expected
                 // If more segments follow -> invalid path for primitives
                 if idx != segs.len() {
+                    log_debug!(
+                        "[resolve_path] extra segments after primitive '{}'",
+                        pred_name
+                    );
                     return None;
                 }
+                log_debug!(
+                    "[resolve_path] TARGET primitive graph='{}' subj='{}' pred='{}'",
+                    current_graph,
+                    current_subject,
+                    pred_schema.iri
+                );
                 return Some(PathTarget {
                     graph: current_graph,
                     subject: current_subject,
                     predicate_iri: pred_schema.iri.clone(),
                     pred_schema: pred_schema.clone(),
                     child_iri: None,
-                    _is_link_terminal: false,
                 });
             }
             // object predicate
             if pred_schema.is_multi() {
                 if idx >= segs.len() {
-                    // path ends at multi predicate itself (invalid - need composite child key) -> treat as link terminal? skip
-                    _link_terminal = true; // ambiguous; but without child key we can't act
+                    log_debug!("[resolve_path] TARGET multi-object collection graph='{}' subj='{}' pred='{}'", current_graph, current_subject, pred_schema.iri);
                     return Some(PathTarget {
                         graph: current_graph,
                         subject: current_subject,
                         predicate_iri: pred_schema.iri.clone(),
                         pred_schema: pred_schema.clone(),
                         child_iri: None,
-                        _is_link_terminal: true,
                     });
                 }
                 let composite = segs[idx];
                 if !composite.contains('|') {
+                    log_debug!(
+                        "[resolve_path] invalid composite '{}' for multi-object pred='{}'",
+                        composite,
+                        pred_schema.iri
+                    );
                     return None;
                 }
                 let mut cs = composite.split('|');
-                let child_graph = cs.next()?.to_string();
+                let raw_child_graph = cs.next()?.to_string();
                 let raw_child_subj = cs.next()?.to_string();
-                let child_subj_decoded = decode(&raw_child_subj);
+                let child_graph = decode_json_pointer(&raw_child_graph);
+                let child_subj_decoded = decode_json_pointer(&raw_child_subj);
                 current_graph = child_graph.clone();
                 current_subject = child_subj_decoded.clone();
                 idx += 1;
                 if idx == segs.len() {
                     // link to child object itself
-                    _child_iri = Some(child_subj_decoded);
+                    let child_iri = Some(child_subj_decoded);
+                    log_debug!("[resolve_path] TARGET multi-object link parent='{}|{}' pred='{}' child='{}'", graph, subject, pred_schema.iri, child_iri.as_ref().unwrap());
                     return Some(PathTarget {
                         graph: graph,
                         subject: subject,
                         predicate_iri: pred_schema.iri.clone(),
                         pred_schema: pred_schema.clone(),
-                        child_iri: _child_iri,
-                        _is_link_terminal: true,
+                        child_iri,
                     });
                 } else {
                     // continue traversal inside child
@@ -315,81 +351,65 @@ fn create_sparql_update_query_for_patches(
                     continue;
                 }
             } else {
-                // single-valued object predicate
-                // Support two path styles for single-valued object predicates:
-                // 1. Classic staging paths without composite key: /root/pred/@id, /root/pred/type
-                // 2. Composite key style (encoded like multi-valued): /root/pred/<graph|encoded_child_iri>/... (for testing encoded segment decoding)
-                let base_key_no_composite = format!("/{}|{}/{}", graph, subject, pred_name);
+                // single-valued object predicate, like `/root/pred/<object>`
                 if idx == segs.len() {
-                    // path ends at predicate => link terminal (no child key provided)
-                    _link_terminal = true;
+                    log_debug!(
+                        "[resolve_path] TARGET single-object link pred='{}' parent='{}|{}'",
+                        pred_schema.iri,
+                        graph,
+                        subject
+                    );
                     return Some(PathTarget {
                         graph: graph,
                         subject: subject,
                         predicate_iri: pred_schema.iri.clone(),
                         pred_schema: pred_schema.clone(),
                         child_iri: None,
-                        _is_link_terminal: true,
                     });
                 }
-                // Peek next segment to detect optional composite key usage
-                let next_seg = segs[idx];
-                if next_seg.contains('|') {
-                    // Treat composite key after single-valued predicate similar to multi-valued traversal
-                    let mut cs = next_seg.split('|');
-                    let child_graph = cs.next()?.to_string();
-                    let raw_child_subj = cs.next()?.to_string();
-                    let child_subj_decoded = decode(&raw_child_subj);
-                    idx += 1; // consume composite key segment
-                    if idx == segs.len() {
-                        // Link terminal referencing child object directly
-                        _child_iri = Some(child_subj_decoded.clone());
-                        return Some(PathTarget {
-                            graph: graph,
-                            subject: subject,
-                            predicate_iri: pred_schema.iri.clone(),
-                            pred_schema: pred_schema.clone(),
-                            child_iri: _child_iri.clone(),
-                            _is_link_terminal: true,
-                        });
-                    }
-                    // Descend into child context
-                    current_graph = child_graph.clone();
-                    current_subject = child_subj_decoded.clone();
+
+                // Check if there was a new child created for this path.
+                let current_key = format!("/{}", segs[..idx].join("/"));
+                if let Some((child_subj, child_graph)) = staged_children.get(&current_key) {
+                    log_debug!(
+                        "[resolve_path] Found path from newly added object {}",
+                        current_key
+                    );
                     current_schema = select_child_schema(None, pred_schema, orm_subscription);
-                    // Also allow staged child lookup using composite base key
-                    let composite_base_key = format!("{}/{}", base_key_no_composite, next_seg);
-                    if let Some((child_subj, child_graph)) =
-                        staged_children.get(&composite_base_key)
-                    {
-                        if !child_subj.is_empty() && !child_graph.is_empty() {
-                            current_subject = decode(child_subj);
-                            current_graph = child_graph.clone();
-                        }
-                    }
+
+                    current_subject = decode_json_pointer(child_subj);
+                    current_graph = decode_json_pointer(child_graph);
                     continue;
                 }
-                // No composite key segment: classic single-valued staging/lookup
-                let parent_schema = current_schema.clone();
-                current_schema = select_child_schema(None, pred_schema, orm_subscription);
-                if let Some((child_subj, child_graph)) = staged_children.get(&base_key_no_composite)
-                {
-                    if !child_subj.is_empty() && !child_graph.is_empty() {
-                        current_subject = decode(child_subj);
-                        current_graph = child_graph.clone();
-                    }
+
+                log_debug!("[resolve_path] looking for current object {}|{} with schema {} in existing tormos: ", current_graph, current_subject, current_schema.iri);
+
+                for tormo in orm_subscription.iter_all_objects() {
+                    log_debug!(
+                        " - {:?} {:?} {}",
+                        tormo.read().unwrap().subject_iri,
+                        tormo.read().unwrap().shape_iri(),
+                        tormo.read().unwrap().graph_iri,
+                    );
                 }
-                // Attempt to locate existing linked child when not staged
+
+                // Check for existing tormos of the linked child.
                 if let Some(parent_obj) = orm_subscription.get_tracked_orm_object(
                     &current_graph,
                     &current_subject,
-                    &parent_schema.iri,
+                    &current_schema.iri,
                 ) {
                     if let Ok(parent_guard) = parent_obj.read() {
+                        log_debug!("[resolve_path] acquired read");
+
                         if let Some(tracked_pred) =
                             parent_guard.tracked_predicates.get(&pred_schema.iri)
                         {
                             if let Ok(pred_guard) = tracked_pred.read() {
+                                log_debug!(
+                                    "[resolve_path] tracked pred children: {:?}",
+                                    pred_guard.tracked_children
+                                );
                                 if let Some(child_arc) = pred_guard
                                     .tracked_children
                                     .iter()
@@ -399,6 +419,8 @@ fn create_sparql_update_query_for_patches(
                                     if let Ok(child_guard) = child_arc.read() {
                                         current_subject = child_guard.subject_iri.clone();
                                         current_graph = child_guard.graph_iri.clone();
+                                        log_debug!("[resolve_path] HEURISTIC single child -> graph='{}' subj='{}'", current_graph, current_subject);
+                                        // Determine child schema now that we have descended.
                                         if let Some(child_shape_iri) = child_guard.shape_iri() {
                                             if let Some(child_schema) = orm_subscription
                                                 .shape_type
@@ -413,8 +435,14 @@ fn create_sparql_update_query_for_patches(
                             }
                         }
                     }
+                } else {
+                    log_debug!(
+                        "[resolve_path] WARNING: Could not find object for path: {} at segment {}",
+                        path,
+                        segs[idx - 1]
+                    );
+                    return None;
                 }
-                continue;
             }
         }
         // If we exit loop without return and have predicate schema -> treat as leaf primitive reached earlier.

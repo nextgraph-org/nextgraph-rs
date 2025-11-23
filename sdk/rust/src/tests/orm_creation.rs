@@ -619,11 +619,11 @@ async fn test_orm_creation() {
 
     // TODO: Use new graph-based logic.
     // log_info!("=== Starting test test_orm_nested_2 ===");
-    // test_orm_nested_2(session_id).await;
+    // _test_orm_nested_2(session_id).await;
     // log_info!("=== Test test_orm_nested_2 ran successfully ===\n\n");
     //
     // log_info!("=== Starting test test_orm_nested_3 ===");
-    // test_orm_nested_3(session_id).await;
+    // _test_orm_nested_3(session_id).await;
     // log_info!("=== Test test_orm_nested_2 ran successfully ===\n\n");
 
     log_info!("=== Starting test test_orm_nested_4 ===");
@@ -1986,7 +1986,7 @@ INSERT DATA {
     cancel_fn();
 }
 
-async fn test_orm_nested_2(session_id: u64) {
+async fn _test_orm_nested_2(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
@@ -2132,7 +2132,7 @@ INSERT DATA {
     cancel_fn();
 }
 
-async fn test_orm_nested_3(session_id: u64) {
+async fn _test_orm_nested_3(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
