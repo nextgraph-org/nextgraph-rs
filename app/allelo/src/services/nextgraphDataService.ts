@@ -82,6 +82,8 @@ class NextgraphDataService {
     return await session.ng!.sparql_query(session.sessionId, sparql);
   };
 
+  private directSortProperties = ["centralityScore", "mostRecentInteraction"];
+
   getAllContactIdsQuery(session: NextGraphSession, type: string, limit?: number, offset?: number, sortParams?: SortParams[], filterParams?: Map<string, string>) {
     const orderByData: string[] = [];
     const optionalJoinData: string[] = [];
@@ -98,10 +100,17 @@ class NextgraphDataService {
           orderByData.push(`${sortDirection}(?${sortBy})`);
         }
 
-        optionalJoinData.push(`OPTIONAL {
+        if (this.directSortProperties.includes(sortBy)) {
+          optionalJoinData.push(`OPTIONAL {
+          ?contactUri ngcontact:${sortBy} ?${sortBy} .
+        }`);
+        } else {
+          // Nested property with ngcore:value
+          optionalJoinData.push(`OPTIONAL {
           ?contactUri ngcontact:${sortBy} ?${sortBy}Node .
           ?${sortBy}Node ngcore:value ?${sortBy} .
         }`);
+        }
       }
     }
 
@@ -226,7 +235,9 @@ WHERE {
       `FILTER NOT EXISTS { ?contactUri ngcontact:mergedInto ?mergedIntoNode }`
     ];
     for (const [key, value] of filterParams) {
-      if (key === "fts") {
+      if (key === "hasAddress" && value === "true") {
+        filterData.push(`FILTER EXISTS { ?contactUri ngcontact:address ?addressNode }`);
+      } else if (key === "fts") {
         filterData.push(...this.getFtsFilterData(value));
       } else {
         filterData.push(`

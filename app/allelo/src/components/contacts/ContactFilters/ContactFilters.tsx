@@ -38,8 +38,7 @@ export const ContactFilters = ({
     filters.naoStatusFilter !== 'all' ||
     filters.accountFilter !== 'all' ||
     filters.groupFilter !== 'all' ||
-    (filters.searchQuery || "").length > 0 ||
-    filters.sortBy !== 'mostActive';
+    (filters.searchQuery || "").length > 0;
 
   return (
     <Box sx={{px: 0, flexShrink: 0, position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'white'}}>

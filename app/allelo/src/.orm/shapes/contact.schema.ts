@@ -590,6 +590,17 @@ export const contactSchema: Schema = {
         iri: "did:ng:x:contact#centralityScore",
         readablePredicate: "centralityScore",
       },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#mostRecentInteraction",
+        readablePredicate: "mostRecentInteraction",
+      },
     ],
   },
   "did:ng:x:contact:class#SocialContact||did:ng:x:contact#phoneNumber": {

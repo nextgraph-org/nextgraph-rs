@@ -26,9 +26,9 @@ export const SortMenu = ({ anchorEl, open, onClose, onSortChange }: SortMenuProp
       open={open}
       onClose={onClose}
     >
-      <MenuItem disabled={true} onClick={() => onSortChange('mostActive')}>
+      <MenuItem onClick={() => onSortChange('mostRecentInteraction')}>
         <ListItemIcon><UilChartLine size="20"/></ListItemIcon>
-        <ListItemText>Most Active</ListItemText>
+        <ListItemText>Last Interaction</ListItemText>
       </MenuItem>
       <MenuItem onClick={() => onSortChange('name')}>
         <ListItemIcon><UilSortAmountDown size="20"/></ListItemIcon>
