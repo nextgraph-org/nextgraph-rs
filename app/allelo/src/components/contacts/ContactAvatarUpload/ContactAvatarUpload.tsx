@@ -146,10 +146,12 @@ export const ContactAvatarUpload = ({
         sx={{
           width: {xs: size.xs, sm: size.sm},
           height: {xs: size.xs, sm: size.sm},
-          bgcolor: 'primary.main',
+          bgcolor: displayUrl ? 'transparent' : 'primary.main',
           fontSize: '3rem',
+          cursor: isEditing ? "pointer" : "initial",
           mr: "16px"
         }}
+        onClick={isEditing ? handleUploadClick: undefined}
         alt="Profile"
         src={displayUrl}
       >
@@ -175,8 +177,10 @@ export const ContactAvatarUpload = ({
         border: isEditing ? '2px dashed' : 'none',
         borderColor: 'primary.main',
         transition: 'all 0.2s ease-in-out',
-        mr: "16px"
+        mr: "16px",
+        cursor: isEditing ? "pointer" : "initial",
       }}
+      onClick={isEditing ? handleUploadClick: undefined}
     >
       {!displayUrl && initial.charAt(0)}
     </Box>
@@ -193,20 +197,15 @@ export const ContactAvatarUpload = ({
       {renderViewAvatar()}
 
       {isEditing && (
-        <Box sx={{my: 2, textAlign: 'center'}}>
           <Button
             variant="outlined"
             size="small"
-            startIcon={<UilCamera size="16"/>}
             onClick={handleUploadClick}
             disabled={isUploading}
-            sx={{fontSize: '0.75rem'}}
+            sx={{fontSize: '0.75rem', position: "absolute", top: 0, left: 80, p: 1, minWidth: 0, backgroundColor: "white"}}
           >
-            {isUploading
-              ? `Uploading ${uploadProgress}%`
-              : 'Upload'}
+            {<UilCamera size="16"/>}
           </Button>
-        </Box>
       )}
 
       {/* Hidden file input */}
