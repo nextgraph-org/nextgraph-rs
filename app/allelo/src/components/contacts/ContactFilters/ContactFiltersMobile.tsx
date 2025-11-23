@@ -13,10 +13,10 @@ import {
   UilSortAmountDown
 } from '@iconscout/react-unicons';
 import type {ContactsFilters} from '@/hooks/contacts/useContacts';
-import {CategorySidebar} from '../CategorySidebar';
-import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
 import {SortMenu} from './SortMenu';
 import {SearchFilter} from './SearchFilter';
+import {RCardsMobileWidget} from "@/components/rcards/RCardsSideWidget";
+import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 
 interface MobileFiltersProps {
   filters: ContactsFilters;
@@ -39,7 +39,7 @@ export const ContactFiltersMobile = ({
                                      }: MobileFiltersProps) => {
   const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null);
-  const {getMenuItems} = useRelationshipCategories();
+  const {getMenuItems} = useGetRCards();
 
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
     setFilterMenuAnchor(event.currentTarget);
@@ -78,7 +78,7 @@ export const ContactFiltersMobile = ({
     <>
       {/* Category Sidebar */}
       {inManageMode && <Box sx={{flex: 1, minWidth: 0, overflow: 'hidden'}}>
-        <CategorySidebar
+        <RCardsMobileWidget
           filters={filters}
           onAddFilter={onAddFilter}
         />
