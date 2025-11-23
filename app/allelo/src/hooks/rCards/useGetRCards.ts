@@ -1,17 +1,29 @@
-import {useCallback} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 import {RCard, RCardPermission} from "@/.ldo/rcard.typings.ts";
+import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 
 interface GetRCardsReturn {
-  getRCardIDs: () => Promise<string[]>,
-  rCardsExist:  () => Promise<boolean>,
-  getRCards: () => Promise<RCard[]>
+  getRCardIDs: () => Promise<string[]>;
+  rCardsExist:  () => Promise<boolean>;
+  getRCards: () => Promise<RCard[]>;
+  rCards: RCard[];
+  loading: boolean;
+  error: unknown;
+  getRCardById: (rCardId: string) => RCard | undefined;
+  getMenuItems: () => Array<{ value: string; label: string }>;
 }
 
 export const useGetRCards = (): GetRCardsReturn => {
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
+
+  const [rCards, setRCards] = useState<RCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  
+  const {getCategoryDisplayName} = useRCardsConfigs();
 
   const getRCardIDs = useCallback(async () => {
     return await nextgraphDataService.getRCardsIDs(session);
@@ -94,9 +106,49 @@ WHERE {
     return rCards;
   }, [session, getRCardIDs]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoading(true);
+        const data = await getRCards();
+        if (!cancelled) {
+          setRCards(data);
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getRCards]);
+
+  const getRCardById = useCallback((rCardId: string): RCard | undefined =>
+    rCards?.find(rCard => rCard["@id"] === rCardId) ?? rCards?.find(rCard => rCard.cardId === "default"), [rCards]);
+
+  const getMenuItems = useCallback(() => [
+    {value: 'all', label: 'All Relationships'},
+    ...(rCards ?? [])
+      .map(rCard => ({
+        value: rCard["@id"]!,
+        label: getCategoryDisplayName(rCard.cardId)
+      }))
+  ], [getCategoryDisplayName, rCards]);
+
   return {
     getRCardIDs,
     rCardsExist,
-    getRCards
+    getRCards,
+    rCards,
+    loading,
+    error,
+    getRCardById,
+    getMenuItems,
   }
 }

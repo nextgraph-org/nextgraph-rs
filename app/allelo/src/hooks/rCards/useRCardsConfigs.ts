@@ -4,27 +4,23 @@ import type {UniconComponent} from '@iconscout/react-unicons';
 import React from 'react';
 import {
   CategoryColorScheme,
-  relationshipCategories,
   relationshipCategoriesMap,
   defaultRelationshipCategory,
   RelationshipCategory
-} from "@/constants/relationshipCategories";
+} from "@/constants/relationshipCategories.ts";
 
 export interface UseRelationshipCategoriesReturn {
-  categories: Set<RelationshipCategory>;
   getCategoryById: (id: string) => RelationshipCategory;
   getCategoryIcon: (id?: string, fontSize?: number) => ReactElement;
   getCategoryDisplayName: (id?: string) => string;
   getCategoryColor: (id?: string) => string;
   getCategoryColorScheme: (id?: string) => CategoryColorScheme;
-  getMenuItems: () => Array<{ value: string; label: string }>;
-  getCategoriesArray: () => RelationshipCategory[];
 }
 
 const createIcon = (iconComponent: SvgIconComponent | UniconComponent, fontSize?: number) =>
   React.createElement(iconComponent as any, {sx: {fontSize}, size: fontSize ? `${fontSize}` : '20'});
 
-export const useRelationshipCategories = (): UseRelationshipCategoriesReturn => {
+export const useRCardsConfigs = (): UseRelationshipCategoriesReturn => {
   const getCategoryById = useCallback((id?: string): RelationshipCategory => {
     if (!id) {
       return defaultRelationshipCategory;
@@ -49,25 +45,11 @@ export const useRelationshipCategories = (): UseRelationshipCategoriesReturn => 
     return getCategoryById(id).colorScheme;
   }, [getCategoryById]);
 
-  const getMenuItems = useCallback(() => [
-    {value: 'all', label: 'All Relationships'},
-    ...Array.from(relationshipCategories)
-      .map(cat => ({
-        value: cat.id,
-        label: cat.name
-      }))
-  ], []);
-
-  const getCategoriesArray = () => Array.from(relationshipCategories);
-
   return {
-    categories: relationshipCategories,
     getCategoryById,
     getCategoryIcon,
     getCategoryDisplayName,
     getCategoryColor,
     getCategoryColorScheme,
-    getMenuItems,
-    getCategoriesArray
   };
 };

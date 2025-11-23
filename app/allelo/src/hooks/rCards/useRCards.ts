@@ -7,7 +7,7 @@ import {ContentItem} from "@/models/rcards";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import {RCardShapeType} from "@/.ldo/rcard.shapeTypes.ts";
-import {useRelationshipCategories} from "@/hooks/useRelationshipCategories.ts";
+import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 
@@ -40,7 +40,7 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
   const {contact} = useContactData(null, true);
 
   const [rCard,  setRCard] = useState<RCard>();
-  const {getCategoryById} = useRelationshipCategories();
+  const {getCategoryById} = useRCardsConfigs();
 
   const isNextGraph = isNextGraphEnabled();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
@@ -68,7 +68,7 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
         const mockRCard: RCard = {
           cardId: category.id,
           permission: new BasicLdSet(category.permissions),
-          // @ts-expect-error ldo issue
+          // @ts-expect-error ldo
           type: {"@id": "Card"}
         };
         setRCard(mockRCard);
