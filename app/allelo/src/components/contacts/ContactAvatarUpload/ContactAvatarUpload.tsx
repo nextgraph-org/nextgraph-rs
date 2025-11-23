@@ -13,6 +13,7 @@ export interface ContactAvatarUploadProps {
   isEditing?: boolean;
   size?: { xs: number; sm: number };
   forProfile?: boolean;
+  useAvatar?: boolean;
 }
 
 export const ContactAvatarUpload = ({
@@ -22,7 +23,8 @@ export const ContactAvatarUpload = ({
                                       isEditing = false,
                                       size = {xs: 100, sm: 120},
                                       forProfile,
-                                      contactNuri
+                                      contactNuri,
+                                      useAvatar = true,
                                     }: ContactAvatarUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextGraphAuth = useNextGraphAuth();
@@ -56,6 +58,8 @@ export const ContactAvatarUpload = ({
     } else if (photoUrl) {
       setIsLoadingImage(false);
       setDisplayUrl(photoUrl);
+    } else {
+      setIsLoadingImage(false);
     }
   }, [photoNuri, photoUrl, ormContact, sessionId]);
 
@@ -81,7 +85,7 @@ export const ContactAvatarUpload = ({
         );
 
         if (nuri) {
-          ormContact?.photo?.forEach(el => delete el.preferred);
+          ormContact?.photo?.forEach(el => el.preferred = false);
 
           ormContact?.photo?.add({
             photoIRI: nuri,
@@ -137,14 +141,14 @@ export const ContactAvatarUpload = ({
       );
     }
 
-    if (forProfile)
+    if (useAvatar)
       return <Avatar
         sx={{
           width: {xs: size.xs, sm: size.sm},
           height: {xs: size.xs, sm: size.sm},
-          mb: 2,
           bgcolor: 'primary.main',
-          fontSize: '3rem'
+          fontSize: '3rem',
+          mr: "16px"
         }}
         alt="Profile"
         src={displayUrl}
@@ -171,11 +175,16 @@ export const ContactAvatarUpload = ({
         border: isEditing ? '2px dashed' : 'none',
         borderColor: 'primary.main',
         transition: 'all 0.2s ease-in-out',
+        mr: "16px"
       }}
     >
       {!displayUrl && initial.charAt(0)}
     </Box>
-  }, [displayUrl, forProfile, initial, isEditing, isLoadingImage, isUploading, size.sm, size.xs, uploadProgress]);
+  }, [displayUrl, initial, isEditing, isLoadingImage, isUploading, size.sm, size.xs, uploadProgress, useAvatar]);
+
+  if (!contactNuri) {
+    return ;
+  }
 
 
   return (
@@ -195,7 +204,7 @@ export const ContactAvatarUpload = ({
           >
             {isUploading
               ? `Uploading ${uploadProgress}%`
-              : displayUrl ? 'Change Photo' : 'Upload Photo'}
+              : 'Upload'}
           </Button>
         </Box>
       )}

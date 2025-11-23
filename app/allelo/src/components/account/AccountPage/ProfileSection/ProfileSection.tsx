@@ -71,7 +71,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
               <Grid size={{xs: 12, md: 4}}>
                   <Box sx={{
                     display: 'flex',
-                    gap: 2,
                     alignItems: "center"
                   }}>
                     <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}

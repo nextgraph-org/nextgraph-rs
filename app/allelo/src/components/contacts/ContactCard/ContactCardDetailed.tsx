@@ -13,6 +13,8 @@ import {iconFilter} from "@/hooks/contacts/useContacts";
 import {AccountRegistry} from "@/utils/accountRegistry";
 import {formatPhone} from "@/utils/phoneHelper";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 const renderContactName = (name?: Name, isLoading?: boolean) => (
   <Typography
@@ -129,6 +131,7 @@ export interface ContactCardDetailedProps {
   contact: Contact | undefined;
   getNaoStatusIcon: (naoStatus?: string) => React.ReactNode;
   onSetIconFilter: (key: iconFilter, value: string) => void;
+  resource?: NextGraphResource;
 }
 
 export const ContactCardDetailed = forwardRef<
@@ -140,6 +143,7 @@ export const ContactCardDetailed = forwardRef<
       contact,
       getNaoStatusIcon,
       onSetIconFilter,
+      resource
     },
     ref,
   ) => {
@@ -148,6 +152,8 @@ export const ContactCardDetailed = forwardRef<
     const {getCategoryIcon, getCategoryColor} = useRelationshipCategories();
 
     const name = resolveFrom(contact, 'name');
+    const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+
     const email = resolveFrom(contact, 'email');
     const phoneNumber = resolveFrom(contact, 'phoneNumber');
     const photo = resolveFrom(contact, 'photo');
@@ -248,12 +254,8 @@ export const ContactCardDetailed = forwardRef<
         }}
       >
         {/* Avatar */}
-        <Avatar
-          name={name?.value || ''}
-          profileImage={photo?.value}
-          size={isMobile ? "small" : "medium"}
-        />
-
+        <ContactAvatarUpload contactNuri={resource?.uri} initial={displayName}
+                             photoNuri={photo?.photoIRI?.["@id"]} size={{xs: 74, sm: 74}}/>
         {/* First Column - Name & Company */}
         <Box
           sx={{

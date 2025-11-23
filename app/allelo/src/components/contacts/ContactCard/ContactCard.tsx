@@ -95,6 +95,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
         }}>
           <ContactCardDetailed
             contact={contact}
+            resource={resource}
             getNaoStatusIcon={getNaoStatusIcon}
             onSetIconFilter={onSetIconFilter}
           />
