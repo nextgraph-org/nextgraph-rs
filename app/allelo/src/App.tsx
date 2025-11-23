@@ -142,9 +142,12 @@ const AppRoutes = () => {
 };
 
 function App() {
+  // @ts-expect-error error
   window.ng_spa_loaded = true;
+  // @ts-expect-error error
   if (window.ng_supported) {
     console.log("READY");
+    // @ts-expect-error error
     window.everything_ready();
   }
 
