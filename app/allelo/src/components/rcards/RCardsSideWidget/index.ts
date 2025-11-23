@@ -1,2 +1,2 @@
 export {RCardsSideWidget} from './RCardsSideWidget';
-export {RCardsListSideWidget} from './RCardsListSideWidget';
+export {RCardsMobileWidget} from './RCardsMobileWidget';
