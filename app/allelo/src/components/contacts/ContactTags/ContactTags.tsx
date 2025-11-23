@@ -13,7 +13,7 @@ const availableTags = getContactDictValues("tag").sort();
 
 export interface ContactTagsProps {
   contact?: SocialContact;
-  resource: NextGraphResource;
+  resource?: NextGraphResource;
 }
 
 export const ContactTags = ({contact, resource}: ContactTagsProps) => {

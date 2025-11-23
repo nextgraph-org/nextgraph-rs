@@ -50,7 +50,7 @@ interface MultiPropertyWithVisibilityProps<K extends ResolvableKey> {
   variant?: "chips" | "accounts" | "url" | "addresses";
   validateType?: ValidationType;
   hasPreferred?: boolean;
-  resource: NextGraphResource;
+  resource?: NextGraphResource;
   required?: boolean;
 }
 

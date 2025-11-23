@@ -50,7 +50,7 @@ interface PropertyWithSourcesProps<K extends ResolvableKey> {
   currentItem?: Record<string, string>;
   hideSources?: boolean;
   isMultipleField?: boolean;
-  resource: NextGraphResource
+  resource?: NextGraphResource
 }
 
 export const PropertyWithSources = <K extends ResolvableKey>({
@@ -179,9 +179,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
         editPropertyWithUserSource(changedContactObj);
 
-        commitData(changedContactObj);
-        
-        updatePermissionsNode(propertyKey);
+        commitData(changedContactObj).then(() => updatePermissionsNode(propertyKey));
       }
     } else {
       editPropertyWithUserSource(contact, true);
@@ -225,9 +223,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
         if (!isMultipleField) {
           updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");
         }
-        commitData(changedContactObj);
-        updatePermissionsNode(propertyKey, item["@id"]);
-        updatePermissionsNode(propertyKey, item["@id"]);
+        commitData(changedContactObj).then(() => updatePermissionsNode(propertyKey, item["@id"]));
       }
     } else {
       if (!isMultipleField) {
