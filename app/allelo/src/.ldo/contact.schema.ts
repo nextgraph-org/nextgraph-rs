@@ -378,6 +378,16 @@ export const contactSchema: Schema = {
               min: 0,
               max: 1,
             },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:contact#mostRecentInteraction",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#dateTime",
+              },
+              min: 0,
+              max: 1,
+            },
           ],
         },
         extra: ["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"],

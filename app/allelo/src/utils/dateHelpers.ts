@@ -1,4 +1,6 @@
-export const formatDate = (date: Date, options?: Partial<Intl.DateTimeFormatOptions>): string => {
+export const formatDate = (date: Date | string, options?: Partial<Intl.DateTimeFormatOptions>): string => {
+  const formattedDate = typeof date === 'string' ? new Date(date) : date;
+
   const defaultOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',
@@ -11,7 +13,7 @@ export const formatDate = (date: Date, options?: Partial<Intl.DateTimeFormatOpti
     return new Intl.DateTimeFormat('en-US', {
       ...defaultOptions,
       ...options
-    }).format(date);
+    }).format(formattedDate);
   } catch (error) {
     console.log(error);
     return "Unknown date";

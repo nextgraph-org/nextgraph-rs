@@ -5,6 +5,7 @@ import {
   Grid,
   Card,
   CardContent,
+  Avatar,
   Button,
   Dialog,
   DialogTitle,
@@ -27,7 +28,6 @@ import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
 import {MultiPropertyWithVisibility} from "@/components/contacts/MultiPropertyWithVisibility";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {ContactTags} from "@/components/contacts";
-import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
   ({initialProfileData, resource}, ref) => {
@@ -64,42 +64,29 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
       navigate('/verify-phone/' + greencheckData.phone)
     };
 
-    /*    const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-          const file = event.target.files?.[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              handleFieldChange('avatar', reader.result as string);
-            };
-            reader.readAsDataURL(file);
-          }
-        };*/
-
     return (
       <Box ref={ref} sx={{position: 'relative'}}>
-        <Card>
-          <CardContent>
-            {/* Header with Avatar on mobile, title on desktop */}
-            <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
-              <Typography variant="h6" sx={{fontWeight: 600}}>
-                Profile Information
-              </Typography>
-              <Box sx={{display: {xs: 'block', md: 'none'}}}>
-                <ContactAvatarUpload contactNuri={resource.uri} initial={displayName} photoNuri={avatar?.photoIRI?.["@id"]}
-                                     isEditing={isEditing} forProfile={true}/>
-              </Box>
-            </Box>
-
             <Grid container spacing={3}>
               {/* Left side - Avatar and basic info */}
               <Grid size={{xs: 12, md: 4}}>
-                <Box>
                   <Box sx={{
-                    display: {xs: 'none', md: 'inline-block'},
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: "center"
                   }}>
-                    <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}
-                                         photoNuri={avatar?.photoIRI?.["@id"]} isEditing={isEditing} forProfile={true}/>
-                  </Box>
+                    <Avatar
+                      sx={{
+                        width: {xs: 100, md: 120,},
+                        height: {xs: 100, md: 120,},
+                        mb: 2,
+                        bgcolor: 'primary.main',
+                        fontSize: '3rem'
+                      }}
+                      alt="Profile"
+                      src={avatar?.value}
+                    >
+                      {displayName?.charAt(0)}
+                    </Avatar>
                   <Box sx={{
                     display: "flex",
                     flexDirection: "row",
@@ -115,7 +102,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   >
                     <PropertyWithSources
                       propertyKey={"name"}
-                      textVariant={"h5"}
+                      textVariant={"h6"}
                       contact={initialProfileData}
                       isEditing={isEditing}
                       label={"Full name"}
@@ -137,80 +124,81 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                     >{showNameDetails ? <UilAngleUp size="24"/> : <UilAngleDown size="24"/>}
                     </IconButton>
                   </Box>
-                  <Collapse in={showNameDetails}>
-                    <Box sx={{
-                      mt: 1,
-                      ml: {xs: 2, md: 3},
-                      width: {xs: '100%', md: 'auto'},
-                    }}>
-                      <PropertyWithSources
-                        propertyKey={"name"}
-                        subKey={"firstName"}
-                        textVariant={"body1"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        label={"First name"}
-                        hideSources={true}
-                        resource={resource}
-                      />
-                      <PropertyWithSources
-                        propertyKey={"name"}
-                        subKey={"middleName"}
-                        textVariant={"body1"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        label={"Middle name"}
-                        hideSources={true}
-                        resource={resource}
-                      />
-                      <PropertyWithSources
-                        propertyKey={"name"}
-                        subKey={"familyName"}
-                        textVariant={"body1"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        label={"Last name"}
-                        hideSources={true}
-                        resource={resource}
-                      />
-                      <PropertyWithSources
-                        propertyKey={"name"}
-                        subKey={"honorificPrefix"}
-                        textVariant={"body1"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        label={"Honorific prefix"}
-                        hideSources={true}
-                        resource={resource}
-                      />
-                      <PropertyWithSources
-                        propertyKey={"name"}
-                        subKey={"honorificSuffix"}
-                        textVariant={"body1"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        label={"Honorific suffix"}
-                        hideSources={true}
-                        resource={resource}
-                      />
-                    </Box>
-                  </Collapse>
+
+                </Box>
+                <Collapse in={showNameDetails}>
                   <Box sx={{
+                    mt: 1,
+                    ml: {xs: 2, md: 3},
                     width: {xs: '100%', md: 'auto'},
-                    mt: {xs: 1, md: 0}
                   }}>
                     <PropertyWithSources
-                      propertyKey={"headline"}
-                      label={"Headline"}
-                      hideLabel={true}
-                      textVariant={"body2"}
+                      propertyKey={"name"}
+                      subKey={"firstName"}
+                      textVariant={"body1"}
                       contact={initialProfileData}
                       isEditing={isEditing}
-                      template={defaultTemplates.headline}
-                      templateProperty={"organization"}
+                      label={"First name"}
+                      hideSources={true}
+                      resource={resource}
+                    />
+                    <PropertyWithSources
+                      propertyKey={"name"}
+                      subKey={"middleName"}
+                      textVariant={"body1"}
+                      contact={initialProfileData}
+                      isEditing={isEditing}
+                      label={"Middle name"}
+                      hideSources={true}
+                      resource={resource}
+                    />
+                    <PropertyWithSources
+                      propertyKey={"name"}
+                      subKey={"familyName"}
+                      textVariant={"body1"}
+                      contact={initialProfileData}
+                      isEditing={isEditing}
+                      label={"Last name"}
+                      hideSources={true}
+                      resource={resource}
+                    />
+                    <PropertyWithSources
+                      propertyKey={"name"}
+                      subKey={"honorificPrefix"}
+                      textVariant={"body1"}
+                      contact={initialProfileData}
+                      isEditing={isEditing}
+                      label={"Honorific prefix"}
+                      hideSources={true}
+                      resource={resource}
+                    />
+                    <PropertyWithSources
+                      propertyKey={"name"}
+                      subKey={"honorificSuffix"}
+                      textVariant={"body1"}
+                      contact={initialProfileData}
+                      isEditing={isEditing}
+                      label={"Honorific suffix"}
+                      hideSources={true}
                       resource={resource}
                     />
                   </Box>
+                </Collapse>
+                <Box sx={{
+                  width: {xs: '100%', md: 'auto'},
+                  mt: {xs: 1, md: 0}
+                }}>
+                  <PropertyWithSources
+                    propertyKey={"headline"}
+                    label={"Headline"}
+                    hideLabel={true}
+                    textVariant={"body2"}
+                    contact={initialProfileData}
+                    isEditing={isEditing}
+                    template={defaultTemplates.headline}
+                    templateProperty={"organization"}
+                    resource={resource}
+                  />
                 </Box>
                 <Box>
                   <ContactTags contact={initialProfileData} resource={resource}/>
@@ -344,44 +332,16 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
               </Grid>
             </Grid>
 
-            {/* Edit/Exit button - FAB position on mobile, inline on desktop */}
-            <Box sx={{
-              display: {xs: 'none', md: 'flex'},
-              justifyContent: 'flex-end',
-              mt: 3
-            }}>
-              {!isEditing ? (
-                <Button
-                  variant="outlined"
-                  startIcon={<UilEdit size="20"/>}
-                  onClick={handleEdit}
-                >
-                  Edit
-                </Button>
-              ) : (
-                <Button
-                  variant="outlined"
-                  startIcon={<UilEdit size="20"/>}
-                  onClick={handleSave}
-                >
-                  Exit
-                </Button>
-              )}
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Edit/Exit button - Fixed position bottom right on mobile, above tabs */}
         <Box sx={{
-          display: {xs: 'block', md: 'none'},
+          display: {xs: 'block', md: 'block'},
           position: 'fixed',
-          bottom: 72,
+          top: 10,
           right: 16,
           zIndex: 1000,
         }}>
           {!isEditing ? (
             <Button
-              variant="outlined"
+              variant="contained"
               startIcon={<UilEdit size="20"/>}
               onClick={handleEdit}
             >
@@ -389,11 +349,11 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
             </Button>
           ) : (
             <Button
-              variant="outlined"
+              variant="contained"
               startIcon={<UilEdit size="20"/>}
               onClick={handleSave}
             >
-              Exit
+              Done editing
             </Button>
           )}
         </Box>

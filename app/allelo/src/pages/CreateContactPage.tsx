@@ -1,5 +1,5 @@
 import {ContactInfo, ContactViewHeader } from "@/components/contacts";
-import {UilArrowLeft, UilRedo, UilSave} from "@iconscout/react-unicons";
+import {UilArrowLeft, UilRedo, UilSave, UilImage} from "@iconscout/react-unicons";
 import {Box, Button, Divider, Grid, Paper} from "@mui/material";
 import {useNavigate} from "react-router-dom";
 import {dataService} from "@/services/dataService.ts";
@@ -37,6 +37,10 @@ const CreateContactPage = () => {
     };
   }, [initContact]);
 
+  const updateAvatar = useCallback(async () => {
+    console.log("Updating avatar not implemented yet");
+  }, []);
+
   const saveContact = useCallback(async () => {
     if (!contact)//TODO validation
       return;
@@ -70,7 +74,7 @@ const CreateContactPage = () => {
   };
 
   return (
-    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.paper'}}>
+    <Box sx={{p: {xs: 0, md: 3}, backgroundColor: 'background.paper'}}>
       <Button
         startIcon={<UilArrowLeft size="20"/>}
         onClick={handleBack}
@@ -79,10 +83,10 @@ const CreateContactPage = () => {
         Back to Contacts
       </Button>
       <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
-        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: -5}}>
-          <Box></Box>
-          <Box sx={{display: 'flex', gap: 1}}>
+        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0}}>
+          <Box sx={{display: 'block', gap: 1}}>
             <Button
+              style={{float: 'right'}}
               variant={"text"}
               startIcon={<UilRedo size="20"/>}
               onClick={resetContact}
@@ -90,7 +94,10 @@ const CreateContactPage = () => {
             >
               Reset
             </Button>
+            </Box>
+            <Box>
             <Button
+              style={{float: 'right'}}
               variant={"text"}
               startIcon={<UilSave size="20"/>}
               onClick={saveContact}
@@ -99,7 +106,7 @@ const CreateContactPage = () => {
             >
               Save
             </Button>
-          </Box>
+            </Box>
         </Box>
 
         <ContactViewHeader

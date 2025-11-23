@@ -74,7 +74,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
     };
 
     return (
-      <Container ref={ref} maxWidth="md" sx={{py: 4}} className={className}>
+      <Container ref={ref} maxWidth="md" sx={{p: 0}} className={className}>
         {/* Back Button */}
         <Box sx={{display: 'flex', alignItems: 'center', mb: 3}}>
           <IconButton onClick={handleBack} size="large">

@@ -4,8 +4,8 @@ import { resolveFrom } from '@/utils/socialContact/contactUtils';
 import { defaultTemplates, renderTemplate } from '@/utils/templateRenderer';
 
 const calculatePriority = (contact: Contact): NodePriority => {
-  const hasRecentInteraction = contact.lastInteractionAt &&
-    Date.now() - contact.lastInteractionAt.getTime() < 30 * 24 * 60 * 60 * 1000;
+  const hasRecentInteraction = contact.mostRecentInteraction &&
+    Date.now() - new Date(contact.mostRecentInteraction).getTime() < 30 * 24 * 60 * 60 * 1000;
   const hasHighInteractionCount = (contact.interactionCount || 0) > 10;
   const hasVouches = (contact.vouchesSent || 0) + (contact.vouchesReceived || 0) > 0;
   const photo = resolveFrom(contact, 'photo');
@@ -110,8 +110,8 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
 
         otherContacts.forEach((otherContact) => {
           const hasRecentInteraction =
-            contact.lastInteractionAt &&
-            Date.now() - contact.lastInteractionAt.getTime() < 90 * 24 * 60 * 60 * 1000;
+            contact.mostRecentInteraction &&
+            Date.now() - new Date(contact.mostRecentInteraction).getTime() < 90 * 24 * 60 * 60 * 1000;
 
           addEdge(
             edges,

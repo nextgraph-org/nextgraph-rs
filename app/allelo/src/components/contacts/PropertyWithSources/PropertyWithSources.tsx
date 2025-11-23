@@ -279,7 +279,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
           <IconButton
             size="small"
             onClick={handleClick}
-            sx={{ml: 1}}
+            sx={{ml: {md: 1, xs: 0}}}
           >
             <MoreVert size="16" style={{color: "rgba(0,0,0,0.19)"}}/>
           </IconButton>
@@ -305,7 +305,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                       <Typography variant="body2">
                         {getSourceLabel(item.source!)}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{textWrap: "wrap"}}>
                         {(item as any)[subKey] ?? renderTemplate(template, item)}
                       </Typography>
                     </Box>
@@ -379,7 +379,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
   // Default layout
   return (
-    <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
+    <Box sx={{display: 'flex', alignItems: 'flex-start', mb: 2}}>
       {!hideIcon && icon && (
         <Box sx={{mr: 2, color: 'text.secondary'}}>
           {icon}

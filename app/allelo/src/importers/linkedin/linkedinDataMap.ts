@@ -80,6 +80,11 @@ export async function mapLinkedInPerson(
     }];
   }
 
+  // Map organization
+  if ("mostRecentInteraction" in linkedInData && linkedInData.mostRecentInteraction) {
+    contactJson.mostRecentInteraction =  new Date(linkedInData.mostRecentInteraction as string).toISOString();
+  }
+
   // Map profile-specific fields
   if (isProfile) {
     const profile = linkedInData as LinkedInProfileData;

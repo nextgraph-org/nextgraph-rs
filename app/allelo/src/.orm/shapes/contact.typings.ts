@@ -196,6 +196,10 @@ export interface SocialContact {
    * Original IRI: did:ng:x:contact#centralityScore
    */
   centralityScore?: number;
+  /**
+   * Original IRI: did:ng:x:contact#mostRecentInteraction
+   */
+  mostRecentInteraction?: string;
 }
 
 /**

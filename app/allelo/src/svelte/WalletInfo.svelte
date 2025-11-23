@@ -196,17 +196,17 @@
     cancel_wallet_transfers();
   });
 
-  //// USED FOR THE IMAGE EXAMPLE - PLEASE REMOTE IT
-  let fileinput;
-  let img_nuri;
-  const onFileSelected = async (e) => {
-    let image = e.target.files[0];
-    img_nuri = await uploadFile(image, "", (progress) => {console.log(progress)});
-    console.log(img_nuri);
-    // img_nuri is what you would save in a property, by example profile.photo.value
-    fileinput.value = "";
-  }
-  //// UNTIL HERE
+  // //// USED FOR THE IMAGE EXAMPLE - PLEASE REMOTE IT
+  // let fileinput;
+  // let img_nuri;
+  // const onFileSelected = async (e) => {
+  //   let image = e.target.files[0];
+  //   img_nuri = await uploadFile(image, "", (progress) => {console.log(progress)});
+  //   console.log(img_nuri);
+  //   // img_nuri is what you would save in a property, by example profile.photo.value
+  //   fileinput.value = "";
+  // }
+  // //// UNTIL HERE
 
 </script>
 
@@ -218,7 +218,7 @@
           {#if sub_menu === null}
             <div class="surface-section">
 
-              <!-- EXAMPLE OF FILE UPLOADING - PLEASE REMOVE THE BELOW CODE -->
+              <!-- EXAMPLE OF FILE UPLOADING - PLEASE REMOVE THE BELOW CODE 
               <Button
                 type="button"
                 onclick={() => {
@@ -229,7 +229,7 @@
                 <ArrowUpTray class="w-8 h-8 mr-2 -ml-1" />
                 {$t("doc.file.upload")}
               </Button>
-              <!-- EXAMPLE OF IMAGE FILE DISPLAY -->
+
               {#if img_nuri}
                 {#await getBlob("",img_nuri, true)}
                   <div class="ml-2">
@@ -245,7 +245,7 @@
                 on:change={(e) => onFileSelected(e)}
                 bind:this={fileinput}
               />
-              <!-- EXAMPLE ENDS HERE - PLEASE REMOVE THE ABOVE CODE -->
+              EXAMPLE ENDS HERE - PLEASE REMOVE THE ABOVE CODE -->
 
               <Typography variant="h4" component="h1" style="margin-bottom: calc(var(--mui-spacing) * 3);">
                 {$t("pages.wallet_info.title")}

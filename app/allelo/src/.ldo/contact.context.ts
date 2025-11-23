@@ -231,6 +231,10 @@ export const contactContext: LdoJsonldContext = {
         "@id": "did:ng:x:contact#centralityScore",
         "@type": "http://www.w3.org/2001/XMLSchema#integer",
       },
+      mostRecentInteraction: {
+        "@id": "did:ng:x:contact#mostRecentInteraction",
+        "@type": "http://www.w3.org/2001/XMLSchema#dateTime",
+      },
     },
   },
   Person: {
@@ -454,6 +458,10 @@ export const contactContext: LdoJsonldContext = {
         "@id": "did:ng:x:contact#centralityScore",
         "@type": "http://www.w3.org/2001/XMLSchema#integer",
       },
+      mostRecentInteraction: {
+        "@id": "did:ng:x:contact#mostRecentInteraction",
+        "@type": "http://www.w3.org/2001/XMLSchema#dateTime",
+      },
     },
   },
   Person2: {
@@ -676,6 +684,10 @@ export const contactContext: LdoJsonldContext = {
       centralityScore: {
         "@id": "did:ng:x:contact#centralityScore",
         "@type": "http://www.w3.org/2001/XMLSchema#integer",
+      },
+      mostRecentInteraction: {
+        "@id": "did:ng:x:contact#mostRecentInteraction",
+        "@type": "http://www.w3.org/2001/XMLSchema#dateTime",
       },
     },
   },
@@ -1305,5 +1317,9 @@ export const contactContext: LdoJsonldContext = {
   centralityScore: {
     "@id": "did:ng:x:contact#centralityScore",
     "@type": "http://www.w3.org/2001/XMLSchema#integer",
+  },
+  mostRecentInteraction: {
+    "@id": "did:ng:x:contact#mostRecentInteraction",
+    "@type": "http://www.w3.org/2001/XMLSchema#dateTime",
   },
 };

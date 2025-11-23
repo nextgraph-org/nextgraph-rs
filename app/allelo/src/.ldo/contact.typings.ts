@@ -70,6 +70,7 @@ export interface SocialContact {
   mergedInto?: LdSet<SocialContact>;
   mergedFrom?: LdSet<SocialContact>;
   centralityScore?: number;
+  mostRecentInteraction?: string;
 }
 
 /**
