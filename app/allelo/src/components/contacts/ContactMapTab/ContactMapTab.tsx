@@ -13,7 +13,12 @@ export const ContactMapTab = () => {
     filters,
     addFilter,
     clearFilters,
-  } = useContacts({limit: 0});
+  } = useContacts({
+    limit: 0,
+    initialFilters: {
+      "hasAddressFilter": true
+    }
+  });
 
   const navigate = useNavigate();
 

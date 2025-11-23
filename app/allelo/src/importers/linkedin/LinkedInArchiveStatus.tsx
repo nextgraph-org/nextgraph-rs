@@ -8,18 +8,22 @@ interface LinkedInArchiveStatusProps {
   onSuccess: (data: LinkedInData) => void;
   onFallbackToDragDrop: () => void;
   onRelogin: () => void;
+  setCloseButtonText: (text: string) => void;
 }
 
 export function LinkedInArchiveStatus({
-  linkedInUsername,
-  onSuccess,
-  onFallbackToDragDrop,
-  onRelogin
-}: LinkedInArchiveStatusProps) {
+                                        linkedInUsername,
+                                        onSuccess,
+                                        onFallbackToDragDrop,
+                                        onRelogin,
+                                        setCloseButtonText
+                                      }: LinkedInArchiveStatusProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const isRequestInProgress = useRef(false);
+  const preparationMessage = 'LinkedIn is preparing your archive. This can take up to 24 hours. We will notify you' +
+    ' once your contacts have been imported. In the meanwhile, you can continue using our app normally';
 
   const getLinkedInData = useCallback(async () => {
     // Prevent concurrent requests
@@ -48,8 +52,9 @@ export function LinkedInArchiveStatus({
       }
 
       if (response.status === 417 && data.status === 'request-pending') {
-        setMessage('Data archive is not ready yet. This can take up to 24 hours.');
+        setMessage(preparationMessage);
         setLoading(false);
+        setCloseButtonText('Ok');
         return;
       }
 
@@ -66,7 +71,7 @@ export function LinkedInArchiveStatus({
     } finally {
       isRequestInProgress.current = false;
     }
-  }, [linkedInUsername, onSuccess]);
+  }, [linkedInUsername, onSuccess, preparationMessage, setCloseButtonText]);
 
   const requestArchive = useCallback(async () => {
     // Prevent concurrent requests
@@ -98,8 +103,9 @@ export function LinkedInArchiveStatus({
         }
 
         if (data.status === 'request-pending') {
-          setMessage('LinkedIn is preparing your archive. This can take up to 24 hours.');
+          setMessage(preparationMessage);
           setLoading(false);
+          setCloseButtonText('Ok');
           return;
         }
 
@@ -110,8 +116,9 @@ export function LinkedInArchiveStatus({
       }
 
       if (response.status === 200 && data.success) {
-        setMessage('LinkedIn is preparing your archive. This can take up to 24 hours.');
+        setMessage(preparationMessage);
         setLoading(false);
+        setCloseButtonText('Ok');
         return;
       }
 
@@ -123,7 +130,7 @@ export function LinkedInArchiveStatus({
     } finally {
       isRequestInProgress.current = false;
     }
-  }, [linkedInUsername, getLinkedInData]);
+  }, [linkedInUsername, getLinkedInData, preparationMessage, setCloseButtonText]);
 
   // Auto-start archive request on mount
   useEffect(() => {

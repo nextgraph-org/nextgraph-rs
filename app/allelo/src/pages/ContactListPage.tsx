@@ -36,14 +36,16 @@ const ContactListPage = () => {
     flexDirection: 'column',
     overflow: 'auto',
   }}>
-    <ContactListHeader
-      mode={mode}
-      manageMode={manageMode}
-      setManageMode={setManageMode}
-      currentTab={tabValue}
-    />
-    <TabManager tabItems={tabItems} onChange={setTabValue}/>
-  </Box>
+      <ContactListHeader
+        mode={mode}
+        manageMode={manageMode}
+        setManageMode={setManageMode}
+        currentTab={tabValue}
+      />
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <TabManager tabItems={tabItems} onChange={setTabValue}/>
+      </Box>
+    </Box>
 };
 
 export default ContactListPage;

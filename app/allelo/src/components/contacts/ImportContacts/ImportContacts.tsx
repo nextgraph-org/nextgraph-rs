@@ -65,7 +65,7 @@ export const ImportContacts = () => {
   };
 
   return (
-    <Box sx={{height: '100%', p: 2}}>
+    <Box sx={{height: '100%', p: 0}}>
       <Box sx={{mb: 4}}>
         <Box sx={{flex: 1, minWidth: 0, overflow: 'hidden', display: "flex", alignItems: 'center', gap: 1, pb: 2}}>
           <IconButton
@@ -98,7 +98,7 @@ export const ImportContacts = () => {
         </Typography>
       </Box>
 
-      <Box sx={{p: {xs: 2, md: 0}}}>
+      <Box sx={{p: {xs: 1, md: 0}}}>
         <Grid container spacing={3}>
           {importSources.map((source) => (
             <Grid size={{xs: 12, md: 4}} key={source.type}>

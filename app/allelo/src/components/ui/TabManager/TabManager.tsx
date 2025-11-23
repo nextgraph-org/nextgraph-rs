@@ -1,4 +1,4 @@
-import {Tabs, Tab} from "@mui/material";
+import {Tabs, Tab, Box} from "@mui/material";
 import {ReactElement, ReactNode, useEffect, useState} from "react";
 
 export type TabItem = {
@@ -36,7 +36,7 @@ export function TabManager({
   });
 
   return (
-    <>
+    <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <Tabs
         value={index}
         onChange={handleChange}
@@ -53,7 +53,8 @@ export function TabManager({
           minWidth: 0,
           borderBottom: 1,
           borderColor: "divider",
-          mb: 1
+          mb: 1,
+          flexShrink: 0,
         }}
         aria-label="tabs"
       >
@@ -69,7 +70,9 @@ export function TabManager({
         ))}
       </Tabs>
 
-      {tabItems[index].content}
-    </>
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        {tabItems[index].content}
+      </Box>
+    </Box>
   );
 }

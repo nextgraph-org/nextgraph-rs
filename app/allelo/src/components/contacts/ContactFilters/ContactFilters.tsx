@@ -38,8 +38,7 @@ export const ContactFilters = ({
     filters.naoStatusFilter !== 'all' ||
     filters.accountFilter !== 'all' ||
     filters.groupFilter !== 'all' ||
-    (filters.searchQuery || "").length > 0 ||
-    filters.sortBy !== 'mostActive';
+    (filters.searchQuery || "").length > 0;
 
   return (
     <Box sx={{px: 0, flexShrink: 0, position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'white'}}>
@@ -66,8 +65,8 @@ export const ContactFilters = ({
       {inManageMode && <>
         {totalCount && (
           <Box sx={{
-            mb: 1,
-            mt: {xs: 1, md: 0},
+            mb: 0,
+            mt: {xs: 0, md: 0},
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -86,7 +85,8 @@ export const ContactFilters = ({
                   color: 'primary.main',
                   fontWeight: 500,
                   minWidth: 'auto',
-                  width: 'auto'
+                  width: 'auto',
+                  height: "10px"
                 }}
               >
                 {hasSelection ? 'Deselect All' : 'Select All'}
@@ -118,7 +118,8 @@ export const ContactFilters = ({
                     color: 'primary.main',
                     fontWeight: 500,
                     minWidth: 'auto',
-                    width: 'auto'
+                    width: 'auto',
+                    height: "10px"
                   }}
                 >
                   Merge Contacts

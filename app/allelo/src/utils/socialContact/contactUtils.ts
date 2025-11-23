@@ -14,7 +14,8 @@ export const contactCommonProperties = [
   "createdAt",
   "updatedAt",
   "joinedAt",
-  "centralityScore"
+  "centralityScore",
+  "mostRecentInteraction"
 ] as const satisfies readonly (keyof SocialContact)[];
 
 export type ContactLdSetProperties = Omit<
@@ -301,9 +302,11 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
     let value = jsonContact[property];
     if (property === "lastInteractionAt" && value) {
       value = new Date(value);
+      contact.mostRecentInteraction = new Date(value).toISOString();
+    } else {
+      // @ts-expect-error mock
+      contact[property] = value;
     }
-    // @ts-expect-error mock
-    contact[property] = value;
   });
 
   await geoApiService.initContactGeoCodes(contact);

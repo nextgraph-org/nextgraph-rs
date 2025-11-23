@@ -183,15 +183,15 @@ export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
             </Box>
           </Box>}
 
-          {contact.lastInteractionAt && (
-            <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
+          {contact.mostRecentInteraction && (
+            <Box sx={{display: 'flex', alignItems: 'center', mb: 2, gap: 1}}>
               <Schedule sx={{mr: 2, color: 'text.secondary'}}/>
               <Box>
                 <Typography variant="body2" color="text.secondary">
                   Last Interaction
                 </Typography>
                 <Typography variant="body1">
-                  {formatDate(contact.lastInteractionAt)}
+                  {formatDate(contact.mostRecentInteraction)}
                 </Typography>
               </Box>
             </Box>

@@ -16,9 +16,8 @@ import {
 } from '@mui/material';
 import {
   UilArrowLeft as ArrowBack,
-  UilEdit as Edit,
   UilBan as Block,
-  UilCheckCircle as CheckCircle
+  UilCheckCircle as CheckCircle, UilEdit
 } from '@iconscout/react-unicons';
 import {
   ContactViewHeader,
@@ -170,7 +169,7 @@ const ContactViewPage = () => {
   }
 
   return (
-    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.paper'}}>
+    <Box sx={{p: {xs: 0, md: 3}, backgroundColor: 'background.paper'}}>
       <Button
         startIcon={<ArrowBack size="20"/>}
         onClick={handleBack}
@@ -220,18 +219,7 @@ const ContactViewPage = () => {
         </Alert>
       )}
       
-      <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
-        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
-          <Box></Box>
-          <Button
-            variant={"text"}
-            startIcon={<Edit size="20"/>}
-            onClick={handleEditToggle}
-          >
-            {isEditing ? "Exit" : "Edit"}
-          </Button>
-        </Box>
-
+      <Paper sx={{p: {xs: 1, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
         <ContactViewHeader
           contact={contact}
           isLoading={isLoading}
@@ -347,6 +335,32 @@ const ContactViewPage = () => {
           onAcceptanceChanged={handleRefreshVouches}
         />
       </Paper>
+
+      <Box sx={{
+        display: {xs: 'block', md: 'block'},
+        position: 'fixed',
+        top: 10,
+        right: 16,
+        zIndex: 1000,
+      }}>
+        {!isEditing ? (
+          <Button
+            variant="contained"
+            startIcon={<UilEdit size="20"/>}
+            onClick={handleEditToggle}
+          >
+            Edit
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            startIcon={<UilEdit size="20"/>}
+            onClick={handleEditToggle}
+          >
+            Done editing
+          </Button>
+        )}
+      </Box>
     </Box>
   );
 };
