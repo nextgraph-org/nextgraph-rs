@@ -1,1 +1,0 @@
-export { CategorySidebar } from './CategorySidebar';
