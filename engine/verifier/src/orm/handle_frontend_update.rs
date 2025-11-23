@@ -237,13 +237,7 @@ fn create_sparql_update_query_for_patches(
         let raw_subject = root_split.next()?.to_string();
         let graph = decode_json_pointer(&raw_graph);
         let subject = decode_json_pointer(&raw_subject);
-        log_debug!(
-            "[resolve_path] START path='{}' root='{}|{}' segs={:?}",
-            path,
-            graph,
-            subject,
-            segs
-        );
+
         let mut idx = 1;
         let mut current_graph = graph.clone();
         let mut current_subject = subject.clone();
@@ -263,23 +257,9 @@ fn create_sparql_update_query_for_patches(
                 .find(|p| p.readablePredicate == pred_name)
                 .cloned();
             let Some(pred_schema) = &pred_schema_opt else {
-                log_debug!(
-                    "[resolve_path] FAIL no predicate '{}' in schema '{}' subj='{}' graph='{}'",
-                    pred_name,
-                    current_schema.iri,
-                    current_subject,
-                    current_graph
-                );
                 return None;
             };
-            log_debug!(
-                "[resolve_path] seg[{}]='{}' iri='{}' object={} multi={}",
-                idx,
-                pred_name,
-                pred_schema.iri,
-                pred_schema.is_object(),
-                pred_schema.is_multi()
-            );
+
             idx += 1;
             if !pred_schema.is_object() {
                 // primitive leaf expected
@@ -291,12 +271,7 @@ fn create_sparql_update_query_for_patches(
                     );
                     return None;
                 }
-                log_debug!(
-                    "[resolve_path] TARGET primitive graph='{}' subj='{}' pred='{}'",
-                    current_graph,
-                    current_subject,
-                    pred_schema.iri
-                );
+
                 return Some(PathTarget {
                     graph: current_graph,
                     subject: current_subject,
@@ -308,7 +283,6 @@ fn create_sparql_update_query_for_patches(
             // object predicate
             if pred_schema.is_multi() {
                 if idx >= segs.len() {
-                    log_debug!("[resolve_path] TARGET multi-object collection graph='{}' subj='{}' pred='{}'", current_graph, current_subject, pred_schema.iri);
                     return Some(PathTarget {
                         graph: current_graph,
                         subject: current_subject,
@@ -337,7 +311,6 @@ fn create_sparql_update_query_for_patches(
                 if idx == segs.len() {
                     // link to child object itself
                     let child_iri = Some(child_subj_decoded);
-                    log_debug!("[resolve_path] TARGET multi-object link parent='{}|{}' pred='{}' child='{}'", graph, subject, pred_schema.iri, child_iri.as_ref().unwrap());
                     return Some(PathTarget {
                         graph: graph,
                         subject: subject,
@@ -354,12 +327,6 @@ fn create_sparql_update_query_for_patches(
             } else {
                 // single-valued object predicate, like `/root/pred/<object>`
                 if idx == segs.len() {
-                    log_debug!(
-                        "[resolve_path] TARGET single-object link pred='{}' parent='{}|{}'",
-                        pred_schema.iri,
-                        graph,
-                        subject
-                    );
                     return Some(PathTarget {
                         graph: graph,
                         subject: subject,
@@ -372,26 +339,11 @@ fn create_sparql_update_query_for_patches(
                 // Check if there was a new child created for this path.
                 let current_key = format!("/{}", segs[..idx].join("/"));
                 if let Some((child_subj, child_graph)) = staged_children.get(&current_key) {
-                    log_debug!(
-                        "[resolve_path] Found path from newly added object {}",
-                        current_key
-                    );
                     current_schema = select_child_schema(None, pred_schema, orm_subscription);
 
                     current_subject = decode_json_pointer(child_subj);
                     current_graph = decode_json_pointer(child_graph);
                     continue;
-                }
-
-                log_debug!("[resolve_path] looking for current object {}|{} with schema {} in existing tormos: ", current_graph, current_subject, current_schema.iri);
-
-                for tormo in orm_subscription.iter_all_objects() {
-                    log_debug!(
-                        " - {:?} {:?} {}",
-                        tormo.read().unwrap().subject_iri,
-                        tormo.read().unwrap().shape_iri(),
-                        tormo.read().unwrap().graph_iri,
-                    );
                 }
 
                 // Check for existing tormos of the linked child.
@@ -401,16 +353,10 @@ fn create_sparql_update_query_for_patches(
                     &current_schema.iri,
                 ) {
                     if let Ok(parent_guard) = parent_obj.read() {
-                        log_debug!("[resolve_path] acquired read");
-
                         if let Some(tracked_pred) =
                             parent_guard.tracked_predicates.get(&pred_schema.iri)
                         {
                             if let Ok(pred_guard) = tracked_pred.read() {
-                                log_debug!(
-                                    "[resolve_path] tracked pred children: {:?}",
-                                    pred_guard.tracked_children
-                                );
                                 if let Some(child_arc) = pred_guard
                                     .tracked_children
                                     .iter()
@@ -420,7 +366,7 @@ fn create_sparql_update_query_for_patches(
                                     if let Ok(child_guard) = child_arc.read() {
                                         current_subject = child_guard.subject_iri.clone();
                                         current_graph = child_guard.graph_iri.clone();
-                                        log_debug!("[resolve_path] HEURISTIC single child -> graph='{}' subj='{}'", current_graph, current_subject);
+
                                         // Determine child schema now that we have descended.
                                         if let Some(child_shape_iri) = child_guard.shape_iri() {
                                             if let Some(child_schema) = orm_subscription
