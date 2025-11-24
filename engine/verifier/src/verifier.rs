@@ -822,6 +822,7 @@ impl Verifier {
         additional_blocks: &Vec<BlockId>,
         deps: Vec<ObjectRef>,
         files: Vec<ObjectRef>,
+        has_graph: bool,
     ) -> Result<(), NgError> {
         let commit = {
             let repo = self.get_repo(repo_id, &store_repo)?;
@@ -842,6 +843,18 @@ impl Verifier {
                 0,
                 &repo.store,
             )?;
+
+            let topic = branch.topic.clone().unwrap();
+            let overlay_id = store_repo.overlay_id_for_storage_purpose();
+            if !has_graph {
+                self.advance_head_without_graph(
+                    &topic,
+                    &overlay_id,
+                    &commit.reference().unwrap().id,
+                    HashSet::from_iter(branch.current_heads.iter().map(|br| br.id.clone())),
+                )?;
+            }
+
             self.verify_commit_(&commit, branch_id, repo_id, Arc::clone(&repo.store), true)
                 .await?;
             commit
@@ -956,6 +969,7 @@ impl Verifier {
             additional_blocks,
             vec![],
             vec![],
+            true,
         )
         .await
     }
