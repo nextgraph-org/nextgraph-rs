@@ -556,6 +556,54 @@ impl Verifier {
         }
     }
 
+    pub(crate) fn advance_head_without_graph(
+        &self,
+        topic_id: &TopicId,
+        overlay_id: &OverlayId,
+        commit_id: &ObjectId,
+        previous_heads: HashSet<ObjectId>,
+    ) -> Result<(), VerifierError> {
+        self.graph_dataset
+            .as_ref()
+            .unwrap()
+            .ng_transaction(
+                move |mut transaction| -> Result<(), ng_oxigraph::oxigraph::store::StorageError> {
+                    let topic_encoded = numeric_encoder::StrHash::new(&NuriV0::topic_id(topic_id));
+                    let overlay_encoded =
+                        numeric_encoder::StrHash::new(&NuriV0::overlay_id(overlay_id));
+
+                    let direct_causal_past_encoded: HashSet<numeric_encoder::StrHash> =
+                        HashSet::from_iter(previous_heads.iter().map(|commit_id| {
+                            numeric_encoder::StrHash::new(&NuriV0::commit_graph_name(
+                                commit_id, overlay_id,
+                            ))
+                        }));
+
+                    let commit_name = NuriV0::commit_graph_name(commit_id, overlay_id);
+                    let commit_encoded = numeric_encoder::StrHash::new(&commit_name);
+
+                    transaction.update_heads(
+                        &topic_encoded,
+                        &overlay_encoded,
+                        &commit_encoded,
+                        &direct_causal_past_encoded,
+                    )?;
+
+                    if !direct_causal_past_encoded.is_empty() {
+                        // adding past
+                        transaction.update_past(
+                            &commit_encoded,
+                            &direct_causal_past_encoded,
+                            true,
+                        )?;
+                    }
+                    Ok(())
+                },
+            )
+            .map_err(|e| VerifierError::OxigraphError(e.to_string()))?;
+        Ok(())
+    }
+
     async fn update_graph(
         &mut self,
         mut updates: Vec<BranchUpdateInfo>,
@@ -679,6 +727,7 @@ impl Verifier {
                             } else {
                                 REMOVED_IN_OTHER
                             };
+
                             let mut to_remove_from_removes: HashSet<usize> = HashSet::new();
                             for (pos, remove) in update.transaction.removes.iter().enumerate() {
                                 let encoded_subject = remove.subject.as_ref().into();
@@ -692,7 +741,6 @@ impl Verifier {
                                         &direct_causal_past_encoded,
                                         at_current_heads,
                                     )?;
-
                                 for removing in observed_adds {
                                     let graph_encoded = EncodedTerm::NamedNode { iri_id: removing };
                                     let quad_encoded = EncodedQuad::new(
