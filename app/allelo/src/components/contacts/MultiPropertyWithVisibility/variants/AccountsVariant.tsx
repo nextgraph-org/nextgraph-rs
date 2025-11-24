@@ -122,7 +122,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
 
     return (
       <Box key={itemId} sx={{display: 'flex', alignItems: 'start', gap: 1, width: '100%', mb: 1}}>
-        <FormControl size="small" sx={{minWidth: 140}}>
+        <FormControl size="small" sx={{width: {xs: 110, md: 170}}}>
           <Select
             value={item.protocol || 'linkedin'}
             disabled={item.source !== "user"}
@@ -133,7 +133,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
               <MenuItem key={accountType.protocol} value={accountType.protocol}>
                 <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
                   {accountType.icon && React.cloneElement(accountType.icon, {fontSize: 'small'})}
-                  <Typography variant="body2">{accountType.label}</Typography>
+                  <Typography sx={{overflow: 'hidden', textOverflow: 'ellipsis'}} variant="body2">{accountType.label}</Typography>
                 </Box>
               </MenuItem>
             ))}
@@ -197,7 +197,6 @@ export const AccountsVariant = <K extends ResolvableKey>({
           <FormControl size="small" sx={{minWidth: 140}}>
             <Select
               value={newItemProtocol}
-              disabled={true}
               onChange={(e) => handleProtocolChange(e.target.value)}
               variant="outlined"
             >
@@ -219,7 +218,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
             onChange={(e) => onNewItemValueChange(e.target.value)}
             onBlur={() => {
               if (newItemValue.trim()) {
-                onAddNewItem({protocol: "linkedin"});
+                onAddNewItem({protocol: newItemProtocol});
               } else {
                 setIsAddingNew(false);
                 setNewItemValue('');
@@ -227,7 +226,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                onAddNewItem({protocol: "linkedin"});
+                onAddNewItem({protocol: newItemProtocol});
               } else if (e.key === 'Escape') {
                 setIsAddingNew(false);
                 setNewItemValue('');
