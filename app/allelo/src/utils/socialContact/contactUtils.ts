@@ -271,6 +271,7 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
 
         handleLdoBug(el, "type2", withIds);
         handleLdoBug(el, "valueIRI", withIds);
+        handleLdoBug(el, "photoIRI", withIds);
 
         contact[property]!.add(el);
       });
