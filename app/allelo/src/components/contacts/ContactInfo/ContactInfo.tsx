@@ -18,7 +18,7 @@ import {NextGraphResource} from "@ldo/connected-nextgraph";
 export interface ContactInfoProps {
   contact: Contact | null;
   isEditing?: boolean;
-  resource: NextGraphResource;
+  resource?: NextGraphResource;
 }
 
 export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(

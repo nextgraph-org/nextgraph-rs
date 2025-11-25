@@ -119,7 +119,8 @@ export class ContentItem {
     } else if (this.propertyConfig.filterParams) {
       return getPropsByFilter(this.profile, this.label, this.propertyConfig.filterParams);
     } else {
-      const properties: ItemOf<keyof ContactLdSetProperties>[] = this.profile[this.label]?.toArray() ?? [];
+      const properties: ItemOf<keyof ContactLdSetProperties>[] = this.profile[this.label]?.toArray()
+        .filter(prop => prop["@id"]) ?? [];
       if (!properties.length) {
         properties.push({});
       }

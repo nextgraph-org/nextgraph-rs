@@ -32,7 +32,7 @@ interface AddressVariantProps {
   setNewItemValue: (value: string) => void;
   validateType?: ValidationType;
   contact?: Contact;
-  resource: NextGraphResource
+  resource?: NextGraphResource
 }
 
 export const AddressVariant = ({

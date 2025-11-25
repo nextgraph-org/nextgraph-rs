@@ -29,16 +29,15 @@ import {
   Edit,
 } from '@mui/icons-material';
 import type { Vouch, Praise } from '@/types/notification';
-import {RCard} from "@/.ldo/rcard.typings.ts";
 
 interface ReceivedVouch extends Vouch {
   status: 'accepted' | 'rejected';
-  assignedToCards?: RCard["type"][];
+  assignedToCards?: string[];
 }
 
 interface ReceivedPraise extends Praise {
   status: 'accepted' | 'rejected';
-  assignedToCards?: RCard["type"][];
+  assignedToCards?: string[];
 }
 
 interface VouchesSectionProps {
@@ -49,7 +48,7 @@ export const VouchesSection = ({ cardName }: VouchesSectionProps) => {
   const theme = useTheme();
   const [editingVouch, setEditingVouch] = useState<(ReceivedVouch | ReceivedPraise) | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [selectedCards, setSelectedCards] = useState<RCard["type"][]>([]);
+  const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<'accepted' | 'rejected'>('accepted');
 
   // Mock vouch and praise data - filtered for this specific card
@@ -117,11 +116,11 @@ export const VouchesSection = ({ cardName }: VouchesSectionProps) => {
 
   // Filter vouches and praises for this specific card
   const filteredVouches = receivedVouches.filter(vouch => 
-    vouch.status === 'accepted' && vouch.assignedToCards?.includes(cardName as RCard["type"])
+    vouch.status === 'accepted' && vouch.assignedToCards?.includes(cardName)
   );
   
   const filteredPraises = receivedPraises.filter(praise => 
-    praise.status === 'accepted' && praise.assignedToCards?.includes(cardName as RCard["type"])
+    praise.status === 'accepted' && praise.assignedToCards?.includes(cardName)
   );
 
   const formatRelativeTime = (date: Date) => {
@@ -198,7 +197,7 @@ export const VouchesSection = ({ cardName }: VouchesSectionProps) => {
 
   const handleCardSelectionChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value;
-    setSelectedCards(typeof value === 'string' ? value.split(',') as RCard["type"][] : value as RCard["type"][]);
+    setSelectedCards(typeof value === 'string' ? value.split(',') : value);
   };
 
   return (
@@ -377,7 +376,7 @@ export const VouchesSection = ({ cardName }: VouchesSectionProps) => {
                     
                     <FormControl fullWidth>
                       <InputLabel>rCards</InputLabel>
-                      <Select<RCard["type"][]>
+                      <Select<string[]>
                         multiple
                         value={selectedCards}
                         onChange={handleCardSelectionChange}
@@ -390,7 +389,7 @@ export const VouchesSection = ({ cardName }: VouchesSectionProps) => {
                           </Box>
                         )}
                       >
-                        {(['Friends', 'Family', 'Community', 'Business'] as RCard["type"][]).map((card) => (
+                        {(['Friends', 'Family', 'Community', 'Business']).map((card) => (
                           <MenuItem key={card} value={card}>
                             {card}
                           </MenuItem>

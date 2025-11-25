@@ -15,6 +15,7 @@ export const contactCommonProperties = [
   "createdAt",
   "updatedAt",
   "joinedAt",
+  "rcard",
   "centralityScore",
   "mostRecentInteraction"
 ] as const satisfies readonly (keyof SocialContact)[];

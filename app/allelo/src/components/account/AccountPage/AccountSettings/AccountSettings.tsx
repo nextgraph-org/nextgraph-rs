@@ -20,7 +20,6 @@ import {
   Warning,
   DeleteForever,
 } from '@mui/icons-material';
-import PersonhoodCredentialsComponent from '@/components/account/PersonhoodCredentials';
 import type { PersonhoodCredentials } from '@/types/personhood';
 
 interface AccountSettingsProps {
@@ -28,7 +27,8 @@ interface AccountSettingsProps {
 }
 
 export const AccountSettings = forwardRef<HTMLDivElement, AccountSettingsProps>(
-  ({ personhoodCredentials }, ref) => {
+  // eslint-disable-next-line no-empty-pattern
+  ({}, ref) => {
     const [aiEnabled, setAiEnabled] = useState(true);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState('');

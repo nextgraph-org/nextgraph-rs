@@ -15,7 +15,6 @@ export const MobileDrawer = forwardRef<HTMLDivElement, MobileDrawerProps>(
     onToggleExpanded,
     onNavigation,
     currentPath,
-    relationshipCategories
   }, ref) => {
     return (
       <Box
@@ -47,7 +46,6 @@ export const MobileDrawer = forwardRef<HTMLDivElement, MobileDrawerProps>(
             onToggleExpanded={onToggleExpanded}
             onNavigation={onNavigation}
             currentPath={currentPath}
-            relationshipCategories={relationshipCategories}
           />
         </Drawer>
       </Box>

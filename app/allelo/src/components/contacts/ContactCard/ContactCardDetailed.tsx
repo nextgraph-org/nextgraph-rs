@@ -5,7 +5,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import {UilHeart, UilShieldCheck} from "@iconscout/react-unicons";
 import {IconButton} from "@/components/ui";
 import type {Contact} from "@/types/contact";
-import {useRelationshipCategories} from "@/hooks/useRelationshipCategories";
+import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {Theme} from "@mui/material/styles";
 import {Email, Name, Organization, PhoneNumber} from "@/.ldo/contact.typings";
@@ -13,6 +13,7 @@ import {iconFilter} from "@/hooks/contacts/useContacts";
 import {AccountRegistry} from "@/utils/accountRegistry";
 import {formatPhone} from "@/utils/phoneHelper";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {ContactCardAvatar} from "@/components/contacts/ContactCardAvatar";
 
@@ -149,7 +150,8 @@ export const ContactCardDetailed = forwardRef<
   ) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-    const {getCategoryIcon, getCategoryColor} = useRelationshipCategories();
+    const {getCategoryIcon, getCategoryColor} = useRCardsConfigs();
+    const {getRCardById} = useGetRCards();
 
     const name = resolveFrom(contact, 'name');
     const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
@@ -200,20 +202,25 @@ export const ContactCardDetailed = forwardRef<
       )
     }
 
+    const rCardId = contact?.rcard ? contact.rcard["@id"] : undefined;
+    const rCard = getRCardById(rCardId ?? "");
+
+    const categoryId = rCard?.cardId;
+
     const renderCategoryButton = () => (
       <IconButton
         variant="category"
         size={isMobile ? "medium" : "large"}
-        backgroundColor={getCategoryColor(contact?.relationshipCategory)}
+        backgroundColor={getCategoryColor(categoryId)}
         color="white"
         onClick={() =>
           onSetIconFilter(
             "relationshipFilter",
-            contact?.relationshipCategory || "default",
+            rCardId ?? "all",
           )
         }
       >
-        {getCategoryIcon(contact?.relationshipCategory, 16)}
+        {getCategoryIcon(categoryId, 16)}
       </IconButton>
     );
 
@@ -262,7 +269,7 @@ export const ContactCardDetailed = forwardRef<
             minWidth: 0,
             flex: {xs: '1 1 0%', md: '0 0 320px'}, // xs fluid, md fixed 320px
             mr: {xs: 0, md: 3},
-            gap:1
+            gap: 1
           }}
         >
           <Box sx={{display: "flex", alignItems: "center", gap: {xs: 0.5, md: 1}, mb: 0.5}}>
@@ -280,14 +287,14 @@ export const ContactCardDetailed = forwardRef<
 
         {/* Right Column - Icons */}
         {!isMobile && <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            height: 44,
-            flexShrink: 0,
-            ml: "auto",
-          }}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              height: 44,
+              flexShrink: 0,
+              ml: "auto",
+            }}
         >
           {renderAccountFilers()}
         </Box>}

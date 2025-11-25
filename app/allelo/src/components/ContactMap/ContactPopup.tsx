@@ -88,7 +88,7 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
               fontWeight: 500,
               fontSize: '0.75rem'
             }}>
-              {contact.relationshipCategory || 'Contact'}
+              {'Contact'}
             </Typography>
           </Box>
         </Box>

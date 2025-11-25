@@ -4,15 +4,10 @@ import {
   Box,
   Card,
   CardContent,
-  Switch,
-  FormControlLabel,
-  LinearProgress,
-  alpha,
   useTheme
 } from '@mui/material';
 import {
   UilClock as Schedule,
-  UilShield as Security,
   UilShieldCheck as VerifiedUser,
   UilCheckCircle as CheckCircle,
   UilUser as PersonOutline
@@ -26,24 +21,24 @@ export interface ContactDetailsProps {
 }
 
 export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
-  ({contact, onHumanityToggle}, ref) => {
+  ({contact}, ref) => {
     const theme = useTheme();
 
-    const getHumanityScoreInfo = (score?: number) => {
-      const scoreInfo = {
-        1: {label: 'Very Low', description: 'Unverified online presence', color: theme.palette.error.main},
-        2: {label: 'Low', description: 'Limited verification signals', color: theme.palette.warning.main},
-        3: {label: 'Moderate', description: 'Some verification indicators', color: theme.palette.warning.main},
-        4: {label: 'High', description: 'Multiple verification sources', color: theme.palette.primary.main},
-        5: {label: 'Verified Human', description: 'Confirmed human interaction', color: theme.palette.success.main},
-        6: {label: 'Trusted', description: 'Highly trusted individual', color: theme.palette.success.main},
-      };
-      return score ? scoreInfo[score as keyof typeof scoreInfo] : {
-        label: 'Unknown',
-        description: 'No humanity assessment',
-        color: theme.palette.text.disabled
-      };
-    };
+    // const getHumanityScoreInfo = (score?: number) => {
+    //   const scoreInfo = {
+    //     1: {label: 'Very Low', description: 'Unverified online presence', color: theme.palette.error.main},
+    //     2: {label: 'Low', description: 'Limited verification signals', color: theme.palette.warning.main},
+    //     3: {label: 'Moderate', description: 'Some verification indicators', color: theme.palette.warning.main},
+    //     4: {label: 'High', description: 'Multiple verification sources', color: theme.palette.primary.main},
+    //     5: {label: 'Verified Human', description: 'Confirmed human interaction', color: theme.palette.success.main},
+    //     6: {label: 'Trusted', description: 'Highly trusted individual', color: theme.palette.success.main},
+    //   };
+    //   return score ? scoreInfo[score as keyof typeof scoreInfo] : {
+    //     label: 'Unknown',
+    //     description: 'No humanity assessment',
+    //     color: theme.palette.text.disabled
+    //   };
+    // };
 
     const getNaoStatusIndicator = (contact: Contact) => {
       switch (contact.naoStatus?.value) {
@@ -79,7 +74,7 @@ export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
 
     if (!contact) return null;
 
-    const humanityInfo = getHumanityScoreInfo(contact.humanityConfidenceScore);
+    // const humanityInfo = getHumanityScoreInfo(contact.humanityConfidenceScore);
     const naoStatus = getNaoStatusIndicator(contact);
 
     return (

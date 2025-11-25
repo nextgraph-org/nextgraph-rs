@@ -22,8 +22,8 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
     loadMore,
     totalCount,
     setIconFilter,
-    updateContact,
-    reloadContacts
+    reloadContacts,
+    handleContactsCategorized
   } = useContacts({limit: 10});
 
   const {getDuplicatedContacts, mergeContacts} = useMergeContacts();
@@ -53,20 +53,11 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
     setSelectedContacts([]);
   }, [filters]);
 
-  useEffect(() => {
-    const handleContactCategorized = (event: CustomEvent) => {
-      const {contactId, category} = event.detail;
-      updateContact(contactId, {relationshipCategory: category});
-      setSelectedContacts([]);
-    };
-
-    window.addEventListener('contactCategorized', handleContactCategorized as EventListener);
-    return () => {
-      window.removeEventListener('contactCategorized', handleContactCategorized as EventListener);
-    };
-  }, [updateContact]);
-
   const handleContactClick = (contactId: string) => {
+    if (manageMode) {
+      return handleSelectContact(contactId);
+    }
+
     if (isSelectionMode) return;
     if (mode === 'invite' && returnTo === 'group-info' && groupId) {
       const inviteParams = new URLSearchParams();
@@ -114,19 +105,14 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
 
   const hasSelection = selectedContacts.length > 0;
 
-  const handleContactCategorized = useCallback((contactId: string, category: string) => {
-    updateContact(contactId, {relationshipCategory: category});
-    setSelectedContacts([]);
-  }, [updateContact]);
-
   const handleDragEndEvent = useCallback((event: DragEndEvent) => {
     const activeType = event.active.data?.current?.type;
     const overType = event.over?.data?.current?.type;
 
-    if (activeType === 'contact' && overType === 'category') {
-      const categoryId = event.over?.data?.current?.categoryId as string | undefined;
+    if (activeType === 'contact' && overType === 'rcard') {
+      const rcardId = event.over?.data?.current?.rcardId as string | undefined;
 
-      if (!categoryId) {
+      if (!rcardId) {
         return;
       }
 
@@ -134,12 +120,10 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
       const ids = contactIds && contactIds.length > 0 ? contactIds : [String(event.active.id)];
       const uniqueIds = Array.from(new Set(ids));
 
-      uniqueIds.forEach((id) => {
-        handleContactCategorized(id, categoryId);
-      });
+      handleContactsCategorized(uniqueIds, rcardId).then(() => setSelectedContacts([]));
     }
 
-  }, [handleContactCategorized]);
+  }, [handleContactsCategorized]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     if (event.active.data?.current?.type === 'contact') {

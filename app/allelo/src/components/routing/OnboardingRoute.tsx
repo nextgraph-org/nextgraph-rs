@@ -48,7 +48,7 @@ export const OnboardingRoute = ({
   }
 
   // Authenticated but onboarding incomplete - redirect to current step
-  const redirectPath = getOnboardingRedirectPath(isComplete, currentStep);
+  const redirectPath = getOnboardingRedirectPath(isComplete ?? false, currentStep!);
   if (redirectPath) {
     return <Navigate to={redirectPath} replace />;
   }

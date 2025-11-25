@@ -11,7 +11,6 @@ import {
   Alert,
   Card,
   CardContent,
-  Link,
   Divider,
 } from '@mui/material';
 import {
@@ -112,7 +111,7 @@ export const SocialContractAgreementPage = () => {
             </Box>
             
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              NAO is a revolutionary social network that puts trust at its core. Using locally hosted trust graphs, 
+              Networked Adaptive Organism (NAO) is a revolutionary social network that puts trust at its core. Using locally hosted trust graphs,
               our network enables members to run social queries to find trusted connections and opportunities.
             </Typography>
 
@@ -193,20 +192,6 @@ export const SocialContractAgreementPage = () => {
             <Typography variant="body2" color="text.secondary">
               • Maintain the integrity of your trust graph
             </Typography>
-          </Box>
-
-          <Box sx={{ mt: 2 }}>
-            <Link
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                // TODO: Open full social contract
-                console.log('Open full social contract');
-              }}
-              sx={{ fontSize: '0.875rem', fontWeight: 600 }}
-            >
-              Read the full Social Contract
-            </Link>
           </Box>
         </Box>
 

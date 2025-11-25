@@ -26,13 +26,14 @@ import {
   UilAngleUp
 } from '@iconscout/react-unicons';
 import type {Contact} from '@/types/contact';
-import {useRelationshipCategories} from "@/hooks/useRelationshipCategories";
+import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {PropertyWithSources} from '../PropertyWithSources';
 import {ContactTags} from '../ContactTags';
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {useNavigate} from "react-router-dom";
+import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 
 export interface ContactViewHeaderProps {
@@ -43,7 +44,7 @@ export interface ContactViewHeaderProps {
   showTags?: boolean;
   showActions?: boolean;
   validateParent?: (valid: boolean) => void;
-  resource: NextGraphResource
+  resource?: NextGraphResource
 }
 
 export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderProps>(
@@ -52,7 +53,8 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
     const navigate = useNavigate();
 
     const theme = useTheme();
-    const {getCategoryIcon, getCategoryById} = useRelationshipCategories();
+    const {getCategoryIcon, getCategoryById} = useRCardsConfigs();
+    const {getRCardById} = useGetRCards();
 
     const getNaoStatusIndicator = useCallback((contact: Contact) => {
       switch (contact.naoStatus?.value) {
@@ -85,7 +87,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
 
     const navigateToQR = useCallback(() => {
       const params = new URLSearchParams();
-      params.set('contactNuri', resource.uri ?? "");
+      params.set('contactNuri', resource?.uri ?? "");
       navigate(`/invite?${params.toString()}`);
     }, [resource, navigate]);
 
@@ -93,8 +95,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
 
     const name = resolveFrom(contact, 'name');
     const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
-
-    const photo = resolveFrom(contact, 'photo');
 
     const naoStatus = getNaoStatusIndicator(contact);
 
@@ -240,11 +240,14 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 />
 
               {/* Relationship Category Indicator */}
-              {contact.relationshipCategory && (() => {
-                const categoryInfo = getCategoryById(contact.relationshipCategory);
+              {contact.rcard && (() => {
+                const contactRCardId = contact.rcard ? contact.rcard["@id"] : undefined;
+                const rcard = getRCardById(contactRCardId ?? "");
+
+                const categoryInfo = getCategoryById(rcard?.cardId ?? "default");
                 return categoryInfo ? (
                   <Chip
-                    icon={getCategoryIcon(contact.relationshipCategory, 16)}
+                    icon={getCategoryIcon(categoryInfo.id, 16)}
                     label={categoryInfo.name}
                     variant="outlined"
                     sx={{

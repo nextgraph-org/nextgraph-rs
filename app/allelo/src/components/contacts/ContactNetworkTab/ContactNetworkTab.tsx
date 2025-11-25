@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import { NetworkGraph } from '@/components/network/NetworkGraph';
 import { NetworkContactProbe } from '@/components/network/NetworkContactProbe';
 import { useContacts } from '@/hooks/contacts/useContacts';

@@ -1,6 +1,5 @@
 export { ContactListHeader } from './ContactListHeader';
 export { ContactFilters } from './ContactFilters';
-export { CategorySidebar } from './CategorySidebar';
 export { ContactGrid } from './ContactGrid';
 export { MergeDialogs } from './MergeDialogs';
 export { FloatingActions } from './FloatingActions';

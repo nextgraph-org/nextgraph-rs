@@ -8,7 +8,7 @@ interface AddressDetailsProps {
   contact?: Contact;
   isEditing: boolean;
   currentItem: Record<string, string>;
-  resource: NextGraphResource;
+  resource?: NextGraphResource;
 }
 
 export const AddressDetails = ({

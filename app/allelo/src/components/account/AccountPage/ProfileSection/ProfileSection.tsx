@@ -64,259 +64,256 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
 
     return (
       <Box ref={ref} sx={{position: 'relative'}}>
-            <Grid container spacing={3}>
-              {/* Left side - Avatar and basic info */}
-              <Grid size={{xs: 12, md: 4}}>
-                  <Box sx={{
-                    display: 'flex',
-                    alignItems: "center"
-                  }}>
+        <Grid container spacing={3}>
+          {/* Left side - Avatar and basic info */}
+          <Grid size={{xs: 12, md: 4}}>
+            <Box sx={{
+              display: 'flex',
+              alignItems: "center"
+            }}>
                     <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}
                                          isEditing={isEditing} forProfile={true}/>
-                  <Box sx={{
-                    display: "flex",
-                    flexDirection: "row",
-                    justifyContent: "start",
-                    alignItems: "start",
-                    width: {xs: '100%', md: 'auto'},
-                    cursor: 'pointer',
-                    '&:hover .name-caret': {
-                      color: 'primary.main',
+              <Box sx={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "start",
+                alignItems: "start",
+                width: {xs: '100%', md: 'auto'},
+                cursor: 'pointer',
+                '&:hover .name-caret': {
+                  color: 'primary.main',
+                }
+              }}
+                   onClick={() => setShowNameDetails(!showNameDetails)}
+              >
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  textVariant={"h6"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  label={"Full name"}
+                  hideLabel={true}
+                  template={defaultTemplates.contactName}
+                  resource={resource}
+                />
+                <IconButton
+                  className="name-caret"
+                  sx={{
+                    padding: 0,
+                    ml: 1,
+                    color: 'text.primary',
+                    '&:hover': {
+                      backgroundColor: 'transparent',
                     }
                   }}
-                  onClick={() => setShowNameDetails(!showNameDetails)}
-                  >
-                    <PropertyWithSources
-                      propertyKey={"name"}
-                      textVariant={"h6"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      label={"Full name"}
-                      hideLabel={true}
-                      template={defaultTemplates.contactName}
-                      resource={resource}
-                    />
-                    <IconButton
-                      className="name-caret"
-                      sx={{
-                        padding: 0,
-                        ml: 1,
-                        color: 'text.primary',
-                        '&:hover': {
-                          backgroundColor: 'transparent',
-                        }
-                      }}
-                      disableRipple
-                    >{showNameDetails ? <UilAngleUp size="24"/> : <UilAngleDown size="24"/>}
-                    </IconButton>
-                  </Box>
+                  disableRipple
+                >{showNameDetails ? <UilAngleUp size="24"/> : <UilAngleDown size="24"/>}
+                </IconButton>
+              </Box>
 
-                </Box>
-                <Collapse in={showNameDetails}>
-                  <Box sx={{
-                    mt: 1,
-                    ml: {xs: 2, md: 3},
-                    width: {xs: '100%', md: 'auto'},
-                  }}>
-                    <PropertyWithSources
-                      propertyKey={"name"}
-                      subKey={"firstName"}
-                      textVariant={"body1"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      label={"First name"}
-                      hideSources={true}
-                      resource={resource}
-                    />
-                    <PropertyWithSources
-                      propertyKey={"name"}
-                      subKey={"middleName"}
-                      textVariant={"body1"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      label={"Middle name"}
-                      hideSources={true}
-                      resource={resource}
-                    />
-                    <PropertyWithSources
-                      propertyKey={"name"}
-                      subKey={"familyName"}
-                      textVariant={"body1"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      label={"Last name"}
-                      hideSources={true}
-                      resource={resource}
-                    />
-                    <PropertyWithSources
-                      propertyKey={"name"}
-                      subKey={"honorificPrefix"}
-                      textVariant={"body1"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      label={"Honorific prefix"}
-                      hideSources={true}
-                      resource={resource}
-                    />
-                    <PropertyWithSources
-                      propertyKey={"name"}
-                      subKey={"honorificSuffix"}
-                      textVariant={"body1"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      label={"Honorific suffix"}
-                      hideSources={true}
-                      resource={resource}
-                    />
-                  </Box>
-                </Collapse>
-                <Box sx={{
-                  width: {xs: '100%', md: 'auto'},
-                  mt: {xs: 1, md: 0}
-                }}>
-                  <PropertyWithSources
-                    propertyKey={"headline"}
-                    label={"Headline"}
-                    hideLabel={true}
-                    textVariant={"body2"}
+            </Box>
+            <Collapse in={showNameDetails}>
+
+              <Box sx={{mb: 2, ml: 3, mt: 0.2}}>
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"firstName"}
+                  textVariant={"body1"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  label={"First name"}
+                  hideSources={true}
+                  resource={resource}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"middleName"}
+                  textVariant={"body1"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  label={"Middle name"}
+                  hideSources={true}
+                  resource={resource}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"familyName"}
+                  textVariant={"body1"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  label={"Last name"}
+                  hideSources={true}
+                  resource={resource}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"honorificPrefix"}
+                  textVariant={"body1"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  label={"Honorific prefix"}
+                  hideSources={true}
+                  resource={resource}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"honorificSuffix"}
+                  textVariant={"body1"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  label={"Honorific suffix"}
+                  hideSources={true}
+                  resource={resource}
+                />
+              </Box>
+            </Collapse>
+            <Box sx={{
+              width: {xs: '100%', md: 'auto'},
+              mt: {xs: 1, md: 0}
+            }}>
+              <PropertyWithSources
+                propertyKey={"headline"}
+                label={"Headline"}
+                hideLabel={true}
+                textVariant={"body2"}
+                contact={initialProfileData}
+                isEditing={isEditing}
+                template={defaultTemplates.headline}
+                templateProperty={"organization"}
+                resource={resource}
+              />
+            </Box>
+            <Box>
+              <ContactTags contact={initialProfileData} resource={resource}/>
+            </Box>
+          </Grid>
+
+          {/* Right side - Contact and social info */}
+          <Grid size={{xs: 12, md: 8}}>
+            <Box sx={{display: 'flex', flexDirection: 'column', gap: 2}}>
+              {/* Basic contact info */}
+              <Grid container spacing={2}>
+                <Grid size={{xs: 12, sm: 6}}>
+                  <MultiPropertyWithVisibility
+                    label={"Email"}
+                    hideIcon={true}
+                    propertyKey={"email"}
                     contact={initialProfileData}
                     isEditing={isEditing}
-                    template={defaultTemplates.headline}
-                    templateProperty={"organization"}
+                    validateType={"email"}
                     resource={resource}
                   />
-                </Box>
-                <Box>
-                  <ContactTags contact={initialProfileData} resource={resource}/>
-                </Box>
+                </Grid>
+                <Grid size={{xs: 12, sm: 6}}>
+                  <MultiPropertyWithVisibility
+                    label={"Phone"}
+                    hideIcon={true}
+                    propertyKey={"phoneNumber"}
+                    contact={initialProfileData}
+                    isEditing={isEditing}
+                    validateType={"phone"}
+                    resource={resource}
+                    required={false}
+                  />
+                </Grid>
+                <Grid size={{xs: 12, sm: 6}}>
+                  <MultiPropertyWithVisibility
+                    label={"Location"}
+                    hideIcon={true}
+                    propertyKey={"address"}
+                    contact={initialProfileData}
+                    isEditing={isEditing}
+                    validateType={"text"}
+                    variant={"addresses"}
+                    resource={resource}
+                  />
+                </Grid>
+                <Grid size={{xs: 12, sm: 6}}>
+                  <MultiPropertyWithVisibility
+                    label={"Website"}
+                    hideIcon={true}
+                    propertyKey={"url"}
+                    contact={initialProfileData}
+                    isEditing={isEditing}
+                    validateType={"url"}
+                    variant={"url"}
+                    resource={resource}
+                  />
+                </Grid>
               </Grid>
 
-              {/* Right side - Contact and social info */}
-              <Grid size={{xs: 12, md: 8}}>
-                <Box sx={{display: 'flex', flexDirection: 'column', gap: 2}}>
-                  {/* Basic contact info */}
-                  <Grid container spacing={2}>
-                    <Grid size={{xs: 12, sm: 6}}>
-                      <MultiPropertyWithVisibility
-                        label={"Email"}
-                        hideIcon={true}
-                        propertyKey={"email"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        validateType={"email"}
-                        resource={resource}
-                      />
-                    </Grid>
-                    <Grid size={{xs: 12, sm: 6}}>
-                      <MultiPropertyWithVisibility
-                        label={"Phone"}
-                        hideIcon={true}
-                        propertyKey={"phoneNumber"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        validateType={"phone"}
-                        resource={resource}
-                        required={false}
-                      />
-                    </Grid>
-                    <Grid size={{xs: 12, sm: 6}}>
-                      <MultiPropertyWithVisibility
-                        label={"Location"}
-                        hideIcon={true}
-                        propertyKey={"address"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        validateType={"text"}
-                        variant={"addresses"}
-                        resource={resource}
-                      />
-                    </Grid>
-                    <Grid size={{xs: 12, sm: 6}}>
-                      <MultiPropertyWithVisibility
-                        label={"Website"}
-                        hideIcon={true}
-                        propertyKey={"url"}
-                        contact={initialProfileData}
-                        isEditing={isEditing}
-                        validateType={"url"}
-                        variant={"url"}
-                        resource={resource}
-                      />
-                    </Grid>
-                  </Grid>
+              {/* Bio */}
+              <Box>
+                <PropertyWithSources
+                  label={"Bio"}
+                  hideIcon={true}
+                  propertyKey={"biography"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  isMultiline={true}
+                  resource={resource}
+                />
+              </Box>
 
-                  {/* Bio */}
-                  <Box>
-                    <PropertyWithSources
-                      label={"Bio"}
-                      hideIcon={true}
-                      propertyKey={"biography"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      isMultiline={true}
-                      resource={resource}
-                    />
-                  </Box>
+              <Box>
+                <MultiPropertyWithVisibility
+                  label={"Social Networks"}
+                  hideIcon={true}
+                  propertyKey={"account"}
+                  variant={"accounts"}
+                  contact={initialProfileData}
+                  isEditing={isEditing}
+                  validateType={"text"}
+                  resource={resource}
+                />
+              </Box>
 
-                  <Box>
-                    <MultiPropertyWithVisibility
-                      label={"Social Networks"}
-                      hideIcon={true}
-                      propertyKey={"account"}
-                      variant={"accounts"}
-                      contact={initialProfileData}
-                      isEditing={isEditing}
-                      validateType={"text"}
-                      resource={resource}
-                    />
-                  </Box>
-
-                  {/* Greencheck Section - only show in edit mode */}
-                  {isEditing && (
-                    <Box sx={{mt: 2}}>
-                      <Card sx={{backgroundColor: 'grey.50', border: '1px solid', borderColor: 'grey.200'}}>
-                        <CardContent sx={{py: 2}}>
-                          <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                            <Box>
-                              <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 0.5}}>
-                                <UilCheckCircle size="20" style={{color: 'inherit'}}/>
-                                <Typography variant="body2" sx={{fontWeight: 600}}>
-                                  Claim other accounts via Greencheck
-                                </Typography>
-                              </Box>
-                              <Typography variant="caption" color="text.secondary" sx={{display: 'block'}}>
-                                Verify and import your profiles from other platforms
-                              </Typography>
-                            </Box>
-                            <Button
-                              variant="contained"
-                              size="small"
-                              onClick={handleGreencheckConnect}
-                              sx={{ml: 2}}
-                            >
-                              Connect
-                            </Button>
+              {/* Greencheck Section - only show in edit mode */}
+              {isEditing && (
+                <Box sx={{mt: 2}}>
+                  <Card sx={{backgroundColor: 'grey.50', border: '1px solid', borderColor: 'grey.200'}}>
+                    <CardContent sx={{py: 2}}>
+                      <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                        <Box>
+                          <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 0.5}}>
+                            <UilCheckCircle size="20" style={{color: 'inherit'}}/>
+                            <Typography variant="body2" sx={{fontWeight: 600}}>
+                              Claim other accounts via Greencheck
+                            </Typography>
                           </Box>
-                          <Link
-                            href="https://greencheck.world/about"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{
-                              fontSize: '0.875rem',
-                              fontWeight: 600,
-                              display: 'inline-block',
-                              mt: 2
-                            }}
-                          >
-                            Learn more about Greencheck →
-                          </Link>
-                        </CardContent>
-                      </Card>
-                    </Box>
-                  )}
+                          <Typography variant="caption" color="text.secondary" sx={{display: 'block'}}>
+                            Verify and import your profiles from other platforms
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={handleGreencheckConnect}
+                          sx={{ml: 2}}
+                        >
+                          Connect
+                        </Button>
+                      </Box>
+                      <Link
+                        href="https://greencheck.world/about"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          display: 'inline-block',
+                          mt: 2
+                        }}
+                      >
+                        Learn more about Greencheck →
+                      </Link>
+                    </CardContent>
+                  </Card>
                 </Box>
-              </Grid>
-            </Grid>
+              )}
+            </Box>
+          </Grid>
+        </Grid>
 
         <Box sx={{
           display: {xs: 'block', md: 'block'},
