@@ -72,12 +72,12 @@ export class ImageService {
     const chunkSize = 1_048_564;
     const fileSize = file.size;
     let offset = 0;
-    let readBlock = null;
+    let readBlock: ((offset: number, length: number, file: File) => void) | null = null;
     progress({ total: fileSize, current: offset });
 
     return new Promise((resolve, reject) => {
 
-      const onLoadHandler = async function (event) {
+      const onLoadHandler = async function (event: any) {
         const result = event.target.result;
 
         if (event.target.error == null) {
@@ -100,7 +100,7 @@ export class ImageService {
           // if (onChunkError) {
           //   onChunkError(event.target.error);
           // }
-          progress({ total: fileSize, current: offset, error: event.target.error });
+          progress({ total: fileSize, current: offset/*, error: event.target.error*/ });
           reject(event.target.error);
           return;
         }
@@ -112,7 +112,9 @@ export class ImageService {
           return;
         }
 
-        readBlock(offset, chunkSize, file);
+        if (readBlock) {
+          readBlock(offset, chunkSize, file);
+        }
       };
 
       readBlock = function (offset: number, length: number, file: File) {

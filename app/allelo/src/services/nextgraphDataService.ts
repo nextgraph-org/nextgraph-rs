@@ -346,7 +346,7 @@ WHERE {
     const protectedStoreId = "did:ng:" + session.protectedStoreId;
     const resource = dataset.getResource(protectedStoreId, "nextgraph");
 
-    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
       throw new Error(`Failed to get resource ${protectedStoreId}`);
     }
     const base = "did:ng:" + session.protectedStoreId?.substring(0, 46);
@@ -422,7 +422,7 @@ WHERE {
     const privateStoreId = "did:ng:" + session.privateStoreId;
     const resource = dataset.getResource(privateStoreId, "nextgraph");
 
-    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
       throw new Error(`Failed to get resource ${privateStoreId}`);
     }
 
@@ -611,7 +611,7 @@ WHERE {
     }
 
     const resource = dataset.getResource(contact["@id"]!);
-    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
       throw new Error(`Failed to create resource`);
     }
 

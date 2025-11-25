@@ -164,14 +164,14 @@ const buildEntityNetwork = (
           contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
         }
       }
-      const contactPhoto = resolveFrom(contact, 'photo');
+      // const contactPhoto = resolveFrom(contact, 'photo');
       const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
 
       nodes.push({
         id: contact['@id'] || contactNameValue,
         type: 'person',
         name: contactNameValue,
-        avatar: contactPhoto?.value,
+        //TODO: deal with it later avatar: contactPhoto?.value,
         initials: getInitials(contactNameValue),
         isCentered: false,
         priority: 'high',
@@ -237,14 +237,14 @@ const buildContactNetwork = (
       centeredName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
     }
   }
-  const centeredPhoto = resolveFrom(centeredContact, 'photo');
+  //TODO: const centeredPhoto = resolveFrom(centeredContact, 'photo');
   const centeredNameValue = centeredName?.value || renderTemplate(defaultTemplates.contactName, centeredName) || 'Unknown';
 
   const centeredNode: GraphNode = {
     id: centeredContact['@id'] || centeredNameValue,
     type: 'person',
     name: centeredNameValue,
-    avatar: centeredPhoto?.value,
+    //TODO: avatar: centeredPhoto?.value,
     initials: getInitials(centeredNameValue),
     isCentered: true,
     priority: 'high',
@@ -385,7 +385,7 @@ const buildContactNetwork = (
           contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
         }
       }
-      const contactPhoto = resolveFrom(contact, 'photo');
+      //TODO: const contactPhoto = resolveFrom(contact, 'photo');
       const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
 
       if (!nodes.find((n) => n.id === contact['@id'])) {
@@ -393,7 +393,7 @@ const buildContactNetwork = (
           id: contact['@id'] || contactNameValue,
           type: 'person',
           name: contactNameValue,
-          avatar: contactPhoto?.value,
+          //TODO: avatar: contactPhoto?.value,
           initials: getInitials(contactNameValue),
           isCentered: false,
           priority: 'medium',

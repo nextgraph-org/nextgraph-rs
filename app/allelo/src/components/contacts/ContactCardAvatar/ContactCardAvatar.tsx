@@ -1,9 +1,8 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useCallback} from 'react';
 import {Box, Avatar, CircularProgress} from '@mui/material';
-import {imageService} from '@/services/imageService';
-import {useNextGraphAuth} from "@/lib/nextgraph";
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {Contact} from "@/types/contact.ts";
+import {useContactPhoto} from "@/hooks/contacts/useContactPhoto.ts";
 
 export interface ContactAvatarUploadProps {
   contact: Contact | undefined;
@@ -16,38 +15,9 @@ export const ContactCardAvatar = ({
                                     size = {xs: 100, sm: 120},
                                     contact,
                                   }: ContactAvatarUploadProps) => {
-  const nextGraphAuth = useNextGraphAuth();
-  const sessionId = nextGraphAuth?.session?.sessionId;
   const photo = resolveFrom(contact, 'photo');
 
-  const [isLoadingImage, setIsLoadingImage] = useState(true);
-  const [displayUrl, setDisplayUrl] = useState<string | undefined>(photo?.photoUrl);
-
-  useEffect(() => {
-    if (!contact) {
-      return;
-    }
-    if (sessionId && photo?.photoIRI?.["@id"]) {
-      setIsLoadingImage(true);
-      imageService.getBlob(contact["@id"]!, photo.photoIRI?.["@id"], true, sessionId)
-        .then((url) => {
-          if (url && url !== true) {
-            setDisplayUrl(url as string);
-          }
-        })
-        .catch((error) => {
-          console.error('Error loading image:', error);
-        })
-        .finally(() => {
-          setIsLoadingImage(false);
-        });
-    } else if (photo?.photoUrl) {
-      setIsLoadingImage(false);
-      setDisplayUrl(photo?.photoUrl);
-    } else {
-      setIsLoadingImage(false);
-    }
-  }, [sessionId, contact, photo]);
+  const {displayUrl, isLoadingImage} = useContactPhoto(contact, photo);
 
   const renderViewAvatar = useCallback(() => {
     // Show loading spinner while loading or uploading

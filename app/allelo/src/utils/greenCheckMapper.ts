@@ -1,5 +1,5 @@
 import {GreenCheckClaim, isAccountClaim, isPhoneClaim, isEmailClaim} from '@/lib/greencheck-api-client/types';
-import {SocialContact, Name, PhoneNumber, Email, Photo, Url} from '@/.ldo/contact.typings';
+import {SocialContact, Name, PhoneNumber, Email, Url} from '@/.ldo/contact.typings';
 import {BasicLdSet} from "@/lib/ldo/BasicLdSet";
 
 export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Partial<SocialContact> {
@@ -38,11 +38,12 @@ export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Parti
     }
 
     if (claim.claimData.avatar || claim.claimData.image) {
-      const photo: Photo = {
+      //TODO: here we need import to blob
+      /*const photo: Photo = {
         value: claim.claimData.avatar || claim.claimData.image || '',
         source: source
       };
-      contact.photo = new BasicLdSet([photo]);
+      contact.photo = new BasicLdSet([photo]);*/
     }
 
     if (claim.claimData.url) {

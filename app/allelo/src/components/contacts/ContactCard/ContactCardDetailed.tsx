@@ -14,7 +14,6 @@ import {AccountRegistry} from "@/utils/accountRegistry";
 import {formatPhone} from "@/utils/phoneHelper";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {ContactCardAvatar} from "@/components/contacts/ContactCardAvatar";
 
 const renderContactName = (name?: Name, isLoading?: boolean) => (
@@ -132,7 +131,6 @@ export interface ContactCardDetailedProps {
   contact: Contact | undefined;
   getNaoStatusIcon: (naoStatus?: string) => React.ReactNode;
   onSetIconFilter: (key: iconFilter, value: string) => void;
-  resource?: NextGraphResource;
 }
 
 export const ContactCardDetailed = forwardRef<
@@ -144,7 +142,6 @@ export const ContactCardDetailed = forwardRef<
       contact,
       getNaoStatusIcon,
       onSetIconFilter,
-      resource
     },
     ref,
   ) => {
