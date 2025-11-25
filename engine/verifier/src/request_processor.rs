@@ -1409,7 +1409,6 @@ impl Verifier {
                             &vec![],
                             vec![],
                             vec![add.object],
-                            false,
                         )
                         .await?;
                     }
