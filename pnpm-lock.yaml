@@ -496,8 +496,6 @@ importers:
         specifier: ^2.2.1
         version: 2.2.1(svelte@3.59.2)(vite@4.5.9(@types/node@18.19.76)(sass@1.85.0))
 
-  helpers/wasm-tools/pkg: {}
-
   ng-app:
     dependencies:
       '@automerge/automerge':

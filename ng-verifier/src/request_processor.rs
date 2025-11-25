@@ -153,8 +153,12 @@ impl Verifier {
         }
     }
 
-    pub(crate) async fn update_header(&mut self, target: &NuriTargetV0, title: Option<String>, about: Option<String>) -> Result<(), VerifierError> {
-
+    pub(crate) async fn update_header(
+        &mut self,
+        target: &NuriTargetV0,
+        title: Option<String>,
+        about: Option<String>,
+    ) -> Result<(), VerifierError> {
         let (repo_id, branch_id, store_repo) = self.resolve_header_branch(target)?;
         let graph_name = NuriV0::branch_repo_graph_name(
             &branch_id,
@@ -187,9 +191,7 @@ impl Verifier {
                 );
             }
         }
-        let query = format!(
-            "DELETE {{ {deletes} }} INSERT {{ {inserts} }} WHERE {{ {wheres} }}"
-        );
+        let query = format!("DELETE {{ {deletes} }} INSERT {{ {inserts} }} WHERE {{ {wheres} }}");
 
         let oxistore = self.graph_dataset.as_ref().unwrap();
 
@@ -203,13 +205,12 @@ impl Verifier {
                 if inserts.is_empty() && removes.is_empty() {
                     Ok(())
                 } else {
-                    self
-                        .prepare_sparql_update(
-                            Vec::from_iter(inserts),
-                            Vec::from_iter(removes),
-                            self.get_peer_id_for_skolem(),
-                        )
-                        .await?;
+                    self.prepare_sparql_update(
+                        Vec::from_iter(inserts),
+                        Vec::from_iter(removes),
+                        self.get_peer_id_for_skolem(),
+                    )
+                    .await?;
                     Ok(())
                 }
             }
@@ -619,24 +620,26 @@ impl Verifier {
         destination: String,
         store_repo: Option<StoreRepo>,
     ) -> Result<String, NgError> {
-    
         let class = BranchCrdt::from(crdt, class_name)?;
-    
+
         let nuri = if store_repo.is_none() {
             NuriV0::new_private_store_target()
         } else {
             NuriV0::from_store_repo(&store_repo.unwrap())
         };
-    
+
         let destination = DocCreateDestination::from(destination)?;
-    
-        self.doc_create(nuri, DocCreate {
-            class,
-            destination,
-        }).await
+
+        self.doc_create(nuri, DocCreate { class, destination })
+            .await
     }
 
-    pub(crate) async fn sparql_query(&self, nuri: &NuriV0, sparql: String, base: Option<String>) -> Result<QueryResults, VerifierError>  {
+    pub(crate) async fn sparql_query(
+        &self,
+        nuri: &NuriV0,
+        sparql: String,
+        base: Option<String>,
+    ) -> Result<QueryResults, VerifierError> {
         //log_debug!("query={}", query);
         let store = self.graph_dataset.as_ref().unwrap();
         let mut parsed = Query::parse(&sparql, base.as_deref())
@@ -649,27 +652,22 @@ impl Verifier {
         }
         store
             .query(parsed, self.resolve_target_for_sparql(&nuri.target, false)?)
-                .map_err(|e| VerifierError::SparqlError(e.to_string()))
+            .map_err(|e| VerifierError::SparqlError(e.to_string()))
     }
 
     pub(crate) async fn doc_create(
         &mut self,
         nuri: NuriV0,
-        doc_create: DocCreate
+        doc_create: DocCreate,
     ) -> Result<String, NgError> {
         //TODO: deal with doc_create.destination
 
         let user_id = self.user_id().clone();
         let user_priv_key = self.user_privkey().clone();
         let primary_class = doc_create.class.class().clone();
-        let (_,_,store) = self.resolve_target(&nuri.target)?;
+        let (_, _, store) = self.resolve_target(&nuri.target)?;
         let repo_id = self
-            .new_repo_default(
-                &user_id,
-                &user_priv_key,
-                &store,
-                doc_create.class,
-            )
+            .new_repo_default(&user_id, &user_priv_key, &store, doc_create.class)
             .await?;
 
         let header_branch_id = {
@@ -678,8 +676,7 @@ impl Verifier {
         };
 
         // adding an AddRepo commit to the Store branch of store.
-        self.send_add_repo_to_store(&repo_id, &store)
-            .await?;
+        self.send_add_repo_to_store(&repo_id, &store).await?;
 
         // adding an ldp:contains triple to the store main branch
         let overlay_id = store.outer_overlay();
@@ -687,7 +684,9 @@ impl Verifier {
         let nuri_result = NuriV0::repo_graph_name(&repo_id, &overlay_id);
         let store_nuri = NuriV0::from_store_repo(&store);
         let store_nuri_string = NuriV0::repo_id(store.repo_id());
-        let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
+        let query = format!(
+            "INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}"
+        );
 
         let ret = self
             .process_sparql_update(&store_nuri, &query, &None, vec![])
@@ -713,26 +712,35 @@ impl Verifier {
         Ok(nuri_result)
     }
 
-    fn get_profile_for_inbox_post(&self, public: bool) -> Result<(StoreRepo, PrivKey),NgError> {
-
+    fn get_profile_for_inbox_post(&self, public: bool) -> Result<(StoreRepo, PrivKey), NgError> {
         let from_profile_id = if !public {
             self.config.protected_store_id.unwrap()
         } else {
             self.config.public_store_id.unwrap()
         };
-        
-        let repo = self.repos.get(&from_profile_id).ok_or(NgError::RepoNotFound)?;
+
+        let repo = self
+            .repos
+            .get(&from_profile_id)
+            .ok_or(NgError::RepoNotFound)?;
         let inbox = repo.inbox.to_owned().ok_or(NgError::InboxNotFound)?;
         let store_repo = repo.store.get_store_repo();
 
-        Ok( (store_repo.clone(), inbox.clone()) )
+        Ok((store_repo.clone(), inbox.clone()))
     }
 
-    async fn import_contact_from_qrcode(&mut self, repo_id: RepoId, contact: NgQRCodeProfileSharingV0) -> Result<(), VerifierError> {
-
+    async fn import_contact_from_qrcode(
+        &mut self,
+        repo_id: RepoId,
+        contact: NgQRCodeProfileSharingV0,
+    ) -> Result<(), VerifierError> {
         let inbox_nuri_string: String = NuriV0::inbox(&contact.inbox);
         let profile_nuri_string: String = NuriV0::from_store_repo_string(&contact.profile);
-        let a_or_b = if contact.profile.is_public() { "site" } else { "protected" };
+        let a_or_b = if contact.profile.is_public() {
+            "site"
+        } else {
+            "protected"
+        };
 
         // checking if this contact has already been added
         match self.sparql_query(
@@ -746,7 +754,8 @@ impl Verifier {
         }
 
         // getting the privkey of the inbox and ovelray because we will need it here below to send responses.
-        let (from_profile, from_inbox) = self.get_profile_for_inbox_post(contact.profile.is_public())?;
+        let (from_profile, from_inbox) =
+            self.get_profile_for_inbox_post(contact.profile.is_public())?;
 
         // get the name and optional email address of the profile we will respond with.
         // if we don't have a name, we fail
@@ -778,26 +787,37 @@ impl Verifier {
 
         let contact_doc_nuri_string = NuriV0::repo_id(&repo_id);
         let contact_doc_nuri = NuriV0::new_repo_target_from_id(&repo_id);
-        let has_email = contact.email.map_or("".to_string(), |email| format!("<> vcard:hasEmail \"{email}\"."));
+        let has_email = contact.email.map_or("".to_string(), |email| {
+            format!("<> vcard:hasEmail \"{email}\".")
+        });
 
-        let sparql_update = format!(" PREFIX ng: <did:ng:x:ng#>
+        let sparql_update = format!(
+            " PREFIX ng: <did:ng:x:ng#>
             PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
             INSERT DATA {{  <> ng:{a_or_b} <{profile_nuri_string}>.
                             <> ng:{a_or_b}_inbox <{inbox_nuri_string}>.
                             <> a vcard:Individual .
                             <> vcard:fn \"{}\".
-                            {has_email} }}", contact.name);
+                            {has_email} }}",
+            contact.name
+        );
         let ret = self
-            .process_sparql_update(&contact_doc_nuri, &sparql_update, &Some(contact_doc_nuri_string), vec![])
+            .process_sparql_update(
+                &contact_doc_nuri,
+                &sparql_update,
+                &Some(contact_doc_nuri_string),
+                vec![],
+            )
             .await;
         if let Err(e) = ret {
             return Err(VerifierError::SparqlError(e));
         }
 
-        self.update_header(&contact_doc_nuri.target, Some(contact.name), None).await?;
+        self.update_header(&contact_doc_nuri.target, Some(contact.name), None)
+            .await?;
 
         self.post_to_inbox(InboxPost::new_contact_details(
-            from_profile, 
+            from_profile,
             from_inbox,
             contact.profile.outer_overlay(),
             contact.inbox,
@@ -805,31 +825,43 @@ impl Verifier {
             false,
             name,
             email,
-        )?).await?;
+        )?)
+        .await?;
 
         Ok(())
     }
 
-    pub(crate) async fn search_for_contacts(&self, excluding_profile_id_nuri: Option<String>) -> Result<Vec<(String,String)>, VerifierError> {
+    pub(crate) async fn search_for_contacts(
+        &self,
+        excluding_profile_id_nuri: Option<String>,
+    ) -> Result<Vec<(String, String)>, VerifierError> {
         let extra_conditions = if let Some(s) = excluding_profile_id_nuri {
-            format!("&& NOT EXISTS {{ ?c ng:site <{s}> }} && NOT EXISTS {{ ?c ng:protected <{s}> }}")
+            format!(
+                "&& NOT EXISTS {{ ?c ng:site <{s}> }} && NOT EXISTS {{ ?c ng:protected <{s}> }}"
+            )
         } else {
             String::new()
         };
-        let sparql = format!("PREFIX ng: <did:ng:x:ng#>
+        let sparql = format!(
+            "PREFIX ng: <did:ng:x:ng#>
             SELECT ?profile_id ?inbox_id WHERE 
                 {{ ?c a <http://www.w3.org/2006/vcard/ns#Individual> .
                     OPTIONAL {{ ?c ng:site ?profile_id . ?c ng:site_inbox ?inbox_id }}
                     OPTIONAL {{ ?c ng:protected ?profile_id . ?c ng:protected_inbox ?inbox_id }}
                     FILTER ( bound(?profile_id) {extra_conditions} )
-                }}");
+                }}"
+        );
         //log_info!("{sparql}");
-        let sols = match self.sparql_query(
-            &NuriV0::new_entire_user_site(),
-            sparql, None).await? 
+        let sols = match self
+            .sparql_query(&NuriV0::new_entire_user_site(), sparql, None)
+            .await?
         {
-            QueryResults::Solutions(sols) => { sols }
-            _ => return Err(VerifierError::SparqlError(NgError::InvalidResponse.to_string())),
+            QueryResults::Solutions(sols) => sols,
+            _ => {
+                return Err(VerifierError::SparqlError(
+                    NgError::InvalidResponse.to_string(),
+                ))
+            }
         };
 
         let mut res = vec![];
@@ -848,8 +880,7 @@ impl Verifier {
             }
         }
         Ok(res)
-
-}
+    }
 
     pub(crate) async fn process(
         &mut self,
@@ -859,21 +890,28 @@ impl Verifier {
     ) -> Result<AppResponse, NgError> {
         match command {
             AppRequestCommandV0::SocialQueryStart => {
-                let (from_profile, contacts_string, degree) = if let Some(AppRequestPayload::V0(AppRequestPayloadV0::SocialQueryStart{
-                    from_profile, contacts, degree
-                })) =
-                    payload
-                { (from_profile, contacts, degree) }
-                else {
-                    return Err(NgError::InvalidPayload);
-                };
+                let (from_profile, contacts_string, degree) =
+                    if let Some(AppRequestPayload::V0(AppRequestPayloadV0::SocialQueryStart {
+                        from_profile,
+                        contacts,
+                        degree,
+                    })) = payload
+                    {
+                        (from_profile, contacts, degree)
+                    } else {
+                        return Err(NgError::InvalidPayload);
+                    };
 
                 let query_id = nuri.target.repo_id();
 
                 // checking that the query hasn't been started yet
-                match self.sparql_query(
-                    &NuriV0::new_repo_target_from_id(query_id),
-                    format!("ASK {{ <> <did:ng:x:ng#social_query_forwarder> ?forwarder }}"), Some(NuriV0::repo_id(query_id))).await? 
+                match self
+                    .sparql_query(
+                        &NuriV0::new_repo_target_from_id(query_id),
+                        format!("ASK {{ <> <did:ng:x:ng#social_query_forwarder> ?forwarder }}"),
+                        Some(NuriV0::repo_id(query_id)),
+                    )
+                    .await?
                 {
                     QueryResults::Boolean(true) => {
                         return Err(NgError::SocialQueryAlreadyStarted);
@@ -904,32 +942,36 @@ impl Verifier {
 
                 //resolve from_profile
                 let from_profile_id = match from_profile.target {
-                    NuriTargetV0::ProtectedProfile => {
-                        self.config.protected_store_id.unwrap()
-                    }
-                    NuriTargetV0::PublicProfile => {
-                        self.config.public_store_id.unwrap()
-                    },
-                    _ => return Err(NgError::InvalidNuri)
+                    NuriTargetV0::ProtectedProfile => self.config.protected_store_id.unwrap(),
+                    NuriTargetV0::PublicProfile => self.config.public_store_id.unwrap(),
+                    _ => return Err(NgError::InvalidNuri),
                 };
                 let store = {
-                    let repo = self.repos.get(&from_profile_id).ok_or(NgError::RepoNotFound)?;
+                    let repo = self
+                        .repos
+                        .get(&from_profile_id)
+                        .ok_or(NgError::RepoNotFound)?;
                     repo.store.clone()
                 };
-                
+
                 let definition_commit_body_ref = nuri.get_first_commit_ref()?;
-                let block_ids = Commit::collect_block_ids(definition_commit_body_ref.clone(), &store, true)?;
-                let mut blocks= Vec::with_capacity(block_ids.len());
+                let block_ids =
+                    Commit::collect_block_ids(definition_commit_body_ref.clone(), &store, true)?;
+                let mut blocks = Vec::with_capacity(block_ids.len());
                 //log_info!("blocks nbr {}",block_ids.len());
                 for bid in block_ids.iter() {
                     blocks.push(store.get(bid)?);
                 }
 
                 // creating the ForwardedSocialQuery in the private store
-                let forwarder  = self.doc_create_with_store_repo(
-                    "Graph".to_string(), "social:query:forwarded".to_string(),
-                    "store".to_string(), None // meaning in private store
-                ).await?;
+                let forwarder = self
+                    .doc_create_with_store_repo(
+                        "Graph".to_string(),
+                        "social:query:forwarded".to_string(),
+                        "store".to_string(),
+                        None, // meaning in private store
+                    )
+                    .await?;
                 let forwarder_nuri = NuriV0::new_from_repo_graph(&forwarder)?;
                 let forwarder_id = forwarder_nuri.target.repo_id().clone();
                 let forwarder_nuri_string = NuriV0::repo_id(&forwarder_id);
@@ -948,28 +990,36 @@ impl Verifier {
                 let sparql_update = format!("INSERT DATA {{ <> <did:ng:x:ng#social_query_id> <{social_query_doc_nuri_string}> .
                                                                     <> <did:ng:x:ng#social_query_started> \"{}\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . }}",DateTime::now());
                 let ret = self
-                    .process_sparql_update(&forwarder_nuri, &sparql_update, &Some(forwarder_nuri_string), vec![])
+                    .process_sparql_update(
+                        &forwarder_nuri,
+                        &sparql_update,
+                        &Some(forwarder_nuri_string),
+                        vec![],
+                    )
                     .await;
                 if let Err(e) = ret {
                     log_err!("{sparql_update}");
                     return Err(NgError::SparqlError(e));
                 }
 
-                let from_profiles: ((StoreRepo, PrivKey), (StoreRepo, PrivKey)) = self.get_2_profiles()?;
+                let from_profiles: ((StoreRepo, PrivKey), (StoreRepo, PrivKey)) =
+                    self.get_2_profiles()?;
 
                 for (to_profile_nuri, to_inbox_nuri) in contacts {
-
-                    match self.social_query_dispatch(
-                        &to_profile_nuri, 
-                        &to_inbox_nuri, 
-                        &forwarder_nuri, 
-                        &forwarder_id,
-                        &from_profiles,
-                        query_id, 
-                        &definition_commit_body_ref, 
-                        &blocks, 
-                        degree
-                    ).await {
+                    match self
+                        .social_query_dispatch(
+                            &to_profile_nuri,
+                            &to_inbox_nuri,
+                            &forwarder_nuri,
+                            &forwarder_id,
+                            &from_profiles,
+                            query_id,
+                            &definition_commit_body_ref,
+                            &blocks,
+                            degree,
+                        )
+                        .await
+                    {
                         Ok(_) => {}
                         Err(e) => return Ok(AppResponse::error(e.to_string())),
                     }
@@ -1000,32 +1050,34 @@ impl Verifier {
                 // };
             }
             AppRequestCommandV0::QrCodeProfile => {
-                let size = if let Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(size))) =
-                    payload
-                {
-                    size
-                } else {
-                    return Err(NgError::InvalidPayload);
-                };
+                let size =
+                    if let Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(size))) =
+                        payload
+                    {
+                        size
+                    } else {
+                        return Err(NgError::InvalidPayload);
+                    };
                 let public = match nuri.target {
                     NuriTargetV0::PublicProfile => true,
                     NuriTargetV0::ProtectedProfile => false,
-                    _ => return Err(NgError::InvalidPayload)
+                    _ => return Err(NgError::InvalidPayload),
                 };
                 return match self.get_qrcode_for_profile(public, size).await {
                     Err(e) => Ok(AppResponse::error(e.to_string())),
-                    Ok(qrcode)  => Ok(AppResponse::text(qrcode)),
+                    Ok(qrcode) => Ok(AppResponse::text(qrcode)),
                 };
             }
             AppRequestCommandV0::QrCodeProfileImport => {
-                let profile = if let Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfileImport( text))) =
-                    payload
+                let profile = if let Some(AppRequestPayload::V0(
+                    AppRequestPayloadV0::QrCodeProfileImport(text),
+                )) = payload
                 {
                     let ser = base64_url::decode(&text).map_err(|_| NgError::SerializationError)?;
-                    let code:NgQRCode = serde_bare::from_slice(&ser)?;
+                    let code: NgQRCode = serde_bare::from_slice(&ser)?;
                     let profile = match code {
                         NgQRCode::ProfileSharingV0(profile) => profile,
-                        _ => return Err(NgError::InvalidPayload)
+                        _ => return Err(NgError::InvalidPayload),
                     };
                     profile
                 } else {
@@ -1033,20 +1085,23 @@ impl Verifier {
                 };
                 let repo_id = match nuri.target {
                     NuriTargetV0::Repo(id) => id,
-                    _ => return Err(NgError::InvalidPayload)
+                    _ => return Err(NgError::InvalidPayload),
                 };
                 return match self.import_contact_from_qrcode(repo_id, profile).await {
                     Err(e) => Ok(AppResponse::error(e.to_string())),
-                    Ok(())  => Ok(AppResponse::ok()),
+                    Ok(()) => Ok(AppResponse::ok()),
                 };
             }
             AppRequestCommandV0::Header => {
                 if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Header(doc_header))) =
                     payload
                 {
-                    return match self.update_header(&nuri.target, doc_header.title, doc_header.about).await {
+                    return match self
+                        .update_header(&nuri.target, doc_header.title, doc_header.about)
+                        .await
+                    {
                         Ok(_) => Ok(AppResponse::ok()),
-                        Err(e) => Ok(AppResponse::error(e.to_string()))
+                        Err(e) => Ok(AppResponse::error(e.to_string())),
                     };
                 } else {
                     return Err(NgError::InvalidPayload);
@@ -1059,7 +1114,7 @@ impl Verifier {
                     match self.doc_create(nuri, doc_create).await {
                         Err(NgError::SparqlError(e)) => Ok(AppResponse::error(e)),
                         Err(e) => Err(e),
-                        Ok(nuri_result) => Ok(AppResponse::V0(AppResponseV0::Nuri(nuri_result)))
+                        Ok(nuri_result) => Ok(AppResponse::V0(AppResponseV0::Nuri(nuri_result))),
                     }
                 } else {
                     Err(NgError::InvalidPayload)
@@ -1233,15 +1288,16 @@ impl Verifier {
                     return Ok(AppResponse::V0(AppResponseV0::Text(vec.join("\n"))));
                 }
                 AppFetchContentV0::CurrentHeads => {
-                    
                     if nuri.target.is_repo_id() {
-                        if let Ok(s) = self.get_main_branch_current_heads_nuri(nuri.target.repo_id()) {
+                        if let Ok(s) =
+                            self.get_main_branch_current_heads_nuri(nuri.target.repo_id())
+                        {
                             return Ok(AppResponse::V0(AppResponseV0::Text(s)));
                         }
                     }
                     return Ok(AppResponse::error(VerifierError::InvalidNuri.to_string()));
                 }
-                
+
                 AppFetchContentV0::History => {
                     if !nuri.is_valid_for_sparql_update() {
                         return Err(NgError::InvalidNuri);
@@ -1328,7 +1384,6 @@ impl Verifier {
                             &vec![],
                             vec![],
                             vec![add.object],
-                            false,
                         )
                         .await?;
                     }
