@@ -13,7 +13,7 @@ pub mod transaction;
 
 pub mod snapshot;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use ng_net::broker::BROKER;
@@ -506,11 +506,17 @@ impl CommitVerifier for AddFile {
             };
             let commit_id = commit.id().unwrap();
             verifier.user_storage.as_ref().unwrap().branch_add_file(
-                commit.id().unwrap(),
+                commit_id.clone(),
                 *branch_id,
                 filename.clone(),
             )?;
-            let repo = verifier.get_repo(repo_id, store.get_store_repo())?;
+            let store_repo = store.get_store_repo();
+            let repo = verifier.get_repo(repo_id, store_repo)?;
+            let branch = repo.branch(branch_id)?;
+            let topic = branch.topic.clone().unwrap();
+            let overlay_id = store_repo.overlay_id_for_storage_purpose();
+            let previous_heads =
+                HashSet::from_iter(branch.current_heads.iter().map(|br| br.id.clone()));
             verifier
                 .push_app_response(
                     branch_id,
@@ -523,6 +529,7 @@ impl CommitVerifier for AddFile {
                     })),
                 )
                 .await;
+            verifier.advance_head_without_graph(&topic, &overlay_id, &commit_id, previous_heads)?;
             Ok(())
         } else {
             Err(VerifierError::InvalidCommit)
