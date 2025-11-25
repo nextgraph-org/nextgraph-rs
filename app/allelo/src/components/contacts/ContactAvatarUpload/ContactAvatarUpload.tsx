@@ -4,10 +4,9 @@ import {UilCamera} from '@iconscout/react-unicons';
 import {imageService} from '@/services/imageService';
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export interface ContactAvatarUploadProps {
-  photoUrl?: string;
-  photoNuri?: string;
   contactNuri?: string | undefined;
   initial?: string;
   isEditing?: boolean;
@@ -17,8 +16,6 @@ export interface ContactAvatarUploadProps {
 }
 
 export const ContactAvatarUpload = ({
-                                      photoUrl,
-                                      photoNuri,
                                       initial = '',
                                       isEditing = false,
                                       size = {xs: 100, sm: 120},
@@ -30,20 +27,21 @@ export const ContactAvatarUpload = ({
   const nextGraphAuth = useNextGraphAuth();
   const sessionId = nextGraphAuth?.session?.sessionId;
   const {ormContact} = useContactOrm(contactNuri, forProfile);
-
+  const avatar = resolveFrom(ormContact, 'photo');
+  
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
-  const [displayUrl, setDisplayUrl] = useState<string | undefined>(photoUrl);
+  const [displayUrl, setDisplayUrl] = useState<string | undefined>(avatar?.photoUrl);
 
   // Load image from nuri when component mounts or photoNuri changes
   useEffect(() => {
     if (!ormContact) {
       return;
     }
-    if (photoNuri && sessionId && !photoUrl) {
+    if (avatar?.photoIRI && sessionId && !avatar?.photoUrl) {
       setIsLoadingImage(true);
-      imageService.getBlob(ormContact["@id"], photoNuri, true, sessionId)
+      imageService.getBlob(ormContact["@id"], avatar?.photoIRI, true, sessionId)
         .then((url) => {
           if (url && url !== true) {
             setDisplayUrl(url as string);
@@ -55,13 +53,13 @@ export const ContactAvatarUpload = ({
         .finally(() => {
           setIsLoadingImage(false);
         });
-    } else if (photoUrl) {
+    } else if (avatar?.photoUrl) {
       setIsLoadingImage(false);
-      setDisplayUrl(photoUrl);
+      setDisplayUrl(avatar?.photoUrl);
     } else {
       setIsLoadingImage(false);
     }
-  }, [photoNuri, photoUrl, ormContact, sessionId]);
+  }, [avatar, ormContact, sessionId]);
 
   const handleFileSelect = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     if (!ormContact) {

@@ -114,7 +114,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
             alignItems: "center"
           }}>
             <ContactAvatarUpload contactNuri={resource?.uri} initial={displayName} useAvatar={false}
-                                 photoNuri={photo?.photoIRI?.["@id"]} isEditing={isEditing}/>
+                                 isEditing={isEditing}/>
             <Box sx={{
               display: "flex",
               flexDirection: "row",

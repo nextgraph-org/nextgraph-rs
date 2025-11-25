@@ -3,7 +3,7 @@ import {Box, Typography, Chip, Skeleton} from "@mui/material";
 import {alpha, useTheme} from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import {UilHeart, UilShieldCheck} from "@iconscout/react-unicons";
-import {Avatar, IconButton} from "@/components/ui";
+import {IconButton} from "@/components/ui";
 import type {Contact} from "@/types/contact";
 import {useRelationshipCategories} from "@/hooks/useRelationshipCategories";
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
@@ -13,8 +13,8 @@ import {iconFilter} from "@/hooks/contacts/useContacts";
 import {AccountRegistry} from "@/utils/accountRegistry";
 import {formatPhone} from "@/utils/phoneHelper";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
-import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {ContactCardAvatar} from "@/components/contacts/ContactCardAvatar";
 
 const renderContactName = (name?: Name, isLoading?: boolean) => (
   <Typography
@@ -156,7 +156,6 @@ export const ContactCardDetailed = forwardRef<
 
     const email = resolveFrom(contact, 'email');
     const phoneNumber = resolveFrom(contact, 'phoneNumber');
-    const photo = resolveFrom(contact, 'photo');
     const organization = resolveFrom(contact, 'organization');
 
     const vouches = (contact?.vouchesSent || 0) + (contact?.vouchesReceived || 0);
@@ -254,8 +253,7 @@ export const ContactCardDetailed = forwardRef<
         }}
       >
         {/* Avatar */}
-        <ContactAvatarUpload contactNuri={resource?.uri} initial={displayName}
-                             photoNuri={photo?.photoIRI?.["@id"]} size={{xs: 74, sm: 74}}/>
+        <ContactCardAvatar initial={displayName} size={{xs: 74, sm: 74}} contact={contact}/>
         {/* First Column - Name & Company */}
         <Box
           sx={{

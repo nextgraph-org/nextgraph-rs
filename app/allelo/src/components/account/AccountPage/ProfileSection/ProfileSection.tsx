@@ -44,8 +44,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
     const name = resolveFrom(initialProfileData, 'name');
     const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
 
-    const avatar = resolveFrom(initialProfileData, 'photo');
-
     const handleEdit = () => {
       setIsEditing(true);
       setShowNameDetails(true);
@@ -74,7 +72,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                     alignItems: "center"
                   }}>
                     <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}
-                                         photoNuri={avatar?.photoIRI?.["@id"]} isEditing={isEditing} forProfile={true}/>
+                                         isEditing={isEditing} forProfile={true}/>
                   <Box sx={{
                     display: "flex",
                     flexDirection: "row",
