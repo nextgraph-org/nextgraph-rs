@@ -297,7 +297,7 @@ const ensureContactLoaded = async (nuri: string, force = false): Promise<Contact
   return loadPromise;
 };
 
-const getSnapshot = (nuri: string | null): ContactSnapshot => {
+const getSnapshot = (nuri: string | null | undefined): ContactSnapshot => {
   if (!nuri) {
     return defaultSnapshot;
   }
@@ -317,7 +317,7 @@ const subscribeToContact = (nuri: string, listener: Subscriber) => {
 };
 
 export const useMockContactSubject = (
-  nuri: string | null,
+  nuri: string | null | undefined,
   refreshKey = 0,
 ) => {
   const snapshot = useSyncExternalStore(
