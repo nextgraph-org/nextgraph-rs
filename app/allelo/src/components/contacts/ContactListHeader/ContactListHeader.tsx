@@ -2,7 +2,7 @@ import {Typography, Box, Menu, MenuItem, ListItemIcon, ListItemText, IconButton}
 import {Button} from '@/components/ui';
 import {UilPlus, UilCloudDownload, UilQrcodeScan, UilAngleDown, UilSetting, UilArrowLeft} from '@iconscout/react-unicons';
 import {useNavigate} from 'react-router-dom';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useIsMobile} from "@/hooks/useIsMobile.ts";
 import {useDashboardStore} from "@/stores/dashboardStore";
 
@@ -20,7 +20,7 @@ export const ContactListHeader = ({
                                     currentTab
                                   }: ContactListHeaderProps) => {
   const navigate = useNavigate();
-  const {showRCardsWidget, setShowRCardsWidget} = useDashboardStore();
+  const {setShowRCardsWidget} = useDashboardStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const isMobile = useIsMobile();
@@ -52,15 +52,19 @@ export const ContactListHeader = ({
     if (setManageMode) {
       setManageMode(!manageMode);
     }
-    setShowRCardsWidget(!showRCardsWidget);
   };
 
   const handleBackClick = () => {
     if (setManageMode) {
       setManageMode(false);
     }
-    setShowRCardsWidget(false);
   };
+
+  useEffect(() => {
+    if (setManageMode) {
+      setShowRCardsWidget(manageMode ?? false);
+    }
+  }, [setShowRCardsWidget, setManageMode, manageMode]);
 
   const getTitle = () => {
     if (manageMode) return 'Manage Contacts';

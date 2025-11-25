@@ -111,7 +111,7 @@ export const SocialContractAgreementPage = () => {
             </Box>
             
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              NAO is a revolutionary social network that puts trust at its core. Using locally hosted trust graphs, 
+              Networked Adaptive Organism (NAO) is a revolutionary social network that puts trust at its core. Using locally hosted trust graphs,
               our network enables members to run social queries to find trusted connections and opportunities.
             </Typography>
 
