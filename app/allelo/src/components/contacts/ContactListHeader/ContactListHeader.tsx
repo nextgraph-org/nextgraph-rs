@@ -1,10 +1,19 @@
 import {Typography, Box, Menu, MenuItem, ListItemIcon, ListItemText, IconButton} from '@mui/material';
 import {Button} from '@/components/ui';
-import {UilPlus, UilCloudDownload, UilQrcodeScan, UilAngleDown, UilSetting, UilArrowLeft} from '@iconscout/react-unicons';
+import {
+  UilPlus,
+  UilCloudDownload,
+  UilQrcodeScan,
+  UilAngleDown,
+  UilSetting,
+  UilArrowLeft,
+  UilCheck
+} from '@iconscout/react-unicons';
 import {useNavigate} from 'react-router-dom';
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {useIsMobile} from "@/hooks/useIsMobile.ts";
 import {useDashboardStore} from "@/stores/dashboardStore";
+import {GreenCheckConnectionDialog} from "@/components/account/GreenCheckConnectionDialog";
 
 interface ContactListHeaderProps {
   mode?: string | null;
@@ -25,40 +34,46 @@ export const ContactListHeader = ({
   const open = Boolean(anchorEl);
   const isMobile = useIsMobile();
 
+  const [showGreencheckDialog, setShowGreencheckDialog] = useState(false);
+
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setAnchorEl(null);
-  };
+  }, []);
 
-  const handleAddContact = () => {
+  const handleAddContact = useCallback(() => {
     handleClose();
     navigate('/contacts/create');
-  };
+  }, [handleClose, navigate]);
 
-  const handleImport = () => {
+  const handleImport = useCallback(() => {
     handleClose();
     navigate('/import');
-  };
+  }, [handleClose, navigate]);
 
-  const handleInvite = () => {
+  const handleInvite = useCallback(() => {
     handleClose();
     navigate('/invite');
-  };
+  }, [handleClose, navigate]);
 
-  const handleManageClick = () => {
+  const handleManageClick = useCallback(() => {
     if (setManageMode) {
       setManageMode(!manageMode);
     }
-  };
+  }, [manageMode, setManageMode]);
 
-  const handleBackClick = () => {
+  const handleBackClick = useCallback(() => {
     if (setManageMode) {
       setManageMode(false);
     }
-  };
+  }, [setManageMode]);
+
+  const handleGreencheckConnect = useCallback(() => {
+    setShowGreencheckDialog(true);
+  }, []);
 
   useEffect(() => {
     if (setManageMode) {
@@ -96,7 +111,7 @@ export const ContactListHeader = ({
               mr: 3
             }}
           >
-            <UilArrowLeft size="20" />
+            <UilArrowLeft size="20"/>
           </IconButton>
         )}
         <Typography
@@ -121,9 +136,9 @@ export const ContactListHeader = ({
           justifyContent: 'flex-end'
         }}>
           {currentTab === 0 && <Button
-            variant="contained"
-            onClick={handleManageClick}
-            sx={{p: 1, minWidth: "26px"}}
+              variant="contained"
+              onClick={handleManageClick}
+              sx={{p: 1, minWidth: "26px"}}
           >
             {isMobile ? <UilSetting size="20" sx={{p: 0}}/> : <><UilSetting size="20" sx={{p: 0, mr: 1}}/>Manage</>}
           </Button>}
@@ -137,6 +152,15 @@ export const ContactListHeader = ({
           </Button>
         </Box>
       )}
+      {manageMode && <Button
+          variant="contained"
+          size="small"
+          onClick={handleGreencheckConnect}
+          sx={{p: 1, minWidth: "26px"}}
+      >
+        {isMobile ? <UilCheck size="20" sx={{p: 0}}/> : <><UilCheck size="20" sx={{p: 0, mr: 1}}/>Claim GreenCheck Accounts</>}
+
+      </Button>}
 
       {/* Dropdown Menu */}
       <Menu
@@ -164,13 +188,15 @@ export const ContactListHeader = ({
           </ListItemIcon>
           <ListItemText>Import</ListItemText>
         </MenuItem>
-       <MenuItem onClick={handleInvite}>
+        <MenuItem onClick={handleInvite}>
           <ListItemIcon>
             <UilQrcodeScan size="20"/>
           </ListItemIcon>
           <ListItemText>Invite</ListItemText>
         </MenuItem>
       </Menu>
+      <GreenCheckConnectionDialog show={showGreencheckDialog} setShow={setShowGreencheckDialog}/>
     </Box>
+
   );
 };

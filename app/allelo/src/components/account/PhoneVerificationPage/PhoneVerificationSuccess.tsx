@@ -63,7 +63,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
 
   return (
     <Card sx={{maxWidth: 600, mx: 'auto', mt: 4}}>
-      <CardContent sx={{p: 4}}>
+      <CardContent sx={{p: {xs: 1, md: 2}}}>
         <Box sx={{textAlign: 'center', mb: 4}}>
           <CheckCircle sx={{fontSize: 64, color: 'success.main', mb: 2}}/>
           <Typography variant="h5" component="h1" gutterBottom sx={{fontWeight: 600}}>

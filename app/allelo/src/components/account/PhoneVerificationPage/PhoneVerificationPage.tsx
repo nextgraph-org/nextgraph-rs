@@ -111,7 +111,7 @@ export const PhoneVerificationPage = ({
   }, []);
 
   return (
-    <Container maxWidth="md" sx={{py: 4}}>
+    <Container maxWidth="md" sx={{p: {xs: 0, md: 2}}}>
       <Box sx={{mb: 4}}>
         <Stepper activeStep={activeStep} alternativeLabel>
           {steps.map((label) => (
