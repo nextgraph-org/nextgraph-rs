@@ -874,8 +874,15 @@ impl Verifier {
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
     ) -> Result<(UnboundedSender<AppResponse>, &OrmSubscription), VerifierError> {
-        let subs = self.orm_subscriptions.get_mut(nuri).unwrap();
+        let mut subs = self.orm_subscriptions.remove(nuri).unwrap();
         subs.retain(|sub| !sub.sender.is_closed());
+        if subs.is_empty() {
+            return Err(VerifierError::OrmSubscriptionNotFound);
+        }
+        let subs = self
+            .orm_subscriptions
+            .entry(nuri.clone())
+            .or_insert_with(|| subs);
         match subs // Filter shapes, if present.
             .iter()
             .filter(|s| match shape {
