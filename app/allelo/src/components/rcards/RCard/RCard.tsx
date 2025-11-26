@@ -71,8 +71,8 @@ export const RCard = forwardRef<HTMLDivElement, RCardProps>(
               zIndex: isEditing ? 1 : 2,
             }}
           >
-            <CardContent sx={{flex: 1, p: 0, pt: '50px', textAlign: 'center'}}>
-              <RCardView nuri={id} disabled={disabled}/>
+            <CardContent sx={{flex: 1, p: 0, pt: '50px', textAlign: 'center', minHeight: "300px"}}>
+              {!isEditing && <RCardView nuri={id} disabled={disabled}/>}
             </CardContent>
           </Card>
 
@@ -96,8 +96,8 @@ export const RCard = forwardRef<HTMLDivElement, RCardProps>(
               zIndex: isEditing ? 2 : 1,
             }}
           >
-            <CardContent sx={{flex: 1, p: 0, pt: '50px', textAlign: 'center'}}>
-              <RCardEdit nuri={id}/>
+            <CardContent sx={{flex: 1, p: 0, pt: '50px', textAlign: 'center', minHeight: "300px"}}>
+              {isEditing && <RCardEdit nuri={id}/>}
             </CardContent>
           </Card>
         </Box>

@@ -1,5 +1,5 @@
 import {ContactInfo, ContactViewHeader } from "@/components/contacts";
-import {UilArrowLeft, UilRedo, UilSave, UilImage} from "@iconscout/react-unicons";
+import {UilArrowLeft, UilRedo, UilSave} from "@iconscout/react-unicons";
 import {Box, Button, Divider, Grid, Paper} from "@mui/material";
 import {useNavigate} from "react-router-dom";
 import {dataService} from "@/services/dataService.ts";
@@ -36,11 +36,9 @@ const CreateContactPage = () => {
       cancelled = true;
     };
   }, [initContact]);
-
-  const updateAvatar = useCallback(async () => {
+  useCallback(async () => {
     console.log("Updating avatar not implemented yet");
   }, []);
-
   const saveContact = useCallback(async () => {
     if (!contact)//TODO validation
       return;

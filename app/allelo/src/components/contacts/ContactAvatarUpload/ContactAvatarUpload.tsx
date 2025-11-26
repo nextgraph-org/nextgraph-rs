@@ -1,13 +1,17 @@
-import {useRef, ChangeEvent, useState, useEffect, useCallback} from 'react';
+import {useRef, useCallback} from 'react';
 import {Box, Button, Avatar, CircularProgress} from '@mui/material';
 import {UilCamera} from '@iconscout/react-unicons';
-import {imageService} from '@/services/imageService';
-import {useNextGraphAuth} from "@/lib/nextgraph";
-import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {useContactData} from "@/hooks/contacts/useContactData.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {useContactPhoto} from "@/hooks/contacts/useContactPhoto.ts";
+import {useContactPhotoUpload} from "@/hooks/contacts/useContactPhotoUpload.ts";
+/*import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {useContactPhotoOrm} from "@/hooks/contacts/useContactPhotoOrm.ts";
+import {useContactPhotoUploadOrm} from "@/hooks/contacts/useContactPhotoUploadOrm.ts";*/
+
 
 export interface ContactAvatarUploadProps {
-  photoUrl?: string;
-  photoNuri?: string;
   contactNuri?: string | undefined;
   initial?: string;
   isEditing?: boolean;
@@ -17,8 +21,6 @@ export interface ContactAvatarUploadProps {
 }
 
 export const ContactAvatarUpload = ({
-                                      photoUrl,
-                                      photoNuri,
                                       initial = '',
                                       isEditing = false,
                                       size = {xs: 100, sm: 120},
@@ -27,91 +29,16 @@ export const ContactAvatarUpload = ({
                                       useAvatar = true,
                                     }: ContactAvatarUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const nextGraphAuth = useNextGraphAuth();
-  const sessionId = nextGraphAuth?.session?.sessionId;
-  const {ormContact} = useContactOrm(contactNuri, forProfile);
 
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isLoadingImage, setIsLoadingImage] = useState(true);
-  const [displayUrl, setDisplayUrl] = useState<string | undefined>(photoUrl);
+  /*const {ormContact} = useContactOrm(contactNuri, forProfile);
+  const avatar = resolveFrom(ormContact, 'photo');
+  const {displayUrl, isLoadingImage} = useContactPhotoOrm(ormContact, avatar);
+  const {isUploading, uploadProgress, handleFileSelect} = useContactPhotoUploadOrm(ormContact, fileInputRef);*/
 
-  // Load image from nuri when component mounts or photoNuri changes
-  useEffect(() => {
-    if (!ormContact) {
-      return;
-    }
-    if (photoNuri && sessionId && !photoUrl) {
-      setIsLoadingImage(true);
-      imageService.getBlob(ormContact["@id"], photoNuri, true, sessionId)
-        .then((url) => {
-          if (url && url !== true) {
-            setDisplayUrl(url as string);
-          }
-        })
-        .catch((error) => {
-          console.error('Error loading image:', error);
-        })
-        .finally(() => {
-          setIsLoadingImage(false);
-        });
-    } else if (photoUrl) {
-      setIsLoadingImage(false);
-      setDisplayUrl(photoUrl);
-    } else {
-      setIsLoadingImage(false);
-    }
-  }, [photoNuri, photoUrl, ormContact, sessionId]);
-
-  const handleFileSelect = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
-    if (!ormContact) {
-      return;
-    }
-    const file = event.target.files?.[0];
-    if (file && sessionId) {
-      setIsUploading(true);
-      setUploadProgress(0);
-
-      try {
-        // Upload file and get the nuri
-        const nuri = await imageService.uploadFile(
-          file,
-          ormContact["@id"],
-          sessionId,
-          (progress) => {
-            const percent = Math.round((progress.current / progress.total) * 100);
-            setUploadProgress(percent);
-          }
-        );
-
-        if (nuri) {
-          ormContact?.photo?.forEach(el => el.preferred = false);
-
-          ormContact?.photo?.add({
-            photoIRI: nuri,
-            "@graph": "",
-            "@id": "",
-            preferred: true
-          })
-
-          const url = await imageService.getBlob(ormContact["@id"], nuri, true, sessionId);
-          if (url && url !== true) {
-            setDisplayUrl(url as string);
-          }
-        }
-
-        // Clear file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      } catch (error) {
-        console.error('Error uploading file:', error);
-      } finally {
-        setIsUploading(false);
-        setUploadProgress(0);
-      }
-    }
-  }, [ormContact, sessionId]);
+  const {contact} = useContactData(contactNuri, forProfile);
+  const avatar = resolveFrom(contact, 'photo');
+  const {displayUrl, isLoadingImage} = useContactPhoto(contact, avatar);
+  const {isUploading, uploadProgress, handleFileSelect} = useContactPhotoUpload(contact, fileInputRef);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -151,11 +78,11 @@ export const ContactAvatarUpload = ({
           cursor: isEditing ? "pointer" : "initial",
           mr: "16px"
         }}
-        onClick={isEditing ? handleUploadClick: undefined}
+        onClick={isEditing ? handleUploadClick : undefined}
         alt="Profile"
         src={displayUrl}
       >
-          {!isLoadingImage && initial?.charAt(0)}
+        {!isLoadingImage && initial?.charAt(0)}
       </Avatar>
     return <Box
       sx={{
@@ -180,14 +107,14 @@ export const ContactAvatarUpload = ({
         mr: "16px",
         cursor: isEditing ? "pointer" : "initial",
       }}
-      onClick={isEditing ? handleUploadClick: undefined}
+      onClick={isEditing ? handleUploadClick : undefined}
     >
       {!displayUrl && initial.charAt(0)}
     </Box>
   }, [displayUrl, initial, isEditing, isLoadingImage, isUploading, size.sm, size.xs, uploadProgress, useAvatar]);
 
   if (!contactNuri) {
-    return ;
+    return;
   }
 
 
@@ -197,15 +124,23 @@ export const ContactAvatarUpload = ({
       {renderViewAvatar()}
 
       {isEditing && (
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={handleUploadClick}
-            disabled={isUploading}
-            sx={{fontSize: '0.75rem', position: "absolute", top: 0, left: 80, p: 1, minWidth: 0, backgroundColor: "white"}}
-          >
-            {<UilCamera size="16"/>}
-          </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={handleUploadClick}
+          disabled={isUploading}
+          sx={{
+            fontSize: '0.75rem',
+            position: "absolute",
+            top: 0,
+            left: 80,
+            p: 1,
+            minWidth: 0,
+            backgroundColor: "white"
+          }}
+        >
+          {<UilCamera size="16"/>}
+        </Button>
       )}
 
       {/* Hidden file input */}

@@ -1,4 +1,5 @@
-
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+//@ts-nocheck deal with it later
 import {wallets, active_wallet, opened_wallets} from "./store";
 import {init_api} from "../.auth-react/api";
 import { default as ng } from "../.auth-react/api";

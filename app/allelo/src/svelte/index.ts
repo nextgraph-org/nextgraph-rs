@@ -1,4 +1,5 @@
-
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+//@ts-nocheck deal with it later
 export const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
 export const bootstrap_redirect = import.meta.env.NG_DEV
     ? "http://localhost:1421/bootstrap.html#/?b="

@@ -495,6 +495,17 @@ export const contactSchema: Schema = {
       {
         dataTypes: [
           {
+            valType: "iri",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "did:ng:x:contact#rcard",
+        readablePredicate: "rcard",
+      },
+      {
+        dataTypes: [
+          {
             valType: "shape",
             shape:
               "did:ng:x:contact:class#SocialContact||did:ng:x:contact#naoStatus",

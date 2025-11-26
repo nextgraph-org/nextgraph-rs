@@ -1,4 +1,4 @@
-import {useState, forwardRef} from 'react';
+import {useState, forwardRef, useEffect} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {
   Container,
@@ -18,8 +18,10 @@ import {UilArrowLeft} from '@iconscout/react-unicons';
 import type {Group} from '@/types/group';
 import {InvitationDetails} from './InvitationDetails';
 import {InvitationActions} from './InvitationActions';
-import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
+import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
+import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
+import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
 
 export interface InvitationPageProps {
   className?: string;
@@ -27,15 +29,25 @@ export interface InvitationPageProps {
 
 export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
   ({className}, ref) => {
-    const [group, setGroup] = useState<Group | null>(null);
-    const [isGroupInvite, setIsGroupInvite] = useState(false);
+    const [group] = useState<Group | null>(null);
+    const [isGroupInvite] = useState(false);
     const navigate = useNavigate();
     const [isSetup, setIsSetup] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState<string>('default');
-    const {getCategoriesArray, getCategoryDisplayName} = useRelationshipCategories();
+    const {getCategoryDisplayName} = useRCardsConfigs();
+    const {rCards} = useGetRCards();
     const [searchParams] = useSearchParams();
     const contactNuri = searchParams.get("contactNuri");
     const {contact} = useContactData(contactNuri);
+    const [selectedCategory, setSelectedCategory] = useState<string>("");
+    const {updateContact} = useSaveContacts();
+
+    useEffect(() => {
+      const contactRCardId = contact?.rcard ? contact.rcard["@id"] : undefined;
+      // Only set if rCards are loaded and the value exists in the list
+      if (contactRCardId && rCards.some(rc => rc["@id"] === contactRCardId)) {
+        setSelectedCategory(contactRCardId);
+      }
+    }, [contact, rCards]);
 
     const handleDownloadQR = () => {
       const svg = document.querySelector('#qr-code-svg') as SVGElement;
@@ -92,33 +104,38 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
             isGroupInvite={isGroupInvite}
           />
 
-            <FormControl sx={{width: 200}}>
-              <InputLabel id="relationship-category-label">Select RCard</InputLabel>
-              <Select
-                labelId="relationship-category-label"
-                id="relationship-category-select"
-                value={selectedCategory}
-                label="Select RCard"
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                displayEmpty={false}
-              >
-                {getCategoriesArray().map((category) => (
-                  <MenuItem key={category.id} value={category.id}>
-                    <ListItemText primary={getCategoryDisplayName(category.id)}/>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          <FormControl sx={{width: 200}}>
+            <InputLabel id="relationship-category-label">Select RCard</InputLabel>
+            <Select
+              labelId="relationship-category-label"
+              id="relationship-category-select"
+              value={selectedCategory}
+              label="Select RCard"
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                if (contact)
+                  updateContact(contact["@id"]!, {rcard: {"@id": e.target.value}}).then(() => setSelectedCategory(e.target.value)
+                  )
+              }}
+              displayEmpty={false}
+            >
+              {rCards.map((rCard) => (
+                <MenuItem key={rCard["@id"]} value={rCard["@id"]}>
+                  <ListItemText primary={getCategoryDisplayName(rCard.cardId)}/>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isSetup}
-                  onChange={(e) => setIsSetup(e.target.checked)}
-                />
-              }
-              label="I vouch this is a real person"
-            />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isSetup}
+                onChange={(e) => setIsSetup(e.target.checked)}
+              />
+            }
+            label="I vouch this is a real person"
+          />
         </Paper>
 
         {isSetup && selectedCategory && <InvitationActions

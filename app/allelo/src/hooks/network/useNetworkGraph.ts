@@ -49,14 +49,15 @@ const buildUserNetwork = (
   const userEdges: GraphEdge[] = sortedContacts.map((contact) => {
     let relationship: string | undefined;
 
-    if (contact.relationshipCategory) {
+    /*if (contact.relationshipCategory) {//TODO use rcards
       const categoryMap: Record<string, string> = {
         'friends_family': 'friend',
         'community': 'community',
         'business': 'business contact',
       };
       relationship = categoryMap[contact.relationshipCategory] || contact.relationshipCategory;
-    } else if (contact.organization && contact.organization.size > 0) {
+    } else */
+    if (contact.organization && contact.organization.size > 0) {
       const orgArray = Array.from(contact.organization);
       const currentOrg = orgArray.find((o) => o.current);
       relationship = currentOrg ? 'colleague' : 'former colleague';
@@ -163,14 +164,14 @@ const buildEntityNetwork = (
           contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
         }
       }
-      const contactPhoto = resolveFrom(contact, 'photo');
+      // const contactPhoto = resolveFrom(contact, 'photo');
       const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
 
       nodes.push({
         id: contact['@id'] || contactNameValue,
         type: 'person',
         name: contactNameValue,
-        avatar: contactPhoto?.value,
+        //TODO: deal with it later avatar: contactPhoto?.value,
         initials: getInitials(contactNameValue),
         isCentered: false,
         priority: 'high',
@@ -236,14 +237,14 @@ const buildContactNetwork = (
       centeredName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
     }
   }
-  const centeredPhoto = resolveFrom(centeredContact, 'photo');
+  //TODO: const centeredPhoto = resolveFrom(centeredContact, 'photo');
   const centeredNameValue = centeredName?.value || renderTemplate(defaultTemplates.contactName, centeredName) || 'Unknown';
 
   const centeredNode: GraphNode = {
     id: centeredContact['@id'] || centeredNameValue,
     type: 'person',
     name: centeredNameValue,
-    avatar: centeredPhoto?.value,
+    //TODO: avatar: centeredPhoto?.value,
     initials: getInitials(centeredNameValue),
     isCentered: true,
     priority: 'high',
@@ -261,7 +262,7 @@ const buildContactNetwork = (
     target: userId,
     type: 'confirmed',
     strength: 0.8,
-    relationship: centeredContact.relationshipCategory || 'connection',
+    relationship: /*centeredContact.relationshipCategory || */'connection',
   });
 
   const showWorkHistory = !currentView || currentView === 'all-connections' || currentView === 'work-history' || currentView === 'orgs-in-common';
@@ -384,7 +385,7 @@ const buildContactNetwork = (
           contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
         }
       }
-      const contactPhoto = resolveFrom(contact, 'photo');
+      //TODO: const contactPhoto = resolveFrom(contact, 'photo');
       const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
 
       if (!nodes.find((n) => n.id === contact['@id'])) {
@@ -392,7 +393,7 @@ const buildContactNetwork = (
           id: contact['@id'] || contactNameValue,
           type: 'person',
           name: contactNameValue,
-          avatar: contactPhoto?.value,
+          //TODO: avatar: contactPhoto?.value,
           initials: getInitials(contactNameValue),
           isCentered: false,
           priority: 'medium',

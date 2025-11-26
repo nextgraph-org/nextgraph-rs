@@ -93,7 +93,7 @@ class NextgraphDataService {
     if (sortParams) {
       for (const sortParam of sortParams) {
         const sortDirection = (sortParam["sortDirection"] as string).toUpperCase();
-        const sortBy = sortParam["sortBy"];
+        const sortBy = sortParam["sortBy"] ?? "name";//TODO?
         if (sortDirection === "ASC") {
           orderByData.push(`${sortDirection}(COALESCE(?${sortBy}, "zzzzz"))`);
         } else {
@@ -229,23 +229,45 @@ WHERE {
     return joinData;
   }
 
+  makeEqualityFilter = (key: string, value: string) => [
+    `?contactUri ngcontact:${key} ?${key} .`,
+    `FILTER (?${key} = <${value}>)`
+  ];
+
+  getFilterData(key: string, value: string): string[] {
+    switch (key) {
+      case "fts":
+        return this.getFtsFilterData(value);
+      case "hasAddress":
+        return value === "true" ? [
+          `FILTER EXISTS { ?contactUri ngcontact:address ?addressNode }`
+        ] : [];
+      case "account":
+        return [`
+          ?contactUri ngcontact:${key} ?${key}Node .
+          ?${key}Node ngcontact:protocol ?${key} .
+        `,
+          `FILTER (?${key} = "${value}")`
+        ];
+      case "rcard":
+        if (value === "default") {
+          return [
+            `FILTER NOT EXISTS { ?contactUri ngcontact:rcard ?rcard }`
+          ];
+        }
+        return this.makeEqualityFilter(key, value);
+      default:
+        return this.makeEqualityFilter(key, value);
+    }
+  }
+
   getFilter(filterParams?: Map<string, string>, session?: NextGraphSession) {
     filterParams ??= new Map();
     const filterData = [
       `FILTER NOT EXISTS { ?contactUri ngcontact:mergedInto ?mergedIntoNode }`
     ];
     for (const [key, value] of filterParams) {
-      if (key === "hasAddress" && value === "true") {
-        filterData.push(`FILTER EXISTS { ?contactUri ngcontact:address ?addressNode }`);
-      } else if (key === "fts") {
-        filterData.push(...this.getFtsFilterData(value));
-      } else {
-        filterData.push(`
-          ?contactUri ngcontact:${key} ?${key}Node .
-          ?${key}Node ngcontact:protocol ?${key} .
-        `);//TODO make generic for other properties
-        filterData.push(`FILTER (?${key} = "${value}")`);
-      }
+      filterData.push(...this.getFilterData(key, value));
     }
 
     if (session && session.protectedStoreId) {
@@ -265,15 +287,15 @@ WHERE {
     return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
   }
 
-  private async commitProperty<T extends import("@ldo/ldo").LdoBase>(
-    obj: T,
-    commitData: CommitDataFunction
-  ) {
-    const result = await commitData(obj);
-    if (result.isError) {
-      throw new Error(`Failed to commit: ${result.message}`);
-    }
-  }
+  // private async commitProperty<T extends import("@ldo/ldo").LdoBase>(
+  //   obj: T,
+  //   commitData: CommitDataFunction
+  // ) {
+  //   const result = await commitData(obj);
+  //   if (result.isError) {
+  //     throw new Error(`Failed to commit: ${result.message}`);
+  //   }
+  // }
 
   async createContact(
     session: NextGraphSession,
@@ -281,11 +303,14 @@ WHERE {
     createData: CreateDataFunction,
     commitData: CommitDataFunction,
     changeData: ChangeDataFunction,
+    rCardId?: string,
   ): Promise<string | undefined> {
     const resource = await dataset.createResource("nextgraph", {primaryClass: "social:contact"});
     if (resource.isError) {
       throw new Error(`Failed to create resource`);
     }
+
+    rCardId ??= await this.getRCardId(session);
 
     const contactObj = createData(
       SocialContactShapeType,
@@ -295,6 +320,9 @@ WHERE {
 
     //@ts-expect-error bug: ldo works only with a single type
     contactObj.type = {"@id": "Individual"};
+    if (rCardId) {
+      contactObj.rcard = {"@id": rCardId};
+    }
 
     await commitData(contactObj);
 
@@ -318,7 +346,7 @@ WHERE {
     const protectedStoreId = "did:ng:" + session.protectedStoreId;
     const resource = dataset.getResource(protectedStoreId, "nextgraph");
 
-    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
       throw new Error(`Failed to get resource ${protectedStoreId}`);
     }
     const base = "did:ng:" + session.protectedStoreId?.substring(0, 46);
@@ -394,7 +422,7 @@ WHERE {
     const privateStoreId = "did:ng:" + session.privateStoreId;
     const resource = dataset.getResource(privateStoreId, "nextgraph");
 
-    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
       throw new Error(`Failed to get resource ${privateStoreId}`);
     }
 
@@ -472,8 +500,10 @@ WHERE {
     const startTime = Date.now();
     console.log(`Starting to save ${contacts.length} contacts...`);
 
+    const rCardId = await this.getRCardId(session);
+
     for (let i = 0; i < contacts.length; i++) {
-      await this.createContact(session, contacts[i], createData, commitData, changeData);
+      await this.createContact(session, contacts[i], createData, commitData, changeData, rCardId);
 
       onProgress?.(i + 1, contacts.length);
 
@@ -581,7 +611,7 @@ WHERE {
     }
 
     const resource = dataset.getResource(contact["@id"]!);
-    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
       throw new Error(`Failed to create resource`);
     }
 
@@ -590,17 +620,31 @@ WHERE {
     await this.persistSocialContact(session, changes, commitData, changeData, resource, contactObj);
   }
 
-  async getRCardsIDs(session?: NextGraphSession) {
-    if (!session) return [];
+  async getRCardId(session?: NextGraphSession, cardId = "default"): Promise<string | undefined> {
+    if (!session) return;
     const sparql = `PREFIX ngrcard: <did:ng:x:social:rcard#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 SELECT ?rcardUri ?order
 WHERE {
   ?rcardUri a ngrcard:Card .
-  OPTIONAL { ?rcardUri ngrcard:order ?orderRaw . }
-  BIND(xsd:integer(?orderRaw) AS ?order)
+  OPTIONAL { ?rcardUri ngrcard:cardId ?cardId . }
+  FILTER (?cardId = "${cardId}")
 }
-ORDER BY DESC(BOUND(?order)) ASC(?order) ASC(?rcardUri)
+`;
+    const sparqlResult = await session.ng!.sparql_query(session.sessionId, sparql);
+    return (sparqlResult?.results?.bindings ?? [])[0]?.rcardUri?.value;
+  }
+
+  async getRCardsIDs(session?: NextGraphSession): Promise<string[]> {
+    if (!session) return [];
+    const sparql = `PREFIX ngrcard: <did:ng:x:social:rcard#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+SELECT ?rcardUri
+WHERE {
+  ?rcardUri a ngrcard:Card .
+  OPTIONAL { ?rcardUri ngrcard:order ?order . }
+}
+ORDER BY ASC(?order) ASC(?rcardUri)
 `;
     const sparqlResult = await session.ng!.sparql_query(session.sessionId, sparql);
     return sparqlResult?.results?.bindings?.map(

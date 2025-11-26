@@ -69,7 +69,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
   const updateContact = async (contactId: string, updates: Partial<Contact>) => {
     try {
       if (isNextGraph) {
-        await nextgraphDataService.updateContact(session, contactId, updates, commitData, changeData);
+        await nextgraphDataService.updateContact(session, contactId.substring(0, 53), updates, commitData, changeData);
       } else {
         await dataService.updateContact(contactId, updates);
       }

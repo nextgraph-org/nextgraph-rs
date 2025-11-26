@@ -2,7 +2,7 @@ import {forwardRef} from 'react';
 import {Box} from '@mui/material';
 import {NavigationMenu} from '../NavigationMenu';
 import type {SidebarProps} from './types';
-import {RCardsListSideWidget, RCardsSideWidget} from "@/components/rcards/RCardsSideWidget";
+import {RCardsSideWidget} from "@/components/rcards/RCardsSideWidget";
 import {useDashboardStore} from "@/stores/dashboardStore";
 
 export const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
@@ -16,7 +16,6 @@ export const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
    }, ref) => {
     const {showRCardsWidget} = useDashboardStore();
     const showCategories = currentPath === '/contacts' && showRCardsWidget;
-    const showRCardInfo = currentPath === '/rcards';
 
     return (
       <Box
@@ -33,7 +32,6 @@ export const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
         />
 
         {showCategories && <RCardsSideWidget/>}
-        {showRCardInfo && <RCardsListSideWidget/>}
       </Box>
     );
   }

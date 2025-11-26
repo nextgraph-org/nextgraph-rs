@@ -18,8 +18,8 @@ interface UseAIReturn {
 }
 
 export function useAI(isMock?: boolean): UseAIReturn {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [client, setClient] = useState<WSClient | null>(null);
 
   const nextGraphAuth = useNextGraphAuth();
@@ -35,7 +35,7 @@ export function useAI(isMock?: boolean): UseAIReturn {
 
     const getContactAllProperties = async (nuri: string) => {
       const contactResult = await nextgraphDataService.getContactAllProperties(session!, nuri);
-      let contact = contactResult?.results?.bindings?.map((binding) => `${binding.mainProperty.value}, ${binding.subProperty.value}, ${binding.value.value}`).join('\n');
+      const contact = contactResult?.results?.bindings?.map((binding) => `${binding.mainProperty.value}, ${binding.subProperty.value}, ${binding.value.value}`).join('\n');
       return `\n\nSubject, Predicate, Object\n${contact}\n\n`;
     }
 
@@ -75,7 +75,7 @@ export function useAI(isMock?: boolean): UseAIReturn {
     	default:
     		return `Unknown tool: ${name}`;
     }
-  }, []);
+  }, [session]);
 
   const setupClient = useCallback(async () => {
     console.log(`Connecting to ${WS_AI_URL}...\n`);
@@ -83,8 +83,7 @@ export function useAI(isMock?: boolean): UseAIReturn {
     // Create client with configuration
     console.log("TOOLS: ", tools);
 
-    let client;
-    client = new WSClient({
+    const client = new WSClient({
       url: WS_AI_URL,
       toolHandler: executeTool,
       tools: tools,
@@ -147,8 +146,8 @@ export function useAI(isMock?: boolean): UseAIReturn {
   return {
     promptNonStream,
     promptStream,
-    isLoading: false,
-    error: null
+    isLoading: isLoading,
+    error: error
   };
 }
 

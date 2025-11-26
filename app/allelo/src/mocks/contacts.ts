@@ -62,10 +62,10 @@ export function transformRawContact(rawContact: RawContact): Contact {
       position: rawContact.position,
       source: 'contacts'
     }]) : undefined,
-    photo: rawContact.profileImage ? new BasicLdSet([{
+/*    photo: rawContact.profileImage ? new BasicLdSet([{
       value: rawContact.profileImage,
       source: 'contacts'
-    }]) : undefined,
+    }]) : undefined,*/
     address: rawContact.location ? new BasicLdSet([{
       locality: rawContact.location.city,
       region: rawContact.location.state,
@@ -79,7 +79,6 @@ export function transformRawContact(rawContact: RawContact): Contact {
       value: rawContact.naoStatus
     } : undefined,
     // Keep Contact-specific properties
-    relationshipCategory: rawContact.relationshipCategory,
     humanityConfidenceScore: rawContact.humanityConfidenceScore || 0,
     vouchesSent: rawContact.vouchesSent || 0,
     vouchesReceived: rawContact.vouchesReceived || 0,

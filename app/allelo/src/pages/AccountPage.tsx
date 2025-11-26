@@ -27,6 +27,7 @@ import RCardList from "@/components/rcards/RCardList/RCardList.tsx";
 import {useSvelteComponent} from "svelte-in-react";
 import WalletInfo from "@/svelte/WalletInfo.svelte";
 import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 export const AccountPageContent = ({
                                      profileData,
@@ -142,6 +143,8 @@ const NextGraphAccountPage = () => {
     return null; // Or a loading spinner
   }
 
+  if (!(resource instanceof NextGraphResource)) return null;
+
   return <AccountPageContent profileData={contact} handleLogout={handleLogout} isNextGraph={true} resource={resource}/>;
 };
 
@@ -163,6 +166,8 @@ const MockAccountPage = () => {
   if (isLoading || !contact) {
     return null; // Or a loading spinner
   }
+
+  if (!(resource instanceof NextGraphResource)) return null;
 
   return <AccountPageContent profileData={contact} isNextGraph={false} resource={resource}/>;
 };

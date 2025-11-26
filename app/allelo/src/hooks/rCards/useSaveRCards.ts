@@ -42,11 +42,12 @@ export const useSaveRCards = (): SaveRCardsReturn => {
     await commitData(rCardObj);
 
     rCardObj = changeData(rCardObj, resource);
-    // @ts-expect-error ldo issue
+    // @ts-expect-error ldo
     rCardObj.type = {"@id": "Card"};
     rCardObj.order = order;
     rCardObj.cardId = id;
-    permissions.forEach((el: any) => {
+    permissions.forEach((el: any, index) => {
+      el.order = index;
       rCardObj.permission?.add(el);
     });
 

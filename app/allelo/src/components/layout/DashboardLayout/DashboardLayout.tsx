@@ -16,7 +16,6 @@ import {Sidebar} from '../Sidebar';
 import {MobileDrawer} from '../MobileDrawer';
 import {LogoLeft, LogoRight, Logo } from '@/components/ui/Logo';
 import type {NavItem} from '../NavigationMenu/types';
-import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
 import type {DashboardLayoutProps} from './types';
 import {useDashboardStore} from '@/stores/dashboardStore';
 import {
@@ -46,7 +45,6 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const {getCategoriesArray} = useRelationshipCategories();
 
   const mode = searchParams.get('mode');
   const isInviteMode = mode === 'invite' || mode === 'create-group';
@@ -69,8 +67,6 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
     }});
   const keyboardSensor = useSensor(KeyboardSensor);
   const sensors = useSensors(mouseSensor, touchSensor, keyboardSensor);
-
-  const relationshipCategories = getCategoriesArray();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -230,7 +226,6 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
               onToggleExpanded={toggleExpanded}
               onNavigation={handleNavigation}
               currentPath={location.pathname}
-              relationshipCategories={relationshipCategories}
             />
           </Box>
         )}
@@ -247,7 +242,6 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
             onToggleExpanded={toggleExpanded}
             onNavigation={handleNavigation}
             currentPath={location.pathname}
-            relationshipCategories={relationshipCategories}
           />
         )}
 

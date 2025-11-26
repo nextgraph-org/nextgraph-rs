@@ -9,7 +9,7 @@ const calculatePriority = (contact: Contact): NodePriority => {
   const hasHighInteractionCount = (contact.interactionCount || 0) > 10;
   const hasVouches = (contact.vouchesSent || 0) + (contact.vouchesReceived || 0) > 0;
   const photo = resolveFrom(contact, 'photo');
-  const hasPhoto = !!photo?.value;
+  const hasPhoto = !!photo;
 
   if ((hasRecentInteraction || hasHighInteractionCount || hasVouches) && hasPhoto) {
     return 'high';
@@ -50,14 +50,14 @@ export const mapContactsToNodes = (
       }
     }
 
-    const photo = resolveFrom(contact, 'photo');
+    //const photo = resolveFrom(contact, 'photo');
     const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
 
     return {
       id: contact['@id'] || nameValue,
       type: 'person' as const,
       name: nameValue,
-      avatar: photo?.value,
+      //TODO: use hook after avatar: photo?.value,
       initials: getInitials(nameValue),
       isCentered: contact['@id'] === centeredContactId,
       priority: calculatePriority(contact),
@@ -119,7 +119,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
             otherContact['@id'] || '',
             hasRecentInteraction ? 'confirmed' : 'weak',
             hasRecentInteraction ? 0.8 : 0.3,
-            contact.relationshipCategory
+            //TODO: resolve later contact.relationshipCategory
           );
         });
       });

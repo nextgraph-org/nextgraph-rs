@@ -67,7 +67,7 @@ export const WelcomeToVaultPage = () => {
               color: 'text.primary'
             }}
           >
-            Welcome to your personal data vault
+            Welcome to your Personal Network Manager (PNM)
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Your secure, private space in the NAO network is ready. Choose how you'd like to get started.

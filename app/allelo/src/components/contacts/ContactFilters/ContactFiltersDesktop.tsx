@@ -11,9 +11,9 @@ import {
 } from '@iconscout/react-unicons';
 import {useState, useCallback} from 'react';
 import type {ContactsFilters} from '@/hooks/contacts/useContacts';
-import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
 import {SortMenu} from './SortMenu';
 import {SearchFilter} from './SearchFilter';
+import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 
 interface DesktopFiltersProps {
   filters: ContactsFilters;
@@ -33,7 +33,7 @@ export const ContactFiltersDesktop = ({
                                         showFilters,
                                       }: DesktopFiltersProps) => {
   const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
-  const {getMenuItems} = useRelationshipCategories();
+  const {getMenuItems} = useGetRCards();
 
   const handleSearchChange = useCallback((value: string) => {
     onAddFilter('searchQuery', value);

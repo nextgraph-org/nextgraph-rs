@@ -136,6 +136,9 @@ ngc:SocialContact EXTRA a {
   # Publications
   ngcontact:publication @ngc:Publication * ;
 
+  # Relationship
+  ngcontact:rcard IRI ;
+
   # Status and timestamps
   ngcontact:naoStatus @ngc:NaoStatus ? ;
   ngcontact:invitedAt @ngc:InvitedAt ? ;

@@ -1,6 +1,6 @@
 import type { SvgIconComponent } from "@mui/icons-material";
 import type { UniconComponent } from "@iconscout/react-unicons";
-import { UilBuilding as Business, UilUsersAlt as Groups, UilQuestionCircle as HelpOutline, UilGlobe as Public, UilUsersAlt as FamilyRestroom } from "@iconscout/react-unicons";
+import { UilBuilding, UilUsersAlt, UilQuestionCircle, UilGlobe, UilHeartAlt } from "@iconscout/react-unicons";
 import {
   businessPermissions,
   communityPermissions,
@@ -31,7 +31,7 @@ export interface RelationshipCategory {
 export const defaultRelationshipCategory: RelationshipCategory = {
   id: 'default',
   name: 'Default',
-  icon: HelpOutline,
+  icon: UilQuestionCircle,
   color: '#9e9e9e',
   colorScheme: {
     main: '#9e9e9e',
@@ -48,7 +48,7 @@ const categoriesArray: RelationshipCategory[] = [
   {
     id: 'friends',
     name: 'Friends',
-    icon: Groups,
+    icon: UilUsersAlt,
     color: '#388e3c',
     colorScheme: {
       main: '#388e3c',
@@ -56,27 +56,27 @@ const categoriesArray: RelationshipCategory[] = [
       dark: '#2e7d32',
       bg: '#e8f5e8'
     },
-    count: 0,
+    count: 6,
     permissions: friendsPermissions
   },
   {
     id: 'family',
     name: 'Family',
-    icon: FamilyRestroom,
-    color: '#388e3c',
+    icon: UilHeartAlt,
+    color: '#d32f2f', // red
     colorScheme: {
-      main: '#388e3c',
-      light: '#81c784',
-      dark: '#2e7d32',
-      bg: '#e8f5e8'
+      main: '#d32f2f',
+      light: '#ef9a9a',
+      dark: '#b71c1c',
+      bg: '#ffebee'
     },
-    count: 0,
+    count: 7,
     permissions: familyPermissions
   },
   {
     id: 'community',
     name: 'Community',
-    icon: Public,
+    icon: UilGlobe,
     color: '#1976d2',
     colorScheme: {
       main: '#1976d2',
@@ -90,7 +90,7 @@ const categoriesArray: RelationshipCategory[] = [
   {
     id: 'business',
     name: 'Business',
-    icon: Business,
+    icon: UilBuilding,
     color: '#7b1fa2',
     colorScheme: {
       main: '#7b1fa2',
