@@ -117,7 +117,7 @@
   }
 
   async function open_scanner() {
-    push("#/wallet/scanqr");
+    push("#/scanqr");
   }
 
   async function generate_text_code() {

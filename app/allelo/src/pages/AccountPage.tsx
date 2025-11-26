@@ -31,7 +31,7 @@ import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 export const AccountPageContent = ({
                                      profileData,
-                                     resource
+                                     resource,
                                    }: AccountPageProps) => {
 
   const [personhoodCredentials] = useState<PersonhoodCredentials>(mockPersonhoodCredentials);
@@ -52,7 +52,7 @@ export const AccountPageContent = ({
       },
       {label: "Wallet", icon: <UilWallet size="20"/>, content:<ReactWalletInfo/>},
     ],
-    [profileData, resource, ReactWalletInfo, personhoodCredentials]
+    [profileData, resource, personhoodCredentials, ReactWalletInfo]
   );
 
   return (

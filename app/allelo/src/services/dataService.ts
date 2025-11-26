@@ -26,7 +26,7 @@ interface ExtendedGroup extends Group {
   memberDetails?: {
     id: string;
     name: string;
-    avatar: string;
+    avatar?: string;
     role: string;
     status: string;
     joinedAt: Date | null;
@@ -113,7 +113,7 @@ const profile: Contact = {
     value: 'Passionate product manager with 8+ years of experience building user-centered products. I love connecting with fellow professionals and sharing insights about product strategy.',
     source: "user", "@id": "biography1"
   }]),
-  photo: new BasicLdSet([{value: 'images/Niko.jpg', source: "user", "@id": "photo1"}]),
+  //photo: new BasicLdSet([{value: 'images/Niko.jpg', source: "user", "@id": "photo1"}]),
   //@ts-expect-error ldo wrong type here
   url: new BasicLdSet([
     {
@@ -404,11 +404,9 @@ export const dataService = {
             ...contacts.map((contact: Contact) => {
               const name = resolveFrom(contact, 'name');
               const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
-              const photo = resolveFrom(contact, 'photo');
               return {
                 id: contact['@id'] || '',
                 name: displayName || 'Unknown',
-                avatar: photo?.value || "",
                 role: "Member",
                 status: "Invited",
                 joinedAt: null,

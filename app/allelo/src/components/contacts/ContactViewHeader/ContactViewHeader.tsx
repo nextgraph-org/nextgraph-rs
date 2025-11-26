@@ -30,10 +30,11 @@ import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {PropertyWithSources} from '../PropertyWithSources';
 import {ContactTags} from '../ContactTags';
-import {defaultTemplates} from "@/utils/templateRenderer.ts";
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {useNavigate} from "react-router-dom";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
+import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 
 export interface ContactViewHeaderProps {
   contact: Contact | null;
@@ -93,7 +94,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
     if (!contact) return null;
 
     const name = resolveFrom(contact, 'name');
-    const photo = resolveFrom(contact, 'photo');
+    const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
 
     const naoStatus = getNaoStatusIndicator(contact);
 
@@ -112,27 +113,8 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
             gap: 2,
             alignItems: "center"
           }}>
-            <Box
-              sx={{
-                width: {xs: 100, sm: 120},
-                height: {xs: 100, sm: 120},
-                borderRadius: '50%',
-                backgroundImage: photo?.value ? `url(${photo.value})` : 'none',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center center',
-                backgroundRepeat: 'no-repeat',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: photo?.value ? 'transparent' : 'primary.main',
-                color: 'white',
-                fontSize: {xs: '2rem', sm: '3rem'},
-                fontWeight: 'bold',
-                flexShrink: 0,
-              }}
-            >
-              {!photo?.value && (name?.value?.charAt(0) || '')}
-            </Box>
+            <ContactAvatarUpload contactNuri={resource?.uri} initial={displayName} useAvatar={false}
+                                 isEditing={isEditing}/>
             <Box sx={{
               display: "flex",
               flexDirection: "row",

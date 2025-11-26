@@ -940,9 +940,13 @@ export const contactContext: LdoJsonldContext = {
     "@type": "@id",
     "@isCollection": true,
   },
-  data: {
-    "@id": "did:ng:x:contact#data",
-    "@type": "http://www.w3.org/2001/XMLSchema#base64Binary",
+  photoUrl: {
+    "@id": "did:ng:x:core#photoUrl",
+    "@type": "http://www.w3.org/2001/XMLSchema#string",
+  },
+  photoIRI: {
+    "@id": "did:ng:x:core#photoIRI",
+    "@type": "@id",
   },
   coverPhoto: {
     "@id": "did:ng:x:contact#coverPhoto",

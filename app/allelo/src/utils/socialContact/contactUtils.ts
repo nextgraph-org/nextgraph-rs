@@ -1,9 +1,10 @@
 import {LdSet} from '@ldo/ldo';
 import {SocialContact} from '@/.ldo/contact.typings';
-import {Contact, Source} from "@/types/contact";
+import {Contact} from "@/types/contact";
 import {contactContext} from "@/.ldo/contact.context";
 import {BasicLdSet} from "@/lib/ldo/BasicLdSet";
 import {geoApiService} from "@/services/geoApiService.ts";
+import {defaultPolicy} from "@/config/sources.ts";
 
 export const contactCommonProperties = [
   "@id",
@@ -81,7 +82,7 @@ function hasProperty(item: any, property: string): item is { [property]?: any } 
   return item && typeof item === 'object' && item[property] && item[property];
 }
 
-const defaultPolicy: Source[] = ["user", "GreenCheck", "linkedin", "Android Phone", "iPhone", "Gmail", "vcard"];
+
 
 export function resolveFrom<K extends ResolvableKey>(
   socialContact: SocialContact | undefined,
@@ -270,6 +271,7 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
 
         handleLdoBug(el, "type2", withIds);
         handleLdoBug(el, "valueIRI", withIds);
+        handleLdoBug(el, "photoIRI", withIds);
 
         contact[property]!.add(el);
       });

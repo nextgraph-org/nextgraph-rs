@@ -4,6 +4,7 @@ import {
     setSetEntrySyntheticId,
     addWithId,
     DeepPatch,
+    DeepSignalOptions,
 } from "../deepSignal";
 import { watch, observe } from "../watch";
 
@@ -243,6 +244,66 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         const flat = collected2.flat().map((p: DeepPatch) => p.path.join("."));
         expect(flat.some((p: string) => p === "s.custom123")).toBe(true);
+        stop();
+    });
+
+    it("should apply extraProps returned from propGenerator when adding objects to Set", async () => {
+        const options: DeepSignalOptions = {
+            propGenerator: ({ path, object }) => {
+                // Generate @graph and @id if not present or empty
+                const graphIri =
+                    !object["@graph"] || object["@graph"] === ""
+                        ? "did:ng:test-graph"
+                        : object["@graph"];
+                const subjectIri =
+                    !object["@id"] || object["@id"] === ""
+                        ? `did:ng:test-subject-${Math.random()}`
+                        : object["@id"];
+
+                return {
+                    extraProps: { "@id": subjectIri, "@graph": graphIri },
+                    syntheticId: graphIri + "|" + subjectIri,
+                };
+            },
+        };
+
+        const state = deepSignal(new Set<any>(), options);
+        const patches: DeepPatch[][] = [];
+        const { stopListening: stop } = watch(state, ({ patches: batch }) =>
+            patches.push(batch)
+        );
+
+        // Add object with empty @graph and @id (should be replaced)
+        const newObj: any = { "@graph": "", "@id": "", name: "Test Object" };
+        state.add(newObj);
+
+        await Promise.resolve();
+
+        // Check that extraProps were applied to the object
+        expect(newObj["@id"]).toBeDefined();
+        expect(newObj["@graph"]).toBeDefined();
+        expect(newObj["@graph"]).toBe("did:ng:test-graph");
+
+        // Check that patches were emitted with the generated values
+        const allPatches = patches.flat();
+        const idPatch = allPatches.find(
+            (p) => p.path.length === 2 && p.path[1] === "@id"
+        );
+        const graphPatch = allPatches.find(
+            (p) => p.path.length === 2 && p.path[1] === "@graph"
+        );
+
+        expect(idPatch).toBeDefined();
+        expect(idPatch?.op).toBe("add");
+        expect((idPatch as any)?.value).toBeDefined();
+        expect(
+            (idPatch as any)?.value?.startsWith("did:ng:test-subject")
+        ).toBeTruthy();
+
+        expect(graphPatch).toBeDefined();
+        expect(graphPatch?.op).toBe("add");
+        expect((graphPatch as any)?.value).toBe("did:ng:test-graph");
+
         stop();
     });
 

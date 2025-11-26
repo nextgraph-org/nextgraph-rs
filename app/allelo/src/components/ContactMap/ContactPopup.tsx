@@ -1,4 +1,4 @@
-import {Box, Typography, Avatar, IconButton, useTheme, useMediaQuery} from '@mui/material';
+import {Box, Typography, IconButton, useTheme, useMediaQuery} from '@mui/material';
 import {
   UilUser as Person,
   UilPhone as Phone,
@@ -7,6 +7,7 @@ import {
 import type {ContactPopupProps} from './types';
 import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {ContactCardAvatar} from "@/components/contacts/ContactCardAvatar";
 
 export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
   const theme = useTheme();
@@ -14,7 +15,6 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
 
   const phoneNumber = resolveFrom(contact, 'phoneNumber');
   const name = resolveFrom(contact, 'name');
-  const photo = resolveFrom(contact, 'photo');
   const organization = resolveFrom(contact, 'organization');
 
   const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
@@ -40,17 +40,12 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
     }}>
       {/* Header with photo and info */}
       <Box sx={{display: 'flex', alignItems: 'flex-start', gap: isMobile ? 1 : 2, mb: 2}}>
-        <Avatar
-          src={photo?.value}
-          sx={{
-            width: isMobile ? 60 : 100,
-            height: isMobile ? 60 : 100,
-            flexShrink: 0,
-            borderRadius: 0.5 // Small rounded corners on photo
-          }}
+        <ContactCardAvatar
+          contact={contact}
+          initial={displayName}
+          size={{xs: 60, sm: 100}}
         >
-          {displayName?.charAt(0) || ''}
-        </Avatar>
+        </ContactCardAvatar>
 
         <Box sx={{flex: 1, minWidth: 0}}>
           <Typography variant={isMobile ? "body1" : "h6"} sx={{

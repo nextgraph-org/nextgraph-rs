@@ -5,7 +5,6 @@ import {
   Grid,
   Card,
   CardContent,
-  Avatar,
   Button,
   Dialog,
   DialogTitle,
@@ -28,6 +27,7 @@ import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
 import {MultiPropertyWithVisibility} from "@/components/contacts/MultiPropertyWithVisibility";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {ContactTags} from "@/components/contacts";
+import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
   ({initialProfileData, resource}, ref) => {
@@ -43,8 +43,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
 
     const name = resolveFrom(initialProfileData, 'name');
     const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
-
-    const avatar = resolveFrom(initialProfileData, 'photo');
 
     const handleEdit = () => {
       setIsEditing(true);
@@ -71,22 +69,10 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
           <Grid size={{xs: 12, md: 4}}>
             <Box sx={{
               display: 'flex',
-              gap: 2,
               alignItems: "center"
             }}>
-              <Avatar
-                sx={{
-                  width: {xs: 100, md: 120,},
-                  height: {xs: 100, md: 120,},
-                  mb: 2,
-                  bgcolor: 'primary.main',
-                  fontSize: '3rem'
-                }}
-                alt="Profile"
-                src={avatar?.value}
-              >
-                {displayName?.charAt(0)}
-              </Avatar>
+                    <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}
+                                         isEditing={isEditing} forProfile={true}/>
               <Box sx={{
                 display: "flex",
                 flexDirection: "row",

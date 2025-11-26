@@ -650,15 +650,15 @@ export interface Photo {
   /**
    * The URL of the photo
    *
-   * Original IRI: did:ng:x:core#value
+   * Original IRI: did:ng:x:core#photoUrl
    */
-  value: string;
+  photoUrl?: string;
   /**
-   * The binary photo data
+   * The IRI of blob
    *
-   * Original IRI: did:ng:x:contact#data
+   * Original IRI: did:ng:x:core#photoIRI
    */
-  data?: string;
+  photoIRI: IRI;
   /**
    * True if the photo is a default photo
    *

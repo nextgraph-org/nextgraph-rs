@@ -842,6 +842,7 @@ impl Verifier {
                 0,
                 &repo.store,
             )?;
+
             self.verify_commit_(&commit, branch_id, repo_id, Arc::clone(&repo.store), true)
                 .await?;
             commit

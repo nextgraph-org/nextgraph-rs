@@ -1438,7 +1438,7 @@ async fn app_request_stream_(
     spawn_and_log_error(inner_task(reader, callback.clone(), canceller_tx.clone()));
 
     let cb = Closure::once(move || {
-        log_debug!("trying to cancel");
+        //log_info!("trying to cancel");
         //sender.close_channel()
         let _ = canceller_tx.unbounded_send(());
         canceller_tx.close_channel();
@@ -1873,7 +1873,7 @@ pub async fn orm_update(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     request.set_session_id(session_id);
-    log_info!("[orm_update] calling orm_update");
+    //log_info!("[orm_update] calling orm_update");
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
