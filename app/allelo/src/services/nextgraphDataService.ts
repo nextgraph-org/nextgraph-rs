@@ -2,12 +2,13 @@ import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
 import {NextGraphSession, CreateDataFunction, CommitDataFunction, ChangeDataFunction} from "@/types/nextgraph";
 import {Contact, SortParams} from "@/types/contact";
 import {dataset} from "@/lib/nextgraph";
-import {SocialContact} from "@/.ldo/contact.typings";
+import {Photo, SocialContact} from "@/.ldo/contact.typings";
 import {LdSet} from "@ldo/ldo";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {ContactLdSetProperties, contactLdSetProperties, resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {AppSettings} from "@/.ldo/settings.typings.ts";
 import {AppSettingsShapeType} from "@/.ldo/settings.shapeTypes.ts";
+import {imageService} from "@/services/imageService";
 
 export function ldoToJson(obj: any, depth: number = 0): any {
   if (obj?.toArray) {
@@ -440,6 +441,33 @@ WHERE {
     }
   }
 
+  private async downloadAndUploadPhoto(photo: Photo, contactId: string, sessionId: string): Promise<void> {
+    if (!photo.photoUrl || photo.photoIRI) {
+      return;
+    }
+
+    const response = await fetch(photo.photoUrl);
+    if (!response.ok) {
+      console.error(`Failed to fetch image from ${photo.photoUrl}: ${response.statusText}`);
+      return;
+    }
+
+    const blob = await response.blob();
+    const fileName = photo.photoUrl.split('/').pop() || 'photo.jpg';
+    const file = new File([blob], fileName, { type: blob.type });
+
+    const nuri = await imageService.uploadFile(
+      file,
+      contactId,
+      sessionId,
+      () => {} // No-op progress callback
+    );
+
+    if (nuri) {
+      photo.photoIRI = { "@id": nuri };
+    }
+  }
+
   private async persistProperty<K extends keyof SocialContact>(
     contactToImport: Partial<SocialContact>,
     propertyKey: K,
@@ -479,6 +507,15 @@ WHERE {
     for (const propertyKey in contactToImport) {
       if (["@id", "@context", "type"].includes(propertyKey)) {
         continue;
+      }
+      try {
+        if (propertyKey === "photo" && contactToImport.photo) {
+          for (const el of contactToImport.photo) {
+            await this.downloadAndUploadPhoto(el, subject["@id"]!, session.sessionId);
+          }
+        }
+      } catch (e: any) {
+        console.error("Couldn't upload file: ", e);
       }
       await this.persistProperty(contactToImport, propertyKey as keyof SocialContact, changedContact);
     }
