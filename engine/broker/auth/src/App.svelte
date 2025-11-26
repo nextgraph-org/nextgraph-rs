@@ -307,8 +307,16 @@
                     });
                     try {
                       let cancel_function = () => {};
+                      port.onmessage = (m) => {
+                          if (m.data.close) {
+                              port.close();
+                              cancel_function();
+                              cancel_function = () => {};
+                          }
+                      };
                       port.onclose = () => {
-                        cancel_function();
+                          cancel_function();
+                          cancel_function = () => {};
                       };
                       cancel_function = await Reflect.apply(ng[method], null, args);
                       port.postMessage({stream:true});

@@ -62,8 +62,14 @@ impl Verifier {
             .send(AppResponse::V0(AppResponseV0::OrmInitial(orm_objects)))
             .await;
 
+        let nuri_string = nuri_to_string(nuri);
+        let shape_string = shape_type.shape.clone();
         let close = Box::new(move || {
-            log_debug!("closing ORM subscription");
+            log_info!(
+                "closing ORM subscription for {session_id} {} {}",
+                nuri_string,
+                shape_string
+            );
             if !tx.is_closed() {
                 tx.close_channel();
             }

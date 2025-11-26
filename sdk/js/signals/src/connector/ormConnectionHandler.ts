@@ -44,6 +44,7 @@ export class OrmConnection<T extends BaseType> {
     ready: boolean;
     suspendDeepWatcher: boolean;
     readyPromise: Promise<void>;
+    cancel: () => void;
     // Promise that resolves once initial data has been applied.
     resolveReady!: () => void;
 
@@ -53,6 +54,7 @@ export class OrmConnection<T extends BaseType> {
             ? new FinalizationRegistry<string>((connectionId) => {
                   // Best-effort fallback; look up by id and clean
                   const entry = this.idToEntry.get(connectionId);
+                  //console.log("cleaning up connection",connectionId)
                   if (!entry) return;
                   entry.release();
               })
@@ -61,7 +63,8 @@ export class OrmConnection<T extends BaseType> {
     private constructor(shapeType: ShapeType<T>, scope: Scope) {
         this.shapeType = shapeType;
         this.scope = scope;
-        this.refCount = 0;
+        this.refCount = 1;
+        this.cancel = () => {};
         this.ready = false;
         this.suspendDeepWatcher = false;
         this.identifier = `${shapeType.shape}::${canonicalScope(scope)}`;
@@ -90,7 +93,7 @@ export class OrmConnection<T extends BaseType> {
             //console.log("Creating orm connection. ng and session", ng, session);
             try {
                 //await new Promise((resolve) => setTimeout(resolve, 4_000));
-                ng.orm_start(
+                this.cancel = await ng.orm_start(
                     (scope.length == 0
                         ? "" // + session.private_store_id
                         : scope) as string,
@@ -140,6 +143,7 @@ export class OrmConnection<T extends BaseType> {
             OrmConnection.idToEntry.delete(this.identifier);
 
             OrmConnection.cleanupSignalRegistry?.unregister(this.signalObject);
+            (this.cancel)();
         }
     };
 
