@@ -68,7 +68,7 @@ function rpc( method:string, args?: any) : Promise<any> {
           if (m.data.ret !== undefined) {
             let cbret = (callback)(m.data.ret);
             if (cbret?.then) {
-                cbret.then((val)=> { 
+                cbret.then((val: boolean | undefined)=> { 
                     if (val === true) {
                         port1.postMessage({close:true});
                         port1.close();
