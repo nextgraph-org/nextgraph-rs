@@ -6,10 +6,10 @@ import {
   GreenCheckClaim,
   ClaimsResponse,
   GreenCheckError,
-    AuthSession,
+  AuthSession,
   AuthenticationError,
   ValidationError,
-    RequestOptions
+  RequestOptions, IGreenCheckClient
 } from "./types"
 
 // Cross-platform fetch implementation
@@ -46,7 +46,7 @@ function createTimeoutSignal(timeout: number): AbortSignal {
   return controller.signal;
 }
 
-export class GreenCheckClient {
+export class GreenCheckClient implements IGreenCheckClient {
   private config: Required<GreenCheckClientConfig>;
   private fetch: typeof fetch;
 
@@ -61,23 +61,23 @@ export class GreenCheckClient {
 
   private formatPhone(phone: string): string | null {
     let digits = phone.replace(/[^+\d]/g, '');
-    
+
     // Add country code if not present
     if (!digits.startsWith('+')) {
       digits = `+1${digits}`;
     }
-    
+
     // Validate format (11+ digits with country code)
     if (!/^\+\d{11,}$/.test(digits)) {
       return null;
     }
-    
+
     return digits;
   }
 
   private async makeRequest<T>(options: RequestOptions): Promise<T> {
     const url = `${this.config.serverUrl}${options.endpoint}`;
-    
+
     const headers = {
       'Authorization': this.config.authToken,
       'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ export class GreenCheckClient {
     }
 
     const response = await this.fetch(url, fetchOptions);
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new GreenCheckError(
@@ -110,7 +110,7 @@ export class GreenCheckClient {
 
   async requestPhoneVerification(phone: string): Promise<boolean> {
     const formattedPhone = this.formatPhone(phone);
-    
+
     if (!formattedPhone) {
       throw new ValidationError('Invalid phone number format. US/Canada numbers only.');
     }
@@ -126,7 +126,7 @@ export class GreenCheckClient {
 
   async verifyPhoneCode(phone: string, code: string): Promise<AuthSession> {
     const formattedPhone = this.formatPhone(phone);
-    
+
     if (!formattedPhone) {
       throw new ValidationError('Invalid phone number format.');
     }
@@ -162,7 +162,7 @@ export class GreenCheckClient {
 
   async getClaims(authToken: string): Promise<GreenCheckClaim[]> {
     const greenCheckId = await this.getGreenCheckIdFromToken(authToken);
-    
+
     const response = await this.makeRequest<ClaimsResponse>({
       endpoint: `/api/gc-mobile/claims-for-id?gcId=${greenCheckId}&token=${authToken}`,
       method: 'GET'

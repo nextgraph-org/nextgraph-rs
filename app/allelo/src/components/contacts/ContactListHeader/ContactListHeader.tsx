@@ -14,6 +14,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {useIsMobile} from "@/hooks/useIsMobile.ts";
 import {useDashboardStore} from "@/stores/dashboardStore";
 import {GreenCheckConnectionDialog} from "@/components/account/GreenCheckConnectionDialog";
+import {useGreenCheck} from "@/hooks/useGreenCheck.ts";
 
 interface ContactListHeaderProps {
   mode?: string | null;
@@ -33,8 +34,7 @@ export const ContactListHeader = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const isMobile = useIsMobile();
-
-  const [showGreencheckDialog, setShowGreencheckDialog] = useState(false);
+  const {handleGreencheckConnect, showGreencheckDialog, setShowGreencheckDialog} = useGreenCheck();
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -71,9 +71,6 @@ export const ContactListHeader = ({
     }
   }, [setManageMode]);
 
-  const handleGreencheckConnect = useCallback(() => {
-    setShowGreencheckDialog(true);
-  }, []);
 
   useEffect(() => {
     if (setManageMode) {
@@ -158,7 +155,8 @@ export const ContactListHeader = ({
           onClick={handleGreencheckConnect}
           sx={{p: 1, minWidth: "26px"}}
       >
-        {isMobile ? <UilCheck size="20" sx={{p: 0}}/> : <><UilCheck size="20" sx={{p: 0, mr: 1}}/>Claim GreenCheck Accounts</>}
+        {isMobile ? <UilCheck size="20" sx={{p: 0}}/> : <><UilCheck size="20" sx={{p: 0, mr: 1}}/>Claim GreenCheck
+          Accounts</>}
 
       </Button>}
 

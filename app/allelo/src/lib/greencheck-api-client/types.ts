@@ -153,6 +153,51 @@ export interface RequestOptions {
   headers?: Record<string, string>;
 }
 
+export interface IGreenCheckClient {
+  /**
+   * Initiates phone verification by sending a verification code
+   * @param phone - Phone number to verify (US/Canada format)
+   * @returns Promise resolving to true if verification was initiated successfully
+   * @throws {ValidationError} If phone format is invalid
+   * @throws {GreenCheckError} If API request fails
+   */
+  requestPhoneVerification(phone: string): Promise<boolean>;
+
+  /**
+   * Verifies the code sent to the phone number
+   * @param phone - Phone number being verified
+   * @param code - Verification code received
+   * @returns Promise resolving to authentication session with token and GreenCheck ID
+   * @throws {ValidationError} If phone format is invalid
+   * @throws {AuthenticationError} If verification fails
+   */
+  verifyPhoneCode(phone: string, code: string): Promise<AuthSession>;
+
+  /**
+   * Retrieves GreenCheck ID associated with an auth token
+   * @param authToken - Authentication token
+   * @returns Promise resolving to GreenCheck ID
+   * @throws {AuthenticationError} If no ID found for token
+   */
+  getGreenCheckIdFromToken(authToken: string): Promise<string>;
+
+  /**
+   * Fetches all claims associated with an auth token
+   * @param authToken - Authentication token
+   * @returns Promise resolving to array of GreenCheck claims
+   */
+  getClaims(authToken: string): Promise<GreenCheckClaim[]>;
+
+  /**
+   * Generates a One-Time Token (OTT) for authentication
+   * @param authToken - Authentication token
+   * @returns Promise resolving to the generated OTT
+   */
+  generateOTT(authToken: string): Promise<string>;
+}
+
+
+
 export const isPhoneClaim = (c: GreenCheckClaim): c is PhoneClaim => c.provider === "phone";
 export const isEmailClaim = (c: GreenCheckClaim): c is EmailClaim => c.provider === "email";
 export const isAccountClaim = (c: GreenCheckClaim): c is AccountClaim =>

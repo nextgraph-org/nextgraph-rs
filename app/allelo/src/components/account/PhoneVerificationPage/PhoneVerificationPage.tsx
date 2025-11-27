@@ -5,7 +5,7 @@ import {
   Box,
   Stepper,
   Step,
-  StepLabel,
+  StepLabel, FormControlLabel, Typography, Paper, Switch
 } from "@mui/material";
 import {GreenCheckClaim} from "@/lib/greencheck-api-client/types";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
@@ -14,18 +14,19 @@ import PhoneInput from "./PhoneInput";
 import CodeInput from "./CodeInput";
 import PhoneVerificationSuccess from "./PhoneVerificationSuccess";
 import {useParams} from "react-router-dom";
+import {useSettings} from "@/hooks/useSettings.ts";
+import {useGreenCheck} from "@/hooks/useGreenCheck.ts";
 
 interface PhoneVerificationProps {
-  onVerificationComplete?: (claims: GreenCheckClaim[], authToken: string, greenCheckId: string) => void;
   onError?: (error: Error) => void;
 }
 
 type VerificationState = 'phone-input' | 'code-input' | 'success';
 
 export const PhoneVerificationPage = ({
-                                        onVerificationComplete,
                                         onError,
                                       }: PhoneVerificationProps) => {
+  const {settings, updateSettings} = useSettings();
   const {phone} = useParams<{ phone: string }>();
   const [state, setState] = useState<VerificationState>('phone-input');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -34,6 +35,8 @@ export const PhoneVerificationPage = ({
   const [claims, setClaims] = useState<GreenCheckClaim[]>([]);
   const [greenCheckId, setGreenCheckId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const {verified} = useGreenCheck();
+  const [claimOtherPlatforms, setClaimOtherPlatforms] = useState(verified ?? false);
 
   const token =
     import.meta.env.VITE_GREENCHECK_TOKEN
@@ -49,6 +52,20 @@ export const PhoneVerificationPage = ({
   useEffect(() => {
     setPhoneNumber(phone ?? "");
   }, [phone]);
+
+  useEffect(() => {
+    if (settings?.greencheckToken) {
+      client.getGreenCheckIdFromToken(settings.greencheckToken).then((el) => {
+        setGreenCheckId(el);
+        setState("success");
+      }).catch(() => setState("phone-input"));
+    }
+  }, [client, settings]);
+
+  const handleClaimOtherPlatformsToggle = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = event.target.checked;
+    setClaimOtherPlatforms(newValue);
+  }, []);
 
   const handlePhoneSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,10 +105,13 @@ export const PhoneVerificationPage = ({
       const authSession = await client.verifyPhoneCode(phoneNumber, verificationCode);
       setGreenCheckId(authSession.greenCheckId);
 
-      const userClaims = await client.getClaims(authSession.authToken);
-      setClaims(userClaims);
+      await updateSettings({greencheckId: authSession.greenCheckId, greencheckToken: authSession.authToken});
+
+      if (claimOtherPlatforms) {
+        const userClaims = await client.getClaims(authSession.authToken);
+        setClaims(userClaims);
+      }
       setState('success');
-      onVerificationComplete?.(userClaims, authSession.authToken, authSession.greenCheckId);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to verify code';
       setError(errorMessage);
@@ -99,7 +119,7 @@ export const PhoneVerificationPage = ({
     } finally {
       setIsLoading(false);
     }
-  }, [phoneNumber, verificationCode, client, onVerificationComplete, onError]);
+  }, [verificationCode, client, phoneNumber, claimOtherPlatforms, updateSettings, onError]);
 
   const handleStartOver = useCallback(() => {
     setState('phone-input');
@@ -151,6 +171,25 @@ export const PhoneVerificationPage = ({
           claims={claims}
         />
       )}
+
+      {state === 'phone-input' && <Paper variant="outlined" sx={{mt: 1, p: 1}}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={claimOtherPlatforms}
+              onChange={handleClaimOtherPlatformsToggle}
+              disabled={!verified}
+            />
+          }
+          label={
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Verify and claim your accounts from other platforms via GreenCheck
+              </Typography>
+            </Box>
+          }
+        />
+      </Paper>}
     </Container>
   );
 };

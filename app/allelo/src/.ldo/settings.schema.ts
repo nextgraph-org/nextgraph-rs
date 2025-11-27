@@ -90,6 +90,44 @@ export const settingsSchema: Schema = {
                 },
               ],
             },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:settings#greencheckId",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#string",
+              },
+              min: 0,
+              max: 1,
+              annotations: [
+                {
+                  type: "Annotation",
+                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
+                  object: {
+                    value: "id from greencheck",
+                  },
+                },
+              ],
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:settings#greencheckToken",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#string",
+              },
+              min: 0,
+              max: 1,
+              annotations: [
+                {
+                  type: "Annotation",
+                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
+                  object: {
+                    value: "temporary token from greencheck",
+                  },
+                },
+              ],
+            },
           ],
         },
         extra: ["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"],
