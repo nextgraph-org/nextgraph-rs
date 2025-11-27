@@ -60,12 +60,24 @@ function rpc( method:string, args?: any) : Promise<any> {
         if (m.data.stream) {
           if (!resolved) {
             resolve(()=>{ 
+              port1.postMessage({close:true});
               port1.close();
             });
             resolved = true;
           }
           if (m.data.ret !== undefined) {
-            (callback)(m.data.ret);
+            let cbret = (callback)(m.data.ret);
+            if (cbret?.then) {
+                cbret.then((val: boolean | undefined)=> { 
+                    if (val === true) {
+                        port1.postMessage({close:true});
+                        port1.close();
+                    }
+                });
+            } else if (cbret === true) {
+                port1.postMessage({close:true});
+                port1.close();
+            }
           }
         } else if (!m.data.ok) {
           if (!resolved) {

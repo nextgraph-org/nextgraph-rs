@@ -35,7 +35,7 @@ window.addEventListener("message", async (event)=>{
       //web_origin_host = url.host;
       session = event.data.session;
       port.onclose = () => {
-        console.error("BSP parent window closed its port with us, te redirecting server");
+        console.error("BSP parent window closed its port with us, the redirecting server");
       };
       wallet_port = port;
 
