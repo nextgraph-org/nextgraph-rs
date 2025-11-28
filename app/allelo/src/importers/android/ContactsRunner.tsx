@@ -58,13 +58,14 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
       //TODO: here should be also nextgraph persistence
       try {
         await dataService.addContacts(processedContacts);
+        // Nextgraph persistence
+        onGetResult(processedContacts);
       } catch (err) {
         console.warn('Failed to add contacts to dataService: ', err);
       }
 
       setStatus(`Successfully imported and processed ${processedContacts.length} contacts! Redirecting to contacts...`);
       setSuccess(true);
-      onGetResult(processedContacts);
 
       setTimeout(() => {
         navigate('/contacts');
