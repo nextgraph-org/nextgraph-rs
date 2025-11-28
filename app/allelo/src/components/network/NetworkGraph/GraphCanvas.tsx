@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { select } from 'd3-selection';
-import { zoom as d3Zoom, zoomIdentity, ZoomBehavior } from 'd3-zoom';
+import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom';
 import { GraphNode as GraphNodeType, GraphEdge as GraphEdgeType } from '@/types/network';
 import { GraphNode } from './GraphNode';
 import { GraphEdge } from './GraphEdge';
@@ -34,7 +34,6 @@ export const GraphCanvas = ({
 }: GraphCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
-  const zoomBehaviorRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   useEffect(() => {
     if (!svgRef.current || !gRef.current) return;
@@ -43,15 +42,13 @@ export const GraphCanvas = ({
     const g = select(gRef.current);
 
     const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.5, 3])
+      .scaleExtent([0.3, 10])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
       });
 
-    // Set initial transform to identity (no zoom/pan)
     svg.call(zoomBehavior.transform, zoomIdentity);
     svg.call(zoomBehavior);
-    zoomBehaviorRef.current = zoomBehavior;
 
     return () => {
       svg.on('.zoom', null);
@@ -107,6 +104,19 @@ export const GraphCanvas = ({
           ))}
         </g>
 
+        <rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          fill="none"
+          stroke="#999"
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          opacity={0.3}
+          pointerEvents="none"
+        />
+
         <g className="edges">
           {edges.map((edge) => {
             const isSelected = selectedEdge?.id === edge.id;
@@ -127,6 +137,7 @@ export const GraphCanvas = ({
           {nodes.map((node) => {
             const isConnected = node.id === selectedSourceId || node.id === selectedTargetId;
             const isDimmed = !!(selectedEdge && !isConnected);
+
             return (
               <GraphNode
                 key={node.id}

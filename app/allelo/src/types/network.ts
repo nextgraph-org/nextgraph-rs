@@ -11,6 +11,7 @@ export interface GraphNode {
   isCentered: boolean;
   priority: NodePriority;
   centrality?: number;
+  mostRecentInteraction?: string | Date;
   x?: number;
   y?: number;
   vx?: number;
