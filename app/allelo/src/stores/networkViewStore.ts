@@ -13,6 +13,7 @@ export interface NetworkFilter {
   source?: string;
   dateRange?: { start: Date; end: Date };
   searchQuery?: string;
+  relationships?: string[]; // Filter by relationship types (e.g., 'colleague', 'alumni', 'collaborator')
 }
 
 interface NetworkViewState {

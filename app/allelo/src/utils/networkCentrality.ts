@@ -61,9 +61,8 @@ export const calculateNetworkCentrality = (
 };
 
 export const getRadialDistance = (centralityScore: number, maxRadius: number): number => {
-  // centralityScore is normalized (0-1) from LinkedIn centrality
-  // 1.0 (LinkedIn 0) = closest to center
-  // 0.0 (LinkedIn 51) = furthest from center
-  // Map directly: higher centrality score = closer to center
-  return maxRadius * (1 - centralityScore);
+  const minRadius = maxRadius * 0.2;
+  const usableRadius = maxRadius - minRadius;
+
+  return minRadius + (usableRadius * (1 - centralityScore));
 };

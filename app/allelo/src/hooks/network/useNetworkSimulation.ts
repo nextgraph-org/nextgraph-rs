@@ -13,8 +13,8 @@ import { useNetworkGraphStore } from '@/stores/networkGraphStore';
 import { getRadialDistance } from '@/utils/networkCentrality';
 
 const DEFAULT_CONFIG: SimulationConfig = {
-  alphaDecay: 0.08,
-  velocityDecay: 0.7,
+  alphaDecay: 0.05,
+  velocityDecay: 0.6,
   forces: {
     charge: {
       strength: -300,
@@ -29,7 +29,7 @@ const DEFAULT_CONFIG: SimulationConfig = {
     },
     collision: {
       radius: 50,
-      strength: 0.8,
+      strength: 1.0,
     },
   },
 };
@@ -42,7 +42,7 @@ export const useNetworkSimulation = (
   config: SimulationConfig = DEFAULT_CONFIG
 ) => {
   const simulationRef = useRef<Simulation<GraphNode, GraphEdge> | null>(null);
-  const { setSimulation, updateNodePositions, setEdges } = useNetworkGraphStore();
+  const { setSimulation, updateNodePositions } = useNetworkGraphStore();
 
   useEffect(() => {
     if (!nodes.length) return;
@@ -60,19 +60,13 @@ export const useNetworkSimulation = (
 
     const edgesCopy = edges.map((edge) => ({ ...edge }));
 
-    const linkForce = forceLink<GraphNode, GraphEdge>(edgesCopy)
-      .id((d) => d.id)
-      .distance(config.forces.link.distance)
-      .strength(config.forces.link.strength);
-
     const maxRadius = Math.min(width, height) / 2 - 100;
 
     const simulation = forceSimulation<GraphNode>(initializedNodes)
       .alphaDecay(config.alphaDecay)
-      .alphaMin(0.01)
+      .alphaMin(0.001)
       .alphaTarget(0)
       .velocityDecay(config.velocityDecay)
-      .force('link', linkForce)
       .force(
         'charge',
         forceManyBody<GraphNode>()
@@ -84,10 +78,11 @@ export const useNetworkSimulation = (
         'collision',
         forceCollide<GraphNode>()
           .radius((d) => {
-            const centrality = d.centrality || 0;
+            const centrality = d.centrality ?? 0;
             return config.forces.collision.radius + centrality * 10;
           })
           .strength(config.forces.collision.strength)
+          .iterations(3)
       )
       .force(
         'radial',
@@ -101,11 +96,7 @@ export const useNetworkSimulation = (
         ).strength(0.8)
       )
       .on('tick', () => {
-        if (simulation.alpha() < 0.01) {
-          simulation.stop();
-        }
         updateNodePositions([...simulation.nodes()]);
-        setEdges(edgesCopy);
       })
       .on('end', () => {
         simulation.stop();
@@ -117,7 +108,7 @@ export const useNetworkSimulation = (
     return () => {
       simulation.stop();
     };
-  }, [nodes, edges, width, height, config, setSimulation, updateNodePositions, setEdges]);
+  }, [nodes, edges, width, height, config, setSimulation, updateNodePositions]);
 
   return simulationRef.current;
 };

@@ -11,10 +11,8 @@ const calculatePriority = (contact: Contact): NodePriority => {
   const photo = resolveFrom(contact, 'photo');
   const hasPhoto = !!photo?.value;
 
-  // LinkedIn centrality: 0-10 is high centrality, 11-30 is medium, 31+ is low
-  // Treat null/undefined as 51 (least central)
-  const centralityValue = contact.linkedinCentrality ?? 51;
-  const isCentralContact = centralityValue <= 10;
+  const centralityScore = contact.centralityScore || 0;
+  const isCentralContact = centralityScore > 0;
 
   if ((hasRecentInteraction || hasHighInteractionCount || hasVouches || isCentralContact) && hasPhoto) {
     return 'high';
@@ -36,6 +34,11 @@ export const mapContactsToNodes = (
   contacts: Contact[],
   centeredContactId?: string
 ): GraphNode[] => {
+  const maxCentralityScore = Math.max(
+    ...contacts.map(c => c.centralityScore || 0),
+    1
+  );
+
   return contacts.map((contact) => {
     // Handle name - can be a Set-like object or an array
     let name = resolveFrom(contact, 'name');
@@ -58,10 +61,10 @@ export const mapContactsToNodes = (
     const photo = resolveFrom(contact, 'photo');
     const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
 
-    // Convert LinkedIn centrality (0-51) to normalized centrality score (0-1)
-    // Lower LinkedIn centrality = more central = higher score
-    const linkedinCentrality = contact.linkedinCentrality ?? 51;
-    const normalizedCentrality = 1 - (linkedinCentrality / 51);
+    const centralityScore = contact.centralityScore || 0;
+    const normalizedCentrality = maxCentralityScore > 0
+      ? centralityScore / maxCentralityScore
+      : 0;
 
     return {
       id: contact['@id'] || nameValue,
@@ -72,6 +75,7 @@ export const mapContactsToNodes = (
       isCentered: contact['@id'] === centeredContactId,
       priority: calculatePriority(contact),
       centrality: normalizedCentrality,
+      mostRecentInteraction: contact.mostRecentInteraction || contact.lastInteractionAt,
     };
   });
 };

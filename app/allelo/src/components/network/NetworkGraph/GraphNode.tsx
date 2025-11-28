@@ -38,13 +38,12 @@ export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }:
     );
   }
 
-  const centrality = node.centrality || 0;
-  const centralitySize = 8 + centrality * 12;
+  const centrality = node.centrality ?? 0;
 
   if (node.priority === 'medium') {
     const isEntity = node.type === 'entity';
     const fillOpacity = isEntity ? 0.95 : (0.6 + centrality * 0.4);
-    const radius = isEntity ? 16 : centralitySize;
+    const radius = isEntity ? 16 : 8;
 
     return (
       <g
@@ -70,7 +69,7 @@ export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }:
   }
 
   const baseSize = node.isCentered ? 80 : 30;
-  const nodeSize = node.isCentered ? baseSize : baseSize + centrality * 20;
+  const nodeSize = baseSize;
   const borderWidth = node.isCentered ? 4 : 2;
   const isEntity = node.type === 'entity';
 
