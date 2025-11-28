@@ -1,18 +1,14 @@
 import React, {useState} from 'react';
 import {Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions} from '@mui/material';
 import {Button} from '@/components/ui';
-import {useNavigate} from 'react-router-dom';
 import {checkPermissions, requestPermissions, importContacts} from '../../../../tauri-plugin-contacts-importer/guest-js';
 import {processContactFromJSON} from '@/utils/socialContact/contactUtils';
-import {dataService} from '@/services/dataService';
 import type {Contact} from '@/types/contact';
 import {SourceRunnerProps} from "@/types/importSource";
 
 export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, onClose, onError}) => {
   const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [success, setSuccess] = useState<boolean>(false);
-  const navigate = useNavigate();
 
   const handleImportContacts = async () => {
     setLoading(true);
@@ -55,9 +51,7 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
       }
 
       setStatus('Saving contacts to Nextgraph...');
-      //TODO: here should be also nextgraph persistence
       try {
-        await dataService.addContacts(processedContacts);
         // Nextgraph persistence
         onGetResult(processedContacts);
       } catch (err) {
@@ -65,12 +59,6 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
       }
 
       setStatus(`Successfully imported and processed ${processedContacts.length} contacts! Redirecting to contacts...`);
-      setSuccess(true);
-
-      setTimeout(() => {
-        navigate('/contacts');
-        onClose();
-      }, 1500);
     } catch (error) {
       setStatus(`❌ Error: ${error}`);
       onError(error);
@@ -100,7 +88,7 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
               variant="body2"
               sx={{
                 mt: 2,
-                color: success ? 'success.main' : 'text.primary'
+                color: 'text.primary'
               }}
             >
               {status}
@@ -109,17 +97,15 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={success}>
-          {success ? 'Redirecting...' : 'Cancel'}
+        <Button onClick={onClose}>
+          {'Cancel'}
         </Button>
         <Button
           variant="contained"
           onClick={handleImportContacts}
-          disabled={loading || success}
+          disabled={loading}
         >
-          {success
-            ? '✓ Complete'
-            : loading
+          {loading
               ? 'Processing...'
               : 'Allow Access'
           }

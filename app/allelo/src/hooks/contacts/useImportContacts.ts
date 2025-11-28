@@ -35,8 +35,6 @@ export const useImportContacts = (onImportDone: () => void): UseImportContactsRe
         setImportProgress(progress);
       });
 
-      // Add a small delay to ensure NextGraph has processed the data
-      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsLoading(false);
       setIsImporting(false);
       onImportDone();
