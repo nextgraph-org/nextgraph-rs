@@ -1,0 +1,10 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["../playwright/shared/*"]
+    },
+    "jsx": "react-jsx"
+  }
+}

@@ -2,6 +2,8 @@
 
 Deep structural reactivity for plain objects / arrays / Sets built on top of `alien-signals`.
 
+Hooks for Svelte, Vue, and React.
+
 Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signals the first time you read them. Deep mutations emit compact batched patch objects (in a JSON-patch inspired style) that you can track with `watch()`.
 
 ## Features
@@ -41,6 +43,36 @@ state.count++; // mutate normally
 state.user.name = "Grace"; // nested write
 state.items.push({ id: "i2", qty: 2 });
 state.settings.add("beta");
+```
+
+## Frontend Hooks
+
+We provide hooks for Svelte, Vue, and React so that you can use deepSignal objects in your frontend framework. Modifying the object within those components works as usual, just that the component will rerender automatically if the object changed (by an event in the component or a modification from elsewhere).
+
+Note that you can pass existing deepSignal objects (that you are using elsewhere too, for example as shared state) as well as plain JavaScript objects (which are then wrapped).
+
+```tsx
+import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
+
+const users = useShape([{username: "Bob"}]);
+// Note: Instead of calling `setState`, you just need to modify a property. That will trigger the required re-render.
+```
+
+### Vue
+
+```ts
+import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
+
+const users = useShape([{username: "Bob"}]);
+```
+
+### Svelte
+
+```ts
+import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
+
+// `users` is a rune of type `{username: string}[]`
+const users = useShape([{username: "Bob"}]);
 ```
 
 ## Configuration options

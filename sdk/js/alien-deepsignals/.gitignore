@@ -22,3 +22,7 @@ dist-ssr
 *.sw?
 
 coverage
+
+.astro
+
+test-results

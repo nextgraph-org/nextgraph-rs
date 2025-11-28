@@ -637,29 +637,38 @@ export const deepSignal = <T extends object>(
     obj: T,
     options?: DeepSignalOptions
 ): DeepSignal<T> => {
-    if (!shouldProxy(obj)) throw new Error("This object can't be observed.");
-    if (!objToProxy.has(obj)) {
-        // Create a unique root id symbol to identify this deep signal tree in patches.
-        const rootId = Symbol("deepSignalRoot");
-        if (options) {
-            rootOptions.set(rootId, options);
-        }
-        const proxy = createProxy(
-            obj,
-            objectHandlers,
-            rootId,
-            options
-        ) as DeepSignal<T>;
-        const meta = proxyMeta.get(proxy)!;
-        meta.parent = undefined; // root has no parent
-        meta.key = undefined; // root not addressed by a key
-        meta.root = rootId; // ensure root id stored (explicit)
-        meta.options = options; // store options in metadata
-        // Pre-register an empty signals map so isDeepSignal() is true before any property access.
-        if (!proxyToSignals.has(proxy)) proxyToSignals.set(proxy, new Map());
-        objToProxy.set(obj, proxy);
-        proxyToRaw.set(proxy, obj);
+    if (isDeepSignal(obj)) {
+        // Already a deepSignal.
+        return obj as DeepSignal<T>;
     }
+
+    if (objToProxy.has(obj)) {
+        // We already have it
+        return objToProxy.get(obj);
+    }
+
+    if (!shouldProxy(obj)) throw new Error("This object can't be observed.");
+
+    // Create a unique root id symbol to identify this deep signal tree in patches.
+    const rootId = Symbol("deepSignalRoot");
+    if (options) {
+        rootOptions.set(rootId, options);
+    }
+    const proxy = createProxy(
+        obj,
+        objectHandlers,
+        rootId,
+        options
+    ) as DeepSignal<T>;
+    const meta = proxyMeta.get(proxy)!;
+    meta.parent = undefined; // root has no parent
+    meta.key = undefined; // root not addressed by a key
+    meta.root = rootId; // ensure root id stored (explicit)
+    meta.options = options; // store options in metadata
+    // Pre-register an empty signals map so isDeepSignal() is true before any property access.
+    if (!proxyToSignals.has(proxy)) proxyToSignals.set(proxy, new Map());
+    objToProxy.set(obj, proxy);
+    proxyToRaw.set(proxy, obj);
     return objToProxy.get(obj);
 };
 
@@ -1290,15 +1299,21 @@ const shouldProxy = (val: any): boolean => {
 /** TYPES **/ // Structural deep reactive view of an input type.
 export type DeepSignal<T> = T extends Function
     ? T
-    : T extends { [shallowFlag]: true }
+    : T extends DeepSignalObject<any>
       ? T
-      : T extends Set<infer U>
-        ? DeepSignalSet<U>
-        : T extends Array<unknown>
-          ? DeepSignalArray<T>
-          : T extends object
-            ? DeepSignalObject<T>
-            : T;
+      : T extends DeepSignalArray<any>
+        ? T
+        : T extends DeepSignalSet<any>
+          ? T
+          : T extends { [shallowFlag]: true }
+            ? T
+            : T extends Set<infer U>
+              ? DeepSignalSet<U>
+              : T extends Array<unknown>
+                ? DeepSignalArray<T>
+                : T extends object
+                  ? DeepSignalObject<T>
+                  : T;
 
 /** Recursive mapped type converting an object graph into its deepSignal proxy shape. */
 export type DeepSignalObject<T extends object> = {
