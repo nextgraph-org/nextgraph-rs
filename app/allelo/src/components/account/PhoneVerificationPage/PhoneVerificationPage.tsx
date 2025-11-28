@@ -36,7 +36,7 @@ export const PhoneVerificationPage = ({
   const [greenCheckId, setGreenCheckId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const {verified} = useGreenCheck();
-  const [claimOtherPlatforms, setClaimOtherPlatforms] = useState(verified ?? false);
+  const [claimOtherPlatforms, setClaimOtherPlatforms] = useState(true);
 
   const token =
     import.meta.env.VITE_GREENCHECK_TOKEN
@@ -54,10 +54,18 @@ export const PhoneVerificationPage = ({
   }, [phone]);
 
   useEffect(() => {
+    if (verified) {
+      setClaimOtherPlatforms(false);
+    }
+
+  }, [verified]);
+
+  useEffect(() => {
     if (settings?.greencheckToken) {
       client.getGreenCheckIdFromToken(settings.greencheckToken).then((el) => {
         setGreenCheckId(el);
         setState("success");
+        client.setCurrentAuthToken(settings.greencheckToken!);
       }).catch(() => setState("phone-input"));
     }
   }, [client, settings]);
@@ -169,6 +177,7 @@ export const PhoneVerificationPage = ({
           phoneNumber={phoneNumber}
           greenCheckId={greenCheckId}
           claims={claims}
+          client={client}
         />
       )}
 
@@ -178,7 +187,6 @@ export const PhoneVerificationPage = ({
             <Switch
               checked={claimOtherPlatforms}
               onChange={handleClaimOtherPlatformsToggle}
-              disabled={!verified}
             />
           }
           label={

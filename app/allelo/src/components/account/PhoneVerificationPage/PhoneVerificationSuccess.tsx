@@ -19,14 +19,16 @@ import {
   Person,
 } from "@mui/icons-material";
 import {useNavigate} from "react-router-dom";
-import {GreenCheckClaim, isAccountClaim} from "@/lib/greencheck-api-client/types";
+import {GreenCheckClaim, IGreenCheckClient, isAccountClaim} from "@/lib/greencheck-api-client/types";
 import {useUpdateProfile} from "@/hooks/useUpdateProfile";
-import {mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper";
+import {mapCentralityResponseToSocialContacts, mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper";
+import {useLinkedinAccountPerContact} from "@/hooks/contacts/useLinkedinAccountPerContact.ts";
 
 interface PhoneVerificationSuccessProps {
   phoneNumber: string;
   greenCheckId: string;
   claims: GreenCheckClaim[];
+  client: IGreenCheckClient;
 }
 
 const processedKeys = new Set<string>();
@@ -35,9 +37,11 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
                                                                              phoneNumber,
                                                                              greenCheckId,
                                                                              claims,
+                                                                             client
                                                                            }) => {
   const navigate = useNavigate();
   const {updateProfile} = useUpdateProfile();
+  const accounts = useLinkedinAccountPerContact();
 
   useEffect(() => {
     if (claims.length === 0) return;
@@ -60,6 +64,21 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
       }
     })();
   }, [claims, greenCheckId, updateProfile]);
+
+  //TODO: endpoint is down now, couldn't check
+  /*useEffect(() => {
+    if (accounts && Object.keys(accounts).length > 0 && client.authToken) {
+      client.generateCentrality(undefined, Object.values(accounts)).then((resp) => {
+        if (resp.success) {
+          const inverted: Record<string, string> = Object.fromEntries(
+            Object.entries(accounts).map(([key, value]) => [value, key])
+          );
+          console.log(mapCentralityResponseToSocialContacts(resp, inverted));
+        }
+      })
+    }
+    
+  }, [accounts, client]);*/
 
   return (
     <Card sx={{maxWidth: 600, mx: 'auto', mt: 4}}>

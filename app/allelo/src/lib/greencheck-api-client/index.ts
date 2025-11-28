@@ -9,7 +9,7 @@ import {
   AuthSession,
   AuthenticationError,
   ValidationError,
-  RequestOptions, IGreenCheckClient
+  RequestOptions, IGreenCheckClient, CentralityResponse
 } from "./types"
 
 // Cross-platform fetch implementation
@@ -49,6 +49,7 @@ function createTimeoutSignal(timeout: number): AbortSignal {
 export class GreenCheckClient implements IGreenCheckClient {
   private config: Required<GreenCheckClientConfig>;
   private fetch: typeof fetch;
+  private authToken?: string;
 
   constructor(config: GreenCheckClientConfig) {
     this.config = {
@@ -57,6 +58,10 @@ export class GreenCheckClient implements IGreenCheckClient {
       ...config
     };
     this.fetch = getGlobalFetch();
+  }
+
+  setCurrentAuthToken(authToken: string): void {
+    this.authToken = authToken;
   }
 
   private formatPhone(phone: string): string | null {
@@ -147,7 +152,8 @@ export class GreenCheckClient implements IGreenCheckClient {
     };
   }
 
-  async getGreenCheckIdFromToken(authToken: string): Promise<string> {
+  async getGreenCheckIdFromToken(authToken: string | undefined): Promise<string> {
+    authToken ??= this.authToken;
     const response = await this.makeRequest<{ greenCheck: GreenCheckId }>({
       endpoint: `/api/gc-mobile/id-for-token?token=${authToken}`,
       method: 'GET'
@@ -179,6 +185,16 @@ export class GreenCheckClient implements IGreenCheckClient {
     });
 
     return response.ott;
+  }
+
+  async generateCentrality(authToken: string | undefined, linkedInContacts: string[]): Promise<CentralityResponse> {
+    authToken ??= this.authToken;
+    const greenCheckId = await this.getGreenCheckIdFromToken(authToken);
+    return this.makeRequest<CentralityResponse>({
+      endpoint: `/api/gc-mobile/generate-centrality/?token=${authToken}&gcId=${greenCheckId}`,
+      method: 'POST',
+      body: { linkedInContacts }
+    });
   }
 }
 

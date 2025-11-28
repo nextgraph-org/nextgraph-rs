@@ -100,6 +100,23 @@ export interface ClaimsResponse {
   claims: GreenCheckClaim[];
 }
 
+export interface ProfileDataObj {
+  "loc"?: string;
+  "desc"?: string;
+  "title"?: string;
+  "contact"?: {
+    "twitter"?: string[];
+    "websites"?: string[];
+  }
+  "image"?: string;
+}
+
+export interface CentralityResponse {
+  "success"?: string;
+  "centrality"?: Record<string, number>
+  "profile_data"?: ProfileDataObj
+}
+
 // Authentication session
 export interface AuthSession {
   authToken: string;
@@ -194,6 +211,16 @@ export interface IGreenCheckClient {
    * @returns Promise resolving to the generated OTT
    */
   generateOTT(authToken: string): Promise<string>;
+
+  /**
+   * Generates network centrality data from LinkedIn contacts
+   * @param authToken - Authentication token
+   * @param linkedInContacts - Array of LinkedIn contact identifiers
+   * @throws {GreenCheckError} If API request fails
+   */
+  generateCentrality(authToken: string | undefined, linkedInContacts: string[]): Promise<CentralityResponse> ;
+
+  setCurrentAuthToken(authToken: string): void;
 }
 
 

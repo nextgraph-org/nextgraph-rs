@@ -5,8 +5,11 @@ import {
   AccountClaim,
   GreenCheckId,
   AuthSession,
-  IGreenCheckClient
+  IGreenCheckClient, CentralityResponse
 } from '@/lib/greencheck-api-client/types';
+import {resolve} from "node:path";
+import {code} from "vite-plugin-wasm/dist/wasm-helper";
+import {Error} from "@mui/icons-material";
 
 // Mock GreenCheck ID
 export const mockGreenCheckId: GreenCheckId = {
@@ -145,6 +148,11 @@ export const mockClaims: GreenCheckClaim[] = [
 
 // Mock API functions for when NextGraph is disabled
 export const mockGreenCheckAPI: IGreenCheckClient = {
+  generateCentrality(authToken: string, linkedInContacts: string[]): Promise<CentralityResponse> {
+    return Promise.resolve(undefined);
+  },
+  setCurrentAuthToken(authToken: string): void {
+  },
   async requestPhoneVerification(): Promise<boolean> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
