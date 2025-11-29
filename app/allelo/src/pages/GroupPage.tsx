@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -11,41 +11,22 @@ import {
   UilSearch as Search,
   UilPlus as Add,
 } from '@iconscout/react-unicons';
-import { dataService } from '@/services/dataService';
-import type { Group as GroupType } from '@/types/group';
-import { GroupFeed } from '../GroupFeed';
+import { GroupFeed } from '@/components/groups/GroupPage/GroupFeed/GroupFeed';
+import {useGroups} from "@/hooks/groups/useGroups.ts";
 
 export const GroupPage = () => {
-  const [groups, setGroups] = useState<GroupType[]>([]);
-  const [filteredGroups, setFilteredGroups] = useState<GroupType[]>([]);
+  const {
+    isLoading,
+    addFilter,
+    clearFilters,
+    filters,
+    hasMore,
+    loadMore,
+    totalCount,
+    groupsNuris
+  } = useGroups({limit: 10});
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const loadGroups = async () => {
-      setIsLoading(true);
-      try {
-        const groupsData = await dataService.getGroups();
-        setGroups(groupsData);
-        setFilteredGroups(groupsData);
-      } catch (error) {
-        console.error('Failed to load groups:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadGroups();
-  }, []);
-
-  useEffect(() => {
-    const filtered = groups.filter(group =>
-      group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      group.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      group.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-    setFilteredGroups(filtered);
-  }, [searchQuery, groups]);
 
   const handleGroupClick = (groupId: string) => {
     navigate(`/groups/${groupId}`);
@@ -160,7 +141,7 @@ export const GroupPage = () => {
 
       {/* Group Feed */}
       <GroupFeed
-        groups={filteredGroups}
+        groupsNuris={groupsNuris}
         isLoading={isLoading}
         searchQuery={searchQuery}
         onGroupClick={handleGroupClick}

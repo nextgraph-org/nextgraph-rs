@@ -151,7 +151,6 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
         (groupFilter === 'groups_in_common' && inGroup);
 
 
-
       // Vouch filter - when sortBy is 'vouchTotal', only show contacts with vouches > 0
       const matchesVouches = sortBy !== 'vouchTotal' ||
         ((contact.vouchesSent || 0) + (contact.vouchesReceived || 0)) > 0;
@@ -339,15 +338,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
 
   const clearFilters = useCallback(() => {
     setFilters(prevFilters => ({
-      ...prevFilters,
-      searchQuery: '',
-      relationshipFilter: 'all',
-      naoStatusFilter: 'all',
-      accountFilter: 'all',
-      groupFilter: 'all',
-      sortBy: 'mostActive',
-      sortDirection: 'asc',
-      hasAddressFilter: false
+      ...prevFilters, ...defaultFilters
     }));
   }, []);
 

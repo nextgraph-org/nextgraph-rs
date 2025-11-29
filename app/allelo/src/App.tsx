@@ -14,7 +14,7 @@ import {WelcomeToVaultPage} from '@/components/auth/WelcomeToVaultPage';
 import ImportPage from '@/pages/ImportPage';
 import ContactListPage from '@/pages/ContactListPage';
 import ContactViewPage from '@/pages/ContactViewPage';
-import {GroupPage} from '@/components/groups/GroupPage';
+import {GroupPage} from '@/pages/GroupPage';
 import GroupDetailPage from '@/components/groups/GroupDetailPage/GroupDetailPage';
 import {GroupInfoPage} from '@/components/groups/GroupInfoPage';
 import CreateGroupPage from '@/pages/CreateGroupPage';
