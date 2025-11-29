@@ -499,7 +499,7 @@ export const contactSchema: Schema = {
           },
         ],
         maxCardinality: 1,
-        minCardinality: 1,
+        minCardinality: 0,
         iri: "did:ng:x:contact#rcard",
         readablePredicate: "rcard",
       },
