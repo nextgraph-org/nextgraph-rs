@@ -171,6 +171,7 @@ export interface RequestOptions {
 }
 
 export interface IGreenCheckClient {
+  authToken?: string;
   /**
    * Initiates phone verification by sending a verification code
    * @param phone - Phone number to verify (US/Canada format)

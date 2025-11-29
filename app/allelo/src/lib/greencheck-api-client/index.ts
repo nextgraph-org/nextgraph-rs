@@ -49,7 +49,7 @@ function createTimeoutSignal(timeout: number): AbortSignal {
 export class GreenCheckClient implements IGreenCheckClient {
   private config: Required<GreenCheckClientConfig>;
   private fetch: typeof fetch;
-  private authToken?: string;
+  authToken?: string;
 
   constructor(config: GreenCheckClientConfig) {
     this.config = {
