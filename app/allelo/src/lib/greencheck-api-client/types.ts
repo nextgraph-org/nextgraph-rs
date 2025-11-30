@@ -101,20 +101,22 @@ export interface ClaimsResponse {
 }
 
 export interface ProfileDataObj {
-  "loc"?: string;
-  "desc"?: string;
-  "title"?: string;
-  "contact"?: {
-    "twitter"?: string[];
-    "websites"?: string[];
+  "linkedin"?: {
+    "loc"?: string;
+    "desc"?: string;
+    "title"?: string;
+    "contact"?: {
+      "twitter"?: string[];
+      "websites"?: string[];
+    }
+    "image"?: string;
   }
-  "image"?: string;
 }
 
 export interface CentralityResponse {
   "success"?: string;
   "centrality"?: Record<string, number>
-  "profile_data"?: ProfileDataObj
+  "profile_data"?: Record<string, ProfileDataObj>
 }
 
 // Authentication session
@@ -135,7 +137,7 @@ export interface GreenCheckClientConfig {
 export class GreenCheckError extends Error {
   public code?: string;
   public statusCode?: number;
-  
+
   constructor(
     message: string,
     code?: string,
@@ -172,6 +174,7 @@ export interface RequestOptions {
 
 export interface IGreenCheckClient {
   authToken?: string;
+
   /**
    * Initiates phone verification by sending a verification code
    * @param phone - Phone number to verify (US/Canada format)
@@ -219,11 +222,10 @@ export interface IGreenCheckClient {
    * @param linkedInContacts - Array of LinkedIn contact identifiers
    * @throws {GreenCheckError} If API request fails
    */
-  generateCentrality(authToken: string | undefined, linkedInContacts: string[]): Promise<CentralityResponse> ;
+  generateCentrality(authToken: string | undefined, linkedInContacts: string[]): Promise<CentralityResponse>;
 
   setCurrentAuthToken(authToken: string): void;
 }
-
 
 
 export const isPhoneClaim = (c: GreenCheckClaim): c is PhoneClaim => c.provider === "phone";

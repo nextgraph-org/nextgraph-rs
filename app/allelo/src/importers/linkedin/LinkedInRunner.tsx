@@ -17,6 +17,7 @@ import {LinkedInChallenge} from "./LinkedInChallenge";
 import {LinkedInArchiveStatus} from "./LinkedInArchiveStatus";
 import {LinkedInDragDropFallback} from "./LinkedInDragDropFallback";
 import {mapLinkedInPerson} from "@/importers/linkedin/linkedinDataMap";
+import {useSettings} from "@/hooks/useSettings.ts";
 
 type FlowStep = 'LOGIN' | 'VERIFICATION' | 'ARCHIVE_STATUS' | 'DRAG_DROP' | 'CHALLENGE';
 
@@ -30,6 +31,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
   const [linkedInUsername, setLinkedInUsername] = useState<string>('');
   const [preservedUsername, setPreservedUsername] = useState<string>('');
   const [closeButtonText, setCloseButtonText] = useState<string>('Cancel');
+  const {updateSettings} = useSettings();
 
   const processLinkedInData = useCallback(async (data: LinkedInData) => {
     try {
@@ -61,12 +63,14 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
       }
 
       onGetResult(contacts);
+
+      await updateSettings({lnImportFinished: true});
       onClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       onError(error instanceof Error ? error : new Error(errorMessage));
     }
-  }, [onGetResult, onClose, linkedInUsername, isNextGraph, updateProfile, onError]);
+  }, [onGetResult, updateSettings, onClose, linkedInUsername, isNextGraph, updateProfile, onError]);
 
   // Step 1: Login handlers
   const handleLoginSuccess = useCallback((username?: string) => {

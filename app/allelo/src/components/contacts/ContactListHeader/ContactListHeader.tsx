@@ -10,7 +10,7 @@ import {
   UilCheck
 } from '@iconscout/react-unicons';
 import {useNavigate} from 'react-router-dom';
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useIsMobile} from "@/hooks/useIsMobile.ts";
 import {useDashboardStore} from "@/stores/dashboardStore";
 import {GreenCheckConnectionDialog} from "@/components/account/GreenCheckConnectionDialog";
@@ -35,6 +35,15 @@ export const ContactListHeader = ({
   const open = Boolean(anchorEl);
   const isMobile = useIsMobile();
   const {handleGreencheckConnect, showGreencheckDialog, setShowGreencheckDialog} = useGreenCheck();
+  const greencheckButton = useMemo(() => {
+    if (currentTab === 0) {
+      return "Claim accounts"
+    }
+    if (currentTab === 1) {
+      return "Gain centrality"
+    }
+  }, [currentTab]);
+
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -97,6 +106,7 @@ export const ContactListHeader = ({
       overflow: 'hidden',
       minWidth: 0,
       flexShrink: 0,
+      flexWrap: 'wrap',
     }}>
       <Box sx={{flex: 1, minWidth: 0, overflow: 'hidden', display: "flex", alignItems: 'center', gap: 1}}>
         {manageMode && (
@@ -130,7 +140,7 @@ export const ContactListHeader = ({
         <Box sx={{
           display: 'flex',
           gap: 1,
-          justifyContent: 'flex-end'
+          justifyContent: 'flex-end',
         }}>
           {currentTab === 0 && <Button
               variant="contained"
@@ -149,14 +159,13 @@ export const ContactListHeader = ({
           </Button>
         </Box>
       )}
-      {manageMode && <Button
+      {(manageMode || currentTab === 1) && <Button
           variant="contained"
           size="small"
           onClick={handleGreencheckConnect}
           sx={{p: 1, minWidth: "26px"}}
       >
-        {isMobile ? <UilCheck size="20" sx={{p: 0}}/> : <><UilCheck size="20" sx={{p: 0, mr: 1}}/>Claim GreenCheck
-          Accounts</>}
+        {isMobile ? <><UilCheck size="20" sx={{p: 0}}/>{greencheckButton}</> : <><UilCheck size="20" sx={{p: 0, mr: 1}}/>{greencheckButton}</>}
 
       </Button>}
 

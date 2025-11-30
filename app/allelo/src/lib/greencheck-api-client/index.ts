@@ -191,7 +191,7 @@ export class GreenCheckClient implements IGreenCheckClient {
     authToken ??= this.authToken;
     const greenCheckId = await this.getGreenCheckIdFromToken(authToken);
     return this.makeRequest<CentralityResponse>({
-      endpoint: `/api/gc-mobile/generate-centrality/?token=${authToken}&gcId=${greenCheckId}`,
+      endpoint: `/api/gc-mobile/generate-centrality?token=${authToken}&gcId=${greenCheckId}`,
       method: 'POST',
       body: { linkedInContacts }
     });

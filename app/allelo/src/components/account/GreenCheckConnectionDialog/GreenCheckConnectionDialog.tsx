@@ -25,7 +25,7 @@ export const GreenCheckConnectionDialog = forwardRef<HTMLDivElement, GreenCheckC
       <DialogTitle>Connect to Greencheck</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{mb: 3}}>
-          Enter your details to verify and claim your accounts from other platforms via Greencheck.
+          Enter your details to verify and claim your accounts (or centrality) from other platforms via Greencheck.
         </Typography>
 
         <Box sx={{display: 'flex', flexDirection: 'column', gap: 2, pt: 1}}>

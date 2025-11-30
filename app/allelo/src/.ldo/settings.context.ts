@@ -29,6 +29,10 @@ export const settingsContext: LdoJsonldContext = {
         "@id": "did:ng:x:settings#lnImportRequested",
         "@type": "http://www.w3.org/2001/XMLSchema#boolean",
       },
+      lnImportFinished: {
+        "@id": "did:ng:x:settings#lnImportFinished",
+        "@type": "http://www.w3.org/2001/XMLSchema#boolean",
+      },
       greencheckId: {
         "@id": "did:ng:x:settings#greencheckId",
         "@type": "http://www.w3.org/2001/XMLSchema#string",
@@ -49,6 +53,10 @@ export const settingsContext: LdoJsonldContext = {
   },
   lnImportRequested: {
     "@id": "did:ng:x:settings#lnImportRequested",
+    "@type": "http://www.w3.org/2001/XMLSchema#boolean",
+  },
+  lnImportFinished: {
+    "@id": "did:ng:x:settings#lnImportFinished",
     "@type": "http://www.w3.org/2001/XMLSchema#boolean",
   },
   greencheckId: {

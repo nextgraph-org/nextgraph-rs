@@ -1,4 +1,4 @@
-import React, {useEffect} from "react";
+import React, {useCallback, useEffect, useState} from "react";
 import {
   Box,
   Typography,
@@ -13,16 +13,20 @@ import {
   ListItemText,
   Avatar,
   Divider,
+  FormControlLabel,
+  Switch,
+  FormGroup,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import {
   CheckCircle,
-  Person,
 } from "@mui/icons-material";
-import {useNavigate} from "react-router-dom";
 import {GreenCheckClaim, IGreenCheckClient, isAccountClaim} from "@/lib/greencheck-api-client/types";
 import {useUpdateProfile} from "@/hooks/useUpdateProfile";
 import {mapCentralityResponseToSocialContacts, mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper";
 import {useLinkedinAccountPerContact} from "@/hooks/contacts/useLinkedinAccountPerContact.ts";
+import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
 
 interface PhoneVerificationSuccessProps {
   phoneNumber: string;
@@ -39,9 +43,14 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
                                                                              claims,
                                                                              client
                                                                            }) => {
-  const navigate = useNavigate();
   const {updateProfile} = useUpdateProfile();
   const accounts = useLinkedinAccountPerContact();
+  const {updateContact} = useSaveContacts();
+
+  const [retrieveNetworkCentrality, setRetrieveNetworkCentrality] = useState(true);
+  const [retrieveProfileDetails, setRetrieveProfileDetails] = useState(true);
+  const [enrichmentStatus, setEnrichmentStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     if (claims.length === 0) return;
@@ -65,20 +74,32 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
     })();
   }, [claims, greenCheckId, updateProfile]);
 
-  //TODO: endpoint is down now, couldn't check
-  /*useEffect(() => {
+  const handleEnrichProfile = useCallback(async () => {
     if (accounts && Object.keys(accounts).length > 0 && client.authToken) {
-      client.generateCentrality(undefined, Object.values(accounts)).then((resp) => {
+      setEnrichmentStatus('loading');
+      setErrorMessage('');
+      try {
+        const resp = await client.generateCentrality(undefined, Object.values(accounts));
         if (resp.success) {
           const inverted: Record<string, string> = Object.fromEntries(
             Object.entries(accounts).map(([key, value]) => [value, key])
           );
-          console.log(mapCentralityResponseToSocialContacts(resp, inverted));
+          const updContacts = mapCentralityResponseToSocialContacts(resp, inverted, retrieveNetworkCentrality, retrieveProfileDetails);
+          for (const i in updContacts) {
+            await updateContact(i, updContacts[i]);
+          }
+          setEnrichmentStatus('success');
+        } else {
+          setEnrichmentStatus('error');
+          setErrorMessage('Failed to retrieve data from GreenCheck. Please try again.');
         }
-      })
+      } catch (e) {
+        console.error(e);
+        setEnrichmentStatus('error');
+        setErrorMessage(e instanceof Error ? e.message : 'An unexpected error occurred. Please try again.');
+      }
     }
-    
-  }, [accounts, client]);*/
+  }, [accounts, client, retrieveNetworkCentrality, retrieveProfileDetails, updateContact]);
 
   return (
     <Card sx={{maxWidth: 600, mx: 'auto', mt: 4}}>
@@ -141,16 +162,76 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
           </Paper>
         )}
 
-        <Box sx={{display: 'flex', justifyContent: 'center', mt: 3}}>
-          <Button
-            variant="contained"
-            startIcon={<Person/>}
-            onClick={() => navigate('/account')}
-            sx={{py: 1.5, px: 4}}
+        {enrichmentStatus === 'success' ? (
+          <Alert severity="success" sx={{mb: 3}}>
+            <Typography variant="body1" sx={{fontWeight: 600}}>
+              Profile enriched successfully!
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Your profile has been updated with data from GreenCheck.
+            </Typography>
+          </Alert>
+        ) : enrichmentStatus === 'error' ? (
+          <Alert
+            severity="error"
+            sx={{mb: 3}}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => setEnrichmentStatus('idle')}
+              >
+                Try Again
+              </Button>
+            }
           >
-            Return to Profile
-          </Button>
-        </Box>
+            <Typography variant="body1" sx={{fontWeight: 600}}>
+              Enrichment Failed
+            </Typography>
+            <Typography variant="body2">
+              {errorMessage}
+            </Typography>
+          </Alert>
+        ) : (
+          <Paper variant="outlined" sx={{mb: 3, p: 2}}>
+            <Typography variant="h6" gutterBottom sx={{fontWeight: 600, mb: 2}}>
+              Enrich Your Profile with GreenCheck
+            </Typography>
+            <FormGroup sx={{mb: 2}}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={retrieveNetworkCentrality}
+                    onChange={(e) => setRetrieveNetworkCentrality(e.target.checked)}
+                    disabled={enrichmentStatus === 'loading'}
+                  />
+                }
+                label="Retrieve network centrality"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={retrieveProfileDetails}
+                    onChange={(e) => setRetrieveProfileDetails(e.target.checked)}
+                    disabled={enrichmentStatus === 'loading'}
+                  />
+                }
+                label="Retrieve contacts avatars and location details"
+              />
+            </FormGroup>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleEnrichProfile}
+              disabled={(!retrieveNetworkCentrality && !retrieveProfileDetails) || enrichmentStatus === 'loading'}
+              fullWidth
+              sx={{py: 1.5}}
+              startIcon={enrichmentStatus === 'loading' ? <CircularProgress size={20} color="inherit"/> : undefined}
+            >
+              {enrichmentStatus === 'loading' ? 'Enriching Profile...' : 'Enrich Profile'}
+            </Button>
+          </Paper>
+        )}
       </CardContent>
     </Card>
   );

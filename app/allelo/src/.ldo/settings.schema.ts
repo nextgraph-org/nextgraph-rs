@@ -92,6 +92,25 @@ export const settingsSchema: Schema = {
             },
             {
               type: "TripleConstraint",
+              predicate: "did:ng:x:settings#lnImportFinished",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#boolean",
+              },
+              min: 0,
+              max: 1,
+              annotations: [
+                {
+                  type: "Annotation",
+                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
+                  object: {
+                    value: "Whether LinkedIn import has been finished",
+                  },
+                },
+              ],
+            },
+            {
+              type: "TripleConstraint",
               predicate: "did:ng:x:settings#greencheckId",
               valueExpr: {
                 type: "NodeConstraint",

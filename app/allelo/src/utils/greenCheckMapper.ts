@@ -116,7 +116,9 @@ export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Parti
 
 export function mapCentralityResponseToSocialContacts(
   response: CentralityResponse,
-  linkedinContacts: Record<string, string>
+  linkedinContacts: Record<string, string>,
+  getCentrality?: boolean,
+  getProfileDetails?: boolean
 ): Record<string, Partial<SocialContact>> {
   const contacts: Record<string, Partial<SocialContact>> = {};
 
@@ -133,29 +135,32 @@ export function mapCentralityResponseToSocialContacts(
       continue;
     }
 
+    const contact: Partial<SocialContact> = {};
 
-    const contact: Partial<SocialContact> = {
-      centralityScore: centrality[account],
-    };
-
-    // Add photo
-    if (profileData?.image) {
-      //@ts-expect-error we would put photo later
-      const photo: Photo = {
-        photoUrl: profileData.image,
-        source: source
-      };
-      contact.photo = new BasicLdSet([photo]);
+    if (getCentrality) {
+      contact.centralityScore = centrality[account];
     }
 
-    // Add location
-    if (profileData?.loc) {
-      contact.address = new BasicLdSet([{
-        value: profileData.loc,
-        source: source
-      }]);
-    }
+    if (getProfileDetails && profileData && profileData[account]?.linkedin) {
+      const data = profileData[account].linkedin;
+      // Add photo
+      if (data.image) {
+        //@ts-expect-error we would put photo later
+        const photo: Photo = {
+          photoUrl: data.image,
+          source: source
+        };
+        contact.photo = new BasicLdSet([photo]);
+      }
 
+      // Add location
+      if (data.loc) {
+        contact.address = new BasicLdSet([{
+          value: data.loc,
+          source: source
+        }]);
+      }
+    }
     contacts[contactNuri] = contact;
   }
   return contacts;
