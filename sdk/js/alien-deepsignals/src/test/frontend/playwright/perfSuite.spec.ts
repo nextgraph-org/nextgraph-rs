@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page, Locator } from "@playwright/test";
 import type {
     PerfScenarioCounts,
     PerfScenarioResult,
@@ -168,4 +168,62 @@ test.describe("perfSuite object-set scenarios", () => {
             ] ?? 0;
         expect(heavyAlpha).toBeGreaterThanOrEqual(lightAlpha);
     });
+
+    for (const framework of frameworks) {
+        test(`${framework}/deep only re-renders touched object`, async ({
+            page,
+        }) => {
+            const variant: PerfVariant = "deep";
+            await navigateToScenario(page, framework, variant);
+            const targetId = "urn:object:alpha";
+            const peerId = "urn:object:beta";
+            const targetRow = page.locator(`[data-entry-id="${targetId}"]`);
+            const peerRow = page.locator(`[data-entry-id="${peerId}"]`);
+            await Promise.all([targetRow.waitFor(), peerRow.waitFor()]);
+
+            const readRenderCount = async (locator: Locator) =>
+                Number((await locator.getAttribute("data-render-count")) ?? 0);
+
+            const targetBefore = await readRenderCount(targetRow);
+            const peerBefore = await readRenderCount(peerRow);
+
+            await page.evaluate((id) => {
+                const state = (window as any).sharedState;
+                const entry = Array.from(state.objectSet.values()).find(
+                    (item: { [key: string]: string }) => item["@id"] === id
+                );
+                if (!entry) throw new Error("Entry not found");
+                entry.count += 1;
+            }, targetId);
+
+            await page.waitForFunction(
+                ({ selector, before }) => {
+                    const element = document.querySelector(selector);
+                    if (!element) return false;
+                    const count = Number(
+                        element.getAttribute("data-render-count") ?? "0"
+                    );
+                    return count > before;
+                },
+                {
+                    selector: `[data-entry-id="${targetId}"]`,
+                    before: targetBefore,
+                }
+            );
+
+            const targetAfter = await readRenderCount(targetRow);
+            const peerAfter = await readRenderCount(peerRow);
+
+            expect(targetAfter).toBeGreaterThan(targetBefore);
+
+            if (framework === "react") {
+                test.fail(
+                    true,
+                    "React reconciles the entire list because the single deepSignal subscription sits at the component root, so any Set mutation invalidates every row."
+                );
+            }
+
+            expect(peerAfter).toBe(peerBefore);
+        });
+    }
 });

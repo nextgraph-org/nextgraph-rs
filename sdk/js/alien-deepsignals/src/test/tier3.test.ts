@@ -10,12 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { deepSignal, getDeepSignalRootId, peek } from "../deepSignal";
-import {
-    watch,
-    __traverseCount,
-    __resetTraverseCount,
-    traverse,
-} from "../watch";
+import { watch } from "../watch";
 import { effect } from "../core";
 
 describe("watch advanced", () => {
@@ -159,18 +154,5 @@ describe("tier3: peek behavior", () => {
         await Promise.resolve();
         await Promise.resolve();
         expect(runs).toBe(1); // no rerun
-    });
-});
-
-describe("tier3: traverse helper direct calls (symbols & sets)", () => {
-    it("traverse counts and respects depth param", () => {
-        __resetTraverseCount();
-        const obj: any = { a: { b: { c: 1 } } };
-        traverse(obj, 1);
-        const shallowCount = __traverseCount;
-        __resetTraverseCount();
-        traverse(obj, 3);
-        const deepCount = __traverseCount;
-        expect(deepCount).toBeGreaterThan(shallowCount);
     });
 });

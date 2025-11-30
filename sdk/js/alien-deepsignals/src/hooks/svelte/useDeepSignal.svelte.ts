@@ -13,10 +13,11 @@ import { onDestroy } from "svelte";
 import {
     subscribeDeepMutations,
     getDeepSignalRootId,
-    type DeepPatch,
+    type DeepPatchBatch,
     DeepSignalOptions,
     deepSignal,
     RevertDeepSignal,
+    getDeepSignalVersion,
 } from "../../index";
 
 /** Base result contract for a deepSignal-backed Svelte integration. */
@@ -24,7 +25,7 @@ export interface UseDeepSignalResult<T extends object> extends Readable<T> {
     /** Store of the full deep proxy tree (also accessible via `subscribe` directly on this result). */
     deep: Readable<T>;
     /** Last batch of deep mutation patches for this root (empties only on next non-empty batch). */
-    patches: Readable<DeepPatch[]>;
+    patches: Readable<DeepPatchBatch | null>;
     /** Derive a nested selection; re-runs when the underlying tree version increments. */
     select<U>(selector: (tree: T) => U): Readable<U>;
     /** Stop receiving further updates (invoked automatically on component destroy). */
@@ -52,20 +53,20 @@ export function useDeepSignal<T extends object>(
 ): UseDeepSignalResult<RevertDeepSignal<T>> {
     const deepProxy = deepSignal(object, options) as T;
     const rootId = getDeepSignalRootId(deepProxy);
-    const version = writable(0);
-    const patchesStore = writable<DeepPatch[]>([]);
+    const initialVersion = getDeepSignalVersion(deepProxy) ?? 0;
+    const version = writable(initialVersion);
+    const patchesStore = writable<DeepPatchBatch | null>(null);
 
     const unsubscribe = subscribeDeepMutations(
         deepProxy as any,
-        (batch: DeepPatch[]) => {
+        (batch: DeepPatchBatch) => {
             if (!rootId) return;
-            if (batch.length) {
+            if (batch.patches.length) {
                 patchesStore.set(batch);
-                version.update((n) => n + 1);
+                version.set(batch.version);
             }
         }
     );
-
     const deep = derived(version, () => deepProxy);
     const select = <U>(selector: (tree: T) => U): Readable<U> =>
         derived(deep, (t) => selector(t));

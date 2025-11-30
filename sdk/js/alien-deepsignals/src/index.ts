@@ -1,17 +1,18 @@
-export * from "./core";
-export * from "./deepSignal";
-export * from "./watch";
-export * from "./watchEffect";
 export {
-  isArray,
-  isDate,
-  isFunction,
-  isMap,
-  isObject,
-  isPlainObject,
-  isPromise,
-  isRegExp,
-  isSet,
-  isString,
-  isSymbol,
-} from "./utils";
+    deepSignal,
+    getDeepSignalRootId,
+    getDeepSignalVersion,
+    subscribeDeepMutations,
+    shallow,
+    peek,
+    isDeepSignal,
+} from "./deepSignal";
+export type {
+    DeepPatch,
+    DeepPatchBatch,
+    DeepSignal,
+    DeepSignalOptions,
+    DeepPatchSubscriber,
+} from "./deepSignal";
+export { watch } from "./watch";
+export { effect } from "./effect";
