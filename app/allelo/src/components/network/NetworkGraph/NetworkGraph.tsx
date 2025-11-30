@@ -73,14 +73,21 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
   }, [nodes, centralityRangeMin, centralityRangeMax, centeredNodeId]);
 
   // Filter edges to only include those where both nodes are visible
+  // On main "Me" view, hide edges; on contact-specific view, show them
   const filteredEdges = useMemo(() => {
+    const isViewingMe = !centeredNodeId || centeredNodeId === 'me';
+
+    if (isViewingMe) {
+      return [];
+    }
+
     const visibleNodeIds = new Set(filteredNodes.map(n => n.id));
     return edges.filter(edge => {
       const sourceId = typeof edge.source === 'string' ? edge.source : edge.source.id;
       const targetId = typeof edge.target === 'string' ? edge.target : edge.target.id;
       return visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId);
     });
-  }, [edges, filteredNodes]);
+  }, [edges, filteredNodes, centeredNodeId]);
 
   useNetworkSimulation(filteredNodes, filteredEdges, dimensions.width, dimensions.height);
 
