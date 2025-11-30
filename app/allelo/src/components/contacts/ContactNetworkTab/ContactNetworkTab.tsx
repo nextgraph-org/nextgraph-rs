@@ -42,7 +42,7 @@ export const ContactNetworkTab = () => {
   }, [contacts]);
 
   // Build the network graph from loaded contacts
-  useNetworkGraph({ maxNodes: 30, contacts: debouncedContacts });
+  useNetworkGraph({ contacts: debouncedContacts });
 
   return (
     <Box

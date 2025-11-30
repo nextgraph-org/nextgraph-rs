@@ -316,7 +316,10 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
   await geoApiService.initContactGeoCodes(contact);
 
   //TODO: remove this when we would have real data
-  contact.centralityScore = Math.round(100 * Math.random());
+  // Only generate the centralityScore once, so we can reliably test the network graph
+  if (contact.centralityScore === undefined) {
+    contact.centralityScore = Math.round(100 * Math.random());
+  }
   //// TODO:
 
   return contact;

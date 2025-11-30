@@ -167,7 +167,7 @@ export interface SocialContact {
   /**
    * Original IRI: did:ng:x:contact#rcard
    */
-  rcard: IRI;
+  rcard?: IRI;
   /**
    * Original IRI: did:ng:x:contact#naoStatus
    */

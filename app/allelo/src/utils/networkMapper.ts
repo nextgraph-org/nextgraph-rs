@@ -11,7 +11,10 @@ const calculatePriority = (contact: Contact): NodePriority => {
   const photo = resolveFrom(contact, 'photo');
   const hasPhoto = !!photo;
 
-  if ((hasRecentInteraction || hasHighInteractionCount || hasVouches) && hasPhoto) {
+  const centralityScore = contact.centralityScore || 0;
+  const isCentralContact = centralityScore > 0;
+
+  if ((hasRecentInteraction || hasHighInteractionCount || hasVouches || isCentralContact) && hasPhoto) {
     return 'high';
   }
 
@@ -31,6 +34,11 @@ export const mapContactsToNodes = (
   contacts: Contact[],
   centeredContactId?: string
 ): GraphNode[] => {
+  const maxCentralityScore = Math.max(
+    ...contacts.map(c => c.centralityScore || 0),
+    1
+  );
+
   return contacts.map((contact) => {
     // Handle name - can be a Set-like object or an array
     let name = resolveFrom(contact, 'name');
@@ -53,6 +61,11 @@ export const mapContactsToNodes = (
     //const photo = resolveFrom(contact, 'photo');
     const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
 
+    const centralityScore = contact.centralityScore || 0;
+    const normalizedCentrality = maxCentralityScore > 0
+      ? centralityScore / maxCentralityScore
+      : 0;
+
     return {
       id: contact['@id'] || nameValue,
       type: 'person' as const,
@@ -61,6 +74,8 @@ export const mapContactsToNodes = (
       initials: getInitials(nameValue),
       isCentered: contact['@id'] === centeredContactId,
       priority: calculatePriority(contact),
+      centrality: normalizedCentrality,
+      mostRecentInteraction: contact.mostRecentInteraction || contact.lastInteractionAt,
     };
   });
 };

@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import { useNetworkGraphStore } from '@/stores/networkGraphStore';
 import { useNetworkViewStore } from '@/stores/networkViewStore';
 import { mapContactsToNodes, addUserNode } from '@/utils/networkMapper';
-import { calculateNetworkCentrality } from '@/utils/networkCentrality';
 import { GraphNode, GraphEdge } from '@/types/network';
 import { resolveFrom } from '@/utils/socialContact/contactUtils';
 import { Contact } from '@/types/contact';
@@ -11,7 +10,6 @@ import { defaultTemplates, renderTemplate } from '@/utils/templateRenderer';
 interface UseNetworkGraphOptions {
   userId?: string;
   userName?: string;
-  maxNodes?: number;
   contacts: Contact[]; // Accept contacts as input instead of fetching
 }
 
@@ -28,18 +26,23 @@ const buildUserNetwork = (
   contacts: Contact[],
   centeredNodeId: string | null,
   userId: string,
-  userName: string,
-  maxNodes: number
+  userName: string
 ) => {
   const sortedContacts = [...contacts]
     .sort((a, b) => {
+      const aCentrality = a.centralityScore || 0;
+      const bCentrality = b.centralityScore || 0;
+
       const aScore =
-        (a.interactionCount || 0) * 10 + ((a.vouchesSent || 0) + (a.vouchesReceived || 0)) * 5;
+        aCentrality +
+        (a.interactionCount || 0) * 10 +
+        ((a.vouchesSent || 0) + (a.vouchesReceived || 0)) * 5;
       const bScore =
-        (b.interactionCount || 0) * 10 + ((b.vouchesSent || 0) + (b.vouchesReceived || 0)) * 5;
+        bCentrality +
+        (b.interactionCount || 0) * 10 +
+        ((b.vouchesSent || 0) + (b.vouchesReceived || 0)) * 5;
       return bScore - aScore;
-    })
-    .slice(0, maxNodes - 1);
+    });
 
   const contactNodes = mapContactsToNodes(sortedContacts, centeredNodeId || undefined);
   const userNode = addUserNode(userId, userName);
@@ -82,14 +85,7 @@ const buildUserNetwork = (
     priority: node.id === userId ? ('high' as const) : node.priority,
   }));
 
-  const centralityScores = calculateNetworkCentrality(nodesWithPriorities, userEdges, userId);
-
-  const nodesWithCentrality = nodesWithPriorities.map((node) => ({
-    ...node,
-    centrality: centralityScores.get(node.id) || 0,
-  }));
-
-  return { nodes: nodesWithCentrality, edges: userEdges };
+  return { nodes: nodesWithPriorities, edges: userEdges };
 };
 
 const buildEntityNetwork = (
@@ -206,13 +202,7 @@ const buildEntityNetwork = (
     }
   }
 
-  const centralityScores = calculateNetworkCentrality(nodes, edges, entityId);
-  const nodesWithCentrality = nodes.map((node) => ({
-    ...node,
-    centrality: centralityScores.get(node.id) || 0,
-  }));
-
-  return { nodes: nodesWithCentrality, edges };
+  return { nodes, edges };
 };
 
 const buildContactNetwork = (
@@ -297,6 +287,54 @@ const buildContactNetwork = (
         strength: org.current ? 0.9 : 0.5,
         relationship: org.current ? 'works at' : 'worked at',
       });
+
+      // Find other contacts who belong to this organization
+      const orgContacts = allContacts.filter((c) => {
+        if (c['@id'] === centeredContact['@id']) return false;
+        if (!c.organization) return false;
+        const contactOrgArray = Array.from(c.organization);
+        return contactOrgArray.some((o) => o.value === orgName);
+      });
+
+      orgContacts.forEach((contact) => {
+        let contactName = resolveFrom(contact, 'name');
+        if (!contactName && contact.name) {
+          const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
+            ? (contact.name as any).toArray()
+            : Array.isArray(contact.name)
+            ? contact.name
+            : [contact.name];
+          if (nameArray.length > 0) {
+            contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
+          }
+        }
+        const contactPhoto = resolveFrom(contact, 'photo');
+        const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+
+        if (!nodes.find((n) => n.id === contact['@id'])) {
+          nodes.push({
+            id: contact['@id'] || contactNameValue,
+            type: 'person',
+            name: contactNameValue,
+            avatar: contactPhoto?.value,
+            initials: getInitials(contactNameValue),
+            isCentered: false,
+            priority: 'medium',
+          });
+        }
+
+        // Connect the contact to the organization
+        if (!edges.find((e) => e.id === `${contact['@id']}-${orgId}`)) {
+          edges.push({
+            id: `${contact['@id']}-${orgId}`,
+            source: contact['@id'] || '',
+            target: orgId,
+            type: 'weak',
+            strength: 0.6,
+            relationship: 'colleague',
+          });
+        }
+      });
     });
   }
 
@@ -327,6 +365,53 @@ const buildContactNetwork = (
         strength: 0.8,
         relationship: 'founder',
       });
+
+      // Find other contacts who belong to this project
+      const projContacts = allContacts.filter((c) => {
+        if (c['@id'] === centeredContact['@id']) return false;
+        if (!c.project) return false;
+        const contactProjArray = Array.from(c.project);
+        return contactProjArray.some((p) => p.value === projName);
+      });
+
+      projContacts.forEach((contact) => {
+        let contactName = resolveFrom(contact, 'name');
+        if (!contactName && contact.name) {
+          const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
+            ? (contact.name as any).toArray()
+            : Array.isArray(contact.name)
+            ? contact.name
+            : [contact.name];
+          if (nameArray.length > 0) {
+            contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
+          }
+        }
+        const contactPhoto = resolveFrom(contact, 'photo');
+        const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+
+        if (!nodes.find((n) => n.id === contact['@id'])) {
+          nodes.push({
+            id: contact['@id'] || contactNameValue,
+            type: 'person',
+            name: contactNameValue,
+            avatar: contactPhoto?.value,
+            initials: getInitials(contactNameValue),
+            isCentered: false,
+            priority: 'medium',
+          });
+        }
+
+        if (!edges.find((e) => e.id === `${contact['@id']}-${projId}`)) {
+          edges.push({
+            id: `${contact['@id']}-${projId}`,
+            source: contact['@id'] || '',
+            target: projId,
+            type: 'weak',
+            strength: 0.6,
+            relationship: 'collaborator',
+          });
+        }
+      });
     });
   }
 
@@ -356,6 +441,53 @@ const buildContactNetwork = (
         type: 'weak',
         strength: 0.4,
         relationship: 'attended',
+      });
+
+      // Find other contacts who attended this school
+      const eduContacts = allContacts.filter((c) => {
+        if (c['@id'] === centeredContact['@id']) return false;
+        if (!c.education) return false;
+        const contactEduArray = Array.from(c.education);
+        return contactEduArray.some((e) => e.value === eduName);
+      });
+
+      eduContacts.forEach((contact) => {
+        let contactName = resolveFrom(contact, 'name');
+        if (!contactName && contact.name) {
+          const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
+            ? (contact.name as any).toArray()
+            : Array.isArray(contact.name)
+            ? contact.name
+            : [contact.name];
+          if (nameArray.length > 0) {
+            contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
+          }
+        }
+        const contactPhoto = resolveFrom(contact, 'photo');
+        const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+
+        if (!nodes.find((n) => n.id === contact['@id'])) {
+          nodes.push({
+            id: contact['@id'] || contactNameValue,
+            type: 'person',
+            name: contactNameValue,
+            avatar: contactPhoto?.value,
+            initials: getInitials(contactNameValue),
+            isCentered: false,
+            priority: 'medium',
+          });
+        }
+
+        if (!edges.find((e) => e.id === `${contact['@id']}-${eduId}`)) {
+          edges.push({
+            id: `${contact['@id']}-${eduId}`,
+            source: contact['@id'] || '',
+            target: eduId,
+            type: 'weak',
+            strength: 0.4,
+            relationship: 'alumni',
+          });
+        }
       });
     });
   }
@@ -411,37 +543,27 @@ const buildContactNetwork = (
     });
   }
 
-  const centralityScores = calculateNetworkCentrality(nodes, edges, centeredNode.id);
-  const nodesWithCentrality = nodes.map((node) => ({
-    ...node,
-    centrality: centralityScores.get(node.id) || 0,
-  }));
-
-  return { nodes: nodesWithCentrality, edges };
+  return { nodes, edges };
 };
 
 export const useNetworkGraph = ({
   userId = 'me',
   userName = 'ME',
-  maxNodes = 30,
   contacts = [],
 }: UseNetworkGraphOptions) => {
+
   // Use selectors to avoid subscribing to the entire store
   const setNodes = useNetworkGraphStore(state => state.setNodes);
   const setEdges = useNetworkGraphStore(state => state.setEdges);
   const centeredNodeId = useNetworkGraphStore(state => state.centeredNodeId);
   const setAvailableViews = useNetworkViewStore(state => state.setAvailableViews);
   const currentView = useNetworkViewStore(state => state.currentView);
-
-  // Limit contacts to maxNodes
-  const limitedContacts = useMemo(() => {
-    return contacts.slice(0, maxNodes);
-  }, [contacts, maxNodes]);
+  const activeFilters = useNetworkViewStore(state => state.activeFilters);
 
   // Separate the base graph generation from view-specific filtering
   // This prevents unnecessary recalculation when only the view changes
   const baseGraphData = useMemo(() => {
-    if (!limitedContacts || limitedContacts.length === 0) {
+    if (!contacts || contacts.length === 0) {
       return { nodes: [], edges: [], centeredNodeId: null, graphType: 'empty' as const };
     }
 
@@ -450,7 +572,7 @@ export const useNetworkGraph = ({
         const entityType = centeredNodeId.startsWith('org-') ? 'org' : centeredNodeId.startsWith('proj-') ? 'proj' : 'edu';
 
         let entityName = '';
-        for (const contact of limitedContacts) {
+        for (const contact of contacts) {
           if (entityType === 'org' && contact.organization) {
             const orgArray = Array.from(contact.organization);
             for (const org of orgArray) {
@@ -483,20 +605,20 @@ export const useNetworkGraph = ({
         }
 
         if (entityName) {
-          const result = buildEntityNetwork(centeredNodeId, entityName, entityType, limitedContacts, userId, userName);
+          const result = buildEntityNetwork(centeredNodeId, entityName, entityType, contacts, userId, userName);
           return { ...result, centeredNodeId, graphType: 'entity' as const };
         }
       } else {
-        const centeredContact = limitedContacts.find((c) => c['@id'] === centeredNodeId);
+        const centeredContact = contacts.find((c) => c['@id'] === centeredNodeId);
         if (centeredContact) {
           return { centeredContact, centeredNodeId, graphType: 'contact' as const, nodes: [], edges: [] };
         }
       }
     }
 
-    const result = buildUserNetwork(limitedContacts, centeredNodeId, userId, userName, maxNodes);
+    const result = buildUserNetwork(contacts, centeredNodeId, userId, userName);
     return { ...result, centeredNodeId, graphType: 'user' as const };
-  }, [limitedContacts, centeredNodeId, userId, userName, maxNodes]);
+  }, [contacts, centeredNodeId, userId, userName]);
 
   // Apply view-specific filtering without recalculating the entire graph
   const { nodes, edges } = useMemo(() => {
@@ -505,50 +627,46 @@ export const useNetworkGraph = ({
     }
 
     if (baseGraphData.graphType === 'contact' && baseGraphData.centeredContact) {
-      return buildContactNetwork(baseGraphData.centeredContact, limitedContacts, userId, userName, currentView);
+      return buildContactNetwork(baseGraphData.centeredContact, contacts, userId, userName, currentView);
     }
 
-    return { nodes: baseGraphData.nodes, edges: baseGraphData.edges };
-  }, [baseGraphData, limitedContacts, userId, userName, currentView]);
+    let filteredEdges = baseGraphData.edges;
+
+    // Apply relationship filtering if active
+    const relationshipFilter = activeFilters.relationships;
+    if (relationshipFilter && relationshipFilter.length > 0) {
+      filteredEdges = baseGraphData.edges.filter(edge =>
+        edge.relationship && relationshipFilter.includes(edge.relationship)
+      );
+
+      // Get nodes that are still connected after filtering
+      const connectedNodeIds = new Set<string>();
+      filteredEdges.forEach(edge => {
+        const sourceId = typeof edge.source === 'string' ? edge.source : edge.source.id;
+        const targetId = typeof edge.target === 'string' ? edge.target : edge.target.id;
+        connectedNodeIds.add(sourceId);
+        connectedNodeIds.add(targetId);
+      });
+
+      // Filter nodes to only include those that are still connected or are the centered node
+      const filteredNodes = baseGraphData.nodes.filter(node =>
+        connectedNodeIds.has(node.id) || node.isCentered
+      );
+
+      return { nodes: filteredNodes, edges: filteredEdges };
+    }
+
+    return { nodes: baseGraphData.nodes, edges: filteredEdges };
+  }, [baseGraphData, contacts, userId, userName, currentView, activeFilters.relationships]);
 
   useEffect(() => {
-    if (nodes.length === 0) return; // Don't update if no nodes
-
-    const currentNodes = useNetworkGraphStore.getState().nodes;
-
-    // Quick check: different lengths means structure changed
-    if (currentNodes.length !== nodes.length) {
-      setNodes(nodes);
-      return;
-    }
-
-    // Use Set for O(1) lookups instead of O(n) for each comparison
-    const currentNodeIds = new Set(currentNodes.map(n => `${n.id}-${n.type}`));
-    const hasStructureChanged = nodes.some(n => !currentNodeIds.has(`${n.id}-${n.type}`));
-
-    if (hasStructureChanged) {
-      setNodes(nodes);
-    }
+    // Always update nodes when they change to ensure we replace the full node set
+    setNodes(nodes);
   }, [nodes, setNodes]);
 
   useEffect(() => {
-    if (edges.length > 0) {
-      const currentEdges = useNetworkGraphStore.getState().edges;
-
-      // Quick check: different lengths means structure changed
-      if (currentEdges.length !== edges.length) {
-        setEdges(edges);
-        return;
-      }
-
-      // Use Set for O(1) lookups instead of O(n) for each comparison
-      const currentEdgeIds = new Set(currentEdges.map(e => e.id));
-      const hasStructureChanged = edges.some(e => !currentEdgeIds.has(e.id));
-
-      if (hasStructureChanged) {
-        setEdges(edges);
-      }
-    }
+    // Always update edges when they change to ensure we replace the full edge set
+    setEdges(edges);
   }, [edges, setEdges]);
 
   useEffect(() => {

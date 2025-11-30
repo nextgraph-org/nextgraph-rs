@@ -1,5 +1,5 @@
 import {useContactData} from "@/hooks/contacts/useContactData";
-import {useEffect} from "react";
+import {useEffect, useRef} from "react";
 import {Contact} from "@/types/contact";
 
 /**
@@ -14,13 +14,14 @@ export function NetworkContactProbe({
   onContact: (nuri: string, contact: Contact | undefined) => void;
 }) {
   const {contact} = useContactData(nuri);
-
-  // Track whether contact has name to trigger updates when name loads
-  const hasName = contact?.name ? true : false;
+  const lastContactRef = useRef<Contact | undefined>(undefined);
 
   useEffect(() => {
-    onContact(nuri, contact);
-  }, [nuri, contact, onContact, hasName]);
+    if (contact !== lastContactRef.current) {
+      lastContactRef.current = contact;
+      onContact(nuri, contact);
+    }
+  }, [nuri, contact, onContact]);
 
   return null;
 }

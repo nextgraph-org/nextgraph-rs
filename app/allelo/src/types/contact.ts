@@ -16,6 +16,8 @@ export interface Contact extends SocialContact {
   recentInteractionScore?: number;
   sharedTagsCount?: number;
   isDraft?: boolean;
+  linkedinCentrality?: number;
+  networkCentrality?: number;
 }
 
 export interface SimpleMockContact {
