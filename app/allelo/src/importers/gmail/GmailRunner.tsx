@@ -1,11 +1,16 @@
 import {SourceRunnerProps} from "@/types/importSource.ts";
-import {useGoogleLogin} from "@react-oauth/google";
 import {useCallback, useEffect, useMemo} from "react";
 import {Contact} from "@/types/contact.ts";
 import {getContactIriValue} from "@/utils/socialContact/dictMapper.ts";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
 import {processContactFromJSON} from "@/utils/socialContact/contactUtils.ts";
 import {bcpCodeToIRI} from "@/utils/bcp47map.ts";
+
+import { 
+  signIn, 
+} from '@choochmeque/tauri-plugin-google-auth-api';
+import { GOOGLE_CLIENTS } from "@/config/google";
+
 
 const googleFetch = (url: string, token: string, init: RequestInit = {}) =>
   fetch(url, {
@@ -270,34 +275,41 @@ export function GmailRunner({open, onClose, onError, onGetResult}: SourceRunnerP
     onGetResult(contacts);
   }, [onGetResult, isNextGraph]);
 
-  const login = useGoogleLogin({
-    flow: 'implicit',
-    scope: [
-      'openid',
-      'https://www.googleapis.com/auth/gmail.readonly',
-      'https://www.googleapis.com/auth/userinfo.profile',
-      'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/contacts.readonly',
-    ].join(' '),
-    include_granted_scopes: true,
-    onSuccess: async (tokenResponse: { access_token?: string; credential?: string }) => {
-      const accessToken = tokenResponse.access_token;
+  const login = useCallback(async () => {
+    try {
 
-      if (!accessToken) {
+      const platform = import.meta.env.TAURI_ENV_PLATFORM;
+      const clientId = platform === 'ios' ? GOOGLE_CLIENTS.IOS.id : (platform === 'android' ? GOOGLE_CLIENTS.ANDROID.id : GOOGLE_CLIENTS.DESKTOP.id);
+      const clientSecret = platform === 'ios' ? GOOGLE_CLIENTS.IOS.secret : (platform === 'android' ? GOOGLE_CLIENTS.ANDROID.secret : GOOGLE_CLIENTS.DESKTOP.secret);
+      const tokens = await signIn({
+        clientId: clientId,
+        clientSecret: clientSecret, // Required for desktop
+        scopes: [
+          'openid',
+          'https://www.googleapis.com/auth/gmail.readonly',
+          'https://www.googleapis.com/auth/userinfo.profile',
+          'https://www.googleapis.com/auth/userinfo.email',
+          'https://www.googleapis.com/auth/contacts.readonly',
+        ]
+      });
+      
+      console.log('Sign-in successful:', tokens);
+      if (!tokens.accessToken) {
         return onError(new Error('No access_token provided'));
       }
 
-      await getContacts(accessToken);
-    },
-    onError: onError,
-    onNonOAuthError: (err: any) => {
-      if (err.type === "popup_closed") {
-        onClose();
-      } else {
-        onError(err);
+      await getContacts(tokens.accessToken);
+      
+    } catch (error: any) {
+      console.error('Sign in failed:', error);
+      
+      if (error.includes('cancelled')) {
+        console.log('User cancelled sign-in');
+      } else if (error.includes('network')) {
+        console.log('Network error occurred');
       }
-    },
-  });
+    }
+  }, []);
 
   useEffect(() => {
     if (open) {

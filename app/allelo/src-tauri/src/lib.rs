@@ -34,6 +34,8 @@ use ng_wallet::*;
 
 use nextgraph::local_broker::*;
 
+use tauri_plugin_google_auth;
+
 #[cfg(mobile)]
 mod mobile;
 #[cfg(mobile)]
@@ -1138,7 +1140,8 @@ impl AppBuilder {
             // }
             Ok(())
         });
-        builder = builder.plugin(tauri_plugin_opener::init());
+        builder = builder.plugin(tauri_plugin_opener::init())
+            .plugin(tauri_plugin_google_auth::init());
         #[cfg(mobile)]
         {
             builder = builder
