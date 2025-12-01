@@ -7,34 +7,33 @@ import {
 	FullscreenExit,
 	Fullscreen,
 } from "@mui/icons-material";
-import { dataService } from "@/services/dataService";
 import { useContacts } from "@/hooks/contacts/useContacts";
 import type { Group, GroupPost } from "@/types/group";
 import {
-	InviteForm,
 	type InviteFormData,
 } from "@/components/invitations/InviteForm";
-import { NetworkView } from "./NetworkView";
 import { ContactMap } from "@/components/ContactMap";
-import { ActivityFeed } from "./ActivityFeed";
-import { GroupDocs } from "./GroupDocs";
-import { Conversation } from "@/components/chat/Conversation";
-import { getMockMembers, getGroupMessages, getMockPosts } from "./mocks";
 import { GroupTabs } from "@/components/groups/GroupDetailPage/GroupTabs";
+import {getGroupMessages, getMockMembers, getMockPosts} from "@/components/groups/GroupDetailPage/mocks.ts";
+import {ActivityFeed} from "@/components/groups/GroupDetailPage/ActivityFeed";
+import {NetworkView} from "@/components/groups/GroupDetailPage/NetworkView";
+import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 
 const GroupDetailPage = () => {
 	const { groupId } = useParams<{ groupId: string }>();
-	const navigate = useNavigate();
-	const [searchParams, setSearchParams] = useSearchParams();
+	const { group} = useGroupData(groupId);
 
-	const [group, setGroup] = useState<Group | null>(null);
+	const navigate = useNavigate();
+
 	const [posts, setPosts] = useState<GroupPost[]>([]);
 	const [tabValue, setTabValue] = useState(0); // Default to combined view
-	const [isLoading, setIsLoading] = useState(true);
+	const [isLoading, setIsLoading] = useState(false);
 	const [showInviteForm, setShowInviteForm] = useState(false);
 	const [selectedContactNuri, setSelectedContactNuri] = useState<
 		string | undefined
 	>();
+
+	const tags = ""; //TODO: group.tag?.join(", ")
 
 	// Chat functionality state
 	const [groupChatMessage, setGroupChatMessage] = useState("");
@@ -50,81 +49,11 @@ const GroupDetailPage = () => {
 
   }, [addFilter, groupId]);
 
-	const groupMessages = getGroupMessages();
 	const members = getMockMembers();
 
 	const [fullscreenSection, setFullscreenSection] = useState<
 		"activity" | "network" | "map" | null
 	>(null);
-
-	useEffect(() => {
-		const loadGroupData = async () => {
-			if (!groupId) return;
-
-			setIsLoading(true);
-			try {
-				const groupData = await dataService.getGroup(groupId);
-				setGroup(groupData || null);
-
-				// Check if this is user's first visit to this group or came from invitation
-				const hasVisitedKey = `hasVisited_group_${groupId}`;
-				const fromInvite = searchParams.get("fromInvite") === "true";
-				const newMember = searchParams.get("newMember") === "true";
-
-				// Handle returning from contact selection
-				const contactNuri = searchParams.get("selectedContactNuri");
-				if (contactNuri) {
-					setSelectedContactNuri(contactNuri);
-					setShowInviteForm(true);
-
-					// Clean up selection parameters
-					const newSearchParams = new URLSearchParams(searchParams);
-					newSearchParams.delete("selectedContactNuri");
-					setSearchParams(newSearchParams);
-				}
-
-				// Handle new members who just joined from an invitation
-				if ((fromInvite || newMember) && groupData) {
-					// Mark as visited
-					localStorage.setItem(hasVisitedKey, "true");
-
-					// Check if this is an existing member who just selected their rCard
-					const existingMember = searchParams.get("existingMember") === "true";
-					const selectedRCard = searchParams.get("rCard");
-
-					if (existingMember && selectedRCard) {
-						// Store the selected rCard for this group membership
-						sessionStorage.setItem(`groupRCard_${groupId}`, selectedRCard);
-						console.log(
-							`User joined ${groupData.name} with rCard: ${selectedRCard}`,
-						);
-					}
-
-					// Clean up URL parameters after processing
-					if (fromInvite || newMember) {
-						const newSearchParams = new URLSearchParams(searchParams);
-						newSearchParams.delete("fromInvite");
-						newSearchParams.delete("newMember");
-						newSearchParams.delete("firstName");
-						newSearchParams.delete("inviteeName");
-						newSearchParams.delete("existingMember");
-						newSearchParams.delete("rCard");
-						setSearchParams(newSearchParams);
-					}
-				}
-
-				const mockPosts = getMockPosts(groupId);
-				setPosts(mockPosts);
-				console.log("Posts loaded:", mockPosts.length, "posts");
-			} catch (error) {
-				console.error("Failed to load group data:", error);
-			} finally {
-				setIsLoading(false);
-			}
-		};
-
-		loadGroupData();
-	}, [groupId, searchParams, setSearchParams]);
 
 	// Scroll to bottom when chat messages change
 	useEffect(() => {
@@ -169,13 +98,6 @@ const GroupDetailPage = () => {
 
 	const scrollToBottom = () => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	};
-
-	const handleSendGroupMessage = () => {
-		if (groupChatMessage.trim()) {
-			console.log("Sending group message:", groupChatMessage);
-			setGroupChatMessage("");
-		}
 	};
 
 	const handleFullscreenToggle = (section: "activity" | "network" | "map") => {
@@ -349,7 +271,6 @@ const GroupDetailPage = () => {
 	return (
 		<Box
 			sx={{
-				bgcolor: "background.default",
 				width: "100%",
 			}}
 		>
@@ -370,8 +291,8 @@ const GroupDetailPage = () => {
 						</IconButton>
 
 						<Avatar
-							src={group.image}
-							alt={group.name}
+							//src={group.image}
+							//alt={group.title}
 							sx={{
 								width: { xs: 40, md: 56 },
 								height: { xs: 40, md: 56 },
@@ -382,15 +303,15 @@ const GroupDetailPage = () => {
 								flexShrink: 0,
 							}}
 						>
-							{group.name.charAt(0)}
+							{group.title.charAt(0)}
 						</Avatar>
 
 						<Box sx={{ flex: 1, minWidth: 0 }}>
 							<Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-								{group.name}
+								{group.title}
 							</Typography>
 							<Typography variant="body2" color="text.secondary">
-								{group.memberCount} members • {group.tags?.join(", ")}
+								{group.hasMember?.size} members • {tags}
 							</Typography>
 						</Box>
 					</Box>
@@ -441,7 +362,7 @@ const GroupDetailPage = () => {
 				</Box>
 
 				{/* Tabs */}
-				<GroupTabs tabValue={tabValue} onTabChange={handleTabChange} />
+				{/*<GroupTabs tabValue={tabValue} onTabChange={handleTabChange} />*/}
 
 				{/* Tab Content */}
 				{tabValue === 0 && (
@@ -454,7 +375,7 @@ const GroupDetailPage = () => {
 						}}
 					>
 						<ActivityFeed
-							posts={posts}
+							posts={getMockPosts("1")}
 							onFullscreenToggle={handleFullscreenToggle}
 						/>
 
@@ -554,7 +475,7 @@ const GroupDetailPage = () => {
 					</Box>
 				)}
 
-				{tabValue === 1 && (
+				{/*{tabValue === 1 && (
 					<Box sx={{ mt: 2, bgcolor: "background.paper", borderRadius: 2 }}>
 						<Conversation
 							messages={groupMessages}
@@ -578,11 +499,11 @@ const GroupDetailPage = () => {
 					</Box>
 				)}
 
-				{tabValue === 2 && <GroupDocs />}
+				{tabValue === 2 && <GroupDocs />}*/}
 			</Box>
 
 			{/* Invite Form */}
-			{group && (
+			{/*TODO: {group && (
 				<InviteForm
 					open={showInviteForm}
 					onClose={() => {
@@ -594,7 +515,7 @@ const GroupDetailPage = () => {
 					group={group}
 					inviteeNuri={selectedContactNuri}
 				/>
-			)}
+			)}*/}
 		</Box>
 	);
 };

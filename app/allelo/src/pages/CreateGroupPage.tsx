@@ -1,5 +1,5 @@
 import {useState, useRef, useCallback} from 'react';
-import { useNavigate } from 'react-router-dom';
+import {useNavigate} from 'react-router-dom';
 import {
   Typography,
   Box,
@@ -19,9 +19,13 @@ import {
   UilUsersAlt,
   UilUser,
 } from '@iconscout/react-unicons';
+import {useSaveGroups} from "@/hooks/groups/useSaveGroups.ts";
+import {SocialGroup} from "@/.ldo/group.typings.ts";
+import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
+import {useContactData} from "@/hooks/contacts/useContactData.ts";
 
 interface GroupFormData {
-  name: string;
+  title: string;
   description: string;
   logo: File | null;
   logoPreview: string;
@@ -33,20 +37,24 @@ const CreateGroupPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tagInput, setTagInput] = useState('');
   const [formData, setFormData] = useState<GroupFormData>({
-    name: '',
+    title: '',
     description: '',
     logo: null,
     logoPreview: '',
     tags: []
   });
 
+  const {createGroup} = useSaveGroups();
+  const {contact} = useContactData(undefined, true);
+
   const handleBack = () => {
     navigate('/groups');
   };
 
+  //TODO: select members
   const handleNext = useCallback(() => {
     // Validate form before proceeding
-    if (!formData.name.trim()) {
+    if (!formData.title.trim()) {
       return; // TODO: Show validation error
     }
     // Navigate to contact selection
@@ -55,7 +63,25 @@ const CreateGroupPage = () => {
     params.set('returnTo', 'create-group');
     params.set('groupData', encodeURIComponent(JSON.stringify(formData)));
     navigate(`/contacts?${params.toString()}`);
-  }, [formData, navigate] );
+  }, [formData, navigate]);
+
+  const handleCreateGroup = useCallback(async () => {
+    // Validate form before proceeding
+    if (!formData.title.trim()) {
+      return; // TODO: Show validation error
+    }
+    const group: Partial<SocialGroup> = {
+      title: formData.title,
+      description: formData.description,
+      createdAt: new Date().toISOString(),
+      // @ts-expect-error ldo
+      hasAdmin: new BasicLdSet([{"@id": contact!["@id"]}])
+
+    }
+
+    await createGroup(group);
+
+  }, [contact, createGroup, formData.description, formData.title]);
 
   const handleInputChange = (field: keyof GroupFormData, value: string) => {
     setFormData(prev => ({
@@ -104,33 +130,33 @@ const CreateGroupPage = () => {
   };
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       width: '100%',
-      maxWidth: { xs: '100vw', md: '800px' },
+      maxWidth: {xs: '100vw', md: '800px'},
       mx: 'auto',
-      pt: { xs: 1.5, md: 2 },
+      pt: {xs: 1.5, md: 2},
       pb: 0,
     }}>
       {/* Header */}
-      <Box sx={{ 
-        mb: { xs: 2, md: 3 },
-        px: { xs: '10px', md: 0 }
+      <Box sx={{
+        mb: {xs: 2, md: 3},
+        px: {xs: '10px', md: 0}
       }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: { xs: 1, md: 2 }, 
-          mb: { xs: 2, md: 3 }
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: {xs: 1, md: 2},
+          mb: {xs: 2, md: 3}
         }}>
-          <IconButton onClick={handleBack} size="large" sx={{ flexShrink: 0 }}>
-            <UilArrowLeft size="24" />
+          <IconButton onClick={handleBack} size="large" sx={{flexShrink: 0}}>
+            <UilArrowLeft size="24"/>
           </IconButton>
-          <Typography 
-            variant="h4" 
-            component="h1" 
-            sx={{ 
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
               fontWeight: 700,
-              fontSize: { xs: '1.5rem', md: '2.125rem' }
+              fontSize: {xs: '1.5rem', md: '2.125rem'}
             }}
           >
             Create New Group
@@ -140,137 +166,145 @@ const CreateGroupPage = () => {
       </Box>
 
       {/* Form Content */}
-      <Box sx={{ px: { xs: '10px', md: 0 } }}>
+      <Box sx={{px: {xs: '10px', md: 0}}}>
         <Card>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-                Group Information
+          <CardContent sx={{p: 4}}>
+            <Typography variant="h6" sx={{fontWeight: 600, mb: 3}}>
+              Group Information
+            </Typography>
+
+            {/* Logo Upload */}
+            <Box sx={{mb: 4, textAlign: 'center'}}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleLogoUpload}
+                accept="image/*"
+                style={{display: 'none'}}
+              />
+              <Box sx={{position: 'relative', display: 'inline-block'}}>
+                <Avatar
+                  src={formData.logoPreview}
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    bgcolor: 'primary.main',
+                    fontSize: '3rem',
+                    cursor: 'pointer',
+                    mb: 2
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {!formData.logoPreview && <UilUsersAlt size="48"/>}
+                </Avatar>
+                <IconButton
+                  sx={{
+                    position: 'absolute',
+                    bottom: 8,
+                    right: -8,
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {bgcolor: 'primary.dark'}
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <UilCamera size="20"/>
+                </IconButton>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Click to upload group logo
+              </Typography>
+            </Box>
+
+            {/* Group Name */}
+            <TextField
+              fullWidth
+              placeholder="Group Name"
+              value={formData.title}
+              onChange={(e) => handleInputChange('title', e.target.value)}
+              sx={{mb: 3}}
+              required
+            />
+
+            {/* Description */}
+            <TextField
+              fullWidth
+              placeholder="Description"
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              multiline
+              rows={4}
+              sx={{mb: 3}}
+            />
+
+            {/* Tags */}
+            <Box sx={{mb: 4}}>
+              <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
+                Tags
               </Typography>
 
-              {/* Logo Upload */}
-              <Box sx={{ mb: 4, textAlign: 'center' }}>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleLogoUpload}
-                  accept="image/*"
-                  style={{ display: 'none' }}
+              {/* Tag Input */}
+              <Box sx={{display: 'flex', gap: 1, mb: 2}}>
+                <TextField
+                  fullWidth
+                  placeholder="Add a tag..."
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  size="small"
                 />
-                <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                  <Avatar
-                    src={formData.logoPreview}
-                    sx={{
-                      width: 120,
-                      height: 120,
-                      bgcolor: 'primary.main',
-                      fontSize: '3rem',
-                      cursor: 'pointer',
-                      mb: 2
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {!formData.logoPreview && <UilUsersAlt size="48" />}
-                  </Avatar>
-                  <IconButton
-                    sx={{
-                      position: 'absolute',
-                      bottom: 8,
-                      right: -8,
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      '&:hover': { bgcolor: 'primary.dark' }
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <UilCamera size="20" />
-                  </IconButton>
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  Click to upload group logo
-                </Typography>
-              </Box>
-
-              {/* Group Name */}
-              <TextField
-                fullWidth
-                placeholder="Group Name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                sx={{ mb: 3 }}
-                required
-              />
-
-              {/* Description */}
-              <TextField
-                fullWidth
-                placeholder="Description"
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                multiline
-                rows={4}
-                sx={{ mb: 3 }}
-              />
-
-              {/* Tags */}
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                  Tags
-                </Typography>
-                
-                {/* Tag Input */}
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  <TextField
-                    fullWidth
-                    placeholder="Add a tag..."
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    size="small"
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={handleAddTag}
-                    disabled={!tagInput.trim()}
-                    startIcon={<UilPlus size="20" />}
-                  >
-                    Add
-                  </Button>
-                </Box>
-
-                {/* Tag Display */}
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {formData.tags.map((tag) => (
-                    <Chip
-                      key={tag}
-                      label={tag}
-                      onDelete={() => handleRemoveTag(tag)}
-                      deleteIcon={<UilTimes size="16" />}
-                      variant="outlined"
-                      sx={{ borderRadius: 1 }}
-                    />
-                  ))}
-                </Box>
-              </Box>
-
-              {/* Actions */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
                 <Button
                   variant="outlined"
-                  onClick={handleBack}
+                  onClick={handleAddTag}
+                  disabled={!tagInput.trim()}
+                  startIcon={<UilPlus size="20"/>}
                 >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={handleNext}
-                  disabled={!formData.name.trim()}
-                  startIcon={<UilUser size="20" />}
-                >
-                  Select Members
+                  Add
                 </Button>
               </Box>
-            </CardContent>
-          </Card>
+
+              {/* Tag Display */}
+              <Box sx={{display: 'flex', gap: 1, flexWrap: 'wrap'}}>
+                {formData.tags.map((tag) => (
+                  <Chip
+                    key={tag}
+                    label={tag}
+                    onDelete={() => handleRemoveTag(tag)}
+                    deleteIcon={<UilTimes size="16"/>}
+                    variant="outlined"
+                    sx={{borderRadius: 1}}
+                  />
+                ))}
+              </Box>
+            </Box>
+
+            {/* Actions */}
+            <Box sx={{display: 'flex', justifyContent: 'space-between', mt: 4}}>
+              <Button
+                variant="outlined"
+                onClick={handleBack}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleNext}
+                disabled={!formData.title.trim()}
+                startIcon={<UilUser size="20"/>}
+              >
+                Select Members
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleCreateGroup}
+                disabled={!formData.title.trim()}
+                startIcon={<UilUser size="20"/>}
+              >
+                Create Group
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
       </Box>
     </Box>
   );

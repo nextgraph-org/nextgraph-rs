@@ -171,6 +171,7 @@ class GroupService {
       throw new Error('No active session available');
     }
 
+    //TODO: this doesn't store on protectedStore
     const protectedStoreId = "did:ng:" + session.protectedStoreId;
     const resource = await dataset.createResource("nextgraph", {storeRepo: protectedStoreId});
 

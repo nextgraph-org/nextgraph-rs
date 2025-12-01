@@ -2,7 +2,7 @@ import {alpha, Avatar, Badge, Box, Typography, useTheme} from "@mui/material";
 import {UilUsersAlt as People, UilUsersAlt as Group} from "@iconscout/react-unicons";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 
-export const GroupItem = ({nuri}: { nuri: string }) => {
+export const GroupItem = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (id: string) => void }) => {
   const {group} = useGroupData(nuri);
   const theme = useTheme();
 
@@ -10,7 +10,7 @@ export const GroupItem = ({nuri}: { nuri: string }) => {
 
   return <Box
     key={group["@id"]}
-    //onClick={() => onGroupClick(group.id)}
+    onClick={() => onGroupClick(nuri)}
     sx={{
       cursor: 'pointer',
       p: 2,
@@ -56,28 +56,9 @@ export const GroupItem = ({nuri}: { nuri: string }) => {
           <Box sx={{display: 'flex', alignItems: 'center', gap: 0.25}}>
             <People sx={{fontSize: 14, color: 'text.secondary'}}/>
             <Typography variant="body2" color="text.secondary" sx={{fontWeight: 600}}>
-              {/*{group.memberCount}*/}
+              {group.hasMember?.size}
             </Typography>
           </Box>
-        </Box>
-
-        <Box sx={{display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0}}>
-          {/*{group.unreadCount && group.unreadCount > 0 && (
-            <Badge
-              badgeContent={group.unreadCount}
-              color="primary"
-              sx={{
-                '& .MuiBadge-badge': {
-                  fontSize: '0.65rem',
-                  height: 16,
-                  minWidth: 16,
-                  borderRadius: '8px'
-                }
-              }}
-            >
-              <Box sx={{width: 8, height: 8}}/>
-            </Badge>
-          )}*/}
         </Box>
       </Box>
     </Box>

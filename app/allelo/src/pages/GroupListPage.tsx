@@ -1,32 +1,28 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
   Box,
-  TextField,
-  InputAdornment,
   Button,
 } from '@mui/material';
 import {
-  UilSearch as Search,
   UilPlus as Add,
 } from '@iconscout/react-unicons';
 import { GroupFeed } from '@/components/groups/GroupPage/GroupFeed/GroupFeed';
 import {useGroups} from "@/hooks/groups/useGroups.ts";
+import {useCallback} from "react";
+import {SearchFilter} from "@/components/contacts/ContactFilters";
 
-export const GroupPage = () => {
+export const GroupListPage = () => {
   const {
     isLoading,
+    groupsNuris,
     addFilter,
-    clearFilters,
-    filters,
-    hasMore,
-    loadMore,
-    totalCount,
-    groupsNuris
+    filters
   } = useGroups({limit: 10});
-  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  const searchQuery = filters.searchQuery;
+  const setSearchQuery = useCallback((value: string) => addFilter("searchQuery", value), [addFilter]);
 
   const handleGroupClick = (groupId: string) => {
     navigate(`/groups/${groupId}`);
@@ -87,56 +83,13 @@ export const GroupPage = () => {
         </Button>
       </Box>
 
-      {/* Mobile Search */}
-      <Box sx={{ 
-        display: { xs: 'block', md: 'none' },
+      <Box sx={{
         mb: 2,
         width: '100%', 
         overflow: 'hidden',
         boxSizing: 'border-box'
       }}>
-        <TextField
-          fullWidth
-          placeholder="Search groups..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-          }}
-          size="small"
-          sx={{ 
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-            }
-          }}
-        />
-      </Box>
-
-      {/* Desktop Search */}
-      <Box sx={{ 
-        display: { xs: 'none', md: 'block' },
-        mb: 3,
-        width: '100%', 
-        overflow: 'hidden',
-        boxSizing: 'border-box'
-      }}>
-        <TextField
-          fullWidth
-          placeholder="Search groups..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-          }}
-        />
+        <SearchFilter placeholder={"Search groups..."} value={searchQuery ?? ""} onSearchChange={(res) => setSearchQuery(res)}/>
       </Box>
 
       {/* Group Feed */}

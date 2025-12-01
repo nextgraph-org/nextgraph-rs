@@ -19,7 +19,21 @@ export interface UseGroupsParams {
   initialFilters?: Partial<GroupFilters>;
 }
 
-export const useGroups = ({limit = 10, initialFilters}: UseGroupsParams = {}) => {
+interface useGroupsReturn {
+  groupsNuris: string[]
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  error: Error | null;
+  addFilter: (key: keyof GroupFilters, value: GroupFilters[keyof GroupFilters]) => void;
+  clearFilters: () => void;
+  filters: GroupFilters;
+  hasMore: boolean;
+  loadMore: () => void;
+  totalCount: number;
+  reloadGroups: () => void;
+}
+
+export const useGroups = ({limit = 10, initialFilters}: UseGroupsParams = {}): useGroupsReturn => {
   const [groupsNuris, setGroupsNuris] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -60,7 +74,9 @@ export const useGroups = ({limit = 10, initialFilters}: UseGroupsParams = {}) =>
     const totalContactsInDB = groupsCountResult.results.bindings[0].totalCount.value as number;
 
     setTotalCount(totalContactsInDB);
-    const containerOverlay = session.protectedStoreId!.substring(46);
+
+    //TODO: this should be changed to another store
+    const containerOverlay = session.privateStoreId!.substring(46);
     // @ts-expect-error TODO output format of ng sparql query
     return groupsIDsResult.results.bindings.map(
       (binding) => binding.groupUri.value + containerOverlay

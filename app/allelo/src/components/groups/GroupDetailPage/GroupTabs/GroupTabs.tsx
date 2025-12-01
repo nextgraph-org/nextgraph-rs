@@ -2,8 +2,6 @@ import { forwardRef } from 'react';
 import { Box, Tabs, Tab } from '@mui/material';
 import {
   UilDashboard as Dashboard,
-  UilCommentAltDots as Chat,
-  UilFileAlt as Description,
 } from '@iconscout/react-unicons';
 import type { GroupTabsProps } from './types';
 
@@ -11,8 +9,8 @@ export const GroupTabs = forwardRef<HTMLDivElement, GroupTabsProps>(
   ({ tabValue, onTabChange }, ref) => {
     const tabs = [
       { label: 'Overview', icon: <Dashboard /> },
-      { label: 'Chat', icon: <Chat /> },
-      { label: 'Docs', icon: <Description /> },
+     /* { label: 'Chat', icon: <Chat /> },*/
+      // { label: 'Docs', icon: <Description /> },
     ];
 
     return (

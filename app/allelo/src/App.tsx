@@ -14,8 +14,8 @@ import {WelcomeToVaultPage} from '@/components/auth/WelcomeToVaultPage';
 import ImportPage from '@/pages/ImportPage';
 import ContactListPage from '@/pages/ContactListPage';
 import ContactViewPage from '@/pages/ContactViewPage';
-import {GroupPage} from '@/pages/GroupPage';
-import GroupDetailPage from '@/components/groups/GroupDetailPage/GroupDetailPage';
+import {GroupListPage} from '@/pages/GroupListPage.tsx';
+import GroupDetailPage from '@/pages/GroupDetailPage';
 import {GroupInfoPage} from '@/components/groups/GroupInfoPage';
 import CreateGroupPage from '@/pages/CreateGroupPage';
 import {InvitationPage} from '@/components/invitations/InvitationPage';
@@ -110,7 +110,7 @@ const RoutesWithAuth = () => {
                 <Route path="/contacts" element={<ContactListPage/>}/>
                 <Route path="/contacts/create" element={<CreateContactPage/>}/>
                 <Route path="/contacts/:id" element={<ContactViewPage/>}/>
-                <Route path="/groups" element={<GroupPage/>}/>
+                <Route path="/groups" element={<GroupListPage/>}/>
                 <Route path="/groups/create" element={<CreateGroupPage/>}/>
                 <Route path="/groups/:groupId" element={<GroupDetailPage/>}/>
                 <Route path="/groups/:groupId/info" element={<GroupInfoPage/>}/>
