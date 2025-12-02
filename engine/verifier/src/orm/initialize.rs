@@ -101,14 +101,10 @@ impl Verifier {
 
         let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
         let root_shape = schema.get(&orm_subscription.shape_type.shape).unwrap();
-        let Some(_root_changes) = changes.get(&root_shape.iri).map(|s| s.values()) else {
-            return Ok(Value::Array(vec![]));
-        };
 
         let mut return_val = json!({});
         let obj_map = return_val.as_object_mut().unwrap();
 
-        log_debug!("\nMaterializing: {}", orm_subscription.shape_type.shape);
         // For each valid change struct, we build an orm object.
         for (graph_iri, subject_iri, tracked_orm_object) in
             orm_subscription.iter_objects_by_shape(&orm_subscription.shape_type.shape)

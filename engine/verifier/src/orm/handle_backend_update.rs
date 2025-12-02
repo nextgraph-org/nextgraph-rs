@@ -132,9 +132,7 @@ impl Verifier {
             }
 
             // Put the subscriptions back
-            if !subs.is_empty() {
-                self.orm_subscriptions.insert(scope_str, subs);
-            }
+            self.orm_subscriptions.insert(scope_str, subs);
         }
     }
 

@@ -31,7 +31,7 @@ const useShape = <T extends BaseType>(
             stopListening();
             handle.stop();
         };
-    }, []);
+    }, [shape, scope]);
 
     return shapeSignalRef.current?.signalObject;
 };
