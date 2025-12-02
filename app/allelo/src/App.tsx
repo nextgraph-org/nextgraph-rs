@@ -14,9 +14,9 @@ import {WelcomeToVaultPage} from '@/components/auth/WelcomeToVaultPage';
 import ImportPage from '@/pages/ImportPage';
 import ContactListPage from '@/pages/ContactListPage';
 import ContactViewPage from '@/pages/ContactViewPage';
-import {GroupListPage} from '@/pages/GroupListPage.tsx';
+import {GroupListPage} from '@/pages/GroupListPage';
 import GroupDetailPage from '@/pages/GroupDetailPage';
-import {GroupInfoPage} from '@/components/groups/GroupInfoPage';
+import {GroupInfoPage} from '@/pages/GroupInfoPage';
 import CreateGroupPage from '@/pages/CreateGroupPage';
 import {InvitationPage} from '@/components/invitations/InvitationPage';
 import HomePage from '@/pages/HomePage';
@@ -27,7 +27,7 @@ import {PhoneVerificationPage} from '@/components/account/PhoneVerificationPage'
 import {createAppTheme} from '@/theme/theme';
 import CreateContactPage from "@/pages/CreateContactPage";
 import CreateProfilePage from "@/pages/CreateProfilePage";
-import {AccountPage} from "@/pages/AccountPage.tsx";
+import {AccountPage} from "@/pages/AccountPage";
 import {OnboardingRoute} from '@/components/routing/OnboardingRoute';
 
 import {useSvelteComponent} from "svelte-in-react";

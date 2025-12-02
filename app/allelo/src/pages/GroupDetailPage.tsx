@@ -13,7 +13,6 @@ import {
 	type InviteFormData,
 } from "@/components/invitations/InviteForm";
 import { ContactMap } from "@/components/ContactMap";
-import { GroupTabs } from "@/components/groups/GroupDetailPage/GroupTabs";
 import {getGroupMessages, getMockMembers, getMockPosts} from "@/components/groups/GroupDetailPage/mocks.ts";
 import {ActivityFeed} from "@/components/groups/GroupDetailPage/ActivityFeed";
 import {NetworkView} from "@/components/groups/GroupDetailPage/NetworkView";

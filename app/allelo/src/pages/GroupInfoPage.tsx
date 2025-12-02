@@ -10,24 +10,10 @@ import {
   DialogContent,
   DialogActions, 
   Avatar, 
-  Tabs,
-  Tab,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Checkbox,
-  Card,
-  CardContent,
-  Chip,
 } from '@mui/material';
 import {
   UilArrowLeft as ArrowBack,
   UilSignOutAlt as ExitToApp,
-  UilTrashAlt as Delete,
-  UilFileAlt as Description,
-  UilUsersAlt as People,
-  UilShareAlt as Share,
   UilTimes as Close,
   UilEdit as Edit,
   UilCheck as Save,
@@ -36,11 +22,10 @@ import {
 import { dataService } from '@/services/dataService';
 import type { Group } from '@/types/group';
 import type { Contact } from '@/types/contact';
-import { InviteForm, type InviteFormData } from '@/components/invitations/InviteForm';
-import { GroupStats } from '../GroupStats';
-import { EditableGroupStats } from '../EditableGroupStats';
-import { MembersList } from '../MembersList';
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import { type InviteFormData } from '@/components/invitations/InviteForm';
+import {GroupStats, MembersList} from "@/components/groups";
+import {EditableGroupStats} from "@/components/groups/GroupInfoPage/EditableGroupStats";
+import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 
 interface Member {
   id: string;
@@ -55,221 +40,21 @@ interface ExtendedGroup extends Group {
   memberDetails?: Member[];
 }
 
-interface SharedFile {
-  id: string;
-  name: string;
-  type: 'document' | 'spreadsheet' | 'image' | 'pdf';
-  size: string;
-  sharedAt: Date;
-  sharedBy: string;
-}
-
-const getMockMembers = (): Member[] => [
-  {
-    id: 'oli-sb',
-    name: 'Oliver Sylvester-Bradley',
-    avatar: '/images/Oli.jpg',
-    role: 'Admin',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 365), // 1 year ago
-  },
-  {
-    id: 'ruben-daniels',
-    name: 'Ruben Daniels',
-    avatar: '/images/Ruben.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 300), // 300 days ago
-  },
-  {
-    id: 'margeigh-novotny',
-    name: 'Margeigh Novotny',
-    avatar: '/images/Margeigh.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 280), // 280 days ago
-  },
-  {
-    id: 'alex-lion',
-    name: 'Alex Lion Yes!',
-    avatar: '/images/Alex.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 250), // 250 days ago
-  },
-  {
-    id: 'day-waterbury',
-    name: 'Day Waterbury',
-    avatar: '/images/Day.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 200), // 200 days ago
-  },
-  {
-    id: 'kevin-triplett',
-    name: 'Kevin Triplett',
-    avatar: '/images/Kevin.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180), // 180 days ago
-  },
-  {
-    id: 'tim-bansemer',
-    name: 'Tim Bansemer',
-    avatar: '/images/Tim.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 150), // 150 days ago
-  },
-  {
-    id: 'aza-mafi',
-    name: 'Aza Mafi',
-    avatar: '/images/Aza.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 120), // 120 days ago
-  },
-  {
-    id: 'duke-dorje',
-    name: 'Duke Dorje',
-    avatar: '/images/Duke.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 100), // 100 days ago
-  },
-  {
-    id: 'david-thomson',
-    name: 'David Thomson',
-    avatar: '/images/David.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 80), // 80 days ago
-  },
-  {
-    id: 'samuel-gbafa',
-    name: 'Samuel Gbafa',
-    avatar: '/images/Sam.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60), // 60 days ago
-  },
-  {
-    id: 'meena-seshamani',
-    name: 'Meena Seshamani',
-    avatar: '/images/Meena.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 40), // 40 days ago
-  },
-  {
-    id: 'niko-bonnieure',
-    name: 'Niko Bonnieure',
-    avatar: '/images/Niko.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30), // 30 days ago
-  },
-  {
-    id: 'tree-willard',
-    name: 'Tree Willard',
-    avatar: '/images/Tree.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 20), // 20 days ago
-  },
-  {
-    id: 'stephane-bancel',
-    name: 'Stephane Bancel',
-    avatar: '/images/Stephane.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15), // 15 days ago
-  },
-  {
-    id: 'joscha-raue',
-    name: 'Joscha Raue',
-    avatar: '/images/Joscha.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), // 10 days ago
-  },
-  {
-    id: 'drummond-reed',
-    name: 'Drummond Reed',
-    avatar: '/images/Drummond.jpg',
-    role: 'Member',
-    joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-  },
-];
-
-const getMockSharedFiles = (): SharedFile[] => [
-  {
-    id: '1',
-    name: 'Q3 Budget Report.xlsx',
-    type: 'spreadsheet',
-    size: '2.4 MB',
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-    sharedBy: 'You',
-  },
-  {
-    id: '2',
-    name: 'Project Roadmap 2025.pdf',
-    type: 'pdf',
-    size: '1.8 MB',
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-    sharedBy: 'You',
-  },
-  {
-    id: '3',
-    name: 'Meeting Notes - August.docx',
-    type: 'document',
-    size: '156 KB',
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 7 days ago
-    sharedBy: 'You',
-  },
-  {
-    id: '4',
-    name: 'Team Photo Summer 2025.jpg',
-    type: 'image',
-    size: '4.2 MB',
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), // 10 days ago
-    sharedBy: 'You',
-  },
-  {
-    id: '5',
-    name: 'Workshop Presentation.pdf',
-    type: 'pdf',
-    size: '8.7 MB',
-    sharedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15), // 15 days ago
-    sharedBy: 'You',
-  },
-];
-
 export const GroupInfoPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
+  const { group} = useGroupData(groupId);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  const [group, setGroup] = useState<ExtendedGroup | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | undefined>(undefined);
-  const [tabValue, setTabValue] = useState(0);
-  const [sharedFiles, setSharedFiles] = useState<SharedFile[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedGroup, setEditedGroup] = useState<ExtendedGroup | null>(null);
 
-
-  useEffect(() => {
-    const loadGroupData = async () => {
-      if (!groupId) return;
-      
-      setIsLoading(true);
-      try {
-        const groupData = await dataService.getGroup(groupId);
-        if (groupData) {
-          setGroup(groupData);
-          setMembers(getMockMembers());
-          setSharedFiles(getMockSharedFiles());
-        }
-      } catch (error) {
-        console.error('Failed to load group:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadGroupData();
-  }, [groupId]);
 
   useEffect(() => {
     const selectedContactNuri = searchParams.get('selectedContact');
@@ -333,7 +118,7 @@ export const GroupInfoPage = () => {
       navigate('/groups', { 
         state: { 
           removedGroupId: groupId,
-          message: `You have left ${group?.name}` 
+          message: `You have left ${group?.title}`
         }
       });
     } catch (error) {
@@ -349,7 +134,7 @@ export const GroupInfoPage = () => {
   const handleConfirmRemoveMember = () => {
     if (memberToRemove) {
       setMembers(prev => prev.filter(m => m.id !== memberToRemove.id));
-      console.log(`🚫 Removed ${memberToRemove.name} from group "${group?.name}"`);
+      console.log(`🚫 Removed ${memberToRemove.name} from group "${group?.title}"`);
       setShowRemoveMemberDialog(false);
       setMemberToRemove(null);
     }
@@ -357,44 +142,6 @@ export const GroupInfoPage = () => {
 
   const isCurrentUserAdmin = () => {
     return true;
-  };
-
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
-  const handleFileSelect = (fileId: string) => {
-    setSelectedFiles(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(fileId)) {
-        newSet.delete(fileId);
-      } else {
-        newSet.add(fileId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedFiles.size === sharedFiles.length) {
-      setSelectedFiles(new Set());
-    } else {
-      setSelectedFiles(new Set(sharedFiles.map(f => f.id)));
-    }
-  };
-
-  const handleRemoveFile = (fileId: string) => {
-    setSharedFiles(prev => prev.filter(f => f.id !== fileId));
-    setSelectedFiles(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(fileId);
-      return newSet;
-    });
-  };
-
-  const handleRemoveSelected = () => {
-    setSharedFiles(prev => prev.filter(f => !selectedFiles.has(f.id)));
-    setSelectedFiles(new Set());
   };
 
   const handleEditToggle = () => {
@@ -411,7 +158,6 @@ export const GroupInfoPage = () => {
   const handleSaveEdit = async () => {
     if (editedGroup) {
       // In a real app, this would save to the backend
-      setGroup(editedGroup);
       setIsEditMode(false);
       console.log('Saving group changes:', editedGroup);
     }
@@ -463,8 +209,8 @@ export const GroupInfoPage = () => {
           <ArrowBack />
         </IconButton>
         <Avatar
-          src={group.image}
-          alt={group.name}
+         /* src={group.image}
+          alt={group.name}*/
           sx={{
             width: { xs: 48, md: 64 },
             height: { xs: 48, md: 64 },
@@ -475,7 +221,7 @@ export const GroupInfoPage = () => {
             flexShrink: 0
           }}
         >
-          {group.name.charAt(0)}
+          {group.title.charAt(0)}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
@@ -492,7 +238,7 @@ export const GroupInfoPage = () => {
                   whiteSpace: 'nowrap'
                 }}
               >
-                {group.name}
+                {group.title}
               </Typography>
             </Box>
           </Box>
@@ -563,16 +309,8 @@ export const GroupInfoPage = () => {
         </Box>
       </Box>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab icon={<People />} label="Members" />
-          <Tab icon={<Share />} label="Shared with group" />
-        </Tabs>
-      </Box>
-
       {/* Tab Content */}
-      {tabValue === 0 && (
+      {(
         <>
           {/* Group Stats - Editable or Read-only */}
           {isEditMode && editedGroup ? (
@@ -581,12 +319,12 @@ export const GroupInfoPage = () => {
               onChange={handleGroupFieldChange}
             />
           ) : (
-            <GroupStats group={group} memberCount={members.length} />
+            <GroupStats group={group} memberCount={group.hasMember?.size || 0} />
           )}
 
           {/* Members List */}
           <MembersList
-            members={members}
+            members={group.hasMember}
             isCurrentUserAdmin={isCurrentUserAdmin()}
             onInviteMember={handleInviteMember}
             onRemoveMember={handleRemoveMember}
@@ -622,105 +360,8 @@ export const GroupInfoPage = () => {
         </>
       )}
 
-      {tabValue === 1 && (
-        <Card>
-          <CardContent sx={{ p: 3 }}>
-            {/* Header with select all and bulk remove */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Checkbox
-                  checked={selectedFiles.size === sharedFiles.length && sharedFiles.length > 0}
-                  indeterminate={selectedFiles.size > 0 && selectedFiles.size < sharedFiles.length}
-                  onChange={handleSelectAll}
-                />
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Files shared with this group ({sharedFiles.length})
-                </Typography>
-              </Box>
-              {selectedFiles.size > 0 && (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<Delete />}
-                  onClick={handleRemoveSelected}
-                  size="small"
-                >
-                  Remove {selectedFiles.size} file{selectedFiles.size > 1 ? 's' : ''}
-                </Button>
-              )}
-            </Box>
-
-            {/* File List */}
-            {sharedFiles.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 8 }}>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  No files shared yet
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Files you share with this group will appear here
-                </Typography>
-              </Box>
-            ) : (
-              <List sx={{ width: '100%' }}>
-                {sharedFiles.map((file, index) => (
-                  <ListItem
-                    key={file.id}
-                    sx={{
-                      px: 0,
-                      py: 1,
-                      borderBottom: index === sharedFiles.length - 1 ? 'none' : '1px solid',
-                      borderColor: 'divider',
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      <Checkbox
-                        edge="start"
-                        checked={selectedFiles.has(file.id)}
-                        onChange={() => handleFileSelect(file.id)}
-                      />
-                    </ListItemIcon>
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveFile(file.id)}
-                        sx={{ color: 'error.main' }}
-                      >
-                        <Delete />
-                      </IconButton>
-                    </ListItemIcon>
-                    <ListItemIcon sx={{ minWidth: 48 }}>
-                      <Description sx={{ color: 'text.secondary' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            {file.name}
-                          </Typography>
-                          <Chip
-                            label={file.type}
-                            size="small"
-                            variant="outlined"
-                            sx={{ height: 20, fontSize: '0.7rem' }}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Typography variant="body2" color="text.secondary">
-                          {file.size} • Shared {file.sharedAt.toLocaleDateString()} by {file.sharedBy}
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Dialogs */}
-      {group && (
+{/*TODO:      {group && (
         <InviteForm
           open={showInviteForm}
           onClose={() => {
@@ -735,7 +376,7 @@ export const GroupInfoPage = () => {
             email: resolveFrom(selectedContact, "email")?.value || ""
           }}
         />
-      )}
+      )}*/}
 
       <Dialog open={showLeaveDialog} onClose={() => setShowLeaveDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Leave Group</DialogTitle>
@@ -761,7 +402,7 @@ export const GroupInfoPage = () => {
         <DialogTitle>Remove Member</DialogTitle>
         <DialogContent>
           <Typography variant="body1">
-            Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from the <strong>{group?.name}</strong> group?
+            Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from the <strong>{group?.title}</strong> group?
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             They will lose access to group posts and discussions. You can invite them back later if needed.

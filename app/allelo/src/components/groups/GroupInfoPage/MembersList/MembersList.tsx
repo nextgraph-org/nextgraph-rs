@@ -2,23 +2,13 @@ import {forwardRef} from 'react';
 import {
   Typography,
   Box,
-  Avatar,
   Button,
   Card,
   CardContent,
-  Chip,
   List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
 } from '@mui/material';
-import {
-  UilUserPlus,
-  UilUserMinus,
-} from '@iconscout/react-unicons';
-import {formatDate} from "@/utils/dateHelpers";
-
-// Note: Using standard avatar styling instead of getContactPhotoStyles
+import {UilUserPlus} from '@iconscout/react-unicons';
+import {MemberListItem} from './MemberListItem';
 
 interface Member {
   id: string;
@@ -30,21 +20,21 @@ interface Member {
 }
 
 export interface MembersListProps {
-  members: Member[];
+  membersNuris: string[];
   isCurrentUserAdmin: boolean;
   onInviteMember: () => void;
   onRemoveMember: (member: Member) => void;
 }
 
 export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
-  ({members, isCurrentUserAdmin, onInviteMember, onRemoveMember}, ref) => {
+  ({membersNuris, isCurrentUserAdmin, onInviteMember, onRemoveMember}, ref) => {
 
     return (
       <Card ref={ref}>
         <CardContent sx={{p: 3}}>
           <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
             <Typography variant="h6" sx={{fontWeight: 600}}>
-              Members ({members.length})
+              Members ({membersNuris.length})
             </Typography>
             <Button
               variant="contained"
@@ -64,98 +54,14 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
           </Box>
 
           <List sx={{width: '100%'}}>
-            {members.map((member, index) => (
-              <ListItem
-                key={member.id}
-                sx={{
-                  px: 0,
-                  py: 1,
-                  borderBottom: index === members.length - 1 ? 'none' : '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <ListItemAvatar>
-                  <Avatar
-                    src={member.avatar}
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      bgcolor: 'white',
-                      border: 1,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  >
-                    {!member.avatar && member.name.split(' ').map(n => n[0]).join('')}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={
-                    <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1}}>
-                      <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                        <Typography variant="subtitle1" sx={{fontWeight: 600}}>
-                          {member.name}
-                        </Typography>
-                        {member.role === 'Admin' && (
-                          <Chip
-                            label="Admin"
-                            size="small"
-                            color="primary"
-                            sx={{height: 20, fontSize: '0.7rem'}}
-                          />
-                        )}
-                      </Box>
-                      <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                        {member.status && (
-                          <Chip
-                            label={member.status}
-                            size="small"
-                            color={member.status === 'Member' ? 'success' : 'warning'}
-                            variant={member.status === 'Member' ? 'filled' : 'outlined'}
-                            sx={{height: 20, fontSize: '0.7rem'}}
-                          />
-                        )}
-                        {/* Remove member button - only show for admins and not for the admin themselves */}
-                        {isCurrentUserAdmin && member.id !== 'oli-sb' && (
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            startIcon={<UilUserMinus size="20"/>}
-                            onClick={() => onRemoveMember(member)}
-                            sx={{
-                              height: 20,
-                              fontSize: '0.6rem',
-                              minWidth: 'auto',
-                              px: 1,
-                              py: 0,
-                              borderColor: 'error.main',
-                              color: 'error.main',
-                              '&:hover': {
-                                borderColor: 'error.dark',
-                                backgroundColor: 'error.light'
-                              }
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </Box>
-                    </Box>
-                  }
-                  secondary={
-                    <Typography variant="body2" color="text.secondary">
-                      {member.status === 'Invited' ? 'Invitation sent' : `Joined ${member.joinedAt ? formatDate(member.joinedAt, {
-                        month: "short",
-                        hour: undefined,
-                        minute: undefined
-                      }) : 'Unknown'}`}
-                    </Typography>
-                  }
-                />
-              </ListItem>
+            {membersNuris.map((memberNuri, index) => (
+              <MemberListItem
+                key={memberNuri}
+                memberNuri={memberNuri}
+                isCurrentUserAdmin={isCurrentUserAdmin}
+                isLastItem={index === membersNuris.length - 1}
+                onRemoveMember={onRemoveMember}
+              />
             ))}
           </List>
         </CardContent>
