@@ -1,4 +1,12 @@
-import { GreenCheckClaim, PhoneClaim, EmailClaim, AccountClaim, GreenCheckId, AuthSession } from '@/lib/greencheck-api-client/types';
+import {
+  GreenCheckClaim,
+  PhoneClaim,
+  EmailClaim,
+  AccountClaim,
+  GreenCheckId,
+  AuthSession,
+  IGreenCheckClient, CentralityResponse
+} from '@/lib/greencheck-api-client/types';
 
 // Mock GreenCheck ID
 export const mockGreenCheckId: GreenCheckId = {
@@ -136,7 +144,14 @@ export const mockClaims: GreenCheckClaim[] = [
 ];
 
 // Mock API functions for when NextGraph is disabled
-export const mockGreenCheckAPI = {
+export const mockGreenCheckAPI: IGreenCheckClient = {
+  generateCentrality(authToken: string, linkedInContacts: string[]): Promise<CentralityResponse> {
+    console.log(linkedInContacts + authToken);
+    return Promise.resolve({success: "true"});
+  },
+  setCurrentAuthToken(authToken: string): void {
+    this.authToken = authToken;
+  },
   async requestPhoneVerification(): Promise<boolean> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -147,34 +162,37 @@ export const mockGreenCheckAPI = {
   async verifyPhoneCode(_phoneNumber: string, code: string): Promise<AuthSession> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     // Mock verification logic
     if (code !== '123456') {
       throw new Error('Invalid verification code');
     }
-    
+
     return mockAuthSession;
   },
 
   async getClaims(authToken: string): Promise<GreenCheckClaim[]> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
-    
+
     if (!authToken) {
       throw new Error('Authentication required');
     }
-    
+
     return mockClaims;
   },
 
-  async getGreenCheckId(authToken: string): Promise<GreenCheckId> {
+  async getGreenCheckIdFromToken(authToken: string): Promise<string> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     if (!authToken) {
       throw new Error('Authentication required');
     }
-    
-    return mockGreenCheckId;
+
+    return 'mock-gc-id-123';
+  },
+  generateOTT(authToken: string): Promise<string> {
+    return Promise.resolve(authToken);
   }
 };

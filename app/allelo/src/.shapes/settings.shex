@@ -20,4 +20,13 @@ ngset:AppSettings EXTRA a {
   # Import requests
   ngset:lnImportRequested xsd:boolean ?
     // rdfs:comment "Whether LinkedIn import has been requested" ;
+
+  ngset:lnImportFinished xsd:boolean ?
+    // rdfs:comment "Whether LinkedIn import has been finished" ;
+
+  ngset:greencheckId xsd:string ?
+    // rdfs:comment "id from greencheck" ;
+
+  ngset:greencheckToken xsd:string ?
+    // rdfs:comment "temporary token from greencheck" ;
 }

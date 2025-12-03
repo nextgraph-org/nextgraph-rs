@@ -14,7 +14,6 @@ import {
 } from "@mui/icons-material";
 import {FormPhoneField} from "@/components/ui/FormPhoneField/FormPhoneField";
 import {useFieldValidation} from "@/hooks/useFieldValidation";
-import {useNavigate} from "react-router-dom";
 
 interface PhoneInputProps {
   phoneNumber: string;
@@ -31,7 +30,6 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
                                                  error,
                                                  onSubmit,
                                                }) => {
-  const navigate = useNavigate();
   const [valid, setValid] = useState<boolean>(false);
   const phoneValidation = useFieldValidation(phoneNumber, "phone", { validateOn: "change" });
 
@@ -42,9 +40,9 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
 
   return (
     <Card sx={{maxWidth: 500, mx: 'auto', mt: 4}}>
-      <CardContent sx={{p: 4}}>
+      <CardContent sx={{p: {xs: 2, md: 4}}}>
         <Box sx={{textAlign: 'center', mb: 3}}>
-          <Phone sx={{fontSize: 48, color: 'primary.main', mb: 2}}/>
+          <Phone sx={{fontSize: 40, color: 'primary.main', mb: 2}}/>
           <Typography variant="h5" component="h1" gutterBottom sx={{fontWeight: 600}}>
             Verify Your Phone
           </Typography>
@@ -56,7 +54,6 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
         <Box component="form" onSubmit={onSubmit} sx={{mt: 3}}>
           <FormPhoneField
             fullWidth
-            label="Phone Number"
             value={phoneNumber}
             onChange={(e) => {
               setValid(e.isValid);
@@ -64,7 +61,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             }}
             placeholder="+1234567890"
             disabled={isLoading}
-            sx={{mb: 3}}
+            sx={{mb: 2}}
           />
 
           {error && (
@@ -75,20 +72,12 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
 
           <Box sx={{display: 'flex', gap: 2}}>
             <Button
-              variant="outlined"
-              onClick={() => navigate('/account')}
-              disabled={isLoading}
-              sx={{py: 1.5}}
-            >
-              Skip
-            </Button>
-            <Button
               type="submit"
               variant="contained"
               fullWidth
               disabled={isLoading || phoneNumber.trim() === "" || !valid}
               startIcon={isLoading ? <CircularProgress size={20}/> : <Sms/>}
-              sx={{py: 1.5}}
+              sx={{p: 1}}
             >
               {isLoading ? 'Sending...' : 'Send Verification Code'}
             </Button>
