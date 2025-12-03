@@ -1,12 +1,12 @@
 import {useCallback, useState} from 'react';
-import {useLdo, useNextGraphAuth} from '@/lib/nextgraph';
+import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
-import {groupService} from "@/services/groupService";
-import {SocialGroup} from "@/.ldo/group.typings";
+import {SocialGroup} from "@/.orm/shapes/group.typings";
+import {useShape} from "@ng-org/signals/react";
+import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
 
 interface UseSaveGroupsReturn {
-  createGroup: (group: Partial<SocialGroup>) => Promise<SocialGroup | undefined>;
-  updateGroup: (group: SocialGroup, updates: Partial<SocialGroup>) => Promise<void>;
+  createGroup: (group: Partial<SocialGroup>) => Promise<string>;
   isLoading: boolean;
   error: string | null;
 }
@@ -17,9 +17,25 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
-  const {commitData, createData, changeData} = useLdo();
 
-  const createGroup = useCallback(async (group: Partial<SocialGroup>): Promise<SocialGroup | undefined> => {
+  const groups = useShape(SocialGroupShapeType)
+
+  function generateUri(base: string) {
+    const b = new Uint8Array(33);
+    crypto.getRandomValues(b);
+
+    // Convert to base64url
+    const base64url = (bytes: Uint8Array) =>
+      btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    const randomString = base64url(b);
+
+    return base.substring(0, 9 + 44) + ":p:" + randomString;
+  }
+
+  const createGroup = useCallback(async (group: Partial<SocialGroup>): Promise<string> => {
     if (!session || !session.ng) {
       const errorMsg = 'No active session available';
       setError(errorMsg);
@@ -30,13 +46,21 @@ export function useSaveGroups(): UseSaveGroupsReturn {
     setError(null);
 
     try {
-      const groupUri = await groupService.createGroup(session, group, createData, commitData, changeData);
-      if (groupUri) {
-        return {
-          ...group,
-          "@id": groupUri
-        } as SocialGroup;
+      const docId = await session.ng.doc_create(
+        session.sessionId,
+        "Graph",
+        "data:graph",
+        "store"
+      );
+
+      const groupObj: SocialGroup = {
+        "@graph": docId,
+        "@id": generateUri(docId),
+        "@type": "did:ng:x:social:group#Group",
+        ...group
       }
+      groups?.add(groupObj);
+      return docId;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create group';
       setError(errorMsg);
@@ -44,32 +68,10 @@ export function useSaveGroups(): UseSaveGroupsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [session, createData, commitData, changeData]);
-
-  const updateGroup = useCallback(async (group: SocialGroup, updates: Partial<SocialGroup>) => {
-    if (!session || !session.ng) {
-      const errorMsg = 'No active session available';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      await groupService.updateGroup(session, group, updates, commitData, changeData);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to update group';
-      setError(errorMsg);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [session, commitData, changeData]);
+  }, [groups, session]);
 
   return {
     createGroup,
-    updateGroup,
     isLoading,
     error
   };

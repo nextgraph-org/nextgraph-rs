@@ -20,8 +20,8 @@ import {
   UilUser,
 } from '@iconscout/react-unicons';
 import {useSaveGroups} from "@/hooks/groups/useSaveGroups.ts";
-import {SocialGroup} from "@/.ldo/group.typings.ts";
-import {useContactData} from "@/hooks/contacts/useContactData.ts";
+import {SocialGroup} from "@/.orm/shapes/group.typings.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 interface GroupFormData {
   title: string;
@@ -44,7 +44,7 @@ const CreateGroupPage = () => {
   });
 
   const {createGroup} = useSaveGroups();
-  const {contact} = useContactData(undefined, true);
+  const {ormContact} = useContactOrm(undefined, true);
 
   const handleBack = () => {
     navigate('/groups');
@@ -65,6 +65,9 @@ const CreateGroupPage = () => {
   }, [formData, navigate]);
 
   const handleCreateGroup = useCallback(async () => {
+    if (!ormContact) {
+      return;
+    }
     // Validate form before proceeding
     if (!formData.title.trim()) {
       return; // TODO: Show validation error
@@ -73,15 +76,15 @@ const CreateGroupPage = () => {
       title: formData.title,
       description: formData.description,
       createdAt: new Date().toISOString(),
-      // @ts-expect-error ldo
-      hasAdmin: {"@id": contact!["@id"]},
+      hasAdmin: new Set([ormContact["@graph"]!]),
+      hasMember: new Set([ormContact["@graph"]!]),
     }
 
-    const socialGroup = await createGroup(group);
-    if (socialGroup) {
-      navigate(`/groups/${socialGroup["@id"]}`);
+    const socialGroupId = await createGroup(group);
+    if (socialGroupId) {
+      navigate(`/groups/${socialGroupId}`);
     }
-  }, [contact, createGroup, formData.description, formData.title, navigate]);
+  }, [ormContact, createGroup, formData.description, formData.title, navigate]);
 
   const handleInputChange = (field: keyof GroupFormData, value: string) => {
     setFormData(prev => ({
