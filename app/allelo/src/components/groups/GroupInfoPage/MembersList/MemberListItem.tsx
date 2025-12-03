@@ -2,13 +2,11 @@ import {
   Typography,
   Box,
   Button,
-  Chip,
   ListItem,
   ListItemAvatar,
   ListItemText,
 } from '@mui/material';
 import {UilUserMinus} from '@iconscout/react-unicons';
-import {formatDate} from "@/utils/dateHelpers";
 import {useResolvedContact} from "@/stores/contactOrmStore.ts";
 import {ContactCardAvatarOrm} from "@/components/contacts/ContactCardAvatar";
 
@@ -16,7 +14,7 @@ export interface MemberListItemProps {
   memberNuri: string;
   isCurrentUserAdmin: boolean;
   isLastItem: boolean;
-  onRemoveMember: (nuri: string) => void;
+  onRemoveMember: (nuri: string, name: string) => void;
 }
 
 export const MemberListItem = ({
@@ -71,7 +69,9 @@ export const MemberListItem = ({
                   color="error"
                   size="small"
                   startIcon={<UilUserMinus size="20"/>}
-                  onClick={() => onRemoveMember(ormContact["@id"])}
+                  onClick={() => {
+                    onRemoveMember(ormContact["@graph"], name)
+                  }}
                   sx={{
                     height: 20,
                     fontSize: '0.6rem',

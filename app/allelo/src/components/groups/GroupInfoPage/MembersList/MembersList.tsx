@@ -16,15 +16,6 @@ import {MemberListItem} from './MemberListItem';
 import {ContactListTab} from '@/components/contacts/ContactListTab/ContactListTab';
 import {useGroupData} from '@/hooks/groups/useGroupData';
 
-interface Member {
-  id: string;
-  name: string;
-  avatar: string;
-  role: 'Admin' | 'Member';
-  status?: 'Member' | 'Invited';
-  joinedAt: Date | null;
-}
-
 export interface MembersListProps {
   groupId: string;
   membersNuris: Set<string> | undefined;
@@ -35,9 +26,12 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
   ({groupId, membersNuris, isCurrentUserAdmin}, ref) => {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
-    const [manageMode, setManageMode] = useState(true);
+    const [, setManageMode] = useState(true);
+    const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
+    const [removedContactName, setRemovedContactName] = useState("");
+    const [removedContactNuri, setRemovedContactNuri] = useState("");
 
-    const {addMembers, removeMember} = useGroupData(groupId);
+    const {addMembers, removeMember, group} = useGroupData(groupId);
 
     const onInviteMember = useCallback(() => {
       setIsInviteDialogOpen(true);
@@ -58,6 +52,20 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
       handleCloseDialog();
     }, [addMembers, selectedContacts, handleCloseDialog]);
 
+    const handleRemoveMember = useCallback((nuri: string, name: string) => {
+      setRemovedContactName(name);
+      setShowRemoveMemberDialog(true);
+      setRemovedContactNuri(nuri);
+    }, []);
+
+    const handleConfirmRemoveMember = () => {
+      if (removedContactNuri) {
+        setShowRemoveMemberDialog(false);
+        removeMember(removedContactNuri);
+        setRemovedContactNuri("");
+      }
+    };
+
     return (
       <>
         <Card ref={ref}>
@@ -66,21 +74,21 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
               <Typography variant="h6" sx={{fontWeight: 600}}>
                 Members ({membersNuris?.size || 0})
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<UilUserPlus size="20"/>}
-                onClick={onInviteMember}
-                sx={{
-                  borderRadius: 2,
-                  px: {xs: 1.5, md: 3},
-                  py: {xs: 0.5, md: 1},
-                  fontSize: {xs: '0.75rem', md: '0.875rem'},
-                  flexShrink: 0,
-                  minWidth: {xs: 'auto', md: 'auto'}
-                }}
+              {isCurrentUserAdmin && <Button
+                  variant="contained"
+                  startIcon={<UilUserPlus size="20"/>}
+                  onClick={onInviteMember}
+                  sx={{
+                    borderRadius: 2,
+                    px: {xs: 1.5, md: 3},
+                    py: {xs: 0.5, md: 1},
+                    fontSize: {xs: '0.75rem', md: '0.875rem'},
+                    flexShrink: 0,
+                    minWidth: {xs: 'auto', md: 'auto'}
+                  }}
               >
-                Invite
-              </Button>
+                  Invite
+              </Button>}
             </Box>
 
             <List sx={{width: '100%'}}>
@@ -90,7 +98,7 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
                   memberNuri={memberNuri}
                   isCurrentUserAdmin={isCurrentUserAdmin}
                   isLastItem={index === (membersNuris?.size || 1) - 1}
-                  onRemoveMember={removeMember}
+                  onRemoveMember={handleRemoveMember}
                 />
               ))}
             </List>
@@ -135,6 +143,27 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
               sx={{ml: 1}}
             >
               Add {selectedContacts.length > 0 ? `(${selectedContacts.length})` : ''} Members
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={showRemoveMemberDialog} onClose={() => setShowRemoveMemberDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Remove Member</DialogTitle>
+          <DialogContent>
+            <Typography variant="body1">
+              Are you sure you want to remove <strong>{removedContactName}</strong> from
+              the <strong>{group?.title}</strong> group?
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{mt: 2}}>
+              They will lose access to group posts and discussions. You can invite them back later if needed.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowRemoveMemberDialog(false)} variant="outlined">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRemoveMember} variant="contained" color="error" sx={{ml: 1}}>
+              Remove Member
             </Button>
           </DialogActions>
         </Dialog>

@@ -21,7 +21,6 @@ import {
 } from '@iconscout/react-unicons';
 import {useSaveGroups} from "@/hooks/groups/useSaveGroups.ts";
 import {SocialGroup} from "@/.ldo/group.typings.ts";
-import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
 
 interface GroupFormData {
@@ -75,7 +74,7 @@ const CreateGroupPage = () => {
       description: formData.description,
       createdAt: new Date().toISOString(),
       // @ts-expect-error ldo
-      hasAdmin: new BasicLdSet([{"@id": contact!["@id"]}])
+      hasAdmin: {"@id": contact!["@id"]}
 
     }
 

@@ -3,7 +3,7 @@ import {ContactFilters} from "../ContactFilters"
 import {useMergeContacts} from "@/hooks/contacts/useMergeContacts.ts";
 import {useCallback, useEffect, useState} from "react";
 import {useContacts} from "@/hooks/contacts/useContacts.ts";
-import {ContactGrid, FloatingActions, MergeDialogs} from "@/components/contacts";
+import {ContactGrid, MergeDialogs} from "@/components/contacts";
 import {DragEndEvent, DragOverlay, DragStartEvent, useDndMonitor} from "@dnd-kit/core";
 import {ContactCard} from "@/components/contacts/ContactCard";
 import {useNavigate} from "react-router-dom";
@@ -51,10 +51,8 @@ export const ContactListTab = ({
   const isSelectionMode = mode === 'select' || mode === 'create-group';
 
 
-  const isMultiSelectMode = mode === 'create-group';
   const returnTo = searchParams.get('returnTo');
   const groupId = searchParams.get('groupId');
-  const groupData = searchParams.get('groupData');
 
   // Notify parent when selection changes
   useEffect(() => {
@@ -159,28 +157,6 @@ export const ContactListTab = ({
       setSelectedContacts([]);
     } else {
       setSelectedContacts(contactNuris);
-    }
-  };
-
-  const handleCreateGroup = async () => {
-    if (mode === 'create-group' && groupData) {
-      try {
-        const parsedGroupData = JSON.parse(decodeURIComponent(groupData));
-        const {dataService} = await import('@/services/dataService');
-        const newGroup = await dataService.createGroup({
-          name: parsedGroupData.name,
-          description: parsedGroupData.description,
-          logoPreview: parsedGroupData.logoPreview,
-          tags: parsedGroupData.tags,
-          members: selectedContacts
-        });
-
-        navigate(`/groups/${newGroup.id}/info`, {
-          state: {newGroup: {...newGroup, members: selectedContacts}}
-        });
-      } catch (error) {
-        console.error('Failed to create group:', error);
-      }
     }
   };
 
@@ -337,12 +313,6 @@ export const ContactListTab = ({
       onCancelMerge={handleCloseMergeDialog}
       onConfirmMerge={handleConfirmMerge}
       onSetUseAI={setUseAI}
-    />
-
-    <FloatingActions
-      isMultiSelectMode={isMultiSelectMode}
-      selectedContactsCount={selectedContacts.length}
-      onCreateGroup={handleCreateGroup}
     />
 
     <DragOverlay dropAnimation={null}>

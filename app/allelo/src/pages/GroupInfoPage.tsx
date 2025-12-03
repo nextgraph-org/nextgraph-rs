@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Typography,
   Box,
@@ -19,10 +19,7 @@ import {
   UilCheck as Save,
   UilTimesCircle as Cancel,
 } from '@iconscout/react-unicons';
-import { dataService } from '@/services/dataService';
 import type { Group } from '@/types/group';
-import type { Contact } from '@/types/contact';
-import { type InviteFormData } from '@/components/invitations/InviteForm';
 import {GroupStats, MembersList} from "@/components/groups";
 import {EditableGroupStats} from "@/components/groups/GroupInfoPage/EditableGroupStats";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
@@ -44,35 +41,12 @@ export const GroupInfoPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const { group, isAdmin} = useGroupData(groupId);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
-  const [isLoading, setIsLoading] = useState(false);
-  const [showInviteForm, setShowInviteForm] = useState(false);
+
+  const [isLoading,] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-  const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
-  const [selectedContact, setSelectedContact] = useState<Contact | undefined>(undefined);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedGroup, setEditedGroup] = useState<ExtendedGroup | null>(null);
 
-
-  useEffect(() => {
-    const selectedContactNuri = searchParams.get('selectedContact');
-    if (selectedContactNuri) {
-      const loadSelectedContact = async () => {
-        try {
-          const contact = await dataService.getContact(selectedContactNuri);
-          if (contact) {
-            setSelectedContact(contact);
-            setShowInviteForm(true);
-          }
-        } catch (error) {
-          console.error('Failed to load selected contact:', error);
-        }
-      };
-      loadSelectedContact();
-    }
-  }, [searchParams]);
 
   const handleBack = () => {
     navigate('/groups');
@@ -81,26 +55,6 @@ export const GroupInfoPage = () => {
   const handleClose = () => {
     // Navigate to the group detail page instead of groups list
     navigate(`/groups/${groupId}`);
-  };
-
-  const handleInviteSubmit = (inviteData: InviteFormData) => {
-    const inviteParams = new URLSearchParams();
-    inviteParams.set('groupId', groupId || '');
-    inviteParams.set('inviterName', inviteData.inviterName);
-    if (inviteData.relationshipType) {
-      inviteParams.set('relationshipType', inviteData.relationshipType);
-    }
-    if (inviteData.profileCardType) {
-      inviteParams.set('profileCardType', inviteData.profileCardType);
-    }
-    
-    setShowInviteForm(false);
-    navigate(`/invite?${inviteParams.toString()}`);
-  };
-
-  const handleSelectFromNetwork = () => {
-    setShowInviteForm(false);
-    navigate(`/contacts?mode=select&returnTo=group-info&groupId=${groupId}`);
   };
 
   const handleLeaveGroup = () => {
@@ -119,20 +73,6 @@ export const GroupInfoPage = () => {
       });
     } catch (error) {
       console.error('Failed to leave group:', error);
-    }
-  };
-
-  const handleRemoveMember = (member: Member) => {
-    setMemberToRemove(member);
-    setShowRemoveMemberDialog(true);
-  };
-
-  const handleConfirmRemoveMember = () => {
-    if (memberToRemove) {
-      setMembers(prev => prev.filter(m => m.id !== memberToRemove.id));
-      console.log(`🚫 Removed ${memberToRemove.name} from group "${group?.title}"`);
-      setShowRemoveMemberDialog(false);
-      setMemberToRemove(null);
     }
   };
 
@@ -319,11 +259,10 @@ export const GroupInfoPage = () => {
             groupId={groupId!}
             membersNuris={group.hasMember}
             isCurrentUserAdmin={isAdmin}
-            onRemoveMember={handleRemoveMember}
           />
 
           {/* Leave Group Button - positioned below members list */}
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+          {!isAdmin && <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
             <Button
               variant="outlined"
               color="error"
@@ -348,27 +287,9 @@ export const GroupInfoPage = () => {
             >
               Leave Group
             </Button>
-          </Box>
+          </Box>}
         </>
       )}
-
-      {/* Dialogs */}
-{/*TODO:      {group && (
-        <InviteForm
-          open={showInviteForm}
-          onClose={() => {
-            setShowInviteForm(false);
-            setSelectedContact(undefined);
-          }}
-          onSubmit={handleInviteSubmit}
-          onSelectFromNetwork={handleSelectFromNetwork}
-          group={group}
-          prefilledContact={{
-            name: resolveFrom(selectedContact, "name")?.value || "",
-            email: resolveFrom(selectedContact, "email")?.value || ""
-          }}
-        />
-      )}*/}
 
       <Dialog open={showLeaveDialog} onClose={() => setShowLeaveDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Leave Group</DialogTitle>
@@ -390,25 +311,7 @@ export const GroupInfoPage = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={showRemoveMemberDialog} onClose={() => setShowRemoveMemberDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Remove Member</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1">
-            Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from the <strong>{group?.title}</strong> group?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            They will lose access to group posts and discussions. You can invite them back later if needed.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowRemoveMemberDialog(false)} variant="outlined">
-            Cancel
-          </Button>
-          <Button onClick={handleConfirmRemoveMember} variant="contained" color="error" sx={{ ml: 1 }}>
-            Remove Member
-          </Button>
-        </DialogActions>
-      </Dialog>
+
     </Box>
   );
 };
