@@ -31,10 +31,9 @@ interface ExtendedPost extends GroupPost {
 
 interface ActivityFeedProps {
   posts: ExtendedPost[];
-  onFullscreenToggle: (section: "activity" | "network" | "map") => void;
 }
 
-export const ActivityFeed = ({posts, onFullscreenToggle}: ActivityFeedProps) => {
+export const ActivityFeed = ({posts}: ActivityFeedProps) => {
   const [selectedPersonFilter, setSelectedPersonFilter] = useState<string>('all');
   const [selectedTopicFilter, setSelectedTopicFilter] = useState<string>('all');
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
@@ -106,20 +105,6 @@ export const ActivityFeed = ({posts, onFullscreenToggle}: ActivityFeedProps) => 
             <MenuItem value="composting">Composting</MenuItem>
           </Select>
         </FormControl>
-        {/* Fullscreen expand icon - positioned to not conflict with + button */}
-        <IconButton
-          size="small"
-          onClick={() => onFullscreenToggle('activity')}
-          sx={(theme) => ({
-            backgroundColor: alpha(theme.palette.background.paper, 0.9),
-            '&:hover': {
-              backgroundColor: theme.palette.background.paper,
-            },
-            zIndex: 10
-          })}
-        >
-          <Fullscreen fontSize="small"/>
-        </IconButton>
       </Box>
 
       <Box sx={{
