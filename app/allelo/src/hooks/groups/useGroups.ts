@@ -79,7 +79,7 @@ export const useGroups = ({limit = 10, initialFilters}: UseGroupsParams = {}): u
     const containerOverlay = session.privateStoreId!.substring(46);
     // @ts-expect-error TODO output format of ng sparql query
     return groupsIDsResult.results.bindings.map(
-      (binding) => binding.groupUri.value + containerOverlay
+      (binding) => binding.groupUri.value.substring(0,53) + containerOverlay
     );
   }, [session, filters, limit]);
 

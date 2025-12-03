@@ -76,8 +76,8 @@ const CreateGroupPage = () => {
       title: formData.title,
       description: formData.description,
       createdAt: new Date().toISOString(),
-      hasAdmin: new Set([ormContact["@graph"]!]),
-      hasMember: new Set([ormContact["@graph"]!]),
+      hasAdmin: new Set([ormContact["@id"]!]),
+      hasMember: new Set([ormContact["@id"]!]),
     }
 
     const socialGroupId = await createGroup(group);
