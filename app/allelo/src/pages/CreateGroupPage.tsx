@@ -74,13 +74,14 @@ const CreateGroupPage = () => {
       description: formData.description,
       createdAt: new Date().toISOString(),
       // @ts-expect-error ldo
-      hasAdmin: {"@id": contact!["@id"]}
-
+      hasAdmin: {"@id": contact!["@id"]},
     }
 
-    await createGroup(group);
-
-  }, [contact, createGroup, formData.description, formData.title]);
+    const socialGroup = await createGroup(group);
+    if (socialGroup) {
+      navigate(`/groups/${socialGroup["@id"]}`);
+    }
+  }, [contact, createGroup, formData.description, formData.title, navigate]);
 
   const handleInputChange = (field: keyof GroupFormData, value: string) => {
     setFormData(prev => ({
