@@ -2,15 +2,10 @@ import {forwardRef} from 'react';
 import {
   Typography,
   Box,
-  Card,
-  CardContent,
   Grid,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
-import {
-  UilUsersAlt as People
-} from '@iconscout/react-unicons';
 import {GroupItem} from "@/components/groups/GroupItem/GroupItem.tsx";
 import {GroupItemDesktop} from "@/components/groups/GroupItem/GroupItemDesktop.tsx";
 

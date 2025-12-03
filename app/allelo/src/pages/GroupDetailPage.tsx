@@ -1,5 +1,5 @@
 import {useParams, useNavigate} from "react-router-dom";
-import {Typography, Box, Avatar, IconButton} from "@mui/material";
+import {Typography, Box, IconButton} from "@mui/material";
 import {
   ArrowBack,
   Info,
@@ -8,6 +8,7 @@ import {ContactMap} from "@/components/ContactMap";
 import {getMockPosts} from "@/components/groups/GroupDetailPage/mocks.ts";
 import {ActivityFeed} from "@/components/groups/GroupDetailPage/ActivityFeed";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
+import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
 
 const GroupDetailPage = () => {
   const {groupId} = useParams<{ groupId: string }>();
@@ -51,29 +52,13 @@ const GroupDetailPage = () => {
           alignItems: "center",
           justifyContent: "space-between",
           mb: 2,
-          px: {xs: 2, sm: 0},
         }}
       >
-        <Box sx={{display: "flex", alignItems: "center", gap: 2, flex: 1}}>
+        <Box sx={{display: "flex", alignItems: "center", gap: {xs: 1, md: 2}, flex: 1}}>
           <IconButton onClick={handleBack} sx={{color: "text.primary"}}>
             <ArrowBack/>
           </IconButton>
-
-          <Avatar
-            //src={group.image}
-            //alt={group.title}
-            sx={{
-              width: {xs: 40, md: 56},
-              height: {xs: 40, md: 56},
-              bgcolor: "background.paper",
-              border: 1,
-              borderColor: "primary.main",
-              color: "primary.main",
-              flexShrink: 0,
-            }}
-          >
-            {group.title.charAt(0)}
-          </Avatar>
+          <GroupAvatarUpload size={{xs: 40, sm: 56}} initial={group.title} groupNuri={group["@graph"]} isEditing={false}/>
 
           <Box sx={{flex: 1, minWidth: 0}}>
             <Typography variant="h5" sx={{fontWeight: 600, mb: 0.5}}>
@@ -160,16 +145,15 @@ const GroupDetailPage = () => {
             >
               Member Locations
             </Typography>
-            <Box
-              sx={{
-                flex: 1,
-                border: 1,
-                borderColor: "divider",
-                borderRadius: 2,
-                overflow: "hidden",
-                position: "relative",
-              }}
-            >
+            <Box sx={{
+              minHeight: {xs: "320px", md: "500px"},
+              position: 'relative',
+              borderRadius: 2,
+              border: 1,
+              borderColor: 'divider',
+              overflow: 'hidden',
+              height: {xs: "320px", md: "500px"}
+            }}>
               <ContactMap
                 contactNuris={contactNuris}
                 onContactClick={(contact) => {

@@ -12,11 +12,13 @@ import {useSearchParams} from "react-router-dom";
 export const ContactListTab = ({
   manageMode,
   setManageMode,
-  onSelectionChange
+  onSelectionChange,
+  forGroup
 }: {
   manageMode: boolean;
   setManageMode: any;
   onSelectionChange?: (selectedContacts: string[]) => void;
+  forGroup?: boolean;
 }) => {
   const {
     contactNuris,
@@ -229,7 +231,7 @@ export const ContactListTab = ({
       filters={filters}
       onAddFilter={addFilter}
       onClearFilters={clearFilters}
-      inManageMode={manageMode}
+      inManageMode={manageMode && !forGroup}
       onSelectAll={handleSelectAll}
       hasSelection={hasSelection}
       totalCount={totalCount}

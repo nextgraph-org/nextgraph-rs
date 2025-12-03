@@ -1,6 +1,7 @@
-import {alpha, Avatar, Badge, Box, Card, CardContent, Grid, Typography, useTheme} from "@mui/material";
-import {UilUsersAlt as People, UilUsersAlt as Group} from "@iconscout/react-unicons";
+import {Box, Card, CardContent, Grid, Typography, useTheme} from "@mui/material";
+import {UilUsersAlt as People} from "@iconscout/react-unicons";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
+import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
 
 export const GroupItemDesktop = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (id: string) => void }) => {
   const {group} = useGroupData(nuri);
@@ -26,20 +27,7 @@ export const GroupItemDesktop = ({nuri, onGroupClick}: { nuri: string, onGroupCl
     >
       <CardContent sx={{p: 3}}>
         <Box sx={{display: 'flex', alignItems: 'center', gap: 2, mb: 2}}>
-          {/*<Avatar*/}
-          {/*  src={group.image}*/}
-          {/*  alt={group.name}*/}
-          {/*  sx={{*/}
-          {/*    width: 48,*/}
-          {/*    height: 48,*/}
-          {/*    bgcolor: 'white',*/}
-          {/*    border: 1,*/}
-          {/*    borderColor: 'primary.main',*/}
-          {/*    color: 'primary.main'*/}
-          {/*  }}*/}
-          {/*>*/}
-          {/*  <Group/>*/}
-          {/*</Avatar>*/}
+          <GroupAvatarUpload size={{xs: 48, sm: 48}} initial={group.title} groupNuri={group["@graph"]} isEditing={false}/>
 
           <Box sx={{flexGrow: 1}}>
             <Box

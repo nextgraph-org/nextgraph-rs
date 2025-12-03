@@ -1,8 +1,8 @@
 import {useCallback} from 'react';
 import {Box, Avatar, CircularProgress} from '@mui/material';
-import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
-import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
-import {useContactPhotoOrm} from "@/hooks/contacts/useContactPhotoOrm.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm";
+import {SocialContact} from "@/.orm/shapes/contact.typings";
+import {usePhotoOrm} from "@/hooks/usePhotoOrm";
 
 export interface ContactAvatarUploadProps {
   contact: SocialContact | undefined;
@@ -17,7 +17,7 @@ export const ContactCardAvatarOrm = ({
                                      }: ContactAvatarUploadProps) => {
   const photo = resolveFrom(contact, 'photo');
 
-  const {displayUrl, isLoadingImage} = useContactPhotoOrm(contact, photo);
+  const {displayUrl, isLoadingImage} = usePhotoOrm(contact, photo?.photoIRI, photo?.photoUrl);
 
   const renderViewAvatar = useCallback(() => {
     // Show loading spinner while loading or uploading

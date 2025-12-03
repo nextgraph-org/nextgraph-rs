@@ -1,29 +1,28 @@
 import {useState, useEffect} from 'react';
 import {imageService} from '@/services/imageService';
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
-import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
-interface PhotoData {
-  photoIRI?: string;
-  photoUrl?: string;
+interface Subject {
+  "@id": string
 }
 
-export const useContactPhotoOrm = (
-  contact: SocialContact | undefined,
-  photo: PhotoData | undefined,
+export const usePhotoOrm = (
+  subject: Subject | undefined,
+  photoIRI: string | undefined,
+  fallbackUrl?: string
 ) => {
   const nextGraphAuth = useNextGraphAuth();
   const sessionId = nextGraphAuth?.session?.sessionId;
   const [isLoadingImage, setIsLoadingImage] = useState(true);
-  const [displayUrl, setDisplayUrl] = useState<string | undefined>(photo?.photoUrl);
+  const [displayUrl, setDisplayUrl] = useState<string | undefined>(fallbackUrl);
 
   useEffect(() => {
-    if (!contact) {
+    if (!subject) {
       return;
     }
-    if (sessionId && photo?.photoIRI) {
+    if (sessionId && photoIRI) {
       setIsLoadingImage(true);
-      imageService.getBlob(contact["@id"]!, photo.photoIRI, true, sessionId)
+      imageService.getBlob(subject["@id"]!, photoIRI, true, sessionId)
         .then((url) => {
           if (url && url !== true) {
             setDisplayUrl(url as string);
@@ -35,13 +34,13 @@ export const useContactPhotoOrm = (
         .finally(() => {
           setIsLoadingImage(false);
         });
-    } else if (photo?.photoUrl) {
+    } else if (fallbackUrl) {
       setIsLoadingImage(false);
-      setDisplayUrl(photo?.photoUrl);
+      setDisplayUrl(fallbackUrl);
     } else {
       setIsLoadingImage(false);
     }
-  }, [sessionId, contact, photo]);
+  }, [sessionId, subject, photoIRI, fallbackUrl]);
 
   return {displayUrl, isLoadingImage};
 };

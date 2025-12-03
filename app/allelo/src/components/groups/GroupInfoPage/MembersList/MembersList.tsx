@@ -112,8 +112,6 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
           fullWidth
           PaperProps={{
             sx: {
-              height: '80vh',
-              maxHeight: '800px',
               p: 1
             }
           }}
@@ -129,18 +127,19 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
                 manageMode={true}
                 setManageMode={setManageMode}
                 onSelectionChange={handleSelectionChange}
+                forGroup={true}
               />
             </Box>
           </DialogContent>
-          <DialogActions sx={{px: 3, py: 2}}>
-            <Button onClick={handleCloseDialog} variant="outlined">
+          <DialogActions sx={{px: 3, py: 1, gap: 1}}>
+            <Button onClick={handleCloseDialog} variant="outlined" sx={{p: 1}}>
               Cancel
             </Button>
             <Button
               onClick={handleAddMembers}
               variant="contained"
               disabled={selectedContacts.length === 0}
-              sx={{ml: 1}}
+              sx={{p: 1}}
             >
               Add {selectedContacts.length > 0 ? `(${selectedContacts.length})` : ''} Members
             </Button>

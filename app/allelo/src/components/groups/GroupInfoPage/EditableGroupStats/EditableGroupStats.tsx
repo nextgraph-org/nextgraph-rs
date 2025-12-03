@@ -1,32 +1,59 @@
-import { forwardRef, useRef } from 'react';
+import {forwardRef, useRef, useState, useEffect} from 'react';
 import {
   Typography,
   Box,
   Card,
   CardContent,
   TextField,
-  Chip,
-  Avatar,
-  IconButton,
-  Button,
 } from '@mui/material';
-import {
-  UilCamera as PhotoCamera,
-  UilTrashAlt as Delete,
-} from '@iconscout/react-unicons';
-import type { Group } from '@/types/group';
+import {SocialGroup} from "@/.orm/shapes/group.typings.ts";
+import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
 
 export interface EditableGroupStatsProps {
-  group: Group;
+  group: SocialGroup;
   memberCount?: number;
-  onChange: (field: keyof Group, value: unknown) => void;
 }
 
 export const EditableGroupStats = forwardRef<HTMLDivElement, EditableGroupStatsProps>(
-  ({ group, onChange }, ref) => {
+  ({group}, ref) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleTagsChange = (tagString: string) => {
+    const [title, setTitle] = useState(group.title || '');
+    const [description, setDescription] = useState(group.description || '');
+
+    // Debounce title changes
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        if (title !== group.title) {
+          group.title = title;
+        }
+      }, 500);
+
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [title, group]);
+
+    // Debounce description changes
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        if (description !== group.description) {
+          group.description = description;
+        }
+      }, 500);
+
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [description, group]);
+
+    // Update local state when group prop changes
+    useEffect(() => {
+      setTitle(group.title || '');
+      setDescription(group.description || '');
+    }, [group.title, group.description]);
+
+    /*const handleTagsChange = (tagString: string) => {
       const tags = tagString.split(',').map(tag => tag.trim()).filter(tag => tag);
       onChange('tags', tags);
     };
@@ -47,88 +74,36 @@ export const EditableGroupStats = forwardRef<HTMLDivElement, EditableGroupStatsP
 
     const triggerFileInput = () => {
       fileInputRef.current?.click();
-    };
+    };*/
 
     return (
-      <Card ref={ref} sx={{ mb: 3 }}>
-        <CardContent sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+      <Card ref={ref} sx={{mb: 3}}>
+        <CardContent sx={{p: 3}}>
+          <Typography variant="h6" sx={{fontWeight: 600, mb: 3}}>
             Group Information
           </Typography>
-          
-          <Box sx={{ display: 'grid', gap: 3 }}>
+
+          <Box sx={{display: 'grid', gap: 3}}>
             {/* Group Image */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box sx={{display: 'flex', alignItems: 'center', gap: 3}}>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>
                   Group Icon
                 </Typography>
-                <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                  <Avatar
-                    src={group.image}
-                    alt={group.name}
-                    sx={{
-                      width: 80,
-                      height: 80,
-                      bgcolor: 'white',
-                      border: 2,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
-                      fontSize: '2rem',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {!group.image && group.name.charAt(0)}
-                  </Avatar>
-                  <IconButton
-                    sx={{
-                      position: 'absolute',
-                      bottom: -8,
-                      right: -8,
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      '&:hover': {
-                        bgcolor: 'primary.dark',
-                      },
-                      width: 32,
-                      height: 32,
-                    }}
-                    onClick={triggerFileInput}
-                  >
-                    <PhotoCamera sx={{ fontSize: 18 }} />
-                  </IconButton>
+                <Box sx={{position: 'relative', display: 'inline-block'}}>
+                  <GroupAvatarUpload size={{xs: 80, sm: 80}} initial={group.title} groupNuri={group["@graph"]} isEditing={true}/>
                 </Box>
               </Box>
-              {group.image && (
-                <Box>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    color="error"
-                    onClick={handleRemoveImage}
-                    startIcon={<Delete />}
-                  >
-                    Remove Icon
-                  </Button>
-                </Box>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                style={{ display: 'none' }}
-              />
             </Box>
             {/* Group Name */}
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>
                 Group Name
               </Typography>
               <TextField
                 fullWidth
-                value={group.name || ''}
-                onChange={(e) => onChange('name', e.target.value)}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 variant="outlined"
                 size="small"
               />
@@ -136,15 +111,15 @@ export const EditableGroupStats = forwardRef<HTMLDivElement, EditableGroupStatsP
 
             {/* Description */}
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>
                 Description
               </Typography>
               <TextField
                 fullWidth
                 multiline
                 rows={3}
-                value={group.description || ''}
-                onChange={(e) => onChange('description', e.target.value)}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 variant="outlined"
                 size="small"
                 placeholder="Add a description for your group"
@@ -153,10 +128,10 @@ export const EditableGroupStats = forwardRef<HTMLDivElement, EditableGroupStatsP
 
             {/* Tags */}
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>
                 Tags (comma-separated)
               </Typography>
-              <TextField
+              {/*<TextField
                 fullWidth
                 value={group.tags?.join(', ') || ''}
                 onChange={(e) => handleTagsChange(e.target.value)}
@@ -176,7 +151,7 @@ export const EditableGroupStats = forwardRef<HTMLDivElement, EditableGroupStatsP
                     }}
                   />
                 ))}
-              </Box>
+              </Box>*/}
             </Box>
 
             {/* Created Date */}

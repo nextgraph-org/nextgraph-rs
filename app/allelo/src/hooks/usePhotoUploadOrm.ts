@@ -1,11 +1,15 @@
 import {useState, useCallback, ChangeEvent, RefObject} from 'react';
 import {imageService} from '@/services/imageService';
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
-import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
-export const useContactPhotoUploadOrm = (
-  ormContact: SocialContact,
-  fileInputRef: RefObject<HTMLInputElement | null>
+interface Subject {
+  "@id": string
+}
+
+export const usePhotoUploadOrm = (
+  subject: Subject,
+  fileInputRef: RefObject<HTMLInputElement | null>,
+  onUploaded: (nuri: string) => void,
 ) => {
   const nextGraphAuth = useNextGraphAuth();
   const sessionId = nextGraphAuth?.session?.sessionId;
@@ -14,7 +18,7 @@ export const useContactPhotoUploadOrm = (
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileSelect = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
-    if (!ormContact) {
+    if (!subject) {
       return;
     }
     const file = event.target.files?.[0];
@@ -26,7 +30,7 @@ export const useContactPhotoUploadOrm = (
         // Upload file and get the nuri
         const nuri = await imageService.uploadFile(
           file,
-          ormContact["@id"],
+          subject["@id"],
           sessionId,
           (progress) => {
             const percent = Math.round((progress.current / progress.total) * 100);
@@ -35,14 +39,7 @@ export const useContactPhotoUploadOrm = (
         );
 
         if (nuri) {
-          ormContact?.photo?.forEach((el: any) => el.preferred = false);
-
-          ormContact?.photo?.add({
-            photoIRI: nuri,
-            "@graph": "",
-            "@id": "",
-            preferred: true
-          })
+          onUploaded(nuri);
         }
 
         // Clear file input
@@ -56,7 +53,7 @@ export const useContactPhotoUploadOrm = (
         setUploadProgress(0);
       }
     }
-  }, [ormContact, sessionId, fileInputRef]);
+  }, [subject, sessionId, fileInputRef, onUploaded]);
 
   return {
     isUploading,
