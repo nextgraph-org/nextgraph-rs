@@ -1,4 +1,4 @@
-import {forwardRef} from 'react';
+import {forwardRef, useCallback, useState} from 'react';
 import {
   Typography,
   Box,
@@ -6,9 +6,15 @@ import {
   Card,
   CardContent,
   List,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {UilUserPlus} from '@iconscout/react-unicons';
 import {MemberListItem} from './MemberListItem';
+import {ContactListTab} from '@/components/contacts/ContactListTab/ContactListTab';
+import {useGroupData} from '@/hooks/groups/useGroupData';
 
 interface Member {
   id: string;
@@ -20,52 +26,119 @@ interface Member {
 }
 
 export interface MembersListProps {
-  membersNuris: string[];
+  groupId: string;
+  membersNuris: Set<string> | undefined;
   isCurrentUserAdmin: boolean;
-  onInviteMember: () => void;
-  onRemoveMember: (member: Member) => void;
 }
 
 export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
-  ({membersNuris, isCurrentUserAdmin, onInviteMember, onRemoveMember}, ref) => {
+  ({groupId, membersNuris, isCurrentUserAdmin}, ref) => {
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+    const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
+    const [manageMode, setManageMode] = useState(true);
+
+    const {addMembers, removeMember} = useGroupData(groupId);
+
+    const onInviteMember = useCallback(() => {
+      setIsInviteDialogOpen(true);
+    }, []);
+
+    const handleCloseDialog = useCallback(() => {
+      setIsInviteDialogOpen(false);
+      setSelectedContacts([]);
+      setManageMode(false);
+    }, []);
+
+    const handleSelectionChange = useCallback((contacts: string[]) => {
+      setSelectedContacts(contacts);
+    }, []);
+
+    const handleAddMembers = useCallback(async () => {
+      addMembers(selectedContacts);
+      handleCloseDialog();
+    }, [addMembers, selectedContacts, handleCloseDialog]);
 
     return (
-      <Card ref={ref}>
-        <CardContent sx={{p: 3}}>
-          <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
-            <Typography variant="h6" sx={{fontWeight: 600}}>
-              Members ({membersNuris.length})
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<UilUserPlus size="20"/>}
-              onClick={onInviteMember}
-              sx={{
-                borderRadius: 2,
-                px: {xs: 1.5, md: 3},
-                py: {xs: 0.5, md: 1},
-                fontSize: {xs: '0.75rem', md: '0.875rem'},
-                flexShrink: 0,
-                minWidth: {xs: 'auto', md: 'auto'}
-              }}
-            >
-              Invite
-            </Button>
-          </Box>
+      <>
+        <Card ref={ref}>
+          <CardContent sx={{p: 3}}>
+            <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
+              <Typography variant="h6" sx={{fontWeight: 600}}>
+                Members ({membersNuris?.size || 0})
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<UilUserPlus size="20"/>}
+                onClick={onInviteMember}
+                sx={{
+                  borderRadius: 2,
+                  px: {xs: 1.5, md: 3},
+                  py: {xs: 0.5, md: 1},
+                  fontSize: {xs: '0.75rem', md: '0.875rem'},
+                  flexShrink: 0,
+                  minWidth: {xs: 'auto', md: 'auto'}
+                }}
+              >
+                Invite
+              </Button>
+            </Box>
 
-          <List sx={{width: '100%'}}>
-            {membersNuris.map((memberNuri, index) => (
-              <MemberListItem
-                key={memberNuri}
-                memberNuri={memberNuri}
-                isCurrentUserAdmin={isCurrentUserAdmin}
-                isLastItem={index === membersNuris.length - 1}
-                onRemoveMember={onRemoveMember}
+            <List sx={{width: '100%'}}>
+              {([...(membersNuris ?? [])]).map((memberNuri, index) => (
+                <MemberListItem
+                  key={memberNuri}
+                  memberNuri={memberNuri}
+                  isCurrentUserAdmin={isCurrentUserAdmin}
+                  isLastItem={index === (membersNuris?.size || 1) - 1}
+                  onRemoveMember={removeMember}
+                />
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+
+        <Dialog
+          open={isInviteDialogOpen}
+          onClose={handleCloseDialog}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              height: '80vh',
+              maxHeight: '800px',
+              p: 1
+            }
+          }}
+        >
+          <DialogTitle>
+            <Typography variant="h6" sx={{fontWeight: 600}}>
+              Add Members
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{p: 0, display: 'flex', flexDirection: 'column'}}>
+            <Box sx={{flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
+              <ContactListTab
+                manageMode={true}
+                setManageMode={setManageMode}
+                onSelectionChange={handleSelectionChange}
               />
-            ))}
-          </List>
-        </CardContent>
-      </Card>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{px: 3, py: 2}}>
+            <Button onClick={handleCloseDialog} variant="outlined">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddMembers}
+              variant="contained"
+              disabled={selectedContacts.length === 0}
+              sx={{ml: 1}}
+            >
+              Add {selectedContacts.length > 0 ? `(${selectedContacts.length})` : ''} Members
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
     );
   }
 );

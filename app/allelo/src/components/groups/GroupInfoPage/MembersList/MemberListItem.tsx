@@ -12,20 +12,11 @@ import {formatDate} from "@/utils/dateHelpers";
 import {useResolvedContact} from "@/stores/contactOrmStore.ts";
 import {ContactCardAvatarOrm} from "@/components/contacts/ContactCardAvatar";
 
-interface Member {
-  id: string;
-  name: string;
-  avatar: string;
-  role: 'Admin' | 'Member';
-  status?: 'Member' | 'Invited';
-  joinedAt: Date | null;
-}
-
 export interface MemberListItemProps {
   memberNuri: string;
   isCurrentUserAdmin: boolean;
   isLastItem: boolean;
-  onRemoveMember: (member: Member) => void;
+  onRemoveMember: (nuri: string) => void;
 }
 
 export const MemberListItem = ({
@@ -80,7 +71,7 @@ export const MemberListItem = ({
                   color="error"
                   size="small"
                   startIcon={<UilUserMinus size="20"/>}
-                 /* onClick={() => onRemoveMember(member)}*/
+                  onClick={() => onRemoveMember(ormContact["@id"])}
                   sx={{
                     height: 20,
                     fontSize: '0.6rem',
@@ -103,11 +94,11 @@ export const MemberListItem = ({
         }
         secondary={
           <Typography variant="body2" color="text.secondary">
-            {member.status === 'Invited' ? 'Invitation sent' : `Joined ${member.joinedAt ? formatDate(member.joinedAt, {
+            {/*{member.status === 'Invited' ? 'Invitation sent' : `Joined ${member.joinedAt ? formatDate(member.joinedAt, {
               month: "short",
               hour: undefined,
               minute: undefined
-            }) : 'Unknown'}`}
+            }) : 'Unknown'}`}*/}
           </Typography>
         }
       />

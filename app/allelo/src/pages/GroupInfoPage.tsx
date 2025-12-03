@@ -42,7 +42,7 @@ interface ExtendedGroup extends Group {
 
 export const GroupInfoPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
-  const { group} = useGroupData(groupId);
+  const { group, isAdmin} = useGroupData(groupId);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
@@ -81,10 +81,6 @@ export const GroupInfoPage = () => {
   const handleClose = () => {
     // Navigate to the group detail page instead of groups list
     navigate(`/groups/${groupId}`);
-  };
-
-  const handleInviteMember = () => {
-    navigate(`/contacts?mode=invite&returnTo=group-info&groupId=${groupId}`);
   };
 
   const handleInviteSubmit = (inviteData: InviteFormData) => {
@@ -138,10 +134,6 @@ export const GroupInfoPage = () => {
       setShowRemoveMemberDialog(false);
       setMemberToRemove(null);
     }
-  };
-
-  const isCurrentUserAdmin = () => {
-    return true;
   };
 
   const handleEditToggle = () => {
@@ -247,7 +239,7 @@ export const GroupInfoPage = () => {
         {/* Action buttons */}
         <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
           {/* Edit/Save/Cancel buttons for admins */}
-          {isCurrentUserAdmin() && (
+          {isAdmin && (
             <>
               {!isEditMode ? (
                 <IconButton 
@@ -324,9 +316,9 @@ export const GroupInfoPage = () => {
 
           {/* Members List */}
           <MembersList
-            members={group.hasMember}
-            isCurrentUserAdmin={isCurrentUserAdmin()}
-            onInviteMember={handleInviteMember}
+            groupId={groupId!}
+            membersNuris={group.hasMember}
+            isCurrentUserAdmin={isAdmin}
             onRemoveMember={handleRemoveMember}
           />
 

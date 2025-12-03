@@ -9,7 +9,15 @@ import {ContactCard} from "@/components/contacts/ContactCard";
 import {useNavigate} from "react-router-dom";
 import {useSearchParams} from "react-router-dom";
 
-export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean, setManageMode: any}) => {
+export const ContactListTab = ({
+  manageMode,
+  setManageMode,
+  onSelectionChange
+}: {
+  manageMode: boolean;
+  setManageMode: any;
+  onSelectionChange?: (selectedContacts: string[]) => void;
+}) => {
   const {
     contactNuris,
     isLoading,
@@ -47,6 +55,11 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
   const returnTo = searchParams.get('returnTo');
   const groupId = searchParams.get('groupId');
   const groupData = searchParams.get('groupData');
+
+  // Notify parent when selection changes
+  useEffect(() => {
+    onSelectionChange?.(selectedContacts);
+  }, [selectedContacts, onSelectionChange]);
 
   // Clear selections when filters change
   useEffect(() => {
