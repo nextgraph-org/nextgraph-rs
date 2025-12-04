@@ -1,4 +1,10 @@
-import {GreenCheckClaim, isAccountClaim, isPhoneClaim, isEmailClaim} from '@/lib/greencheck-api-client/types';
+import {
+  GreenCheckClaim,
+  isAccountClaim,
+  isPhoneClaim,
+  isEmailClaim,
+  CentralityResponse
+} from '@/lib/greencheck-api-client/types';
 import {SocialContact, Name, PhoneNumber, Email, Url, Photo} from '@/.ldo/contact.typings';
 import {BasicLdSet} from "@/lib/ldo/BasicLdSet";
 
@@ -106,4 +112,56 @@ export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Parti
   }
 
   return contact;
+}
+
+export function mapCentralityResponseToSocialContacts(
+  response: CentralityResponse,
+  linkedinContacts: Record<string, string>,
+  getCentrality?: boolean,
+  getProfileDetails?: boolean
+): Record<string, Partial<SocialContact>> {
+  const contacts: Record<string, Partial<SocialContact>> = {};
+
+  const centrality = response.centrality;
+  const profileData = response.profile_data;
+  if (!centrality) {
+    return contacts;
+  }
+
+  const source = 'GreenCheck';
+
+  for (const [account, contactNuri] of Object.entries(linkedinContacts)) {
+    if (!centrality[account]) {
+      continue;
+    }
+
+    const contact: Partial<SocialContact> = {};
+
+    if (getCentrality) {
+      contact.centralityScore = centrality[account];
+    }
+
+    if (getProfileDetails && profileData && profileData[account]?.linkedin) {
+      const data = profileData[account].linkedin;
+      // Add photo
+      if (data.image) {
+        //@ts-expect-error we would put photo later
+        const photo: Photo = {
+          photoUrl: data.image,
+          source: source
+        };
+        contact.photo = new BasicLdSet([photo]);
+      }
+
+      // Add location
+      if (data.loc) {
+        contact.address = new BasicLdSet([{
+          value: data.loc,
+          source: source
+        }]);
+      }
+    }
+    contacts[contactNuri] = contact;
+  }
+  return contacts;
 }

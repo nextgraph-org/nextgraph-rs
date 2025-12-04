@@ -30,4 +30,16 @@ export interface AppSettings {
    * Whether LinkedIn import has been requested
    */
   lnImportRequested?: boolean;
+  /**
+   * Whether LinkedIn import has been finished
+   */
+  lnImportFinished?: boolean;
+  /**
+   * id from greencheck
+   */
+  greencheckId?: string;
+  /**
+   * temporary token from greencheck
+   */
+  greencheckToken?: string;
 }

@@ -1,3 +1,14 @@
+<!--
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// Licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice may not be copied, modified, or distributed except
+// according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
 <script setup lang="ts">
 import { computed } from "vue";
 import { useShape } from "@ng-org/signals/vue";
@@ -11,7 +22,7 @@ const shapeObjects = useShape(TestObjectShapeType);
 // Expose for devtools exploration
 // @ts-ignore
 window.vueState = shapeObjects;
-console.log("vue loaded")
+console.log("vue loaded");
 </script>
 
 <template>
@@ -25,7 +36,11 @@ console.log("vue loaded")
                     <table
                         border="1"
                         cellpadding="5"
-                        style="margin-top: 1rem; max-width: 100%; font-size: 0.9rem"
+                        style="
+                            margin-top: 1rem;
+                            max-width: 100%;
+                            font-size: 0.9rem;
+                        "
                     >
                         <thead>
                             <tr>
@@ -37,7 +52,12 @@ console.log("vue loaded")
 
                         <tbody>
                             <tr
-                                v-for="[path, value, key, parent] in flatEntries"
+                                v-for="[
+                                    path,
+                                    value,
+                                    key,
+                                    parent,
+                                ] in flatEntries"
                                 :key="path"
                             >
                                 <!-- Key-->
@@ -60,7 +80,9 @@ console.log("vue loaded")
                                 <td>
                                     <!-- String editing -->
                                     <template v-if="typeof value === 'string'">
-                                        <template v-if="path.indexOf('.') === -1">
+                                        <template
+                                            v-if="path.indexOf('.') === -1"
+                                        >
                                             <input
                                                 type="text"
                                                 v-model="obj[key]"
@@ -81,8 +103,12 @@ console.log("vue loaded")
                                         </template>
                                     </template>
                                     <!-- Number editing -->
-                                    <template v-else-if="typeof value === 'number'">
-                                        <template v-if="path.indexOf('.') === -1">
+                                    <template
+                                        v-else-if="typeof value === 'number'"
+                                    >
+                                        <template
+                                            v-if="path.indexOf('.') === -1"
+                                        >
                                             <input
                                                 type="number"
                                                 v-model="obj[key]"
@@ -94,16 +120,21 @@ console.log("vue loaded")
                                                 v-bind:value="parent[key]"
                                                 v-on:input="
                                                     (e) => {
-                                                        parent[key] = +(e.target as any)
-                                                            .value;
+                                                        parent[key] = +(
+                                                            e.target as any
+                                                        ).value;
                                                     }
                                                 "
                                             />
                                         </template>
                                     </template>
                                     <!-- Boolean editing -->
-                                    <template v-else-if="typeof value === 'boolean'">
-                                        <template v-if="path.indexOf('.') === -1">
+                                    <template
+                                        v-else-if="typeof value === 'boolean'"
+                                    >
+                                        <template
+                                            v-if="path.indexOf('.') === -1"
+                                        >
                                             <input
                                                 type="checkbox"
                                                 v-model="obj[key]"
@@ -125,14 +156,22 @@ console.log("vue loaded")
                                     </template>
                                     <!-- Array editing -->
                                     <template v-else-if="Array.isArray(value)">
-                                        <template v-if="path.indexOf('.') === -1">
-                                            <div style="display: flex; gap: 0.5rem">
+                                        <template
+                                            v-if="path.indexOf('.') === -1"
+                                        >
+                                            <div
+                                                style="
+                                                    display: flex;
+                                                    gap: 0.5rem;
+                                                "
+                                            >
                                                 <button
                                                     @click="
                                                         () => {
                                                             parent[key] = [
                                                                 ...value,
-                                                                value.length + 1,
+                                                                value.length +
+                                                                    1,
                                                             ];
                                                         }
                                                     "
@@ -152,13 +191,19 @@ console.log("vue loaded")
                                             </div>
                                         </template>
                                         <template v-else>
-                                            <div style="display: flex; gap: 0.5rem">
+                                            <div
+                                                style="
+                                                    display: flex;
+                                                    gap: 0.5rem;
+                                                "
+                                            >
                                                 <button
                                                     @click="
                                                         () => {
                                                             parent[key] = [
                                                                 ...value,
-                                                                value.length + 1,
+                                                                value.length +
+                                                                    1,
                                                             ];
                                                         }
                                                     "
@@ -197,7 +242,9 @@ console.log("vue loaded")
                                                 @click="
                                                     () => {
                                                         const last =
-                                                            Array.from(value).pop();
+                                                            Array.from(
+                                                                value
+                                                            ).pop();
                                                         if (last !== undefined)
                                                             value.delete(last);
                                                     }

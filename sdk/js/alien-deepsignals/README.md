@@ -80,12 +80,12 @@ It can return:
 let counter = 0;
 const state = deepSignal(
     { items: new Set() },
-    { 
+    {
         propGenerator: ({ path, inSet, object }) => ({
-            syntheticId: inSet 
+            syntheticId: inSet
                 ? `urn:item:${++counter}`
                 : `urn:obj:${path.join("-")}`,
-            extraProps: { createdAt: new Date().toISOString() }
+            extraProps: { createdAt: new Date().toISOString() },
         }),
         syntheticIdPropertyName: "@id",
     }
@@ -102,7 +102,7 @@ When `syntheticIdPropertyName` is set (e.g., to `"@id"`), objects receive a read
 ```ts
 const state = deepSignal(
     { data: {} },
-    { 
+    {
         propGenerator: ({ path, inSet, object }) => ({
             syntheticId: `urn:uuid:${crypto.randomUUID()}`,
         }),
@@ -121,7 +121,7 @@ The `readOnlyProps` option lets you specify property names that cannot be modifi
 ```ts
 const state = deepSignal(
     { data: {} },
-    { 
+    {
         propGenerator: ({ path, inSet, object }) => ({
             syntheticId: `urn:uuid:${crypto.randomUUID()}`,
         }),
@@ -227,11 +227,9 @@ import { addWithId, setSetEntrySyntheticId } from "@ng-org/alien-deepsignals";
 // Option 1: Use automatic ID generation via propGenerator
 const state = deepSignal(
     { items: new Set() },
-    { 
+    {
         propGenerator: ({ path, inSet, object }) => ({
-            syntheticId: inSet 
-                ? `urn:uuid:${crypto.randomUUID()}`
-                : undefined,
+            syntheticId: inSet ? `urn:uuid:${crypto.randomUUID()}` : undefined,
         }),
         syntheticIdPropertyName: "@id",
     }
@@ -259,8 +257,8 @@ When objects are added to Sets, their **synthetic ID becomes part of the patch p
 
 ```ts
 const state = deepSignal(
-    { s: new Set() }, 
-    { 
+    { s: new Set() },
+    {
         propGenerator: ({ inSet }) => ({
             syntheticId: inSet ? "urn:entry:set-entry-1" : undefined,
         }),
@@ -291,12 +289,10 @@ state.s.add({ data: "test" });
 
 ```ts
 const state = deepSignal(
-    { users: new Set() }, 
-    { 
+    { users: new Set() },
+    {
         propGenerator: ({ path, inSet }) => ({
-            syntheticId: inSet 
-                ? `urn:user:${crypto.randomUUID()}`
-                : undefined,
+            syntheticId: inSet ? `urn:user:${crypto.randomUUID()}` : undefined,
         }),
         syntheticIdPropertyName: "@id",
     }
@@ -314,6 +310,7 @@ user.age = 31;
 ```
 
 The path `["users", "urn:user:550e8400-...", "age"]` shows:
+
 1. `users` - the Set container
 2. `urn:user:550e8400-...` - the IRI identifying which object in the Set
 3. `age` - the property being mutated
@@ -342,23 +339,31 @@ const n: number = state.$count!(); // typed number
 
 ## API surface
 
-| Function                           | Description                                       |
-| ---------------------------------- | ------------------------------------------------- |
+| Function                           | Description                                                        |
+| ---------------------------------- | ------------------------------------------------------------------ |
 | `deepSignal(obj, options?)`        | Create (or reuse) reactive deep proxy with optional configuration. |
-| `watch(root, cb, opts?)`           | Observe batched deep mutations.                   |
-| `observe(root, cb, opts?)`         | Alias of `watch`.                                 |
-| `peek(obj,key)`                    | Untracked property read.                          |
-| `shallow(obj)`                     | Mark object to skip deep proxying.                |
-| `isDeepSignal(val)`                | Runtime predicate.                                |
-| `isShallow(val)`                   | Was value marked shallow.                         |
-| `setSetEntrySyntheticId(obj,id)`   | Assign custom Set entry id (highest priority).    |
-| `addWithId(set, entry, id)`        | Insert with desired synthetic id (convenience).   |
-| `subscribeDeepMutations(root, cb)` | Low-level patch stream (used by watch).           |
-
-## Credits
-
-This project is a fork of https://github.com/CCherry07/alien-deepsignals, forked at commit `b691dc9202c58f63c1bf78675577c811316396db`.
+| `watch(root, cb, opts?)`           | Observe batched deep mutations.                                    |
+| `observe(root, cb, opts?)`         | Alias of `watch`.                                                  |
+| `peek(obj,key)`                    | Untracked property read.                                           |
+| `shallow(obj)`                     | Mark object to skip deep proxying.                                 |
+| `isDeepSignal(val)`                | Runtime predicate.                                                 |
+| `isShallow(val)`                   | Was value marked shallow.                                          |
+| `setSetEntrySyntheticId(obj,id)`   | Assign custom Set entry id (highest priority).                     |
+| `addWithId(set, entry, id)`        | Insert with desired synthetic id (convenience).                    |
+| `subscribeDeepMutations(root, cb)` | Low-level patch stream (used by watch).                            |
 
 ## License
 
-MIT
+This project is a fork of https://github.com/CCherry07/alien-deepsignals, forked at commit `b691dc9202c58f63c1bf78675577c811316396db`. All code previous to this commit is licensed under MIT, and author is CCherry. No copyright attribution is present. This codebase is therefor relicensed under dual MIT and Apache 2.0 licensing.
+
+All subsequent commits are from Laurin Weger and are licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+  at your option.
+
+`SPDX-License-Identifier: Apache-2.0 OR MIT`
+
+---
+
+NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.

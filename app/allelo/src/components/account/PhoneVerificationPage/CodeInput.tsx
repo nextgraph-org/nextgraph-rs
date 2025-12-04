@@ -15,7 +15,6 @@ import {
   ArrowBack,
 } from "@mui/icons-material";
 import {formatPhone} from "@/utils/phoneHelper";
-import {useNavigate} from "react-router-dom";
 
 interface CodeInputProps {
   phoneNumber: string;
@@ -36,13 +35,11 @@ const CodeInput: React.FC<CodeInputProps> = ({
                                                onSubmit,
                                                onBack,
                                              }) => {
-  const navigate = useNavigate();
-
   return (
     <Card sx={{maxWidth: 500, mx: 'auto', mt: 4}}>
-      <CardContent sx={{p: 4}}>
+      <CardContent sx={{p: {xs: 2, md: 4}}}>
         <Box sx={{textAlign: 'center', mb: 3}}>
-          <Sms sx={{fontSize: 48, color: 'primary.main', mb: 2}}/>
+          <Sms sx={{fontSize: 40, color: 'primary.main', mb: 2}}/>
           <Typography variant="h5" component="h1" gutterBottom sx={{fontWeight: 600}}>
             Enter Verification Code
           </Typography>
@@ -82,7 +79,7 @@ const CodeInput: React.FC<CodeInputProps> = ({
               onClick={onBack}
               startIcon={<ArrowBack/>}
               disabled={isLoading}
-              sx={{py: 1.5}}
+              sx={{p: 1}}
             >
               Back
             </Button>
@@ -92,20 +89,9 @@ const CodeInput: React.FC<CodeInputProps> = ({
               fullWidth
               disabled={isLoading || !verificationCode.trim()}
               startIcon={isLoading ? <CircularProgress size={20}/> : <CheckCircle/>}
-              sx={{py: 1.5}}
+              sx={{p: 1}}
             >
               {isLoading ? 'Verifying...' : 'Verify Code'}
-            </Button>
-          </Box>
-
-          <Box sx={{mt: 2, textAlign: 'center'}}>
-            <Button
-              variant="text"
-              onClick={() => navigate('/account')}
-              disabled={isLoading}
-              size="small"
-            >
-              Skip for now
             </Button>
           </Box>
         </Box>

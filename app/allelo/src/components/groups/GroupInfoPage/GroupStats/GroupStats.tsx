@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 // Note: Using standard avatar styling instead of getContactPhotoStyles
 import {SocialGroup} from "@/.orm/shapes/group.typings.ts";
+import {GroupTags} from "@/components/groups/GroupTags/GroupTags.tsx";
 
 export interface GroupStatsProps {
   group: SocialGroup;
@@ -27,25 +28,7 @@ export const GroupStats = forwardRef<HTMLDivElement, GroupStatsProps>(
               {group.description}
             </Typography>
 
-            {/*TODO: {group.tags && group.tags.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
-                {group.tags.map((tag) => (
-                  <Chip
-                    key={tag}
-                    label={tag}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      borderRadius: 1,
-                      backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                      borderColor: alpha(theme.palette.primary.main, 0.12),
-                      color: 'primary.main',
-                      fontWeight: 500,
-                    }}
-                  />
-                ))}
-              </Box>
-            )}*/}
+            <GroupTags group={group} disabled={true}/>
           </CardContent>
         </Card>
       </Box>

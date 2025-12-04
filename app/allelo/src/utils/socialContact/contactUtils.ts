@@ -131,7 +131,8 @@ export function getSubProperty(item: ItemOf<keyof ContactLdSetProperties>, prope
   }
 }
 
-export function getPropsByFilter<K extends keyof ContactLdSetProperties>(socialContact: SocialContact, key: K, filterParams: Partial<ItemOf<keyof ContactLdSetProperties>>): ItemOf<K>[] {
+export function getPropsByFilter<K extends keyof ContactLdSetProperties>(socialContact: SocialContact | undefined, key: K, filterParams: Partial<ItemOf<keyof ContactLdSetProperties>>): ItemOf<K>[] {
+  if (!socialContact) return [];
   //@ts-expect-error this is crazy, but that how it works
   return (socialContact[key]?.toArray() ?? []).filter((item) => {
     const filterProps = Object.keys(filterParams) as (keyof ItemOf<keyof ContactLdSetProperties>)[];

@@ -17,6 +17,9 @@ importers:
 
   app/allelo:
     dependencies:
+      '@choochmeque/tauri-plugin-google-auth-api':
+        specifier: ^0.3.4
+        version: 0.3.4
       '@dnd-kit/core':
         specifier: ^6.1.0
         version: 6.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -2018,6 +2021,9 @@ packages:
 
   '@chainsafe/is-ip@2.1.0':
     resolution: {integrity: sha512-KIjt+6IfysQ4GCv66xihEitBjvhU/bixbbbFxdJ1sqCp4uJ0wuZiYBPhksZoy4lfaF0k9cwNzY5upEW/VWdw3w==}
+
+  '@choochmeque/tauri-plugin-google-auth-api@0.3.4':
+    resolution: {integrity: sha512-EeLAi6RfFOXCYgicZCZ2gvXrvkhFUbxA35wnAqiyBgW40SwAUEW5wCqnxVoeEYnq09BnjH65pkCjBqhBpXN9lQ==}
 
   '@clack/core@0.3.5':
     resolution: {integrity: sha512-5cfhQNH+1VQ2xLQlmzXMqUoiaH0lRBq9/CLW9lTyMbuKLC3+xEK01tHVvyut++mLOn5urSHmkm6I0Lg9MaJSTQ==}
@@ -11886,6 +11892,10 @@ snapshots:
       event-target-shim: 5.0.1
 
   '@chainsafe/is-ip@2.1.0': {}
+
+  '@choochmeque/tauri-plugin-google-auth-api@0.3.4':
+    dependencies:
+      '@tauri-apps/api': 2.9.0
 
   '@clack/core@0.3.5':
     dependencies:

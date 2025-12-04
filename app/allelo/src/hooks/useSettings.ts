@@ -58,7 +58,7 @@ export const useSettings = () => {
   }, [changeData, commitData, session]);
 
 
-  const updateSettings = useCallback(async () => {
+  const refreshSettings = useCallback(async () => {
     if (!session || !session.sessionId) {
       return;
     }
@@ -76,7 +76,20 @@ export const useSettings = () => {
       setIsLoading(false);
       setError(null);
     }
-  }, [appSettings, changeData, commitData, session])
+  }, [appSettings, changeData, commitData, session]);
+
+  const updateSettings = useCallback(async (settings: Partial<AppSettings>) => {
+    try {
+      const hasSettings = await nextgraphDataService.isSettingsCreated(session);
+      if (!hasSettings) {
+        await nextgraphDataService.createSettings(session);
+      }
+
+      await nextgraphDataService.updateSettings(session, settings, changeData, commitData);
+    } catch (error) {
+      console.error('Failed to update settings:', error);
+    }
+  }, [changeData, commitData, session]);
 
 
   useEffect(() => {
@@ -85,9 +98,9 @@ export const useSettings = () => {
       setIsLoading(false);
       setError(null);
     } else {
-      updateSettings();
+      refreshSettings();
     }
-  }, [isNextGraph, updateSettings, appSettings]);
+  }, [isNextGraph, refreshSettings, appSettings]);
 
-  return {settings, isLoading, error, setSettings, resource, saveToStorage};
+  return {settings, isLoading, error, setSettings, resource, saveToStorage, updateSettings};
 };
