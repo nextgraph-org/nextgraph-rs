@@ -27,7 +27,6 @@ export interface WatchOptions {
 export interface WatchPatchEvent<Root = any> {
     patches: DeepPatch[];
     version: number;
-    oldValue: Root | undefined;
     newValue: Root;
 }
 
@@ -64,16 +63,6 @@ export function watch<Root extends object>(
         }
     };
 
-    const clone = (value: any) => {
-        try {
-            return JSON.parse(JSON.stringify(value));
-        } catch {
-            return undefined;
-        }
-    };
-
-    let lastSnapshot: Root | undefined = clone(source);
-
     const stopListening = () => {
         if (!active) return;
         active = false;
@@ -88,10 +77,8 @@ export function watch<Root extends object>(
         callback({
             patches: batch.patches,
             version: batch.version,
-            oldValue: lastSnapshot,
             newValue: next,
         });
-        if (active) lastSnapshot = clone(next);
         if (once) stopListening();
     };
 
