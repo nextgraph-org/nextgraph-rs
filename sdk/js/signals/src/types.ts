@@ -14,7 +14,7 @@ import type { Patch } from "./connector/applyPatches.ts";
 export type Shape = "Shape1" | "Shape2" | "TestShape";
 
 /** The Scope of a shape request */
-export type Scope = string | string[];
+export type Scope = string;
 
 /** The diff format used to communicate updates between wasm-land and js-land. */
 export type Diff = Patch[];

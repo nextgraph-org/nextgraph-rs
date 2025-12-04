@@ -10,6 +10,7 @@ import {
     registerSharedStateAdapter,
     runScenarioImmediately,
 } from "../../../../../utils/perfScenarios";
+import { effect } from "alien-signals";
 
 type ObjectRowProps = {
     entry: TaggedObject;
@@ -19,6 +20,9 @@ const ObjectRow: React.FC<ObjectRowProps> = ({ entry }) => {
     const rowRenderCount = useRef(0);
     rowRenderCount.current += 1;
     recordObjectRender("react", entry["@id"], rowRenderCount.current);
+
+    useDeepSignal(entry);
+
     return (
         <div
             className="object-row"
@@ -55,7 +59,19 @@ const ObjectRow: React.FC<ObjectRowProps> = ({ entry }) => {
 };
 
 const ReactPerfDeep: React.FC = () => {
-    const state = useDeepSignal(sharedState);
+    const state = sharedState;
+    const [revision, bumpRevision] = useState(0);
+
+    useEffect(() => {
+        const stop = effect(() => {
+            const objectSet = sharedState.objectSet;
+            if (!objectSet) return;
+            void objectSet.size;
+            bumpRevision((value) => value + 1);
+        });
+        return stop;
+    }, []);
+
     const renderCount = useRef(0);
     const [busy, setBusy] = useState(false);
     renderCount.current += 1;
@@ -78,8 +94,10 @@ const ReactPerfDeep: React.FC = () => {
     });
 
     const handleAddEntry = () => {
+        const objectSet = state.objectSet;
+        if (!objectSet) return;
         const id = `react-deep-${Math.random().toString(36).slice(2, 8)}`;
-        state.objectSet.add({
+        objectSet.add({
             "@id": id,
             label: `react ${id}`,
             count: 0,
@@ -87,9 +105,11 @@ const ReactPerfDeep: React.FC = () => {
     };
 
     const handleRemoveEntry = () => {
-        const last = Array.from(state.objectSet.values()).pop();
+        const objectSet = state.objectSet;
+        if (!objectSet) return;
+        const last = Array.from(objectSet.values()).pop();
         if (!last) return;
-        state.objectSet.delete(last);
+        objectSet.delete(last);
     };
 
     const handleRunScenario = async () => {
@@ -100,6 +120,9 @@ const ReactPerfDeep: React.FC = () => {
             setBusy(false);
         }
     };
+
+    const entries = Array.from(state.objectSet?.values?.() ?? []);
+    const objectSetSize = state.objectSet?.size ?? entries.length;
 
     return (
         <section className="perf-panel react" data-field="objectSet">
@@ -113,9 +136,7 @@ const ReactPerfDeep: React.FC = () => {
             <div className="field" data-field="objectSet">
                 <legend>objectSet entries</legend>
                 <div className="set-controls">
-                    <span data-role="set-size">
-                        Size: {state.objectSet.size}
-                    </span>
+                    <span data-role="set-size">Size: {objectSetSize}</span>
                     <div>
                         <button type="button" onClick={handleAddEntry}>
                             Add entry
@@ -134,7 +155,7 @@ const ReactPerfDeep: React.FC = () => {
                     </div>
                 </div>
                 <div className="object-set">
-                    {state.objectSet.values().map((entry) => (
+                    {entries.map((entry) => (
                         <ObjectRow key={entry["@id"]} entry={entry} />
                     ))}
                 </div>

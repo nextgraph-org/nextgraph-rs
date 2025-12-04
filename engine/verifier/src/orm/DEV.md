@@ -9,7 +9,7 @@ This folder implements the rust-side "ORM" layer that turns RDF quads into ergon
 
 The ORM lets apps work with graph data as if it were typed objects while preserving RDF semantics and multi-graph realities.
 
-If you just want to use the SDK, see the [TypeScript library](../../../../sdk/js/signals/README.md). You can also use the [Rust SDK](../../../../sdk/rust/README.md) which is however not documented and probably not going to be of big use (see the tests as a reference).
+If you just want to use the SDK, see the [TypeScript library](../../../../sdk/js/signals/README.md). You can also use the [Rust SDK](../../../../sdk/rust/README.md) which is however not documented and probably not going to be of big use (see the [tests](../../../../sdk/rust/src/tests/) as a reference).
 
 ## Core concepts
 

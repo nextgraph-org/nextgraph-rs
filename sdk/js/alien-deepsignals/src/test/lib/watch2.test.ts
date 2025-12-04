@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { deepSignal } from "../deepSignal";
-import { watch } from "../watch";
-import { effect } from "../effect";
+import { deepSignal } from "../../deepSignal";
+import { watch } from "../../watch";
+import { effect } from "../../effect";
 
 describe("watch2", () => {
     it("delivers immediate snapshot", () => {

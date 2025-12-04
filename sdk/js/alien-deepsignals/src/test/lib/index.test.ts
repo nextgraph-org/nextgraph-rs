@@ -8,9 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { deepSignal, peek, RevertDeepSignal, shallow } from "../index";
+import { deepSignal, shallow } from "../../index";
 import { describe, it, expect, beforeEach } from "vitest";
-import { effect } from "..";
+import { effect } from "../..";
 type Store = {
     a?: number;
     nested: { b?: number };
@@ -387,16 +387,12 @@ describe("deepsignal/core", () => {
 
             effect(() => {
                 values = 0;
-                Object.values(store as RevertDeepSignal<typeof store>).forEach(
-                    () => (values += 1)
-                );
+                Object.values(store).forEach(() => (values += 1));
             });
 
             effect(() => {
                 entries = 0;
-                Object.entries(store as RevertDeepSignal<typeof store>).forEach(
-                    () => (entries += 1)
-                );
+                Object.entries(store).forEach(() => (entries += 1));
             });
 
             expect(keys).to.equal(2);
@@ -699,81 +695,6 @@ describe("deepsignal/core", () => {
         });
     });
 
-    describe("peek", () => {
-        it("should return correct values when using peek()", () => {
-            expect(peek(store, "a")).to.equal(1);
-            expect(peek(store.nested, "b")).to.equal(2);
-            expect(peek(store.array, 0)).to.equal(3);
-            const nested = peek(store, "array")[1];
-            expect(typeof nested === "object" && nested.b).to.equal(2);
-            expect(peek(store.array, "length")).to.equal(2);
-        });
-
-        // it("should not subscribe to changes when peeking", () => {
-        // 	const spy1 = sinon.spy(() => peek(store, "a"));
-        // 	const spy2 = sinon.spy(() => peek(store, "nested"));
-        // 	const spy3 = sinon.spy(() => peek(store, "nested").b);
-        // 	const spy4 = sinon.spy(() => peek(store, "array")[0]);
-        // 	const spy5 = sinon.spy(() => {
-        // 		const nested = peek(store, "array")[1];
-        // 		typeof nested === "object" && nested.b;
-        // 	});
-        // 	const spy6 = sinon.spy(() => peek(store, "array").length);
-
-        // 	effect(spy1);
-        // 	effect(spy2);
-        // 	effect(spy3);
-        // 	effect(spy4);
-        // 	effect(spy5);
-        // 	effect(spy6);
-
-        // 	expect(spy1).callCount(1);
-        // 	expect(spy2).callCount(1);
-        // 	expect(spy3).callCount(1);
-        // 	expect(spy4).callCount(1);
-        // 	expect(spy5).callCount(1);
-        // 	expect(spy6).callCount(1);
-
-        // 	store.a = 11;
-        // 	store.nested.b = 22;
-        // 	store.nested = { b: 222 };
-        // 	store.array[0] = 33;
-        // 	if (typeof store.array[1] === "object") store.array[1].b = 2222;
-        // 	store.array.push(4);
-
-        // 	expect(spy1).callCount(1);
-        // 	expect(spy2).callCount(1);
-        // 	expect(spy3).callCount(1);
-        // 	expect(spy4).callCount(1);
-        // 	expect(spy5).callCount(1);
-        // 	expect(spy6).callCount(1);
-        // });
-
-        // it("should subscribe to some changes but not other when peeking inside an object", () => {
-        // 	const spy1 = sinon.spy(() => peek(store.nested, "b"));
-        // 	effect(spy1);
-        // 	expect(spy1).callCount(1);
-        // 	store.nested.b = 22;
-        // 	expect(spy1).callCount(1);
-        // 	store.nested = { b: 222 };
-        // 	expect(spy1).callCount(2);
-        // 	store.nested.b = 2222;
-        // 	expect(spy1).callCount(2);
-        // });
-
-        it("should support returning peek from getters", () => {
-            const store = deepSignal({
-                counter: 1,
-                get double() {
-                    return store.counter * 2;
-                },
-            });
-            expect(peek(store, "double")).to.equal(2);
-            store.counter = 2;
-            expect(peek(store, "double")).to.equal(4);
-        });
-    });
-
     describe("refs", () => {
         it("should preserve object references", () => {
             expect(store.nested).to.equal(store.array[1]);
@@ -799,11 +720,6 @@ describe("deepsignal/core", () => {
             const store1 = deepSignal(state);
             const store2 = deepSignal(state);
             expect(store1).to.equal(store2);
-        });
-
-        it("should throw when trying to create a deepsignal of a proxy", () => {
-            const store1 = deepSignal({});
-            expect(() => deepSignal(store1)).to.throw();
         });
     });
 

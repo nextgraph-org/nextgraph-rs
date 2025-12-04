@@ -9,8 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, expect, it } from "vitest";
-import { deepSignal } from "../deepSignal";
-import { watch } from "../watch";
+import { deepSignal } from "../../deepSignal";
+import { watch } from "../../watch";
 
 describe("watch", () => {
     it("watch immediate", () => {

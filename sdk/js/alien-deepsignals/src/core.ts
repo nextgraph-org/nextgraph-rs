@@ -8,7 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-
 /** Lightweight façade adding ergonomic helpers (.value/.peek/.get/.set) to native alien-signals function signals. */
 // Native re-exports for advanced usage.
 export {
@@ -46,7 +45,7 @@ type TaggedSignal<T> = ReturnType<typeof alienSignal<T>> & {
 };
 
 /**
- * Decorate a native signal function with legacy helpers & identity.
+ * Decorate a native signal function with helpers & identity.
  */
 function tagSignal(fn: any): TaggedSignal<any> {
     Object.defineProperty(fn, ReactiveFlags_.IS_SIGNAL, { value: true });
@@ -125,56 +124,6 @@ export type MaybeSignalOrGetter<T = any> =
 /** Runtime guard that an unknown value is one of our tagged signals/computeds. */
 export const isSignal = (s: any): boolean =>
     typeof s === "function" && !!s && !!s[ReactiveFlags_.IS_SIGNAL];
-
-/**
- * Minimal Effect wrapper for legacy watch implementation.
- * Provides: active, dirty, scheduler hook, run() & stop().
- */
-/**
- * Minimal Effect wrapper mimicking the legacy interface used by the watch implementation.
- *
- * Each instance wraps a native alien `effect`, setting `dirty=true` on invalidation and invoking
- * the provided scheduler callback. Consumers may manually `run()` the getter (marks clean) or `stop()`
- * to dispose the underlying reactive subscription.
- */
-export class Effect {
-    public active = true;
-    public dirty = true;
-    public scheduler: (immediateFirstRun?: boolean) => void = () => {};
-    private _runner: any;
-    constructor(private _getter: () => any) {
-        const self = this;
-        this._runner = alienEffect(function wrapped() {
-            self.dirty = true;
-            self._getter();
-            self.scheduler();
-        });
-    }
-    run() {
-        this.dirty = false;
-        return this._getter();
-    }
-    stop() {
-        if (this.active) {
-            this._runner();
-            this.active = false;
-        }
-    }
-}
-/** Resolve a plain value, a signal/computed or a getter function to its current value. */
-// Lightweight direct resolver (inlined former toValue/unSignal logic)
-/**
- * Resolve a possibly reactive input to its current value.
- * Accepts: plain value, writable signal, computed signal, or getter function.
- * Signals & getters are invoked once; plain values are returned directly.
- */
-export function toValue<T>(src: MaybeSignalOrGetter<T>): T {
-    return isFunction(src)
-        ? (src as any)()
-        : isSignal(src)
-          ? (src as any)()
-          : (src as any);
-}
 
 /**
  * Execute multiple signal writes in a single batched update frame.

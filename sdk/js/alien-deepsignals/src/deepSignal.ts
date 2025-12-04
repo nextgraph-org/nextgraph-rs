@@ -47,7 +47,7 @@ interface ProxyMeta {
     key?: string | number | symbol;
     isSyntheticId?: boolean;
     root: symbol;
-    options?: DeepSignalOptions;
+    options: DeepSignalOptions;
     setInfo?: SetMeta;
 }
 
@@ -75,19 +75,22 @@ const iterableSignals = new WeakMap<
     ReturnType<typeof signal<number>>
 >();
 const ignored = new WeakSet<object>();
+
 const rootStates = new Map<symbol, RootState>();
 const pendingRoots = new Set<symbol>();
 const supported = new Set([Object, Array, Set]);
 const descriptor = Object.getOwnPropertyDescriptor;
-let peeking = false;
 let blankNodeCounter = 0;
 const wellKnownSymbols = new Set<symbol>([
-    Symbol.iterator,
+    Symbol.asyncDispose,
     Symbol.asyncIterator,
+    Symbol.dispose,
     Symbol.hasInstance,
+    Symbol.iterator,
     Symbol.isConcatSpreadable,
     Symbol.match,
     Symbol.matchAll,
+    Symbol.metadata,
     Symbol.replace,
     Symbol.search,
     Symbol.species,
@@ -100,6 +103,7 @@ const forcedSyntheticIds = new WeakMap<object, string>();
 
 const META_KEY = "__meta__" as const;
 const RAW_KEY = "__raw__" as const;
+const DEFAULT_SYNTHETIC_ID_PROPERTY_NAME = "@id";
 
 /**
  * Lookup the metadata record backing a proxy (if the value is proxied).
@@ -119,12 +123,7 @@ function getRaw<T>(value: T): T {
     return (meta?.raw as T) ?? value;
 }
 
-/** Attach ProxyMeta bookkeeping to a freshly created proxy instance. */
-function attachMetadata(proxy: any, meta: ProxyMeta) {
-    proxyToMeta.set(proxy, meta);
-}
-
-/** Decide whether the runtime should wrap the value in a deepSignal proxy. */
+/** Returns `true` if `value` is an object, array or set and is not in `ignored`. */
 function shouldProxy(value: any): value is object {
     return (
         !!value &&
@@ -135,7 +134,7 @@ function shouldProxy(value: any): value is object {
 }
 
 /**
- * Lazily allocate (and cache) the per-proxy signal map tracking tracked properties.
+ * Get or create the map in `proxySignals` for key `proxy`.
  */
 function ensureSignalMap(proxy: object): Map<PropertyKey, SignalLike> {
     if (!proxySignals.has(proxy)) proxySignals.set(proxy, new Map());
@@ -144,7 +143,7 @@ function ensureSignalMap(proxy: object): Map<PropertyKey, SignalLike> {
 
 /**
  * Write a new value into a cached signal, creating it if needed.
- * Guards against computed signals, which do not expose a writable interface.
+ * Does nothing computed signals.
  */
 function setSignalValue(
     signals: Map<PropertyKey, SignalLike>,
@@ -180,7 +179,8 @@ function hasGetter(target: any, key: PropertyKey) {
 }
 
 /**
- * Lazily materialize a computed signal for accessor properties so reactivity can track them.
+ * Ensure that `signals` has a computed signal for the property with `key` on target.
+ * TODO: Why is this necessary?
  */
 function ensureComputed(
     signals: Map<PropertyKey, SignalLike>,
@@ -320,9 +320,7 @@ function applyPropGeneratorResult(
     });
     if (result.extraProps) {
         Object.entries(result.extraProps).forEach(([k, v]) => {
-            if (!(k in value) || value[k] === "") {
-                value[k] = v;
-            }
+            value[k] = v;
         });
     }
     if (
@@ -339,8 +337,8 @@ function applyPropGeneratorResult(
     }
 }
 
-/** Recursively seed synthetic IDs/extra props when the system is idle. */
-function hydrateValueTree(
+/** Recursively add synthetic IDs/extra props from prop generator. */
+function initializeObjectTree(
     meta: ProxyMeta,
     value: any,
     basePath: (string | number)[],
@@ -351,7 +349,7 @@ function hydrateValueTree(
     if (Array.isArray(value)) {
         value.forEach((entry, idx) => {
             if (entry && typeof entry === "object") {
-                hydrateValueTree(meta, entry, [...basePath, idx], false);
+                initializeObjectTree(meta, entry, [...basePath, idx], false);
             }
         });
         return;
@@ -365,7 +363,12 @@ function hydrateValueTree(
                     basePath,
                     true
                 );
-                hydrateValueTree(meta, entry, [...basePath, synthetic], true);
+                initializeObjectTree(
+                    meta,
+                    entry,
+                    [...basePath, synthetic],
+                    true
+                );
             }
         }
         return;
@@ -375,16 +378,16 @@ function hydrateValueTree(
     applyPropGeneratorResult(meta, value, basePath, inSet);
 
     Object.keys(value).forEach((childKey) => {
-        if (childKey === "@id") return;
+        if (childKey === meta.options.syntheticIdPropertyName) return;
         const child = value[childKey];
         if (child && typeof child === "object") {
-            hydrateValueTree(meta, child, [...basePath, childKey], false);
+            initializeObjectTree(meta, child, [...basePath, childKey], false);
         }
     });
 }
 
 /** Apply prop generator side-effects only when the root has no live subscribers. */
-function hydrateValueIfIdle(
+function initializeObjectTreeIfNoListeners(
     meta: ProxyMeta | undefined,
     basePath: (string | number)[] | undefined,
     value: any,
@@ -394,31 +397,38 @@ function hydrateValueIfIdle(
     if (!value || typeof value !== "object") return;
     const state = rootStates.get(meta.root);
     if (state && state.listeners.size > 0) return;
-    hydrateValueTree(meta, value, basePath ?? [], inSet);
+    initializeObjectTree(meta, value, basePath ?? [], inSet);
 }
 
 /**
- * Return (or create) a proxy for a nested value, updating parent metadata linkage.
+ * Return (or create) a proxy for a nested value.
+ * Ensures the linkage between parent and child in metadata.
+ * Does not proxy and returns `value` if @see shouldProxy returns false.
+ * Returns value if parent has no metadata record.
  */
-function ensureChildProxy(
-    value: any,
+function ensureChildProxy<T>(
+    value: T,
     parentProxy: any,
     key: PropertyKey,
     isSyntheticId = false
-) {
+): DeepSignal<T> | T {
     if (!shouldProxy(value)) return value;
+
     if (rawToProxy.has(value)) {
-        const child = rawToProxy.get(value);
-        const childMeta = getMeta(child);
-        if (childMeta) {
-            childMeta.parent = parentProxy;
-            childMeta.key = key;
-            childMeta.isSyntheticId = isSyntheticId;
+        const proxied = rawToProxy.get(value);
+        const proxiedMeta = getMeta(proxied);
+        if (proxiedMeta) {
+            proxiedMeta.parent = parentProxy;
+            proxiedMeta.key = key;
+            proxiedMeta.isSyntheticId = isSyntheticId;
         }
-        return child;
+        return proxied;
     }
+
     const parentMeta = getMeta(parentProxy);
     if (!parentMeta) return value;
+
+    // Create proxy if none exists yet.
     const proxy = createProxy(
         value,
         parentMeta.root,
@@ -427,10 +437,13 @@ function ensureChildProxy(
         key,
         isSyntheticId
     );
-    return proxy;
+    return proxy as DeepSignal<T>;
 }
 
-/** Lazily instantiate the Set-specific bookkeeping hanging off ProxyMeta. */
+/**
+ * Sets `idForObject: new WeakMap(), objectForId: new Map()`
+ * to `meta.setInfo` if it does not exist yet.
+ */
 function ensureSetInfo(meta: ProxyMeta): SetMeta {
     if (!meta.setInfo) {
         meta.setInfo = {
@@ -442,7 +455,11 @@ function ensureSetInfo(meta: ProxyMeta): SetMeta {
 }
 
 /**
- * Assign (or reuse) a synthetic identifier for a Set entry, respecting user options.
+ * Assign (or reuse) a synthetic identifier for a Set entry, respecting user options:
+ * - Use user-provided propGenerator for synthetic ids and add add returned extra properties
+ * - Check if the object has a property of `syntheticIdPropertyName` (default `@id`)
+ * - Use a blank node id as a fallback.
+ * - Add object and id to `idForObject` and `objectForId` maps.
  */
 function assignSyntheticId(
     meta: ProxyMeta,
@@ -454,70 +471,87 @@ function assignSyntheticId(
     if (!rawEntry || typeof rawEntry !== "object") {
         return rawEntry as string | number;
     }
+
     const info = ensureSetInfo(meta);
     if (info.idForObject.has(rawEntry)) return info.idForObject.get(rawEntry)!;
+
     let synthetic: string | number | undefined =
         forcedSyntheticIds.get(rawEntry);
+
     const generatorValue = meta.options?.propGenerator?.({
         path,
         inSet,
         object: rawEntry,
     });
+
+    // If the propGenerator returned a syntheticId, use it.
     if (synthetic === undefined && generatorValue?.syntheticId !== undefined) {
         synthetic = generatorValue.syntheticId;
     }
+
+    // Add extra props from propGenerator (if present).
     if (
         generatorValue?.extraProps &&
         rawEntry &&
         typeof rawEntry === "object"
     ) {
         Object.entries(generatorValue.extraProps).forEach(([k, v]) => {
-            if (!(k in rawEntry) || rawEntry[k] === "") {
-                rawEntry[k] = v;
-            }
+            rawEntry[k] = v;
         });
     }
-    const customProp = meta.options?.syntheticIdPropertyName;
+
+    const idPropertyName = meta.options?.syntheticIdPropertyName;
+    // If synthetic id is still undefined, try to get it
+    // from `syntheticIdPropertyName` (default `@id` property).
     if (
         synthetic === undefined &&
-        customProp &&
+        idPropertyName &&
         rawEntry &&
         typeof rawEntry === "object" &&
-        rawEntry[customProp] !== undefined
+        rawEntry[idPropertyName] !== undefined
     ) {
-        synthetic = rawEntry[customProp];
+        synthetic = rawEntry[idPropertyName];
     }
+
+    // If `synthetic` still undefined, add a blank node id.
     if (synthetic === undefined) {
         synthetic = `_s${++blankNodeCounter}`;
     }
+
     const idString = String(synthetic);
+
+    // Add mappings for `id -> object` and `object -> id`.
     info.idForObject.set(rawEntry, idString);
     info.objectForId.set(idString, rawEntry);
+
+    // Add synthetic id to `idPropertyName` property (default `@id`)
+    // if not set.
     if (
-        customProp &&
+        idPropertyName &&
         rawEntry &&
         typeof rawEntry === "object" &&
-        !(customProp in rawEntry)
+        !(idPropertyName in rawEntry)
     ) {
-        Object.defineProperty(rawEntry, customProp, {
+        Object.defineProperty(rawEntry, idPropertyName, {
             value: idString,
             enumerable: true,
             configurable: false,
             writable: false,
         });
     }
+
     return idString;
 }
 
 /** Create the appropriate proxy (object vs Set) and track its metadata. */
-function createProxy(
+function createProxy<T extends object>(
     target: object,
     root: symbol,
-    options?: DeepSignalOptions,
+    options: DeepSignalOptions,
     parent?: object,
     key?: PropertyKey,
     isSyntheticId?: boolean
-) {
+): DeepSignal<T> {
     const handlers = target instanceof Set ? setHandlers : objectHandlers;
     const proxy = new Proxy(target, handlers);
     const meta: ProxyMeta = {
@@ -528,10 +562,12 @@ function createProxy(
         root,
         options,
     };
-    attachMetadata(proxy, meta);
+
+    proxyToMeta.set(proxy, meta);
     proxySignals.set(proxy, new Map());
     rawToProxy.set(target, proxy);
-    return proxy;
+
+    return proxy as DeepSignal<T>;
 }
 
 /** Normalize a value prior to writes, ensuring nested objects are proxied. */
@@ -638,28 +674,46 @@ function emitSnapshot(
 /** Proxy handler driving reactivity for plain objects and arrays. */
 const objectHandlers: ProxyHandler<any> = {
     get(target, key, receiver) {
-        if (peeking) return Reflect.get(target, key, receiver);
+        // Handle meta keys
         if (key === RAW_KEY) return getMeta(receiver)?.raw ?? target;
         if (key === META_KEY) return getMeta(receiver);
+
+        // TODO: Why are we doing this?
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.get(target, key, receiver);
+
+        // Get object map from key to signal.
         const signals = ensureSignalMap(receiver);
+
+        // TODO: Why are we doing this?
+        // Ensure that target object is signal.
         ensureComputed(signals, target, key, receiver);
+
+        // Add signal if it does not exist already and did not have a getter.
         if (!signals.has(key)) {
-            let value = Reflect.get(target, key, receiver);
-            if (typeof value === "function")
-                return value.bind((receiver as any) ?? target);
-            value = shouldProxy(value)
-                ? ensureChildProxy(value, receiver, key)
-                : value;
-            signals.set(key, signal(value));
+            let rawValue = Reflect.get(target, key, receiver);
+
+            if (typeof rawValue === "function")
+                return rawValue.bind(receiver ?? target);
+
+            rawValue = shouldProxy(rawValue)
+                ? ensureChildProxy(rawValue, receiver, key)
+                : rawValue;
+
+            signals.set(key, signal(rawValue));
         }
+
+        // Call and return signal
         const sig = signals.get(key)!;
-        return (sig as any)();
+        return sig();
     },
+
     set(target, key, value, receiver) {
+        // Skip reactivity for symbols.
+
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.set(target, key, value, receiver);
+
         const meta = getMeta(receiver);
         if (meta?.options?.readOnlyProps?.includes(String(key))) {
             throw new Error(`Cannot modify readonly property '${String(key)}'`);
@@ -679,7 +733,7 @@ const objectHandlers: ProxyHandler<any> = {
         }
         if (!hadKey) touchIterable(target);
         if (meta && path && typeof raw === "object") {
-            hydrateValueIfIdle(meta, path, raw, false);
+            initializeObjectTreeIfNoListeners(meta, path, raw, false);
         }
         schedulePatch(meta, () => {
             const resolvedPath = path ?? buildPath(meta, key);
@@ -829,7 +883,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                             containerPath,
                             true
                         );
-                        hydrateValueIfIdle(
+                        initializeObjectTreeIfNoListeners(
                             meta,
                             [...containerPath, synthetic],
                             rawValue,
@@ -960,30 +1014,39 @@ export function isDeepSignal(value: any): boolean {
     return !!getMeta(value);
 }
 
+/** Raw and meta key. */
+type DeepSignalObjectProps<T> = {
+    [RAW_KEY]: T;
+    [META_KEY]: ProxyMeta;
+};
+
+/** Utility functions for sets. */
+type DeepSignalSetProps<T> = {
+    first(): DeepSignal<T> | undefined;
+    getById(id: string | number): DeepSignal<T> | undefined;
+    getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
+};
+
+/**
+ * The object returned by the @see deepSignal function.
+ * It is decorated with utility functions for sets and a
+ * `__raw__` prop to get the underlying non-reactive object
+ * and `__meta__` prop, to get the internal metadata.
+ */
 export type DeepSignal<T> = T extends Function
     ? T
-    : T extends Array<infer I>
-      ? DeepSignal<I>[] & { [RAW_KEY]?: T; [META_KEY]?: ProxyMeta }
-      : T extends Set<infer S>
-        ? Set<DeepSignal<S>> & {
-              add(value: S): Set<DeepSignal<S>>;
-              delete(value: S): boolean;
-              clear(): void;
-              first(): DeepSignal<S> | undefined;
-              getById(id: string | number): DeepSignal<S> | undefined;
-              getBy(
-                  graphIri: string,
-                  subjectIri: string
-              ): DeepSignal<S> | undefined;
-              [RAW_KEY]?: Set<S>;
-              [META_KEY]?: ProxyMeta;
-          }
-        : T extends object
-          ? { [K in keyof T]: DeepSignal<T[K]> } & {
-                [RAW_KEY]?: T;
-                [META_KEY]?: ProxyMeta;
-            }
-          : T;
+    : // Do not re-proxy objects that are already DeepSignals
+      T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
+      ? T
+      : T extends Array<infer I>
+        ? DeepSignal<I>[]
+        : T extends Set<infer S>
+          ? Set<DeepSignal<S>> &
+                DeepSignalSetProps<S> &
+                DeepSignalObjectProps<T>
+          : T extends object
+            ? { [K in keyof T]: DeepSignal<T[K]> }
+            : T;
 
 /**
  * Create a deep reactive proxy for objects, arrays or Sets.
@@ -995,17 +1058,26 @@ export function deepSignal<T extends object>(
     options?: DeepSignalOptions
 ): DeepSignal<T> {
     if (isDeepSignal(input)) return input as DeepSignal<T>;
+
     if (!shouldProxy(input))
         throw new Error("deepSignal() expects an object, array, or Set");
+
     if (rawToProxy.has(input)) return rawToProxy.get(input);
+
     const root = Symbol("deepSignalRoot");
-    rootStates.set(root, {
-        options,
+    const rootState = {
+        options: {
+            syntheticIdPropertyName: DEFAULT_SYNTHETIC_ID_PROPERTY_NAME,
+            ...options,
+        },
         version: 0,
-        listeners: new Set(),
+        listeners: new Set<DeepPatchSubscriber>(),
         pending: [],
-    });
-    const proxy = createProxy(input, root, options);
+    };
+
+    rootStates.set(root, rootState);
+
+    const proxy = createProxy(input, root, rootState.options);
     return proxy as DeepSignal<T>;
 }
 
@@ -1065,15 +1137,4 @@ export function addWithId<T>(set: Set<T>, entry: T, id: string | number): T {
         }
     }
     return entry;
-}
-
-/** Non-tracking getter for a property: reads the value without establishing dependencies. */
-export function peek<T extends object, K extends keyof T>(
-    obj: T,
-    key: K
-): T[K] {
-    peeking = true;
-    const value = (obj as any)[key];
-    peeking = false;
-    return value;
 }

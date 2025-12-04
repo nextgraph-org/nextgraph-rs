@@ -24,8 +24,8 @@
   },
   "description": "NextGraph adaptation of AlienDeepSignals 🧶 -alien signals, but using regular JavaScript objects",
   "scripts": {
-    "test": "vitest --coverage",
-    "test:frontend": "playwright test",
+    "test": "vitest --coverage --dir src/test/lib",
+    "test:frontend": "playwright test src/test/frontend",
     "dev": "tsup --watch src",
     "build:ts": "tsup",
     "release": "bumpp && npm run build && npm publish --registry=https://registry.npmjs.org/"

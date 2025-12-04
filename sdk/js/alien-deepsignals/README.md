@@ -105,7 +105,7 @@ The `propGenerator` function is called when a new object is added to the deep si
 It can return:
 
 - `syntheticId`: A custom identifier for the object (used in Set entry paths and optionally as a property)
-- `extraProps`: Additional properties to be added to the object
+- `extraProps`: Additional properties to be added to the object (overwriting existing ones).
 
 ```ts
 let counter = 0;

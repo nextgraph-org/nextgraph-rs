@@ -34,7 +34,7 @@ const useShape = <T extends BaseType>(
         return () => {
             handleRef.current.stop();
         };
-    }, []);
+    }, [shape, scope]);
 
     return state;
 };

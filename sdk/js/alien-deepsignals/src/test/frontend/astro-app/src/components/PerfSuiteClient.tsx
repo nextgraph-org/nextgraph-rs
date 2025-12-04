@@ -2,23 +2,51 @@ import React, { useEffect, useMemo, useState } from "react";
 import { registerPerfRunners } from "../../../utils/perfScenarios";
 import type { PerfScenarioResult } from "../../../utils/state";
 
-const sortResults = (results: PerfScenarioResult[]) =>
+type ListedResult = PerfScenarioResult & { entryId: string };
+
+const MAX_RESULTS = 12;
+
+const sortResults = (results: ListedResult[]) =>
     [...results].sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
 
+const resultSignature = (result: PerfScenarioResult) =>
+    [
+        result.framework,
+        result.variant,
+        result.completedAt ?? result.totalDuration,
+        result.runCount,
+    ].join(":");
+
+const attachEntryId = (result: PerfScenarioResult): ListedResult => ({
+    ...result,
+    entryId: `${result.framework}-${result.variant}-${result.completedAt ?? Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
+});
+
 const seedResults = () => {
-    if (typeof window === "undefined") return [] as PerfScenarioResult[];
+    if (typeof window === "undefined") return [] as ListedResult[];
     const latest = window.perfSuite?.latestResults;
-    if (!latest) return [] as PerfScenarioResult[];
+    if (!latest) return [] as ListedResult[];
     const flattened = Object.values(latest).flatMap((variants) =>
         Object.values(variants)
     );
-    return sortResults(flattened);
+    return sortResults(flattened.map(attachEntryId));
 };
 
 const formatDuration = (value: number) => `${value.toFixed(2)}ms`;
 
+const formatSubRenderCount = (
+    block: PerfScenarioResult["blocks"][string],
+    framework: string
+) => {
+    const entries = block.objectRenderCounts?.[framework];
+    if (!entries) return 0;
+    return Object.values(entries).reduce((sum, count) => sum + count, 0);
+};
+
 const PerfSuiteClient: React.FC = () => {
-    const [results, setResults] = useState<PerfScenarioResult[]>(seedResults);
+    const [results, setResults] = useState<ListedResult[]>(seedResults);
 
     useEffect(() => {
         if (registerPerfRunners()) {
@@ -42,14 +70,17 @@ const PerfSuiteClient: React.FC = () => {
         if (!suite?.subscribe) return;
         const unsubscribe = suite.subscribe((result) => {
             setResults((current) => {
-                const filtered = current.filter(
-                    (entry) =>
-                        !(
-                            entry.framework === result.framework &&
-                            entry.variant === result.variant
-                        )
-                );
-                return sortResults([...filtered, result]);
+                if (
+                    current.some(
+                        (entry) =>
+                            resultSignature(entry) === resultSignature(result)
+                    )
+                ) {
+                    return current;
+                }
+                const augmented = attachEntryId(result);
+                const next = sortResults([augmented, ...current]);
+                return next.slice(0, MAX_RESULTS);
             });
         });
         return unsubscribe;
@@ -64,10 +95,7 @@ const PerfSuiteClient: React.FC = () => {
             );
         }
         return results.map((result) => (
-            <li
-                key={`${result.framework}-${result.variant}`}
-                className="perf-suite-results__item"
-            >
+            <li key={result.entryId} className="perf-suite-results__item">
                 <header>
                     <strong>
                         {result.framework}/{result.variant}
@@ -89,10 +117,21 @@ const PerfSuiteClient: React.FC = () => {
                 </div>
                 <dl>
                     {Object.entries(result.blocks).map(([name, block]) => (
-                        <div key={name} className="perf-suite-results__block">
-                            <dt>{name}</dt>
-                            <dd>{formatDuration(block.duration)}</dd>
-                        </div>
+                        <React.Fragment key={name}>
+                            <div className="perf-suite-results__block">
+                                <dt>{name}</dt>
+                                <dd>{formatDuration(block.duration)}</dd>
+                            </div>
+                            <div className="perf-suite-results__block perf-suite-results__block--subrenders">
+                                <dt>Subcomponent renders</dt>
+                                <dd>
+                                    {formatSubRenderCount(
+                                        block,
+                                        result.framework
+                                    )}
+                                </dd>
+                            </div>
+                        </React.Fragment>
                     ))}
                 </dl>
             </li>
@@ -165,6 +204,9 @@ const PerfSuiteClient: React.FC = () => {
                     display: flex;
                     justify-content: space-between;
                     font-size: 0.85rem;
+                }
+                .perf-suite-results__block--subrenders {
+                    opacity: 0.85;
                 }
                 .perf-suite-results__block dt {
                     margin: 0;

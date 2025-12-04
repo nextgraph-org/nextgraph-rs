@@ -41,7 +41,6 @@ export class OrmConnection<T extends BaseType> {
     private refCount: number;
     /*** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
-    ready: boolean;
     suspendDeepWatcher: boolean;
     readyPromise: Promise<void>;
     cancel: () => void;
@@ -65,7 +64,6 @@ export class OrmConnection<T extends BaseType> {
         this.scope = scope;
         this.refCount = 1;
         this.cancel = () => {};
-        this.ready = false;
         this.suspendDeepWatcher = false;
         this.identifier = `${shapeType.shape}::${canonicalScope(scope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
@@ -94,9 +92,7 @@ export class OrmConnection<T extends BaseType> {
             try {
                 //await new Promise((resolve) => setTimeout(resolve, 4_000));
                 this.cancel = await ng.orm_start(
-                    (scope.length == 0
-                        ? "" // + session.private_store_id
-                        : scope) as string,
+                    (scope.length == 0 ? "" : scope) as string,
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
@@ -143,26 +139,26 @@ export class OrmConnection<T extends BaseType> {
             OrmConnection.idToEntry.delete(this.identifier);
 
             OrmConnection.cleanupSignalRegistry?.unregister(this.signalObject);
-            (this.cancel)();
+            this.cancel();
         }
     };
 
-    private onSignalObjectUpdate = ({ patches }: WatchPatchEvent) => {
-        if (this.suspendDeepWatcher || !this.ready || !patches.length) return;
+    private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent) => {
+        if (this.suspendDeepWatcher || !patches.length) return;
         console.debug("[onSignalObjectUpdate] got changes:", patches);
 
         const ormPatches = deepPatchesToWasm(patches);
 
-        ngSession.then(({ ng, session }) => {
-            ng.orm_update(
-                (this.scope.length == 0
-                    ? "" // + session.private_store_id
-                    : this.scope) as string,
-                this.shapeType.shape,
-                ormPatches,
-                session.session_id
-            );
-        });
+        // Wait for session and subscription to be initialized.
+        const { ng, session } = await ngSession;
+        await this.readyPromise;
+
+        ng.orm_update(
+            this.scope.length == 0 ? "" : this.scope,
+            this.shapeType.shape,
+            ormPatches,
+            session.session_id
+        );
     };
 
     private onBackendMessage = (message: any) => {
@@ -177,42 +173,26 @@ export class OrmConnection<T extends BaseType> {
     };
 
     private handleInitialResponse = (initialData: any) => {
-        // console.debug(
-        //     "[handleInitialResponse] handleInitialResponse called with",
-        //     initialData
-        // );
-
-        // TODO: We could add a feature to alien deep signals, to  prevent emitting patches here.
-
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
         batch(() => {
-            // Do this in case the there was any (incorrect) data added before initialization.
-            this.signalObject.clear();
+            // Note: Instead, we await for the connection to be initialized and send patches after. So no need to remove.
+            // // Do this in case the there was any (incorrect) data added before initialization.
+            // this.signalObject.clear();
+
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
             for (const newItem of parseOrmInitialObject(initialData)) {
                 this.signalObject.add(newItem);
             }
-            // console.log(
-            //     "[handleInitialResponse] signal object:",
-            //     this.signalObject
-            // );
         });
 
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;
             // Resolve readiness after initial data is committed and watcher armed.
-            this.resolveReady?.();
+            this.resolveReady();
         });
-
-        this.ready = true;
     };
     private onBackendUpdate = (patches: Patch[]) => {
-        // console.log(
-        //     "connectionHandler: onBackendUpdate. Got patches:",
-        //     patches
-        // );
-
         this.suspendDeepWatcher = true;
         applyPatchesToDeepSignal(this.signalObject, patches);
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
@@ -308,7 +288,7 @@ const parseOrmInitialObject = (obj: any): any => {
     return obj;
 };
 
-function canonicalScope(scope: Scope | undefined): string {
+function canonicalScope(scope: Scope | Scope[] | undefined): string {
     if (scope == null) return "";
     return Array.isArray(scope)
         ? scope.slice().sort().join(",")

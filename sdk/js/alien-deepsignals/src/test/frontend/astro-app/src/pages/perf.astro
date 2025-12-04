@@ -115,6 +115,12 @@ const hasPanel = supportedCombos.has(`${activeFramework}/${activeVariant}`);
         color: #fff;
         border-color: #1d4ed8;
       }
+      .panel-host {
+        display: contents;
+      }
+      .panel-host[hidden] {
+        display: none !important;
+      }
       .perf-panel {
         background: #ffffff;
         border-radius: 1.25rem;
@@ -257,38 +263,161 @@ const hasPanel = supportedCombos.has(`${activeFramework}/${activeVariant}`);
               ? " selector-link--active"
               : ""
           }`}
+          data-selector-link
+          data-framework={option.framework}
+          data-variant={option.variant}
+          aria-current={
+            option.framework === activeFramework &&
+            option.variant === activeVariant
+              ? "page"
+              : "false"
+          }
         >
           {option.label}
         </a>
       ))}
     </nav>
     <main>
-      {activeFramework === "react" && activeVariant === "deep" && (
+      <div
+        class="panel-host"
+        data-panel="react/deep"
+        data-framework="react"
+        data-variant="deep"
+        hidden={!(activeFramework === "react" && activeVariant === "deep")}
+      >
         <ReactPerfDeep client:only="react" />
-      )}
-      {activeFramework === "react" && activeVariant === "native" && (
+      </div>
+      <div
+        class="panel-host"
+        data-panel="react/native"
+        data-framework="react"
+        data-variant="native"
+        hidden={
+          !(activeFramework === "react" && activeVariant === "native")
+        }
+      >
         <ReactPerfNative client:only="react" />
-      )}
-      {activeFramework === "vue" && activeVariant === "deep" && (
+      </div>
+      <div
+        class="panel-host"
+        data-panel="vue/deep"
+        data-framework="vue"
+        data-variant="deep"
+        hidden={!(activeFramework === "vue" && activeVariant === "deep")}
+      >
         <VuePerfDeep client:only="vue" />
-      )}
-      {activeFramework === "vue" && activeVariant === "native" && (
+      </div>
+      <div
+        class="panel-host"
+        data-panel="vue/native"
+        data-framework="vue"
+        data-variant="native"
+        hidden={!(activeFramework === "vue" && activeVariant === "native")}
+      >
         <VuePerfNative client:only="vue" />
-      )}
-      {activeFramework === "svelte" && activeVariant === "deep" && (
+      </div>
+      <div
+        class="panel-host"
+        data-panel="svelte/deep"
+        data-framework="svelte"
+        data-variant="deep"
+        hidden={!(activeFramework === "svelte" && activeVariant === "deep")}
+      >
         <SveltePerfDeep client:only="svelte" />
-      )}
-      {activeFramework === "svelte" && activeVariant === "native" && (
+      </div>
+      <div
+        class="panel-host"
+        data-panel="svelte/native"
+        data-framework="svelte"
+        data-variant="native"
+        hidden={!(activeFramework === "svelte" && activeVariant === "native")}
+      >
         <SveltePerfNative client:only="svelte" />
-      )}
-      {!hasPanel && (
+      </div>
+      <div
+        class="panel-host"
+        data-panel-placeholder
+        hidden={hasPanel}
+      >
         <div class="perf-panel placeholder">
           <p>
             The combination {activeFramework}/{activeVariant} is not ready yet.
             Choose another option above.
           </p>
         </div>
-      )}
+      </div>
     </main>
+    <script is:inline>
+      (() => {
+        if (typeof window === "undefined") return;
+        const navLinks = Array.from(
+          document.querySelectorAll("[data-selector-link]")
+        );
+        const panels = Array.from(
+          document.querySelectorAll("[data-panel]")
+        );
+        const placeholder = document.querySelector(
+          "[data-panel-placeholder]"
+        );
+        if (!navLinks.length || !panels.length) return;
+
+        const defaultFramework = navLinks[0]?.dataset.framework ?? "react";
+        const defaultVariant = navLinks[0]?.dataset.variant ?? "deep";
+
+        const setActive = (framework, variant, pushState = false) => {
+          const key = `${framework}/${variant}`;
+          let hasMatch = false;
+          panels.forEach((panel) => {
+            if (!panel.dataset.panel) return;
+            const match = panel.dataset.panel === key;
+            panel.toggleAttribute("hidden", !match);
+            panel.dataset.active = match ? "true" : "false";
+            if (match) hasMatch = true;
+          });
+          navLinks.forEach((link) => {
+            const match =
+              link.dataset.framework === framework &&
+              link.dataset.variant === variant;
+            link.classList.toggle("selector-link--active", match);
+            link.setAttribute("aria-current", match ? "page" : "false");
+          });
+          if (placeholder) {
+            placeholder.toggleAttribute("hidden", hasMatch);
+            placeholder.dataset.active = hasMatch ? "false" : "true";
+          }
+          if (pushState) {
+            const url = new URL(window.location.href);
+            url.searchParams.set("framework", framework);
+            url.searchParams.set("variant", variant);
+            window.history.pushState({ framework, variant }, "", url);
+          }
+        };
+
+        const getStateFromUrl = () => {
+          const url = new URL(window.location.href);
+          const framework = url.searchParams.get("framework") ?? defaultFramework;
+          const variant = url.searchParams.get("variant") ?? defaultVariant;
+          return { framework, variant };
+        };
+
+        const { framework: initialFramework, variant: initialVariant } =
+          getStateFromUrl();
+        setActive(initialFramework, initialVariant, false);
+
+        navLinks.forEach((link) => {
+          link.addEventListener("click", (event) => {
+            event.preventDefault();
+            const framework = link.dataset.framework ?? defaultFramework;
+            const variant = link.dataset.variant ?? defaultVariant;
+            setActive(framework, variant, true);
+          });
+        });
+
+        window.addEventListener("popstate", () => {
+          const { framework, variant } = getStateFromUrl();
+          setActive(framework, variant, false);
+        });
+      })();
+    </script>
   </body>
 </html>

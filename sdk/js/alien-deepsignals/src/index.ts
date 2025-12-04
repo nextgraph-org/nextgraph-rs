@@ -4,7 +4,6 @@ export {
     getDeepSignalVersion,
     subscribeDeepMutations,
     shallow,
-    peek,
     isDeepSignal,
 } from "./deepSignal";
 export type {

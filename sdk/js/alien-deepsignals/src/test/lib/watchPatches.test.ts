@@ -15,8 +15,8 @@ import {
     addWithId,
     DeepPatch,
     DeepSignalOptions,
-} from "../deepSignal";
-import { watch, observe } from "../watch";
+} from "../../deepSignal";
+import { watch, observe } from "../../watch";
 
 describe("watch (patch mode)", () => {
     it("emits set patches with correct paths and batching", async () => {
@@ -130,6 +130,42 @@ describe("watch (patch mode)", () => {
         const flat = patches.flat().map((p) => p.path.join("."));
         expect(flat).toContain("root.child");
         expect(flat).toContain("root.child.level.value");
+        stop();
+    });
+
+    it("emits patches for Set with primitives added as one operation", async () => {
+        const state = deepSignal<{ container: any }>(
+            { container: {} },
+            {
+                syntheticIdPropertyName: "id",
+            }
+        );
+        const patches: DeepPatch[] = [];
+        const { stopListening: stop } = watch(state, ({ patches: batch }) =>
+            patches.push(...batch)
+        );
+        state.container.items = new Set(["item1"]);
+        state.container.items.add("item2");
+        await Promise.resolve();
+
+        expect(patches).toHaveLength(3);
+        expect(patches[0]).toMatchObject({
+            op: "add",
+            path: ["container", "items"],
+            type: "set",
+        });
+        expect(patches[1]).toMatchObject({
+            op: "add",
+            path: ["container", "items"],
+            type: "set",
+            value: ["item1"],
+        });
+        expect(patches[2]).toMatchObject({
+            op: "add",
+            path: ["container", "items"],
+            type: "set",
+            value: ["item2"],
+        });
         stop();
     });
 
