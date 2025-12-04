@@ -1,6 +1,5 @@
-import {NextGraphSession, CreateDataFunction, CommitDataFunction, ChangeDataFunction} from "@/types/nextgraph";
+import {NextGraphSession, CommitDataFunction, ChangeDataFunction} from "@/types/nextgraph";
 import {dataset} from "@/lib/nextgraph";
-import {SocialGroupShapeType} from "@/.ldo/group.shapeTypes";
 import {SocialGroup} from "@/.ldo/group.typings";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 
@@ -158,48 +157,6 @@ class GroupService {
     }
 
     return filterData.join("\n");
-  }
-
-  async createGroup(
-    session: NextGraphSession,
-    group: Partial<SocialGroup>,
-    createData: CreateDataFunction,
-    commitData: CommitDataFunction,
-    changeData: ChangeDataFunction,
-  ): Promise<string | undefined> {
-    if (!session || !session.ng) {
-      throw new Error('No active session available');
-    }
-
-    //TODO: this doesn't store on protectedStore
-    const protectedStoreId = "did:ng:" + session.protectedStoreId;
-    const resource = await dataset.createResource("nextgraph", {storeRepo: protectedStoreId});
-
-    if (resource.isError) {
-      throw new Error(`Failed to create resource`);
-    }
-
-    const groupObj = createData(
-      SocialGroupShapeType,
-      resource.uri.substring(0, 53),
-      resource
-    );
-
-    //@ts-expect-error bug: ldo works only with a single type
-    groupObj.type = {"@id": "Group"};
-
-    if (group.title) {
-      groupObj.title = group.title;
-    }
-
-    await commitData(groupObj);
-
-    await this.persistSocialGroup(session, group, commitData, changeData, resource, groupObj);
-
-    const groupTitle = group.title || 'Untitled Group';
-    await session!.ng!.update_header(session.sessionId, resource.uri.substring(0, 53), groupTitle);
-
-    return resource.uri;
   }
 
   private async persistSocialGroup(
