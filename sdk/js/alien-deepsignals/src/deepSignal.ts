@@ -500,17 +500,17 @@ function assignSyntheticId(
         });
     }
 
-    const idPropertyName = meta.options?.syntheticIdPropertyName;
+    const idPropName = meta.options?.syntheticIdPropertyName;
     // If synthetic id is still undefined, try to get it
     // from `syntheticIdPropertyName` (default `@id` property).
     if (
         synthetic === undefined &&
-        idPropertyName &&
+        idPropName &&
         rawEntry &&
         typeof rawEntry === "object" &&
-        rawEntry[idPropertyName] !== undefined
+        rawEntry[idPropName] !== undefined
     ) {
-        synthetic = rawEntry[idPropertyName];
+        synthetic = rawEntry[idPropName];
     }
 
     // If `synthetic` still undefined, add a blank node id.
@@ -527,12 +527,12 @@ function assignSyntheticId(
     // Add synthetic id to `idPropertyName` property (default `@id`)
     // if not set.
     if (
-        idPropertyName &&
+        idPropName &&
         rawEntry &&
         typeof rawEntry === "object" &&
-        !(idPropertyName in rawEntry)
+        !(idPropName in rawEntry)
     ) {
-        Object.defineProperty(rawEntry, idPropertyName, {
+        Object.defineProperty(rawEntry, idPropName, {
             value: idString,
             enumerable: true,
             configurable: false,
@@ -592,9 +592,11 @@ function snapshotLiteral(value: any) {
 }
 
 /**
- * Emit a recursive snapshot patch sequence for initial object/set/array state.
+ * Emit a recursive patch sequence for a whole object, array, or set
+ * that was added to the deepSignal object.
+ *
  */
-function emitSnapshot(
+function emitPatchesForNew(
     value: any,
     meta: ProxyMeta,
     basePath: (string | number)[],
@@ -620,19 +622,25 @@ function emitSnapshot(
             value: value instanceof Set ? [] : undefined,
         },
     ];
-    if ("@id" in value) {
-        const literal = snapshotLiteral((value as any)["@id"]);
+
+    // The id property name, usually `@id`
+    const idPropName = meta.options.syntheticIdPropertyName!;
+
+    if (idPropName in value) {
+        const literal = snapshotLiteral(value[idPropName]);
         if (literal !== undefined) {
             patches.push({
-                path: [...basePath, "@id"],
+                path: [...basePath, idPropName],
                 op: "add",
                 value: literal,
             });
         }
     }
+
+    // For array, recurse
     if (Array.isArray(value)) {
         value.forEach((entry, idx) => {
-            patches.push(...emitSnapshot(entry, meta, [...basePath, idx]));
+            patches.push(...emitPatchesForNew(entry, meta, [...basePath, idx]));
         });
     } else if (value instanceof Set) {
         const setMeta = ensureSetInfo(meta);
@@ -646,7 +654,12 @@ function emitSnapshot(
                 );
                 setMeta.objectForId.set(String(synthetic), entry);
                 patches.push(
-                    ...emitSnapshot(entry, meta, [...basePath, synthetic], true)
+                    ...emitPatchesForNew(
+                        entry,
+                        meta,
+                        [...basePath, synthetic],
+                        true
+                    )
                 );
             } else {
                 const literal = snapshotLiteral(entry);
@@ -662,9 +675,12 @@ function emitSnapshot(
         }
     } else {
         Object.keys(value).forEach((childKey) => {
-            if (childKey === "@id") return;
+            if (childKey === idPropName) return;
             patches.push(
-                ...emitSnapshot(value[childKey], meta, [...basePath, childKey])
+                ...emitPatchesForNew(value[childKey], meta, [
+                    ...basePath,
+                    childKey,
+                ])
             );
         });
     }
@@ -738,7 +754,7 @@ const objectHandlers: ProxyHandler<any> = {
         schedulePatch(meta, () => {
             const resolvedPath = path ?? buildPath(meta, key);
             if (!hadKey || typeof raw === "object") {
-                return emitSnapshot(raw, meta!, resolvedPath);
+                return emitPatchesForNew(raw, meta!, resolvedPath);
             }
             if (snapshotLiteral(raw) === undefined) return undefined;
             return {
@@ -891,7 +907,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                         );
                         ensureEntryProxy(receiver, rawValue, synthetic, meta);
                         schedulePatch(meta, () =>
-                            emitSnapshot(
+                            emitPatchesForNew(
                                 rawValue,
                                 meta,
                                 [...containerPath, synthetic],

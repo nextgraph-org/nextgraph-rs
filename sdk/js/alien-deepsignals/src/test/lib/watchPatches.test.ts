@@ -18,25 +18,6 @@ import {
 } from "../../deepSignal";
 import { watch, observe } from "../../watch";
 
-const normalizePatch = (patch: DeepPatch) => {
-    const normalized: Record<string, unknown> = {
-        op: patch.op,
-        path: [...patch.path],
-    };
-    if (patch.type) {
-        normalized.type = patch.type;
-    }
-    if (patch.value !== undefined) {
-        normalized.value = patch.value;
-    }
-    return normalized;
-};
-
-const normalizeBatch = (batch: DeepPatch[]) => batch.map(normalizePatch);
-
-const normalizeBatches = (batches: DeepPatch[][]) =>
-    batches.map((batch) => normalizeBatch(batch));
-
 describe("watch (patch mode)", () => {
     it("emits set patches with correct paths and batching", async () => {
         const state = deepSignal({ a: { b: 1 }, arr: [1, { x: 2 }] });
@@ -49,9 +30,9 @@ describe("watch (patch mode)", () => {
         state.arr.push(5);
         await Promise.resolve();
         expect(received).toHaveLength(1);
-        const normalized = normalizeBatch(received[0]);
-        console.log(normalized);
-        expect(normalized).toEqual([
+        const batch = received[0];
+
+        expect(batch).toEqual([
             { op: "add", path: ["a", "b"], value: 2 },
             { op: "add", path: ["arr", "1", "x"], value: 3 },
             { op: "add", path: ["arr", "2"], value: 5 },
@@ -73,7 +54,7 @@ describe("watch (patch mode)", () => {
         delete state.c;
         await Promise.resolve();
         expect(out).toHaveLength(1);
-        expect(normalizeBatch(out[0])).toEqual([
+        expect(out[0]).toEqual([
             { op: "remove", path: ["a", "b"] },
             { op: "remove", path: ["c"] },
         ]);
@@ -95,8 +76,8 @@ describe("watch (patch mode)", () => {
         expect(wp).toHaveLength(1);
         expect(ob).toHaveLength(1);
         const expectedPatches = [{ op: "add", path: ["a"], value: 2 }];
-        expect(normalizeBatch(wp[0])).toEqual(expectedPatches);
-        expect(normalizeBatch(ob[0])).toEqual(expectedPatches);
+        expect(wp[0]).toEqual(expectedPatches);
+        expect(ob[0]).toEqual(expectedPatches);
         stop1();
         stop2();
     });
@@ -112,9 +93,7 @@ describe("watch (patch mode)", () => {
         a.x = 2;
         await Promise.resolve();
         expect(out).toHaveLength(1);
-        expect(normalizeBatch(out[0])).toEqual([
-            { op: "add", path: ["x"], value: 2 },
-        ]);
+        expect(out[0]).toEqual([{ op: "add", path: ["x"], value: 2 }]);
         stop();
     });
 
@@ -127,8 +106,8 @@ describe("watch (patch mode)", () => {
         state.s.add(3);
         state.s.delete(1);
         await Promise.resolve();
-        const normalized = normalizeBatches(batches).flat();
-        expect(normalized).toEqual([
+        const flattened = batches.flat();
+        expect(flattened).toEqual([
             { op: "add", path: ["s"], type: "set", value: [3] },
             { op: "remove", path: ["s"], type: "set", value: 1 },
         ]);
@@ -143,8 +122,8 @@ describe("watch (patch mode)", () => {
         );
         state.root.child = { level: { value: 1 }, l1: "val" };
         await Promise.resolve();
-        const normalized = normalizeBatches(patches).flat();
-        expect(normalized).toEqual([
+        const flattened = patches.flat();
+        expect(flattened).toEqual([
             { op: "add", path: ["root", "child"], type: "object" },
             { op: "add", path: ["root", "child", "level"], type: "object" },
             {
@@ -213,8 +192,8 @@ describe("watch (patch mode)", () => {
             meta: { count: 2, active: true },
         };
         await Promise.resolve();
-        const normalized = normalizeBatches(patches).flat();
-        expect(normalized).toEqual([
+        const flattened = patches.flat();
+        expect(flattened).toEqual([
             { op: "add", path: ["data"], type: "object" },
             { op: "add", path: ["data", "users"], type: "object" },
             { op: "add", path: ["data", "users", 0], type: "object" },
@@ -285,8 +264,8 @@ describe("watch (patch mode)", () => {
             { id: "b", data: { nested: { value: 2 } } },
         ]);
         await Promise.resolve();
-        const normalized = normalizeBatches(patches).flat();
-        expect(normalized).toEqual([
+        const flattened = patches.flat();
+        expect(flattened).toEqual([
             { op: "add", path: ["container", "items"], type: "set", value: [] },
             { op: "add", path: ["container", "items", "a"], type: "object" },
             { op: "add", path: ["container", "items", "a", "id"], value: "a" },
