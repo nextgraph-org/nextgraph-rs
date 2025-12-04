@@ -18,6 +18,25 @@ import {
 } from "../../deepSignal";
 import { watch, observe } from "../../watch";
 
+const normalizePatch = (patch: DeepPatch) => {
+    const normalized: Record<string, unknown> = {
+        op: patch.op,
+        path: [...patch.path],
+    };
+    if (patch.type) {
+        normalized.type = patch.type;
+    }
+    if (patch.value !== undefined) {
+        normalized.value = patch.value;
+    }
+    return normalized;
+};
+
+const normalizeBatch = (batch: DeepPatch[]) => batch.map(normalizePatch);
+
+const normalizeBatches = (batches: DeepPatch[][]) =>
+    batches.map((batch) => normalizeBatch(batch));
+
 describe("watch (patch mode)", () => {
     it("emits set patches with correct paths and batching", async () => {
         const state = deepSignal({ a: { b: 1 }, arr: [1, { x: 2 }] });
@@ -29,14 +48,15 @@ describe("watch (patch mode)", () => {
         (state.arr[1] as any).x = 3;
         state.arr.push(5);
         await Promise.resolve();
-        expect(received.length).toBe(1);
-        const batch = received[0];
-        const paths = batch.map((p) => p.path.join(".")).sort();
-        expect(paths).toContain("a.b");
-        expect(paths).toContain("arr.1.x");
-        expect(paths).toContain("arr.2");
-        const addOps = batch.filter((p) => p.op === "add").length;
-        expect(addOps).toBe(batch.length);
+        expect(received).toHaveLength(1);
+        const normalized = normalizeBatch(received[0]);
+        console.log(normalized);
+        expect(normalized).toEqual([
+            { op: "add", path: ["a", "b"], value: 2 },
+            { op: "add", path: ["arr", "1", "x"], value: 3 },
+            { op: "add", path: ["arr", "2"], value: 5 },
+            { op: "add", path: ["arr", "length"], value: 3 },
+        ]);
         stop();
     });
 
@@ -52,12 +72,11 @@ describe("watch (patch mode)", () => {
         delete state.a.b;
         delete state.c;
         await Promise.resolve();
-        expect(out.length).toBe(1);
-        const [batch] = out;
-        const deletePatches = batch.filter((p) => p.op === "remove");
-        const delPaths = deletePatches.map((p) => p.path.join(".")).sort();
-        expect(delPaths).toEqual(["a.b", "c"]);
-        deletePatches.forEach((p: any) => expect(p.value).toBeUndefined());
+        expect(out).toHaveLength(1);
+        expect(normalizeBatch(out[0])).toEqual([
+            { op: "remove", path: ["a", "b"] },
+            { op: "remove", path: ["c"] },
+        ]);
         stop();
     });
 
@@ -73,9 +92,11 @@ describe("watch (patch mode)", () => {
         );
         state.a = 2;
         await Promise.resolve();
-        expect(wp.length).toBe(1);
-        expect(ob.length).toBe(1);
-        expect(wp[0][0].path.join(".")).toBe("a");
+        expect(wp).toHaveLength(1);
+        expect(ob).toHaveLength(1);
+        const expectedPatches = [{ op: "add", path: ["a"], value: 2 }];
+        expect(normalizeBatch(wp[0])).toEqual(expectedPatches);
+        expect(normalizeBatch(ob[0])).toEqual(expectedPatches);
         stop1();
         stop2();
     });
@@ -90,8 +111,10 @@ describe("watch (patch mode)", () => {
         b.y = 3;
         a.x = 2;
         await Promise.resolve();
-        expect(out.length).toBe(1);
-        expect(out[0][0].path.join(".")).toBe("x");
+        expect(out).toHaveLength(1);
+        expect(normalizeBatch(out[0])).toEqual([
+            { op: "add", path: ["x"], value: 2 },
+        ]);
         stop();
     });
 
@@ -104,18 +127,11 @@ describe("watch (patch mode)", () => {
         state.s.add(3);
         state.s.delete(1);
         await Promise.resolve();
-        expect(batches.length >= 1).toBe(true);
-        const allPaths = batches.flatMap((b) => b.map((p) => p.path.join(".")));
-        // For primitives, the path should be just "s" (the Set itself)
-        expect(allPaths.every((p) => p === "s")).toBe(true);
-        // Check the values
-        const patches = batches.flat();
-        const addPatches = patches.filter((p) => p.op === "add");
-        const deletePatches = patches.filter((p) => p.op === "remove");
-        expect(addPatches.length).toBe(1);
-        expect(deletePatches.length).toBe(1);
-        expect((addPatches[0] as any).value[0]).toBe(3);
-        expect((deletePatches[0] as any).value).toBe(1);
+        const normalized = normalizeBatches(batches).flat();
+        expect(normalized).toEqual([
+            { op: "add", path: ["s"], type: "set", value: [3] },
+            { op: "remove", path: ["s"], type: "set", value: 1 },
+        ]);
         stop();
     });
 
@@ -127,9 +143,17 @@ describe("watch (patch mode)", () => {
         );
         state.root.child = { level: { value: 1 }, l1: "val" };
         await Promise.resolve();
-        const flat = patches.flat().map((p) => p.path.join("."));
-        expect(flat).toContain("root.child");
-        expect(flat).toContain("root.child.level.value");
+        const normalized = normalizeBatches(patches).flat();
+        expect(normalized).toEqual([
+            { op: "add", path: ["root", "child"], type: "object" },
+            { op: "add", path: ["root", "child", "level"], type: "object" },
+            {
+                op: "add",
+                path: ["root", "child", "level", "value"],
+                value: 1,
+            },
+            { op: "add", path: ["root", "child", "l1"], value: "val" },
+        ]);
         stop();
     });
 
@@ -189,20 +213,58 @@ describe("watch (patch mode)", () => {
             meta: { count: 2, active: true },
         };
         await Promise.resolve();
-
-        const flat = patches.flat().map((p) => p.path.join("."));
-        // Check for root object
-        expect(flat).toContain("data");
-        // Check for nested array
-        expect(flat).toContain("data.users");
-        // Check for array elements
-        expect(flat).toContain("data.users.0");
-        expect(flat).toContain("data.users.1");
-        // Check for deeply nested properties
-        expect(flat).toContain("data.users.0.profile.settings.theme");
-        expect(flat).toContain("data.users.1.profile.settings.theme");
-        expect(flat).toContain("data.meta.count");
-        expect(flat).toContain("data.meta.active");
+        const normalized = normalizeBatches(patches).flat();
+        expect(normalized).toEqual([
+            { op: "add", path: ["data"], type: "object" },
+            { op: "add", path: ["data", "users"], type: "object" },
+            { op: "add", path: ["data", "users", 0], type: "object" },
+            { op: "add", path: ["data", "users", 0, "id"], value: 1 },
+            {
+                op: "add",
+                path: ["data", "users", 0, "profile"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["data", "users", 0, "profile", "name"],
+                value: "Alice",
+            },
+            {
+                op: "add",
+                path: ["data", "users", 0, "profile", "settings"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["data", "users", 0, "profile", "settings", "theme"],
+                value: "dark",
+            },
+            { op: "add", path: ["data", "users", 1], type: "object" },
+            { op: "add", path: ["data", "users", 1, "id"], value: 2 },
+            {
+                op: "add",
+                path: ["data", "users", 1, "profile"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["data", "users", 1, "profile", "name"],
+                value: "Bob",
+            },
+            {
+                op: "add",
+                path: ["data", "users", 1, "profile", "settings"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["data", "users", 1, "profile", "settings", "theme"],
+                value: "light",
+            },
+            { op: "add", path: ["data", "meta"], type: "object" },
+            { op: "add", path: ["data", "meta", "count"], value: 2 },
+            { op: "add", path: ["data", "meta", "active"], value: true },
+        ]);
         stop();
     });
 
@@ -223,17 +285,44 @@ describe("watch (patch mode)", () => {
             { id: "b", data: { nested: { value: 2 } } },
         ]);
         await Promise.resolve();
-
-        const flat = patches.flat().map((p) => p.path.join("."));
-
-        // Check for the Set itself
-        expect(flat).toContain("container.items");
-        // Check for Set entries (using their id as synthetic key)
-        expect(flat.some((p) => p.startsWith("container.items.a"))).toBe(true);
-        expect(flat.some((p) => p.startsWith("container.items.b"))).toBe(true);
-        // Check for deeply nested properties within Set entries
-        expect(flat).toContain("container.items.a.data.nested.value");
-        expect(flat).toContain("container.items.b.data.nested.value");
+        const normalized = normalizeBatches(patches).flat();
+        expect(normalized).toEqual([
+            { op: "add", path: ["container", "items"], type: "set", value: [] },
+            { op: "add", path: ["container", "items", "a"], type: "object" },
+            { op: "add", path: ["container", "items", "a", "id"], value: "a" },
+            {
+                op: "add",
+                path: ["container", "items", "a", "data"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["container", "items", "a", "data", "nested"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["container", "items", "a", "data", "nested", "value"],
+                value: 1,
+            },
+            { op: "add", path: ["container", "items", "b"], type: "object" },
+            { op: "add", path: ["container", "items", "b", "id"], value: "b" },
+            {
+                op: "add",
+                path: ["container", "items", "b", "data"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["container", "items", "b", "data", "nested"],
+                type: "object",
+            },
+            {
+                op: "add",
+                path: ["container", "items", "b", "data", "nested", "value"],
+                value: 2,
+            },
+        ]);
         stop();
     });
 
