@@ -21,18 +21,7 @@ export function useSaveGroups(): UseSaveGroupsReturn {
   const groups = useShape(SocialGroupShapeType)
 
   function generateUri(base: string) {
-    const b = new Uint8Array(33);
-    crypto.getRandomValues(b);
-
-    // Convert to base64url
-    const base64url = (bytes: Uint8Array) =>
-      btoa(String.fromCharCode(...bytes))
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/, "");
-    const randomString = base64url(b);
-
-    return base.substring(0, 9 + 44) + ":p:" + randomString;
+    return base.substring(0, 9 + 44);
   }
 
   const createGroup = useCallback(async (group: Partial<SocialGroup>): Promise<string> => {
@@ -53,13 +42,35 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         "store"
       );
 
+      const id = generateUri(docId);
       const groupObj: SocialGroup = {
         "@graph": docId,
-        "@id": generateUri(docId),
+        "@id": id,
         "@type": "did:ng:x:social:group#Group",
-        ...group
+        "title": group.title ?? "",
+        "description": group.description,
       }
+
       groups?.add(groupObj);
+
+      if (groups) {
+        for (const item of groups) {
+          if (item["@id"] === id) {
+            //@ts-expect-error would be fixed later
+            item.hasAdmin = new Set();
+            //@ts-expect-error would be fixed later
+            item.hasMember = new Set();
+            group.hasAdmin?.forEach((el) => {
+              item.hasAdmin?.add(el);
+            });
+            group.hasMember?.forEach((el) => {
+              item.hasMember?.add(el);
+            })
+            break;
+          }
+        }
+      }
+
       return docId;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create group';

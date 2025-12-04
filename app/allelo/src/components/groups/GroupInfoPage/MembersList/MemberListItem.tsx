@@ -4,7 +4,7 @@ import {
   Button,
   ListItem,
   ListItemAvatar,
-  ListItemText,
+  ListItemText, Chip,
 } from '@mui/material';
 import {UilUserMinus} from '@iconscout/react-unicons';
 import {useResolvedContact} from "@/stores/contactOrmStore.ts";
@@ -13,6 +13,7 @@ import {ContactCardAvatarOrm} from "@/components/contacts/ContactCardAvatar";
 export interface MemberListItemProps {
   memberNuri: string;
   isCurrentUserAdmin: boolean;
+  isMemberAdmin: boolean;
   isLastItem: boolean;
   onRemoveMember: (nuri: string, name: string) => void;
 }
@@ -22,6 +23,7 @@ export const MemberListItem = ({
                                  isCurrentUserAdmin,
                                  isLastItem,
                                  onRemoveMember,
+                                 isMemberAdmin
                                }: MemberListItemProps) => {
   const {name, ormContact} = useResolvedContact(memberNuri);
 
@@ -44,14 +46,14 @@ export const MemberListItem = ({
               <Typography variant="subtitle1" sx={{fontWeight: 600}}>
                 {name}
               </Typography>
-              {/*{member.role === 'Admin' && (
+              {isMemberAdmin && (
                 <Chip
                   label="Admin"
                   size="small"
                   color="primary"
                   sx={{height: 20, fontSize: '0.7rem'}}
                 />
-              )}*/}
+              )}
             </Box>
             <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
               {/*{member.status && (
@@ -63,7 +65,7 @@ export const MemberListItem = ({
                   sx={{height: 20, fontSize: '0.7rem'}}
                 />
               )}*/}
-              {isCurrentUserAdmin && (
+              {isCurrentUserAdmin && !isMemberAdmin && (
                 <Button
                   variant="outlined"
                   color="error"

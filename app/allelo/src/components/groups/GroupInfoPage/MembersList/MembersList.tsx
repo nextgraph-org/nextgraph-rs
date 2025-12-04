@@ -19,11 +19,12 @@ import {useGroupData} from '@/hooks/groups/useGroupData';
 export interface MembersListProps {
   groupId: string;
   membersNuris: Set<string> | undefined;
+  adminsNuris: Set<string> | undefined;
   isCurrentUserAdmin: boolean;
 }
 
 export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
-  ({groupId, membersNuris, isCurrentUserAdmin}, ref) => {
+  ({groupId, membersNuris, isCurrentUserAdmin, adminsNuris}, ref) => {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
     const [, setManageMode] = useState(true);
@@ -97,6 +98,7 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
                   key={memberNuri}
                   memberNuri={memberNuri}
                   isCurrentUserAdmin={isCurrentUserAdmin}
+                  isMemberAdmin={[...adminsNuris ?? []].includes(memberNuri)}
                   isLastItem={index === (membersNuris?.size || 1) - 1}
                   onRemoveMember={handleRemoveMember}
                 />

@@ -3,7 +3,8 @@ import {imageService} from '@/services/imageService';
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 
 interface Subject {
-  "@id": string
+  "@id": string,
+  "@graph"?: string
 }
 
 export const usePhotoUploadOrm = (
