@@ -16,8 +16,6 @@ const GroupDetailPage = () => {
 
   const navigate = useNavigate();
 
-  const tags = ""; //TODO: group.tag?.join(", ")
-
   const handleBack = () => {
     navigate("/groups");
   };
@@ -38,6 +36,8 @@ const GroupDetailPage = () => {
       </Box>
     );
   }
+
+  const tags = [...group?.tag ?? []].join(", ");
 
   let contactNuris: string[] = [];
   if (group.hasMember)

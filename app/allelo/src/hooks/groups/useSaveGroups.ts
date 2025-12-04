@@ -60,11 +60,16 @@ export function useSaveGroups(): UseSaveGroupsReturn {
             item.hasAdmin = new Set();
             //@ts-expect-error would be fixed later
             item.hasMember = new Set();
+            //@ts-expect-error would be fixed later
+            item.tag = new Set();
             group.hasAdmin?.forEach((el) => {
               item.hasAdmin?.add(el);
             });
             group.hasMember?.forEach((el) => {
               item.hasMember?.add(el);
+            })
+            group.tag?.forEach((el) => {
+              item.tag?.add(el);
             })
             break;
           }

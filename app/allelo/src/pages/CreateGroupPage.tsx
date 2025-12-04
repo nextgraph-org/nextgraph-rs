@@ -1,4 +1,4 @@
-import {useState, useRef, useCallback} from 'react';
+import {useState, useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
   Typography,
@@ -7,12 +7,10 @@ import {
   Button,
   Card,
   CardContent,
-  Avatar,
   IconButton,
 } from '@mui/material';
 import {
   UilArrowLeft,
-  UilCamera,
   UilUsersAlt,
   UilUser,
 } from '@iconscout/react-unicons';
@@ -20,7 +18,7 @@ import {useSaveGroups} from "@/hooks/groups/useSaveGroups.ts";
 import {SocialGroup} from "@/.orm/shapes/group.typings.ts";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {Tags} from "@/components/ui/Tags";
-import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
+import {AddMembersDialog} from "@/components/groups/GroupInfoPage/MembersList/AddMembersDialog";
 
 interface GroupFormData {
   title: string;
@@ -32,7 +30,7 @@ interface GroupFormData {
 
 const CreateGroupPage = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<GroupFormData>({
     title: '',
     description: '',
@@ -40,6 +38,8 @@ const CreateGroupPage = () => {
     logoPreview: '',
     tags: []
   });
+  const [isAddMembersDialogOpen, setIsAddMembersDialogOpen] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   const {createGroup} = useSaveGroups();
   const {ormContact} = useContactOrm(undefined, true);
@@ -48,19 +48,21 @@ const CreateGroupPage = () => {
     navigate('/groups');
   };
 
-  //TODO: select members
-  const handleNext = useCallback(() => {
+  const handleOpenMembersDialog = useCallback(() => {
     // Validate form before proceeding
     if (!formData.title.trim()) {
       return; // TODO: Show validation error
     }
-    // Navigate to contact selection
-    const params = new URLSearchParams();
-    params.set('mode', 'create-group');
-    params.set('returnTo', 'create-group');
-    params.set('groupData', encodeURIComponent(JSON.stringify(formData)));
-    navigate(`/contacts?${params.toString()}`);
-  }, [formData, navigate]);
+    setIsAddMembersDialogOpen(true);
+  }, [formData.title]);
+
+  const handleCloseMembersDialog = useCallback(() => {
+    setIsAddMembersDialogOpen(false);
+  }, []);
+
+  const handleAddMembers = useCallback((members: string[]) => {
+    setSelectedMembers(members);
+  }, []);
 
   const handleCreateGroup = useCallback(async () => {
     if (!ormContact) {
@@ -70,20 +72,26 @@ const CreateGroupPage = () => {
     if (!formData.title.trim()) {
       return; // TODO: Show validation error
     }
-    const group: Partial<SocialGroup> = {
+
+    // Combine current user with selected members
+    const allMembers = new Set([ormContact["@id"]!, ...selectedMembers]);
+
+    const groupObj: Partial<SocialGroup> = {
       title: formData.title,
       description: formData.description,
       createdAt: new Date().toISOString(),
       hasAdmin: new Set([ormContact["@id"]!]),
-      hasMember: new Set([ormContact["@id"]!]),
+      hasMember: allMembers,
       tag: new Set(formData["tags"])
     }
 
-    const socialGroupId = await createGroup(group);
+    const socialGroupId = await createGroup(groupObj);
+    
+    
     if (socialGroupId) {
       navigate(`/groups/${socialGroupId}`);
     }
-  }, [ormContact, createGroup, formData, navigate]);
+  }, [ormContact, formData, selectedMembers, createGroup, navigate]);
 
   const handleInputChange = (field: keyof GroupFormData, value: string) => {
     setFormData(prev => ({
@@ -92,7 +100,7 @@ const CreateGroupPage = () => {
     }));
   };
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+/*  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -105,7 +113,7 @@ const CreateGroupPage = () => {
       };
       reader.readAsDataURL(file);
     }
-  };
+  };*/
 
   const handleTagAdd = useCallback((tag: string) => {
     setFormData(prev => ({
@@ -158,15 +166,15 @@ const CreateGroupPage = () => {
       </Box>
 
       {/* Form Content */}
-      <Box sx={{px: {xs: '10px', md: 0}}}>
+      <Box sx={{px: 0}}>
         <Card>
-          <CardContent sx={{p: 4}}>
+          <CardContent sx={{p: 1}}>
             <Typography variant="h6" sx={{fontWeight: 600, mb: 3}}>
               Group Information
             </Typography>
 
             {/* Logo Upload */}
-            <Box sx={{mb: 4, textAlign: 'center'}}>
+           {/* <Box sx={{mb: 4, textAlign: 'center'}}>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -206,7 +214,7 @@ const CreateGroupPage = () => {
               <Typography variant="body2" color="text.secondary">
                 Click to upload group logo
               </Typography>
-            </Box>
+            </Box>*/}
 
             {/* Group Name */}
             <TextField
@@ -245,33 +253,49 @@ const CreateGroupPage = () => {
             </Box>
 
             {/* Actions */}
-            <Box sx={{display: 'flex', justifyContent: 'space-between', mt: 4}}>
+            <Box sx={{display: 'flex', justifyContent: 'space-between', gap: 1}}>
               <Button
                 variant="outlined"
+                size={"small"}
                 onClick={handleBack}
+                sx={{p: 1, fontSize: "14px"}}
               >
                 Cancel
               </Button>
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                disabled={!formData.title.trim()}
-                startIcon={<UilUser size="20"/>}
-              >
-                Select Members
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleCreateGroup}
-                disabled={!formData.title.trim()}
-                startIcon={<UilUser size="20"/>}
-              >
-                Create Group
-              </Button>
+              {selectedMembers.length === 0 ? (
+                <Button
+                  variant="contained"
+                  onClick={handleOpenMembersDialog}
+                  disabled={!formData.title.trim()}
+                  startIcon={<UilUser size="18"/>}
+                  size={"small"}
+                  sx={{p: 1, fontSize: "14px"}}
+                >
+                  Select Members
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="contained"
+                    onClick={handleCreateGroup}
+                    startIcon={<UilUsersAlt size="18"/>}
+                    size={"small"}
+                    sx={{p: 1, fontSize: "14px"}}
+                  >
+                    Create Group
+                  </Button>
+                </>
+              )}
             </Box>
           </CardContent>
         </Card>
       </Box>
+
+      <AddMembersDialog
+        open={isAddMembersDialogOpen}
+        onClose={handleCloseMembersDialog}
+        onAddMembers={handleAddMembers}
+      />
     </Box>
   );
 };

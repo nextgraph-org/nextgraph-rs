@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import {UilUserPlus} from '@iconscout/react-unicons';
 import {MemberListItem} from './MemberListItem';
-import {ContactListTab} from '@/components/contacts/ContactListTab/ContactListTab';
+import {AddMembersDialog} from './AddMembersDialog';
 import {useGroupData} from '@/hooks/groups/useGroupData';
 
 export interface MembersListProps {
@@ -26,8 +26,6 @@ export interface MembersListProps {
 export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
   ({groupId, membersNuris, isCurrentUserAdmin, adminsNuris}, ref) => {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-    const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
-    const [, setManageMode] = useState(true);
     const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
     const [removedContactName, setRemovedContactName] = useState("");
     const [removedContactNuri, setRemovedContactNuri] = useState("");
@@ -40,18 +38,11 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
 
     const handleCloseDialog = useCallback(() => {
       setIsInviteDialogOpen(false);
-      setSelectedContacts([]);
-      setManageMode(false);
     }, []);
 
-    const handleSelectionChange = useCallback((contacts: string[]) => {
-      setSelectedContacts(contacts);
-    }, []);
-
-    const handleAddMembers = useCallback(async () => {
+    const handleAddMembers = useCallback(async (selectedContacts: string[]) => {
       addMembers(selectedContacts);
-      handleCloseDialog();
-    }, [addMembers, selectedContacts, handleCloseDialog]);
+    }, [addMembers]);
 
     const handleRemoveMember = useCallback((nuri: string, name: string) => {
       setRemovedContactName(name);
@@ -107,46 +98,11 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
           </CardContent>
         </Card>
 
-        <Dialog
+        <AddMembersDialog
           open={isInviteDialogOpen}
           onClose={handleCloseDialog}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{
-            sx: {
-              p: 1
-            }
-          }}
-        >
-          <DialogTitle>
-            <Typography variant="h6" sx={{fontWeight: 600}}>
-              Add Members
-            </Typography>
-          </DialogTitle>
-          <DialogContent sx={{p: 0, display: 'flex', flexDirection: 'column'}}>
-            <Box sx={{flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
-              <ContactListTab
-                manageMode={true}
-                setManageMode={setManageMode}
-                onSelectionChange={handleSelectionChange}
-                forGroup={true}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{px: 3, py: 1, gap: 1}}>
-            <Button onClick={handleCloseDialog} variant="outlined" sx={{p: 1}}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddMembers}
-              variant="contained"
-              disabled={selectedContacts.length === 0}
-              sx={{p: 1}}
-            >
-              Add {selectedContacts.length > 0 ? `(${selectedContacts.length})` : ''} Members
-            </Button>
-          </DialogActions>
-        </Dialog>
+          onAddMembers={handleAddMembers}
+        />
 
         <Dialog open={showRemoveMemberDialog} onClose={() => setShowRemoveMemberDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle>Remove Member</DialogTitle>

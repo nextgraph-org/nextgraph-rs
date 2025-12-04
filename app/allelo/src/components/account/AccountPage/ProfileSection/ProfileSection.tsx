@@ -156,7 +156,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 resource={resource}
               />
             </Box>
-            <Box>
+            <Box sx={{pt: 1}}>
               <ContactTags contact={initialProfileData} resource={resource}/>
             </Box>
           </Grid>

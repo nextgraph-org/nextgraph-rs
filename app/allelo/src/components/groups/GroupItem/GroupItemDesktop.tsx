@@ -1,4 +1,4 @@
-import {Box, Card, CardContent, Grid, Typography, useTheme} from "@mui/material";
+import {alpha, Box, Card, CardContent, Chip, Grid, Typography, useTheme} from "@mui/material";
 import {UilUsersAlt as People} from "@iconscout/react-unicons";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
@@ -63,23 +63,23 @@ export const GroupItemDesktop = ({nuri, onGroupClick}: { nuri: string, onGroupCl
           {group.description}
         </Typography>
 
-        {/*<Box sx={{display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2}}>*/}
-        {/*  {group.tags?.slice(0, 3).map((tag) => (*/}
-        {/*    <Chip*/}
-        {/*      key={tag}*/}
-        {/*      label={tag}*/}
-        {/*      size="small"*/}
-        {/*      variant="outlined"*/}
-        {/*      sx={{*/}
-        {/*        borderRadius: 1,*/}
-        {/*        backgroundColor: alpha(theme.palette.primary.main, 0.04),*/}
-        {/*        borderColor: alpha(theme.palette.primary.main, 0.12),*/}
-        {/*        color: 'primary.main',*/}
-        {/*        fontWeight: 500,*/}
-        {/*      }}*/}
-        {/*    />*/}
-        {/*  ))}*/}
-        {/*</Box>*/}
+        <Box sx={{display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2}}>
+          {[...group.tag ?? []]?.slice(0, 3).map((tag) => (
+            <Chip
+              key={tag}
+              label={tag}
+              size="small"
+              variant="outlined"
+              sx={{
+                borderRadius: 1,
+                backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                borderColor: alpha(theme.palette.primary.main, 0.12),
+                color: 'primary.main',
+                fontWeight: 500,
+              }}
+            />
+          ))}
+        </Box>
 
         {/*{group.latestPost && (*/}
         {/*  <Box>*/}

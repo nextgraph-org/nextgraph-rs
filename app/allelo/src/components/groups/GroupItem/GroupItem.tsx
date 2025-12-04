@@ -1,4 +1,4 @@
-import {alpha, Box, Typography, useTheme} from "@mui/material";
+import {alpha, Box, Chip, Typography, useTheme} from "@mui/material";
 import {UilUsersAlt as People} from "@iconscout/react-unicons";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
@@ -47,6 +47,23 @@ export const GroupItem = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (i
               {group.hasMember?.size}
             </Typography>
           </Box>
+        </Box>
+        <Box sx={{display: 'flex', gap: 1, flexWrap: 'wrap'}}>
+          {[...group?.tag ?? []]?.slice(0, 3).map((tag) => (
+            <Chip
+              key={tag}
+              label={tag}
+              size="small"
+              variant="outlined"
+              sx={{
+                borderRadius: 1,
+                backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                borderColor: alpha(theme.palette.primary.main, 0.12),
+                color: 'primary.main',
+                fontWeight: 500,
+              }}
+            />
+          ))}
         </Box>
       </Box>
     </Box>
