@@ -8,16 +8,17 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/** Lightweight façade adding ergonomic helpers (.value/.peek/.get/.set) to native alien-signals function signals. */
+/** Lightweight facade adding ergonomic helpers (.value/.peek/.get/.set) to native alien-signals function signals. */
+
 // Native re-exports for advanced usage.
 export {
     signal as _rawSignal,
     computed as _rawComputed,
-    effect,
-    startBatch,
-    endBatch,
-    getCurrentSub,
-    setCurrentSub,
+    startBatch as _rawStartBatch,
+    endBatch as _rawEndBatch,
+    getCurrentSub as _rawGetCurrentSub,
+    setCurrentSub as _rawSetCurrentSub,
+    effect as _rawEffect,
 } from "alien-signals";
 
 import {
@@ -28,7 +29,6 @@ import {
     endBatch as alienEndBatch,
 } from "alien-signals";
 import { ReactiveFlags as ReactiveFlags_ } from "./contents";
-import { isFunction } from "./utils";
 
 // Nominal constructor removal: we no longer expose classes; signals are plain tagged functions.
 

@@ -9,11 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { Diff as Patches, Scope } from "../types.ts";
-import {
-    applyPatches,
-    applyPatchesToDeepSignal,
-    Patch,
-} from "./applyPatches.ts";
+import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -24,7 +20,6 @@ import {
 } from "@ng-org/alien-deepsignals";
 import type {
     DeepPatch,
-    DeepSignalObject,
     DeepSignalPropGenFn,
     DeepSignalSet,
     WatchPatchEvent,
@@ -32,19 +27,24 @@ import type {
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 
 export class OrmConnection<T extends BaseType> {
-    // TODO: WeakMaps?
     private static idToEntry = new Map<string, OrmConnection<any>>();
+    /**
+     * Delay in ms to wait before closing connection.\
+     * Useful when a hook unsubscribes and resubscribes in a short time interval
+     * so that no new connections need to be set up.
+     */
+    private WAIT_BEFORE_RELEASE = 500;
 
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
     readonly signalObject: DeepSignalSet<T>;
     private refCount: number;
-    /*** Identifier as a combination of shape type and scope. Prevents duplications. */
+    /** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
     suspendDeepWatcher: boolean;
     readyPromise: Promise<void>;
     cancel: () => void;
-    // Promise that resolves once initial data has been applied.
+    /** Promise that resolves once initial data has been applied. */
     resolveReady!: () => void;
 
     // FinalizationRegistry to clean up connections when signal objects are GC'd.
@@ -92,11 +92,12 @@ export class OrmConnection<T extends BaseType> {
             try {
                 //await new Promise((resolve) => setTimeout(resolve, 4_000));
                 this.cancel = await ng.orm_start(
-                    (scope.length == 0 ? "" : scope) as string,
+                    scope.length == 0 ? "" : scope,
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
                 );
+                console.debug("Created session ", this);
             } catch (e) {
                 console.error(e);
             }
@@ -134,13 +135,17 @@ export class OrmConnection<T extends BaseType> {
     };
 
     public release = () => {
-        if (this.refCount > 0) this.refCount--;
-        if (this.refCount === 0) {
-            OrmConnection.idToEntry.delete(this.identifier);
+        setTimeout(() => {
+            if (this.refCount > 0) this.refCount--;
+            if (this.refCount === 0) {
+                OrmConnection.idToEntry.delete(this.identifier);
 
-            OrmConnection.cleanupSignalRegistry?.unregister(this.signalObject);
-            this.cancel();
-        }
+                OrmConnection.cleanupSignalRegistry?.unregister(
+                    this.signalObject
+                );
+                this.cancel();
+            }
+        }, this.WAIT_BEFORE_RELEASE);
     };
 
     private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent) => {
@@ -226,13 +231,6 @@ export class OrmConnection<T extends BaseType> {
         if (object["@id"] && object["@id"] !== "") {
             subjectIri = object["@id"];
         } else {
-            console.debug(
-                "Generating new random id for path",
-                path,
-                "object:",
-                object
-            );
-
             // Generate 33 random bytes using Web Crypto API
             const b = new Uint8Array(33);
             crypto.getRandomValues(b);

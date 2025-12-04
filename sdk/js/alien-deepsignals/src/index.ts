@@ -1,17 +1,4 @@
-export {
-    deepSignal,
-    getDeepSignalRootId,
-    getDeepSignalVersion,
-    subscribeDeepMutations,
-    shallow,
-    isDeepSignal,
-} from "./deepSignal";
-export type {
-    DeepPatch,
-    DeepPatchBatch,
-    DeepSignal,
-    DeepSignalOptions,
-    DeepPatchSubscriber,
-} from "./deepSignal";
-export { watch } from "./watch";
-export { effect } from "./effect";
+export * from "./deepSignal";
+export * from "./core";
+export * from "./watch";
+export * from "./effect";

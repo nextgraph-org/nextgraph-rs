@@ -1043,6 +1043,14 @@ type DeepSignalSetProps<T> = {
     getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
 };
 
+/** Utility functions for sets. */
+export type DeepSignalSet<S, T = Set<S>> = Set<DeepSignal<S>> &
+    DeepSignalObjectProps<T> & {
+        first(): DeepSignal<S> | undefined;
+        getById(id: string | number): DeepSignal<S> | undefined;
+        getBy(graphIri: string, subjectIri: string): DeepSignal<S> | undefined;
+    };
+
 /**
  * The object returned by the @see deepSignal function.
  * It is decorated with utility functions for sets and a
@@ -1057,9 +1065,7 @@ export type DeepSignal<T> = T extends Function
       : T extends Array<infer I>
         ? DeepSignal<I>[]
         : T extends Set<infer S>
-          ? Set<DeepSignal<S>> &
-                DeepSignalSetProps<S> &
-                DeepSignalObjectProps<T>
+          ? DeepSignalSet<S, T>
           : T extends object
             ? { [K in keyof T]: DeepSignal<T[K]> }
             : T;
