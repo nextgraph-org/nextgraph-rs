@@ -26,14 +26,14 @@ And our community forum where you can ask questions is here [https://forum.nextg
 
 NextGraph is not ready yet. You can subscribe to [our newsletter](https://list.nextgraph.org/subscription/form) to get updates, and support us with a [donation](https://nextgraph.org/donate/).
 
-This library is used internally by [ngd](../ngd/README.md), [ngcli](../ngcli/README.md), [ng-app](../ng-app/README.md) and by [nextgraph, the Rust client library](../../sdk/rust/README.md) which you should be using instead. It is not meant to be used by other programs as-is.
+This library is used internally by [ngd](../../bin/ngd/README.md), [ngcli](../../bin/ngcli/README.md), [ng-app](../ng-app/README.md) and by [nextgraph, the Rust client library](../../sdk/rust/README.md) which you should be using instead. It is not meant to be used by other programs as-is.
 
 ## License
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE2](../../LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](../../LICENSE-MIT) or http://opensource.org/licenses/MIT)
   at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`

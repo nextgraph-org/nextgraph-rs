@@ -83,6 +83,32 @@ class NextgraphDataService {
     return await session.ng!.sparql_query(session.sessionId, sparql);
   };
 
+  async getAllLinkedinAccountsByContact(session: NextGraphSession) {
+    const sparql = `
+     PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
+  PREFIX ngcontact: <did:ng:x:contact#>
+  PREFIX ngcore: <did:ng:x:core#>
+
+  SELECT ?contactUri (SAMPLE(?accountValue) AS ?linkedinAccount)
+  WHERE {
+    ?contactUri a vcard:Individual .
+    ?contactUri ngcontact:account ?accountNode .
+    ?accountNode ngcontact:protocol "linkedin" .
+    ?accountNode ngcore:value ?accountValue .
+    FILTER NOT EXISTS { ?contactUri ngcontact:mergedInto ?mergedIntoNode }
+  }
+  GROUP BY ?contactUri
+`;
+    const result = await session.ng!.sparql_query(session.sessionId, sparql);
+    const record: Record<string, string> = {};
+
+    result.results?.bindings?.forEach(binding => {
+      record[binding.contactUri.value] = binding.linkedinAccount.value;
+    });
+
+    return record;
+  }
+
   private directSortProperties = ["centralityScore", "mostRecentInteraction"];
 
   getAllContactIdsQuery(session: NextGraphSession, type: string, limit?: number, offset?: number, sortParams?: SortParams[], filterParams?: Map<string, string>) {
