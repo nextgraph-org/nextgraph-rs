@@ -8,20 +8,19 @@ import {
   Card,
   CardContent,
   Avatar,
-  Chip,
   IconButton,
 } from '@mui/material';
 import {
   UilArrowLeft,
   UilCamera,
-  UilPlus,
-  UilTimes,
   UilUsersAlt,
   UilUser,
 } from '@iconscout/react-unicons';
 import {useSaveGroups} from "@/hooks/groups/useSaveGroups.ts";
 import {SocialGroup} from "@/.ldo/group.typings.ts";
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
+import {Tags} from "@/components/ui/Tags";
+import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
 
 interface GroupFormData {
   title: string;
@@ -34,7 +33,6 @@ interface GroupFormData {
 const CreateGroupPage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [tagInput, setTagInput] = useState('');
   const [formData, setFormData] = useState<GroupFormData>({
     title: '',
     description: '',
@@ -74,14 +72,18 @@ const CreateGroupPage = () => {
       description: formData.description,
       createdAt: new Date().toISOString(),
       // @ts-expect-error ldo
-      hasAdmin: {"@id": contact!["@id"]},
+      hasAdmin: new BasicLdSet([{"@id": contact!["@id"]}]),
+      // @ts-expect-error ldo
+      hasMember: new BasicLdSet([{"@id": contact!["@id"]}]),
+      // @ts-expect-error ldo
+      tag: new BasicLdSet(formData["tags"])
     }
 
-    const socialGroup = await createGroup(group);
-    if (socialGroup) {
-      navigate(`/groups/${socialGroup["@id"]}`);
+    const socialGroupId = await createGroup(group);
+    if (socialGroupId) {
+      navigate(`/groups/${socialGroupId}`);
     }
-  }, [contact, createGroup, formData.description, formData.title, navigate]);
+  }, [contact, createGroup, formData, navigate]);
 
   const handleInputChange = (field: keyof GroupFormData, value: string) => {
     setFormData(prev => ({
@@ -105,29 +107,19 @@ const CreateGroupPage = () => {
     }
   };
 
-  const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, tagInput.trim()]
-      }));
-      setTagInput('');
-    }
-  };
+  const handleTagAdd = useCallback((tag: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: [...prev.tags, tag]
+    }));
+  }, []);
 
-  const handleRemoveTag = (tagToRemove: string) => {
+  const handleTagRemove = useCallback((tagToRemove: string) => {
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)
     }));
-  };
-
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      handleAddTag();
-    }
-  };
+  }, []);
 
   return (
     <Box sx={{
@@ -243,39 +235,13 @@ const CreateGroupPage = () => {
                 Tags
               </Typography>
 
-              {/* Tag Input */}
-              <Box sx={{display: 'flex', gap: 1, mb: 2}}>
-                <TextField
-                  fullWidth
-                  placeholder="Add a tag..."
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  size="small"
-                />
-                <Button
-                  variant="outlined"
-                  onClick={handleAddTag}
-                  disabled={!tagInput.trim()}
-                  startIcon={<UilPlus size="20"/>}
-                >
-                  Add
-                </Button>
-              </Box>
-
               {/* Tag Display */}
-              <Box sx={{display: 'flex', gap: 1, flexWrap: 'wrap'}}>
-                {formData.tags.map((tag) => (
-                  <Chip
-                    key={tag}
-                    label={tag}
-                    onDelete={() => handleRemoveTag(tag)}
-                    deleteIcon={<UilTimes size="16"/>}
-                    variant="outlined"
-                    sx={{borderRadius: 1}}
-                  />
-                ))}
-              </Box>
+              <Tags
+                existingTags={formData.tags}
+                availableTags={[]}
+                handleTagAdd={handleTagAdd}
+                handleTagRemove={handleTagRemove}
+              />
             </Box>
 
             {/* Actions */}

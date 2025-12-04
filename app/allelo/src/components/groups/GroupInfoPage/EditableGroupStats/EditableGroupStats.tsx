@@ -1,4 +1,4 @@
-import {forwardRef, useRef, useState, useEffect} from 'react';
+import {forwardRef, useState, useEffect} from 'react';
 import {
   Typography,
   Box,
@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import {SocialGroup} from "@/.orm/shapes/group.typings.ts";
 import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
+import {GroupTags} from "@/components/groups/GroupTags/GroupTags.tsx";
 
 export interface EditableGroupStatsProps {
   group: SocialGroup;
@@ -16,8 +17,6 @@ export interface EditableGroupStatsProps {
 
 export const EditableGroupStats = forwardRef<HTMLDivElement, EditableGroupStatsProps>(
   ({group}, ref) => {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
     const [title, setTitle] = useState(group.title || '');
     const [description, setDescription] = useState(group.description || '');
 
@@ -127,32 +126,7 @@ export const EditableGroupStats = forwardRef<HTMLDivElement, EditableGroupStatsP
             </Box>
 
             {/* Tags */}
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>
-                Tags (comma-separated)
-              </Typography>
-              {/*<TextField
-                fullWidth
-                value={group.tags?.join(', ') || ''}
-                onChange={(e) => handleTagsChange(e.target.value)}
-                variant="outlined"
-                size="small"
-                placeholder="e.g., community, tech, education"
-              />
-              <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {group.tags?.map((tag, index) => (
-                  <Chip
-                    key={index}
-                    label={tag}
-                    size="small"
-                    sx={{ 
-                      backgroundColor: 'primary.light',
-                      color: 'primary.main',
-                    }}
-                  />
-                ))}
-              </Box>*/}
-            </Box>
+            <GroupTags group={group}/>
 
             {/* Created Date */}
             <Box>
