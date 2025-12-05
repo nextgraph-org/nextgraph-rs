@@ -1148,7 +1148,44 @@ pub async fn import_contact_from_qrcode(
 }
 
 #[wasm_bindgen]
-pub async fn get_qrcode_for_profile(session_id: JsValue, size: JsValue) -> Result<String, String> {
+pub async fn get_qrcode_for_contact(
+    session_id: JsValue,
+    contact: String,
+    size: JsValue,
+) -> Result<String, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)
+        .map_err(|_| "Deserialization error of size".to_string())?;
+
+    let nuri = NuriV0::new_from(&contact).map_err(|e| e.to_string())?;
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::QrCodeProfile,
+        nuri,
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(
+            size,
+        ))),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    match response {
+        AppResponse::V0(AppResponseV0::Text(qrcode)) => Ok(qrcode),
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub async fn get_qrcode_for_profile(
+    session_id: JsValue,
+    contact: String,
+    size: JsValue,
+) -> Result<String, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)

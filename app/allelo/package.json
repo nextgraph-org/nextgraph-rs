@@ -62,7 +62,6 @@
     "libphonenumber-js": "^1.12.17",
     "mustache": "^4.2.0",
     "openai": "^6.8.0",
-    "qrcode.react": "^4.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.62.0",

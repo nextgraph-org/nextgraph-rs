@@ -50,7 +50,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
     }, [contact, rCards]);
 
     const handleDownloadQR = () => {
-      const svg = document.querySelector('#qr-code-svg') as SVGElement;
+      const svg = document.querySelector('#qr-code-svg svg') as SVGElement;
       if (svg) {
         const svgData = new XMLSerializer().serializeToString(svg);
         const canvas = document.createElement('canvas');
@@ -140,6 +140,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
 
         {isSetup && selectedCategory && <InvitationActions
             group={group}
+            contact={contact}
             isGroupInvite={isGroupInvite}
             onDownloadQR={handleDownloadQR}
             onNewInvitation={handleNewInvitation}
