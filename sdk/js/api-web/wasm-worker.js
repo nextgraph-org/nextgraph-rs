@@ -72,7 +72,7 @@ onmessage = (e) => {
         const args = e.data.args;
         const port = e.data.port;
         if ( e.data.streamed ) {
-            //console.log("processing streamed request ...",method, args);
+            //console.log("processing streamed request in worker ...",method, args);
             args.push((callbacked)=> {
                 port.postMessage({stream:true, ret:callbacked});
             });

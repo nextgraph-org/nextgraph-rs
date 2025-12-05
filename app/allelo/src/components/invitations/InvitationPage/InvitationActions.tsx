@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useRef, useEffect, useState } from 'react';
 import {
   Typography,
   Box,
@@ -9,11 +9,15 @@ import {
 import {
   UilDownloadAlt,
 } from '@iconscout/react-unicons';
-import { QRCodeSVG } from 'qrcode.react';
 import type { Group } from '@/types/group';
+import type {Contact} from "@/types/contact";
+import {useNextGraphAuth} from "@/lib/nextgraph.ts";
+import {NextGraphAuth} from "@/types/nextgraph.ts";
+import { default as ng } from "../../../.auth-react/api";
 
 export interface InvitationActionsProps {
   group: Group | null;
+  contact: Contact | undefined;
   isGroupInvite: boolean;
   onDownloadQR: () => void;
   onNewInvitation: () => void;
@@ -22,28 +26,40 @@ export interface InvitationActionsProps {
 export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsProps>(
   ({ 
     group,
+    contact,
     isGroupInvite,
     onDownloadQR,
   }, ref) => {
-    //TODO: replace with real QR
+    const containerRef = useRef<HTMLDivElement>(null);
+    const {session} = useNextGraphAuth() || {} as NextGraphAuth;
+    const sessionId = session?.sessionId;
+    const [htmlString, setHtmlString] = useState('');
+
+    //generate QRcode
+
+    useEffect(() => {
+      (async () => {
+        const size = containerRef?.current?.clientWidth;
+        if (size) {
+          const generated_qr = await ng.get_qrcode_for_contact(
+              sessionId,
+              contact?.['@id'],
+              Math.min(size, 802)
+          );
+          setHtmlString(generated_qr);
+        }
+    })();    
+    }, [contact, containerRef, sessionId]);
+    
     return (
       <Box ref={ref}>
-        <Grid container spacing={4}>
+        <Grid container spacing={4} >
           <Grid size={{ xs: 12, md: 12 }}>
             <Paper sx={{ p: 3, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" gutterBottom>
                 QR Code
               </Typography>
-              <Box sx={{ mb: 2 }}>
-                <QRCodeSVG
-                  id="qr-code-svg"
-                  value={"balue"}
-                  size={200}
-                  level="M"
-                  includeMargin={true}
-                  bgColor="#ffffff"
-                  fgColor="#000000"
-                />
+              <Box id="qr-code-svg" sx={{ mb: 2 }} ref={containerRef} dangerouslySetInnerHTML={{ __html: htmlString }}>
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {isGroupInvite 

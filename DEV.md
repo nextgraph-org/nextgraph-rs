@@ -24,6 +24,8 @@ On Debian distros
 sudo apt install pkg-config gcc build-essential libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev gcc-multilib curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
 
+For everyone
+
 ```
 cargo install cargo-watch
 cargo install cargo-run-script
@@ -35,7 +37,7 @@ npm install -g pnpm
 pnpm buildfront
 ```
 
-For building the native apps, see the [ng-app/README](ng-app/README.md)
+For building the native apps, see the [app/nextgraph/README](app/nextgraph/README.md)
 
 ### First run
 
@@ -100,7 +102,7 @@ and then open the link after replacing the port number from `14400` to `1421` (i
 
 - run a local instance of `ngaccount`. this is useful if you want to test or develop the ngaccount part of the flow..
 
-See the [README of ngaccount here](ngaccount/README.md).
+See the [README of ngaccount here](infra/ngaccount/README.md).
 
 Then you need to stop your ngd and start it again with the additional option :
 
@@ -135,7 +137,7 @@ The crates and packages are organized as follow :
     - ngnet : server of nextgraph.net that shelps with authentication of third-party web apps.
 - sdk
     - [js](sdk/js/README.md)
-        - api-web : the web version of the API
+        - [web](sdk/js/web/README.md) : the web version of the API in standalone/third-party mode
         - [lib-wasm](sdk/js/lib-wasm/DEV.md) : the WASM library used by api-web
         - [examples](sdk/js/DEV.md) : example for: web app, React/Svelte app, or node service
         - alien-deepsignals, shex-orm and signals : used by the ORM mechanism

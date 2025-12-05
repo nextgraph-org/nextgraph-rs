@@ -5,7 +5,7 @@ import {GmailRunner} from "./GmailRunner";
 export const GmailSourceConfig: ImportSourceConfig = {
   name: 'Gmail',
   type: 'gmail',
-  icon: <MailOutline size="20" />,
+  icon: <MailOutline size="40" />,
   description: 'Import Gmail contacts',
   isAvailable: true,
   Runner: GmailRunner,

@@ -252,7 +252,6 @@ impl Verifier {
         // Log base IRI safely even when None
         let nuri_dbg = nuri.as_deref().unwrap_or("");
         //log_info!("querying select\n{}\n{}\n", nuri_dbg, query);
-
         let parsed = Query::parse(&query, nuri.as_deref())
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore

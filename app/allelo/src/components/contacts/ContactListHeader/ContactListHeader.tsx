@@ -195,12 +195,12 @@ export const ContactListHeader = ({
           </ListItemIcon>
           <ListItemText>Import</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleInvite}>
+        {/* <MenuItem onClick={handleInvite}>
           <ListItemIcon>
             <UilQrcodeScan size="20"/>
           </ListItemIcon>
           <ListItemText>Invite</ListItemText>
-        </MenuItem>
+        </MenuItem> */}
       </Menu>
       <GreenCheckConnectionDialog show={showGreencheckDialog} setShow={setShowGreencheckDialog}/>
     </Box>

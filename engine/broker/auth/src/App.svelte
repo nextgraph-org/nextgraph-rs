@@ -101,7 +101,6 @@
 
     window.document.getElementById("splash").className="noshow";
     window.document.getElementById("app").className="";
-    
     await worker_ready;
 
     // try {
@@ -300,6 +299,7 @@
                   const method = e.data.method;
                   const args = e.data.args;
                   const port = e.data.port;
+                  // TODO: once nextgraph.net is re-deployed, remove all the ORs
                   if ( e.data.streamed || method === "doc_subscribe" || method === "orm_start" || method === "app_request_stream" || method === "file_get" ) {
                     //console.log("processing streamed request ...",method, args);
                     args.push((callbacked)=> {

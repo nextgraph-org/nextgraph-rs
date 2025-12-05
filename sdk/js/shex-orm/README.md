@@ -182,7 +182,7 @@ export interface Person {
 }
 ```
 
-### Standard Properties
+#### Standard Properties
 
 - **`@type`**: The RDF type IRI (from `rdf:type`) is always converted to the property name `@type` by default
 - **`@id` and `@graph`**: These properties are automatically added to all typed objects as readonly properties
@@ -190,30 +190,6 @@ export interface Person {
 ### Cardinality Handling
 
 Predicates with a cardinality higher than 1 (i.e., `maxCardinality > 1` or `maxCardinality === -1` for unlimited) are represented as TypeScript `Set<T>` types.
-
-### Readable Predicate Names
-
-The `readablePredicate` field is automatically generated from the predicate IRI and becomes the property name in the TypeScript interface.
-
-**Generation Rules:**
-
-1. **Special case**: `rdf:type` (`http://www.w3.org/1999/02/22-rdf-syntax-ns#type`) always becomes `@type`
-
-2. **No conflicts**: If the last segment of the IRI is unique within the shape, it's used as-is:
-    - `http://example.org/name` → `name`
-    - `http://schema.org/email` → `email`
-
-3. **Conflict resolution**: When multiple predicates in the same shape share the same last segment (local name), **all** predicates in that collision group are renamed using prefixes:
-    - The algorithm walks backward through IRI segments (right to left)
-    - For each predicate, it tries `{prefix}_{localName}` combinations until finding an unused name
-    - Example: Both `http://foaf.org/name` and `http://schema.org/name` would become `foaf_name` and `schema_name`
-
-4. **Fallback**: If prefix combinations are exhausted, a composite name is generated from all IRI segments (excluding protocol) with incrementing numbers for uniqueness:
-    - Pattern: `{composite}_{localName}` or `{composite}_{localName}_1`, `{composite}_{localName}_2`, etc.
-
-**Character sanitization**: Special characters (except dots and dashes) are replaced with underscores to ensure valid JavaScript identifiers.
-
-**Note**: You can **manually edit** the `readablePredicate` values in the generated schema files if you prefer different property names. The schema acts as the single source of truth for property naming.
 
 ---
 
