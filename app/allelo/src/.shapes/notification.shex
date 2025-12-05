@@ -1,0 +1,46 @@
+# Platform ontologies
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ngcore: <did:ng:x:core#>
+
+# Domain ontology for Notifications
+PREFIX ngnotif: <did:ng:x:social:notification#>
+PREFIX ngnotiftype: <did:ng:x:social:notification:type#>
+PREFIX ngnotifstatus: <did:ng:x:social:notification:status#>
+
+# Shape for user-visible notifications in the app
+ngnotif:UserNotification EXTRA a {
+  a [ ngnotif:Notification ]
+    // rdfs:comment "User-visible notification in the app" ;
+
+  ngnotif:date xsd:dateTime
+    // rdfs:comment "When the notification was created" ;
+
+  ngnotif:body xsd:string ?
+    // rdfs:comment "Optional notification body text" ;
+
+  ngnotif:type [
+    ngnotiftype:Connection
+    ngnotiftype:System
+    ngnotiftype:Vouch
+    ngnotiftype:Praise
+  ]
+    // rdfs:comment "Type of the notification" ;
+
+  ngnotif:status [
+    ngnotifstatus:Accepted
+    ngnotifstatus:Rejected
+    ngnotifstatus:Pending
+  ] ?
+    // rdfs:comment "Workflow status of the notification" ;
+
+  ngnotif:seen xsd:boolean
+    // rdfs:comment "Whether the user has seen it" ;
+
+  ngcore:hidden xsd:boolean
+    // rdfs:comment "Whether the notification is hidden for user" ;
+
+  ngnotif:subject IRI ?
+    // rdfs:comment "Optional IRI of the SocialContact (sender/subject)" ;
+}
