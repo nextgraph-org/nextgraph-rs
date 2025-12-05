@@ -9,11 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { Diff as Patches, Scope } from "../types.ts";
-import {
-    applyPatches,
-    applyPatchesToDeepSignal,
-    Patch,
-} from "./applyPatches.ts";
+import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -24,7 +20,6 @@ import {
 } from "@ng-org/alien-deepsignals";
 import type {
     DeepPatch,
-    DeepSignalObject,
     DeepSignalPropGenFn,
     DeepSignalSet,
     WatchPatchEvent,
@@ -162,8 +157,6 @@ export class OrmConnection<T extends BaseType> {
         // Wait for session and subscription to be initialized.
         const { ng, session } = await ngSession;
         await this.readyPromise;
-
-        console.debug("Sending update ", this);
 
         ng.orm_update(
             this.scope.length == 0 ? "" : this.scope,

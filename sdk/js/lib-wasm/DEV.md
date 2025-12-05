@@ -17,7 +17,7 @@ cargo install cargo-run-script
 ```
 
 Please note that the dev and prod builds share the same output folder, they thus override each other.
-When building the app, be sure to have the production build of the SDK in the output folder.
+When building the app for production, be sure to have the [production build](#production-build) of this SDK in the output folder.
 
 ```bash
 // for the app sdk (browser)
@@ -47,7 +47,9 @@ wasm-pack test --chrome --headless
 in a separate terminal, from the root of the mono-repo :
 
 ```bash
+# only run that once when you install your dev env:
 pnpm buildfrontdev3
+# run this every time you start to work anew:
 cd engine/broker/auth
 pnpm dev3
 ```
@@ -56,11 +58,13 @@ in a separate terminal, from the root of the mono-repo :
 
 ```bash
 cd infra/ngnet
+# only run that once when you install your dev env:
 cargo run-script buildfrontdev3
+# run this every time you start to work anew:
 cargo run
 ```
 
-in a separate terminal, from the root of the mono-repo, start your local ngd
+in a separate terminal, from the root of the mono-repo, start your local ngd (run this every time you start to work anew)
 
 ```bash
 export NG_DEV3=1; cargo run -r -p ngd -- -vv --save-key -l 14400

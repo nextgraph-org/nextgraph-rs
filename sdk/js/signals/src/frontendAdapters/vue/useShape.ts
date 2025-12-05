@@ -10,7 +10,7 @@
 
 import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.js";
 import type { Scope } from "../../types.js";
-import useDeepSignal from "./useDeepSignal.js";
+import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { onBeforeUnmount } from "vue";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
 

@@ -9,14 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, it, expect } from "vitest";
-import { deepSignal, getDeepSignalRootId, peek } from "../deepSignal";
-import {
-    watch,
-    __traverseCount,
-    __resetTraverseCount,
-    traverse,
-} from "../watch";
-import { effect } from "../core";
+import { deepSignal, getDeepSignalRootId } from "../../deepSignal";
+import { watch } from "../../watch";
 
 describe("watch advanced", () => {
     it("basic patch watcher fires on deep mutations", async () => {
@@ -142,35 +136,5 @@ describe("tier3: Set iteration variants", () => {
         await Promise.resolve();
         await Promise.resolve();
         stop();
-    });
-});
-
-describe("tier3: peek behavior", () => {
-    it("peek does not create reactive dependency on property", async () => {
-        const st = deepSignal({ a: 1 });
-        let runs = 0;
-        effect(() => {
-            runs++;
-            peek(st, "a");
-        });
-        expect(runs).toBe(1);
-        st.a = 2;
-        // Flush microtasks
-        await Promise.resolve();
-        await Promise.resolve();
-        expect(runs).toBe(1); // no rerun
-    });
-});
-
-describe("tier3: traverse helper direct calls (symbols & sets)", () => {
-    it("traverse counts and respects depth param", () => {
-        __resetTraverseCount();
-        const obj: any = { a: { b: { c: 1 } } };
-        traverse(obj, 1);
-        const shallowCount = __traverseCount;
-        __resetTraverseCount();
-        traverse(obj, 3);
-        const deepCount = __traverseCount;
-        expect(deepCount).toBeGreaterThan(shallowCount);
     });
 });

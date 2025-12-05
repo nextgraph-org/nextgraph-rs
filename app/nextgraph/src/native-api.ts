@@ -59,6 +59,8 @@ const mapping = {
     "update_header": ["session_id","nuri","title","about"],
     "fetch_header": ["session_id", "nuri"],
     "retrieve_ng_bootstrap": ["location"],
+    "upload_start": ["session_id", "nuri", "mimetype"],
+    "upload_done": ["upload_id","session_id","nuri","filename"],
 }
 
 
@@ -182,77 +184,54 @@ const tauri_handler = {
                 }
                 return ret;
             }
-            else if (path[0] === "file_get") {
-                let stream_id = (lastStreamId += 1).toString();
-                //console.log("stream_id",stream_id);
-                //let session_id = args[0];
-                let callback = args[3];
-
-                let unlisten = await Window.getCurrent().listen(stream_id, async (event) => {
-                    //console.log(event.payload);
-                    if (event.payload.V0.FileBinary) {
-                        event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
-                    }
-                    let ret = callback(event.payload);
-                    if (ret === true) {
-                        await invoke("cancel_stream", {stream_id});
-                    } else if (ret.then) {
-                        ret.then(async (val)=> { 
-                            if (val === true) {
-                                await invoke("cancel_stream", {stream_id});
-                            }
-                        });
-                    }
-                })
-                try {
-                    await invoke("file_get",{stream_id, session_id:args[0], reference: args[1], branch_nuri:args[2]});
-                } catch (e) {
-                    unlisten();
-                    await invoke("cancel_stream", {stream_id});
-                    throw e;
-                } 
-                return () => {
-                    unlisten();
-                    tauri.invoke("cancel_stream", {stream_id});
-                }
-                
-            } else if (path[0] === "discrete_update") {
+            else if (path[0] === "discrete_update") {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 arg.update = Array.from(new Uint8Array(arg.update));
                 return await invoke(path[0],arg)
-            } else if (path[0] === "app_request_stream") {
+            } else if (path[0] === "app_request_stream" || path[0] === "doc_subscribe" || path[0] === "orm_start" || path[0] === "file_get") {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);
                 //let session_id = args[0];
-                let request = args[0];
-                let callback = args[1];
+                let request; let callback;
+                if (path[0] === "app_request_stream") { request = args[0]; callback = args[1]; }
+                else if (path[0] === "doc_subscribe") { request = await invoke("doc_fetch_repo_subscribe", {repo_o:args[0]}); request.V0.session_id = args[1]; callback = args[2]; }
+                else if (path[0] === "orm_start") { request = await invoke("new_orm_start", {scope:args[0], shape_type:args[1], session_id:args[2] }); callback = args[3]; }
+                else if (path[0] === "file_get") { request = await invoke("new_file_get", {nuri:args[1], branch_nuri:args[2], session_id:args[0] }); callback = args[3]; }
 
-                let unlisten = await Window.getCurrent().listen(stream_id, async (event) => {
+                let unlisten = await getCurrentWindow().listen(stream_id, async (event) => {
                     //console.log(event.payload);
-                    if (event.payload.V0.FileBinary) {
-                        event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
-                    }
-                    if (event.payload.V0.State?.graph?.triples) {
-                        let json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.State.graph.triples));
-                        event.payload.V0.State.graph.triples = JSON.parse(json_str);
-                    } else if (event.payload.V0.Patch?.graph) {
-                        let inserts_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.inserts));
-                        event.payload.V0.Patch.graph.inserts = JSON.parse(inserts_json_str);
-                        let removes_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.removes));
-                        event.payload.V0.Patch.graph.removes = JSON.parse(removes_json_str);
-                    }
-                    if (event.payload.V0.State?.discrete) {
-                        let crdt = Object.getOwnPropertyNames(event.payload.V0.State.discrete)[0];
-                        event.payload.V0.State.discrete[crdt] = Uint8Array.from(event.payload.V0.State.discrete[crdt]);
-                    } else if (event.payload.V0.Patch?.discrete) { 
-                        let crdt = Object.getOwnPropertyNames(event.payload.V0.Patch.discrete)[0];
-                        event.payload.V0.Patch.discrete[crdt] = Uint8Array.from(event.payload.V0.Patch.discrete[crdt]);
+                    if (event.payload.V0) {
+                        if (event.payload.V0.FileBinary) {
+                            event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
+                        }
+                        // if (event.payload.V0.State?.graph?.triples) {
+                        //     let json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.State.graph.triples));
+                        //     event.payload.V0.State.graph.triples = JSON.parse(json_str);
+                        // } else if (event.payload.V0.Patch?.graph) {
+                        //     let inserts_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.inserts));
+                        //     event.payload.V0.Patch.graph.inserts = JSON.parse(inserts_json_str);
+                        //     let removes_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.removes));
+                        //     event.payload.V0.Patch.graph.removes = JSON.parse(removes_json_str);
+                        // }
+                        if (event.payload.V0.State?.graph?.triples) {
+                            event.payload.V0.State.graph.triples = Uint8Array.from(event.payload.V0.State.graph.triples);
+                        } else if (event.payload.V0.Patch?.graph) {
+                            event.payload.V0.Patch.graph.inserts = Uint8Array.from(event.payload.V0.Patch.graph.inserts);
+                            event.payload.V0.Patch.graph.removes = Uint8Array.from(event.payload.V0.Patch.graph.removes)
+                        }
+                        if (event.payload.V0.State?.discrete) {
+                            let crdt = Object.getOwnPropertyNames(event.payload.V0.State.discrete)[0];
+                            event.payload.V0.State.discrete[crdt] = Uint8Array.from(event.payload.V0.State.discrete[crdt]);
+                        } else if (event.payload.V0.Patch?.discrete) { 
+                            let crdt = Object.getOwnPropertyNames(event.payload.V0.Patch.discrete)[0];
+                            event.payload.V0.Patch.discrete[crdt] = Uint8Array.from(event.payload.V0.Patch.discrete[crdt]);
+                        }
                     }
                     let ret = callback(event.payload);
                     if (ret === true) {
                         await invoke("cancel_stream", {stream_id});
-                    } else if (ret.then) {
+                    } else if (ret?.then) {
                         ret.then(async (val)=> { 
                             if (val === true) {
                                 await invoke("cancel_stream", {stream_id});
@@ -269,13 +248,15 @@ const tauri_handler = {
                 } 
                 return () => {
                     unlisten();
-                    tauri.invoke("cancel_stream", {stream_id});
+                    invoke("cancel_stream", {stream_id});
                 }
                 
             } else if (path[0] === "get_wallets") {
                 let res = await invoke(path[0],{});
                 if (res) for (let e of Object.entries(res)) {
-                    e[1].wallet.V0.content.security_img = Uint8Array.from(e[1].wallet.V0.content.security_img);
+                    const sec = e[1].wallet.V0.content.security_img;
+                    if (sec)
+                    e[1].wallet.V0.content.security_img = Uint8Array.from(sec);
                 }
                 return res || {};
 
@@ -283,7 +264,7 @@ const tauri_handler = {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el);
                 let res = await invoke(path[0],arg);
-                if (res) {
+                if (res && res.V0.content.security_img) {
                     res.V0.content.security_img = Uint8Array.from(res.V0.content.security_img);
                 }
                 return res || {};
