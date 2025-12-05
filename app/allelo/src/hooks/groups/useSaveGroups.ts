@@ -49,19 +49,16 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         "@type": "did:ng:x:social:group#Group",
         "title": group.title ?? "",
         "description": group.description,
+        "hasAdmin": group.hasAdmin,
+        "tag": group.tag,
+        "hasMember": group.hasMember,
       }
 
       groups?.add(groupObj);
 
-      if (groups) {
+      /*if (groups) {
         for (const item of groups) {
           if (item["@id"] === id) {
-            //@ts-expect-error would be fixed later
-            item.hasAdmin = new Set();
-            //@ts-expect-error would be fixed later
-            item.hasMember = new Set();
-            //@ts-expect-error would be fixed later
-            item.tag = new Set();
             group.hasAdmin?.forEach((el) => {
               item.hasAdmin?.add(el);
             });
@@ -74,7 +71,7 @@ export function useSaveGroups(): UseSaveGroupsReturn {
             break;
           }
         }
-      }
+      }*/
 
       return docId;
     } catch (err) {

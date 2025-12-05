@@ -14,7 +14,10 @@ export const useContactView = (id: string | null/*, refreshKey = 0*/) => {
   } = useContactData(id, false/*, refreshKey*/);
 
   const contactGroupsNuris = useMemo(() => contact?.internalGroup?.toArray().map((el) => {
-    return el.groupId["@id"];
+    if (el.groupId && el.groupId["@id"]) {
+      return el?.groupId["@id"];
+    }
+    return "";
   }), [contact?.internalGroup]);
 
 

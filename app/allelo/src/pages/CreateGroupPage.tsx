@@ -73,20 +73,16 @@ const CreateGroupPage = () => {
       return; // TODO: Show validation error
     }
 
-    // Combine current user with selected members
-    const allMembers = new Set([ormContact["@id"]!, ...selectedMembers]);
-
     const groupObj: Partial<SocialGroup> = {
       title: formData.title,
       description: formData.description,
       createdAt: new Date().toISOString(),
       hasAdmin: new Set([ormContact["@id"]!]),
-      hasMember: allMembers,
+      hasMember: new Set(selectedMembers),
       tag: new Set(formData["tags"])
     }
 
     const socialGroupId = await createGroup(groupObj);
-    
     
     if (socialGroupId) {
       navigate(`/groups/${socialGroupId}`);
