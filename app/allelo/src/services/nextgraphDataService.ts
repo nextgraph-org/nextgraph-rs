@@ -141,7 +141,7 @@ class NextgraphDataService {
       }
     }
 
-    const orderBy = ` ORDER BY ${orderByData.join(", ")}`;
+    const orderBy = sortParams ? ` ORDER BY ${orderByData.join(", ")}` : "";
     const optionalJoin = optionalJoinData.join(" ");
 
     return `
