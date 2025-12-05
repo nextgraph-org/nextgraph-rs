@@ -5,7 +5,7 @@ import {MockDataRunner} from "./MockDataRunner";
 export const MockDataSourceConfig: ImportSourceConfig = {
   name: 'Mock Data',
   type: 'mockdata',
-  icon: <CloudDownload size="20"/>,
+  icon: <CloudDownload size="40"/>,
   description: 'Import sample contacts for testing',
   isAvailable: true,
   Runner: MockDataRunner

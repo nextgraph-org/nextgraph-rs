@@ -1082,7 +1082,7 @@ impl Verifier {
                     } else {
                         return Err(NgError::InvalidPayload);
                     };
-                return match self.get_qrcode_for_profile(size).await {
+                return match self.get_qrcode_for_profile(nuri, size).await {
                     Err(e) => Ok(AppResponse::error(e.to_string())),
                     Ok(qrcode) => Ok(AppResponse::text(qrcode)),
                 };

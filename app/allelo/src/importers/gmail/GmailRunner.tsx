@@ -258,9 +258,10 @@ export function GmailRunner({open, onClose, onError, onGetResult}: SourceRunnerP
         url.toString(),
         accessToken
       )).json();
-
+      console.log(people);
       if (people.connections) {
         for (const connection of people.connections) {
+          console.log(connection)
           const contact = await mapGmailPerson(connection, !isNextGraph);
           contacts.push(contact);
         }
@@ -277,16 +278,17 @@ export function GmailRunner({open, onClose, onError, onGetResult}: SourceRunnerP
 
   const login = useCallback(async () => {
     try {
-
+      console.log('Gmail login');
       const platform = import.meta.env.TAURI_ENV_PLATFORM;
       const clientId = platform === 'ios' ? GOOGLE_CLIENTS.IOS.id : (platform === 'android' ? GOOGLE_CLIENTS.ANDROID.id : GOOGLE_CLIENTS.DESKTOP.id);
       const clientSecret = platform === 'ios' ? GOOGLE_CLIENTS.IOS.secret : (platform === 'android' ? GOOGLE_CLIENTS.ANDROID.secret : GOOGLE_CLIENTS.DESKTOP.secret);
+      console.log(clientId);
       const tokens = await signIn({
         clientId: clientId,
         clientSecret: clientSecret, // Required for desktop
         scopes: [
           'openid',
-          'https://www.googleapis.com/auth/gmail.readonly',
+          // 'https://www.googleapis.com/auth/gmail.readonly',
           'https://www.googleapis.com/auth/userinfo.profile',
           'https://www.googleapis.com/auth/userinfo.email',
           'https://www.googleapis.com/auth/contacts.readonly',

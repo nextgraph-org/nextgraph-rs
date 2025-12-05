@@ -43,7 +43,11 @@ const title = "Multi-framework app";
             console.log(info.V0.details);
             initNg(ng, event.session);
 
+            // This is for debugging/test purposes only.
+            // @ts-expect-error
             window.ng = ng;
+
+            // @ts-expect-error
             window.session = event.session;
         },
         true,

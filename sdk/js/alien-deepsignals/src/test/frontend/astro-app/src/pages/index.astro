@@ -1,0 +1,159 @@
+---
+import ReactPanel from "../components/ReactPanel";
+import SveltePanel from "../components/SveltePanel.svelte";
+import VuePanel from "../components/VuePanel.vue";
+import "../../../utils/state";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alien-deepsignals hooks playground</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        margin: 0;
+        padding: 2rem;
+        background: #f5f7fb;
+        color: #1f2933;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+      }
+      .frontend {
+        background: #ffffff;
+        border-radius: 1.25rem;
+        padding: 1.25rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 18px 30px rgba(15, 23, 42, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .frontend.react {
+        background: linear-gradient(135deg, #eef2ff, #f9fafb);
+        border-color: #c7d2fe;
+      }
+      .frontend.vue {
+        background: linear-gradient(135deg, #ecfdf3, #fdfcf5);
+        border-color: #bbf7d0;
+      }
+      .frontend.svelte {
+        background: linear-gradient(135deg, #fff7ed, #fffdf7);
+        border-color: #fed7aa;
+      }
+      .title {
+        margin: 0;
+        font-size: 1.4rem;
+        text-transform: capitalize;
+      }
+      .render-meta {
+        font-size: 0.9rem;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+      }
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+      }
+      .field {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        background: rgba(255, 255, 255, 0.65);
+      }
+      legend {
+        padding: 0 0.25rem;
+        font-weight: 600;
+        color: #374151;
+      }
+      input,
+      button {
+        font: inherit;
+      }
+      input[type="text"],
+      input[type="number"],
+      input[data-role] {
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        border-radius: 0.5rem;
+        padding: 0.35rem 0.5rem;
+        background: #fff;
+        color: inherit;
+      }
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        padding: 0.35rem 0.85rem;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        margin-right: 0.25rem;
+      }
+      button:hover {
+        background: #1d4ed8;
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .value-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.25rem 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .value-list li {
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        background: rgba(37, 99, 235, 0.14);
+        color: #1d3a8a;
+      }
+      .vue .value-list li {
+        background: rgba(16, 185, 129, 0.18);
+        color: #065f46;
+      }
+      .svelte .value-list li {
+        background: rgba(249, 115, 22, 0.2);
+        color: #9a3412;
+      }
+      .object-row {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr 1fr auto auto;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.35rem 0;
+      }
+      .object-id {
+        font-weight: 600;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+    <div class="frontend react">
+        <ReactPanel client:only="react" />
+    </div>
+    <div class="frontend vue">
+        <VuePanel client:only="vue" />
+    </div>
+    <div class="frontend svelte">
+        <SveltePanel client:only="svelte" />
+    </div>
+    </main>
+  </body>
+</html>

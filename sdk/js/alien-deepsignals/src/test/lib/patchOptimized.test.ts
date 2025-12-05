@@ -9,8 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { deepSignal } from "../deepSignal";
-import { watch } from "../watch";
+import { deepSignal } from "../../deepSignal";
+import { watch } from "../../watch";
 
 // Goal: demonstrate that patchOptimized deep watch performs fewer traversals
 // than standard deep watch for the same batch of nested mutations.

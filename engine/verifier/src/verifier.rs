@@ -1572,7 +1572,11 @@ impl Verifier {
         Ok(())
     }
 
-    pub async fn get_qrcode_for_profile(&self, size: u32) -> Result<String, VerifierError> {
+    pub async fn get_qrcode_for_profile(
+        &self,
+        contact: NuriV0,
+        size: u32,
+    ) -> Result<String, VerifierError> {
         let profile_id = self.protected_store_id();
 
         let repo = self.repos.get(&profile_id).ok_or(NgError::RepoNotFound)?;
@@ -1586,9 +1590,9 @@ impl Verifier {
         let sparql = format!(
             "
                     PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
-                    SELECT ?name ?email WHERE 
-                    {{ <> vcard:fn ?name .
-                       <> vcard:hasEmail ?email .
+                    SELECT ?name  WHERE 
+                    {{ <> <did:ng:x:contact#name> ?sub.
+                       ?sub <did:ng:x:core#value> ?name .
                     }}"
         );
         //log_info!("{sparql}");

@@ -1,4 +1,4 @@
-# Multi-Framework Signal Proxies
+# Multi-Framework Signal Proxies Example
 
 This example application demonstrates the **cross-framework reactivity** capabilities of NextGraph's ORM signals library. It showcases how the same reactive data can be seamlessly shared and synchronized across React, Vue, and Svelte components in real-time.
 
@@ -189,5 +189,3 @@ Licensed under either of
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
-
-> > > > > > > 093d4727 (fix copyright assignment and licensing)

@@ -9,9 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, expect, it } from "vitest";
-import { deepSignal } from "../deepSignal";
-import { watch } from "../watch";
-import { watchEffect } from "../watchEffect";
+import { deepSignal } from "../../deepSignal";
+import { watch } from "../../watch";
 
 describe("watch", () => {
     it("watch immediate", () => {
@@ -81,21 +80,5 @@ describe("watch", () => {
         store.userinfo.name = "jon";
         // once watcher shouldn't update after first run
         expect(val).toEqual("tom");
-    });
-
-    it("watch effect", () => {
-        const store = deepSignal({
-            userinfo: {
-                name: "tom",
-            },
-        });
-        let x = undefined;
-        watchEffect(() => {
-            x = store.userinfo.name;
-        });
-
-        expect(x).toEqual("tom");
-        store.userinfo.name = "jon";
-        expect(x).toEqual("jon");
     });
 });

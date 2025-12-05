@@ -567,16 +567,3 @@ fn create_sparql_update_query_for_patches(
     );
     result
 }
-
-fn find_pred_schema_by_name(
-    readable_predicate: &String,
-    subject_schema: &OrmSchemaShape,
-) -> Arc<ng_net::orm::OrmSchemaPredicate> {
-    // Find predicate by readable name in subject schema.
-    for pred_schema in subject_schema.predicates.iter() {
-        if pred_schema.readablePredicate == *readable_predicate {
-            return pred_schema.clone();
-        }
-    }
-    panic!("No predicate found in schema for name");
-}
