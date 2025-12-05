@@ -1,4 +1,4 @@
-export function generateUri(base: string){
+export function generateUri(base: string) {
   const b = new Uint8Array(33);
   crypto.getRandomValues(b);
 
@@ -10,5 +10,9 @@ export function generateUri(base: string){
       .replace(/=+$/, "");
   const randomString = base64url(b);
 
-  return base.substring(0, 9 + 44) + ":p:" + randomString;
+  return getShortUri(base) + ":p:" + randomString;
+}
+
+export function getShortUri(base: string): string {
+  return base.substring(0, 53)
 }
