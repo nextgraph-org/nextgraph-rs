@@ -1,0 +1,23 @@
+PREFIX xsd:      <http://www.w3.org/2001/XMLSchema#>
+PREFIX nggroup:  <did:ng:x:social:group#>
+PREFIX ngpost:   <did:ng:x:social:post#>
+
+nggroup:SocialGroup EXTRA a {
+  a [ nggroup:Group ] ;
+  nggroup:title       xsd:string ;
+  nggroup:description xsd:string ? ;
+  nggroup:tag         IRI * ;
+  nggroup:logoIRI     IRI ? ;
+  nggroup:hasMember   IRI * ;
+  nggroup:hasAdmin    IRI * ;
+  nggroup:createdAt   xsd:dateTime ? ;
+  nggroup:post        @ngpost:SocialPost * ;
+}
+
+ngpost:SocialPost EXTRA a {
+  a [ ngpost:Post ] ;
+  ngpost:author        IRI * ;
+  ngpost:createdAt     xsd:dateTime ;
+  ngpost:tag           IRI * ;
+  ngpost:description   xsd:string ;
+}

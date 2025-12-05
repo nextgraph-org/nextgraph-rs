@@ -3,13 +3,23 @@ import {ContactFilters} from "../ContactFilters"
 import {useMergeContacts} from "@/hooks/contacts/useMergeContacts.ts";
 import {useCallback, useEffect, useState} from "react";
 import {useContacts} from "@/hooks/contacts/useContacts.ts";
-import {ContactGrid, FloatingActions, MergeDialogs} from "@/components/contacts";
+import {ContactGrid, MergeDialogs} from "@/components/contacts";
 import {DragEndEvent, DragOverlay, DragStartEvent, useDndMonitor} from "@dnd-kit/core";
 import {ContactCard} from "@/components/contacts/ContactCard";
 import {useNavigate} from "react-router-dom";
 import {useSearchParams} from "react-router-dom";
 
-export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean, setManageMode: any}) => {
+export const ContactListTab = ({
+  manageMode,
+  setManageMode,
+  onSelectionChange,
+  forGroup
+}: {
+  manageMode: boolean;
+  setManageMode: any;
+  onSelectionChange?: (selectedContacts: string[]) => void;
+  forGroup?: boolean;
+}) => {
   const {
     contactNuris,
     isLoading,
@@ -43,10 +53,13 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
   const isSelectionMode = mode === 'select' || mode === 'create-group';
 
 
-  const isMultiSelectMode = mode === 'create-group';
   const returnTo = searchParams.get('returnTo');
   const groupId = searchParams.get('groupId');
-  const groupData = searchParams.get('groupData');
+
+  // Notify parent when selection changes
+  useEffect(() => {
+    onSelectionChange?.(selectedContacts);
+  }, [selectedContacts, onSelectionChange]);
 
   // Clear selections when filters change
   useEffect(() => {
@@ -149,28 +162,6 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
     }
   };
 
-  const handleCreateGroup = async () => {
-    if (mode === 'create-group' && groupData) {
-      try {
-        const parsedGroupData = JSON.parse(decodeURIComponent(groupData));
-        const {dataService} = await import('@/services/dataService');
-        const newGroup = await dataService.createGroup({
-          name: parsedGroupData.name,
-          description: parsedGroupData.description,
-          logoPreview: parsedGroupData.logoPreview,
-          tags: parsedGroupData.tags,
-          members: selectedContacts
-        });
-
-        navigate(`/groups/${newGroup.id}/info`, {
-          state: {newGroup: {...newGroup, members: selectedContacts}}
-        });
-      } catch (error) {
-        console.error('Failed to create group:', error);
-      }
-    }
-  };
-
   const isContactSelected = (nuri: string) => {
     return selectedContacts.some(c => c === nuri);
   };
@@ -240,7 +231,7 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
       filters={filters}
       onAddFilter={addFilter}
       onClearFilters={clearFilters}
-      inManageMode={manageMode}
+      inManageMode={manageMode && !forGroup}
       onSelectAll={handleSelectAll}
       hasSelection={hasSelection}
       totalCount={totalCount}
@@ -324,12 +315,6 @@ export const ContactListTab = ({manageMode, setManageMode}: {manageMode: boolean
       onCancelMerge={handleCloseMergeDialog}
       onConfirmMerge={handleConfirmMerge}
       onSetUseAI={setUseAI}
-    />
-
-    <FloatingActions
-      isMultiSelectMode={isMultiSelectMode}
-      selectedContactsCount={selectedContacts.length}
-      onCreateGroup={handleCreateGroup}
     />
 
     <DragOverlay dropAnimation={null}>

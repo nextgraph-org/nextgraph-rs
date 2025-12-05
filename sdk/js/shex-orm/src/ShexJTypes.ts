@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT/
 
-/ These type definitions are slightly modified to make up for the fact that the "extends" clause can loop back on itself
+// These type definitions are slightly modified to make up for the fact that the "extends" clause can loop back on itself
 // And a `readablePredicate` property is added for TripleConstraint.
 export {}; // only export specified symbols (strict-export-declare-modifiers)
 

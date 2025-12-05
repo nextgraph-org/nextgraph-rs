@@ -1,165 +1,130 @@
-import {forwardRef} from 'react';
+import {forwardRef, useCallback, useState} from 'react';
 import {
   Typography,
   Box,
-  Avatar,
   Button,
   Card,
   CardContent,
-  Chip,
   List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
-import {
-  UilUserPlus,
-  UilUserMinus,
-} from '@iconscout/react-unicons';
-import {formatDate} from "@/utils/dateHelpers";
-
-// Note: Using standard avatar styling instead of getContactPhotoStyles
-
-interface Member {
-  id: string;
-  name: string;
-  avatar: string;
-  role: 'Admin' | 'Member';
-  status?: 'Member' | 'Invited';
-  joinedAt: Date | null;
-}
+import {UilUserPlus} from '@iconscout/react-unicons';
+import {MemberListItem} from './MemberListItem';
+import {AddMembersDialog} from './AddMembersDialog';
+import {useGroupData} from '@/hooks/groups/useGroupData';
 
 export interface MembersListProps {
-  members: Member[];
+  groupId: string;
+  membersNuris: Set<string> | undefined;
+  adminsNuris: Set<string> | undefined;
   isCurrentUserAdmin: boolean;
-  onInviteMember: () => void;
-  onRemoveMember: (member: Member) => void;
 }
 
 export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
-  ({members, isCurrentUserAdmin, onInviteMember, onRemoveMember}, ref) => {
+  ({groupId, membersNuris, isCurrentUserAdmin, adminsNuris}, ref) => {
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+    const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
+    const [removedContactName, setRemovedContactName] = useState("");
+    const [removedContactNuri, setRemovedContactNuri] = useState("");
+
+    const {addMembers, removeMember, group} = useGroupData(groupId);
+
+    const onInviteMember = useCallback(() => {
+      setIsInviteDialogOpen(true);
+    }, []);
+
+    const handleCloseDialog = useCallback(() => {
+      setIsInviteDialogOpen(false);
+    }, []);
+
+    const handleAddMembers = useCallback(async (selectedContacts: string[]) => {
+      addMembers(selectedContacts);
+    }, [addMembers]);
+
+    const handleRemoveMember = useCallback((nuri: string, name: string) => {
+      setRemovedContactName(name);
+      setShowRemoveMemberDialog(true);
+      setRemovedContactNuri(nuri);
+    }, []);
+
+    const handleConfirmRemoveMember = () => {
+      if (removedContactNuri) {
+        setShowRemoveMemberDialog(false);
+        removeMember(removedContactNuri);
+        setRemovedContactNuri("");
+      }
+    };
 
     return (
-      <Card ref={ref}>
-        <CardContent sx={{p: 3}}>
-          <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
-            <Typography variant="h6" sx={{fontWeight: 600}}>
-              Members ({members.length})
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<UilUserPlus size="20"/>}
-              onClick={onInviteMember}
-              sx={{
-                borderRadius: 2,
-                px: {xs: 1.5, md: 3},
-                py: {xs: 0.5, md: 1},
-                fontSize: {xs: '0.75rem', md: '0.875rem'},
-                flexShrink: 0,
-                minWidth: {xs: 'auto', md: 'auto'}
-              }}
-            >
-              Invite
-            </Button>
-          </Box>
-
-          <List sx={{width: '100%'}}>
-            {members.map((member, index) => (
-              <ListItem
-                key={member.id}
-                sx={{
-                  px: 0,
-                  py: 1,
-                  borderBottom: index === members.length - 1 ? 'none' : '1px solid',
-                  borderColor: 'divider',
-                }}
+      <>
+        <Card ref={ref}>
+          <CardContent sx={{p: 3}}>
+            <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
+              <Typography variant="h6" sx={{fontWeight: 600}}>
+                Members ({membersNuris?.size || 0})
+              </Typography>
+              {isCurrentUserAdmin && <Button
+                  variant="contained"
+                  startIcon={<UilUserPlus size="20"/>}
+                  onClick={onInviteMember}
+                  sx={{
+                    borderRadius: 2,
+                    px: {xs: 1.5, md: 3},
+                    py: {xs: 0.5, md: 1},
+                    fontSize: {xs: '0.75rem', md: '0.875rem'},
+                    flexShrink: 0,
+                    minWidth: {xs: 'auto', md: 'auto'}
+                  }}
               >
-                <ListItemAvatar>
-                  <Avatar
-                    src={member.avatar}
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      bgcolor: 'white',
-                      border: 1,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  >
-                    {!member.avatar && member.name.split(' ').map(n => n[0]).join('')}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={
-                    <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1}}>
-                      <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                        <Typography variant="subtitle1" sx={{fontWeight: 600}}>
-                          {member.name}
-                        </Typography>
-                        {member.role === 'Admin' && (
-                          <Chip
-                            label="Admin"
-                            size="small"
-                            color="primary"
-                            sx={{height: 20, fontSize: '0.7rem'}}
-                          />
-                        )}
-                      </Box>
-                      <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                        {member.status && (
-                          <Chip
-                            label={member.status}
-                            size="small"
-                            color={member.status === 'Member' ? 'success' : 'warning'}
-                            variant={member.status === 'Member' ? 'filled' : 'outlined'}
-                            sx={{height: 20, fontSize: '0.7rem'}}
-                          />
-                        )}
-                        {/* Remove member button - only show for admins and not for the admin themselves */}
-                        {isCurrentUserAdmin && member.id !== 'oli-sb' && (
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            startIcon={<UilUserMinus size="20"/>}
-                            onClick={() => onRemoveMember(member)}
-                            sx={{
-                              height: 20,
-                              fontSize: '0.6rem',
-                              minWidth: 'auto',
-                              px: 1,
-                              py: 0,
-                              borderColor: 'error.main',
-                              color: 'error.main',
-                              '&:hover': {
-                                borderColor: 'error.dark',
-                                backgroundColor: 'error.light'
-                              }
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </Box>
-                    </Box>
-                  }
-                  secondary={
-                    <Typography variant="body2" color="text.secondary">
-                      {member.status === 'Invited' ? 'Invitation sent' : `Joined ${member.joinedAt ? formatDate(member.joinedAt, {
-                        month: "short",
-                        hour: undefined,
-                        minute: undefined
-                      }) : 'Unknown'}`}
-                    </Typography>
-                  }
+                  Invite
+              </Button>}
+            </Box>
+
+            <List sx={{width: '100%'}}>
+              {([...(membersNuris ?? [])]).map((memberNuri, index) => (
+                <MemberListItem
+                  key={memberNuri}
+                  memberNuri={memberNuri}
+                  isCurrentUserAdmin={isCurrentUserAdmin}
+                  isMemberAdmin={[...adminsNuris ?? []].includes(memberNuri)}
+                  isLastItem={index === (membersNuris?.size || 1) - 1}
+                  onRemoveMember={handleRemoveMember}
                 />
-              </ListItem>
-            ))}
-          </List>
-        </CardContent>
-      </Card>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+
+        <AddMembersDialog
+          open={isInviteDialogOpen}
+          onClose={handleCloseDialog}
+          onAddMembers={handleAddMembers}
+        />
+
+        <Dialog open={showRemoveMemberDialog} onClose={() => setShowRemoveMemberDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Remove Member</DialogTitle>
+          <DialogContent>
+            <Typography variant="body1">
+              Are you sure you want to remove <strong>{removedContactName}</strong> from
+              the <strong>{group?.title}</strong> group?
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{mt: 2}}>
+              They will lose access to group posts and discussions. You can invite them back later if needed.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowRemoveMemberDialog(false)} variant="outlined">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRemoveMember} variant="contained" color="error" sx={{ml: 1}}>
+              Remove Member
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
     );
   }
 );

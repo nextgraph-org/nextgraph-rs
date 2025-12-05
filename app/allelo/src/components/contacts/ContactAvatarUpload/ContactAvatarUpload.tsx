@@ -1,14 +1,10 @@
 import {useRef, useCallback} from 'react';
 import {Box, Button, Avatar, CircularProgress} from '@mui/material';
 import {UilCamera} from '@iconscout/react-unicons';
-import {useContactData} from "@/hooks/contacts/useContactData.ts";
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
-import {useContactPhoto} from "@/hooks/contacts/useContactPhoto.ts";
-import {useContactPhotoUpload} from "@/hooks/contacts/useContactPhotoUpload.ts";
-/*import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
-import {useContactPhotoOrm} from "@/hooks/contacts/useContactPhotoOrm.ts";
-import {useContactPhotoUploadOrm} from "@/hooks/contacts/useContactPhotoUploadOrm.ts";*/
+import {usePhotoOrm} from "@/hooks/usePhotoOrm";
+import {usePhotoUploadOrm} from "@/hooks/usePhotoUploadOrm";
 
 
 export interface ContactAvatarUploadProps {
@@ -30,15 +26,22 @@ export const ContactAvatarUpload = ({
                                     }: ContactAvatarUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /*const {ormContact} = useContactOrm(contactNuri, forProfile);
+  const {ormContact} = useContactOrm(contactNuri, forProfile);
   const avatar = resolveFrom(ormContact, 'photo');
-  const {displayUrl, isLoadingImage} = useContactPhotoOrm(ormContact, avatar);
-  const {isUploading, uploadProgress, handleFileSelect} = useContactPhotoUploadOrm(ormContact, fileInputRef);*/
+  const {displayUrl, isLoadingImage} = usePhotoOrm(ormContact, avatar?.photoIRI, avatar?.photoUrl);
 
-  const {contact} = useContactData(contactNuri, forProfile);
-  const avatar = resolveFrom(contact, 'photo');
-  const {displayUrl, isLoadingImage} = useContactPhoto(contact, avatar);
-  const {isUploading, uploadProgress, handleFileSelect} = useContactPhotoUpload(contact, fileInputRef);
+  const onUploaded = useCallback((nuri: string) => {
+    ormContact?.photo?.forEach((el: any) => el.preferred = false);
+
+    ormContact?.photo?.add({
+      photoIRI: nuri,
+      "@graph": "",
+      "@id": "",
+      preferred: true
+    })
+  }, [ormContact?.photo])
+
+  const {isUploading, uploadProgress, handleFileSelect} = usePhotoUploadOrm(ormContact, fileInputRef, onUploaded);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();

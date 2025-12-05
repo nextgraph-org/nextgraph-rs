@@ -4,22 +4,18 @@ import {
   Box,
   Card,
   CardContent,
-  Chip,
-  alpha,
-  useTheme,
 } from '@mui/material';
 // Note: Using standard avatar styling instead of getContactPhotoStyles
-import type { Group } from '@/types/group';
+import {SocialGroup} from "@/.orm/shapes/group.typings.ts";
+import {GroupTags} from "@/components/groups/GroupTags/GroupTags.tsx";
 
 export interface GroupStatsProps {
-  group: Group;
+  group: SocialGroup;
   memberCount: number;
 }
 
 export const GroupStats = forwardRef<HTMLDivElement, GroupStatsProps>(
   ({ group }, ref) => {
-    const theme = useTheme();
-
     return (
       <Box ref={ref} sx={{ mb: 3 }}>
         {/* Group Header */}
@@ -32,25 +28,7 @@ export const GroupStats = forwardRef<HTMLDivElement, GroupStatsProps>(
               {group.description}
             </Typography>
 
-            {group.tags && group.tags.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
-                {group.tags.map((tag) => (
-                  <Chip
-                    key={tag}
-                    label={tag}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      borderRadius: 1,
-                      backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                      borderColor: alpha(theme.palette.primary.main, 0.12),
-                      color: 'primary.main',
-                      fontWeight: 500,
-                    }}
-                  />
-                ))}
-              </Box>
-            )}
+            <GroupTags group={group} disabled={true}/>
           </CardContent>
         </Card>
       </Box>
