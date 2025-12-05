@@ -8,9 +8,9 @@ interface NetworkGraphState {
   centeredNodeId: string | null;
   viewHistory: string[];
   simulation: Simulation<GraphNode, GraphEdge> | null;
-  centralityRangeMin: number;
-  centralityRangeMax: number;
-  zoomLevel: number;
+  currentZoomIndex: number; // 0-4, where 0=most zoomed out, 4=most zoomed in
+  canvasSize: number; // The current canvas size in pixels
+  maxZoomIndex: number; // Maximum zoom index available (depends on data)
 
   setNodes: (nodes: GraphNode[]) => void;
   setEdges: (edges: GraphEdge[]) => void;
@@ -18,14 +18,12 @@ interface NetworkGraphState {
   goBack: () => void;
   setSimulation: (simulation: Simulation<GraphNode, GraphEdge> | null) => void;
   updateNodePositions: (nodes: GraphNode[]) => void;
-  increaseCentrality: () => void;
-  decreaseCentrality: () => void;
-  resetCentrality: () => void;
-  canIncreaseCentrality: () => boolean;
-  canDecreaseCentrality: () => boolean;
-  setZoomLevel: (level: number) => void;
+  setCanvasSize: (size: number) => void;
+  setMaxZoomIndex: (maxIndex: number) => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  canZoomIn: () => boolean;
+  canZoomOut: () => boolean;
 }
 
 export const useNetworkGraphStore = create<NetworkGraphState>((set, get) => ({
@@ -34,9 +32,9 @@ export const useNetworkGraphStore = create<NetworkGraphState>((set, get) => ({
   centeredNodeId: null,
   viewHistory: [],
   simulation: null,
-  centralityRangeMin: 0.9,
-  centralityRangeMax: 1.0,
-  zoomLevel: 1,
+  currentZoomIndex: 0, // Start fully zoomed out (showing all contacts on largest canvas)
+  canvasSize: 1200,
+  maxZoomIndex: 4,
 
   setNodes: (nodes) => set({ nodes }),
 
@@ -107,47 +105,39 @@ export const useNetworkGraphStore = create<NetworkGraphState>((set, get) => ({
     set({ nodes: mergedNodes });
   },
 
-  increaseCentrality: () => {
-    const { centralityRangeMin } = get();
-    if (centralityRangeMin < 0.9) {
-      const newMin = Math.min(0.9, centralityRangeMin + 0.1);
-      const newMax = newMin + 0.1;
-      set({ centralityRangeMin: newMin, centralityRangeMax: newMax });
+  setCanvasSize: (size) => set({ canvasSize: size }),
+
+  setMaxZoomIndex: (maxIndex) => {
+    const { currentZoomIndex } = get();
+    // If currentZoomIndex is beyond the new max, reset to max
+    if (currentZoomIndex > maxIndex) {
+      set({ maxZoomIndex: maxIndex, currentZoomIndex: maxIndex });
+    } else {
+      set({ maxZoomIndex: maxIndex });
     }
   },
-
-  decreaseCentrality: () => {
-    const { centralityRangeMin } = get();
-    if (centralityRangeMin > 0) {
-      const newMin = Math.max(0, centralityRangeMin - 0.1);
-      const newMax = newMin + 0.1;
-      set({ centralityRangeMin: newMin, centralityRangeMax: newMax });
-    }
-  },
-
-  resetCentrality: () => {
-    set({ centralityRangeMin: 0, centralityRangeMax: 1 });
-  },
-
-  canIncreaseCentrality: () => {
-    const { centralityRangeMin } = get();
-    return centralityRangeMin < 0.9;
-  },
-
-  canDecreaseCentrality: () => {
-    const { centralityRangeMin } = get();
-    return centralityRangeMin > 0;
-  },
-
-  setZoomLevel: (level) => set({ zoomLevel: Math.max(0.1, Math.min(3, level)) }),
 
   zoomIn: () => {
-    const { zoomLevel } = get();
-    set({ zoomLevel: Math.min(3, zoomLevel * 1.2) });
+    const { currentZoomIndex, maxZoomIndex } = get();
+    if (currentZoomIndex < maxZoomIndex) {
+      set({ currentZoomIndex: currentZoomIndex + 1 });
+    }
   },
 
   zoomOut: () => {
-    const { zoomLevel } = get();
-    set({ zoomLevel: Math.max(0.1, zoomLevel / 1.2) });
+    const { currentZoomIndex } = get();
+    if (currentZoomIndex > 0) {
+      set({ currentZoomIndex: currentZoomIndex - 1 });
+    }
+  },
+
+  canZoomIn: () => {
+    const { currentZoomIndex, maxZoomIndex } = get();
+    return currentZoomIndex < maxZoomIndex;
+  },
+
+  canZoomOut: () => {
+    const { currentZoomIndex } = get();
+    return currentZoomIndex > 0;
   },
 }));

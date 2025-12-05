@@ -58,7 +58,7 @@ export const mapContactsToNodes = (
       }
     }
 
-    //const photo = resolveFrom(contact, 'photo');
+    const photo = resolveFrom(contact, 'photo');
     const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
 
     const centralityScore = contact.centralityScore || 0;
@@ -66,11 +66,14 @@ export const mapContactsToNodes = (
       ? centralityScore / maxCentralityScore
       : 0;
 
+    // Use loadedAvatarUrl (from probe), photoUrl, or undefined
+    const avatarUrl = (contact as any).loadedAvatarUrl || photo?.photoUrl || undefined;
+
     return {
       id: contact['@id'] || nameValue,
       type: 'person' as const,
       name: nameValue,
-      //TODO: use hook after avatar: photo?.value,
+      avatar: avatarUrl,
       initials: getInitials(nameValue),
       isCentered: contact['@id'] === centeredContactId,
       priority: calculatePriority(contact),

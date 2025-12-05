@@ -12,6 +12,8 @@ export interface GraphNode {
   priority: NodePriority;
   centrality?: number;
   mostRecentInteraction?: string | Date;
+  // minZoomLevel: 0 = visible at all zoom levels, 4 = only visible when fully zoomed out
+  minZoomLevel?: number;
   x?: number;
   y?: number;
   vx?: number;

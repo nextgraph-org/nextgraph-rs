@@ -10,6 +10,7 @@ import { NetworkSearch } from '../NetworkOverlays';
 import { ViewSelector, NavigationTrail, ZoomControls } from '../NetworkControls';
 import { FilterBar } from '../NetworkFilters';
 import { GraphEdge } from '@/types/network';
+import { computeZoom, ZoomInfo } from '@/hooks/network/computeZoom';
 
 interface NetworkGraphProps {
   backgroundColor?: string;
@@ -17,11 +18,39 @@ interface NetworkGraphProps {
 
 export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions] = useState({ width: 1200, height: 800 });
+  const [viewportDimensions, setViewportDimensions] = useState({ width: 1200, height: 800 });
+
+  // Measure actual viewport dimensions
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setViewportDimensions({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+    };
+  }, []);
   const [selectedEdge, setSelectedEdge] = useState<GraphEdge | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { nodes, edges, centerNode, increaseCentrality, decreaseCentrality, resetCentrality, centralityRangeMin, centralityRangeMax, centeredNodeId } = useNetworkGraphStore();
+  const {
+    nodes,
+    edges,
+    centerNode,
+    currentZoomIndex,
+    canvasSize,
+    setCanvasSize,
+    setMaxZoomIndex,
+    zoomIn,
+    zoomOut,
+    centeredNodeId
+  } = useNetworkGraphStore();
   const { setSearchOpen } = useNetworkViewStore();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -35,14 +64,84 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
     } else {
       setIsLoading(true);
     }
-  }, [nodes.length, edges.length, centralityRangeMin, centralityRangeMax, centeredNodeId]);
+  }, [nodes.length, edges.length, currentZoomIndex, centeredNodeId]);
 
-  // Filter nodes by centrality range (only when viewing "Me" network)
-  const filteredNodes = useMemo(() => {
+  // Compute zoom levels based on contact data
+  // Level 0 = zoomed out (largest canvas, all contacts)
+  // Level 4 = zoomed in (smallest canvas, fewer contacts)
+  const zoomLevels = useMemo(() => {
+    const isViewingMe = !centeredNodeId || centeredNodeId === 'me';
+    if (!isViewingMe) {
+      // When viewing specific contact/entity, don't use zoom system
+      return [];
+    }
+
+    // Count contacts by centrality ranges
+    const regularNodes = nodes.filter(node =>
+      node.type !== 'user' && node.type !== 'entity' && !node.isCentered
+    );
+
+    const c10 = regularNodes.filter(n => (n.centrality ?? 0) >= 0.8).length;
+    const c8 = regularNodes.filter(n => (n.centrality ?? 0) >= 0.6 && (n.centrality ?? 0) < 0.8).length;
+    const c6 = regularNodes.filter(n => (n.centrality ?? 0) >= 0.4 && (n.centrality ?? 0) < 0.6).length;
+    const c4 = regularNodes.filter(n => (n.centrality ?? 0) >= 0.2 && (n.centrality ?? 0) < 0.4).length;
+    const c2 = regularNodes.filter(n => (n.centrality ?? 0) < 0.2).length;
+
+    const maxDimension = Math.max(viewportDimensions.width, viewportDimensions.height);
+    const rawLevels = computeZoom(
+      new ZoomInfo(maxDimension, c10, c8, c6, c4, c2)
+    );
+
+    // Reverse levels so index 0 = largest canvas (zoomed out), index 4 = smallest (zoomed in)
+    const reversedLevels = [...rawLevels].reverse();
+
+    // Ensure exactly 5 levels by padding if needed
+    const paddedLevels: ZoomInfo[] = [];
+    for (let i = 0; i < 5; i++) {
+      if (i < reversedLevels.length) {
+        const level = reversedLevels[i];
+        level.level = i;
+        paddedLevels.push(level);
+      } else {
+        // Duplicate the last level if we have fewer than 5
+        const lastLevel = reversedLevels[reversedLevels.length - 1];
+        const padded = ZoomInfo.fromArray(lastLevel.viewSize, lastLevel.getArray());
+        padded.level = i;
+        paddedLevels.push(padded);
+      }
+    }
+
+    return paddedLevels;
+  }, [nodes, viewportDimensions, centeredNodeId]);
+
+  // Update max zoom index and canvas size when zoom levels change
+  useEffect(() => {
     const isViewingMe = !centeredNodeId || centeredNodeId === 'me';
 
-    if (!isViewingMe) {
-      return nodes;
+    if (isViewingMe && zoomLevels.length > 0) {
+      // Viewing "Me" - use custom zoom levels
+      setMaxZoomIndex(4);
+
+      const validZoomIndex = Math.min(currentZoomIndex, 4);
+      const currentLevel = zoomLevels[validZoomIndex];
+      if (currentLevel) {
+        setCanvasSize(currentLevel.viewSize);
+      }
+    } else if (!isViewingMe) {
+      // Viewing a contact - fit canvas to viewport
+      const viewportSize = Math.min(viewportDimensions.width, viewportDimensions.height);
+      setCanvasSize(viewportSize);
+    }
+  }, [zoomLevels, currentZoomIndex, setMaxZoomIndex, setCanvasSize, centeredNodeId, viewportDimensions]);
+
+  // Compute nodes with minZoomLevel assigned based on priority
+  // minZoomLevel: 0 = visible at all zoom levels, 4 = only visible at level 0 (zoomed out)
+  const nodesWithZoomLevel = useMemo(() => {
+    const isViewingMe = !centeredNodeId || centeredNodeId === 'me';
+
+    if (!isViewingMe || zoomLevels.length === 0) {
+      // When not viewing Me or no zoom levels, all contacts get minZoomLevel 0
+      return nodes.map(node => ({ ...node, minZoomLevel: 0 }));
     }
 
     const specialNodes = nodes.filter(node =>
@@ -52,25 +151,67 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
       node.type !== 'user' && node.type !== 'entity' && !node.isCentered
     );
 
-    let filtered = regularNodes.filter(node => {
-      const centrality = node.centrality ?? 0;
-      return centrality >= centralityRangeMin && centrality <= centralityRangeMax;
+    // Sort regular nodes by priority: centrality first, then MRI
+    const sortedNodes = [...regularNodes].sort((a, b) => {
+      // Higher centrality = higher priority
+      const centralityDiff = (b.centrality ?? 0) - (a.centrality ?? 0);
+      if (Math.abs(centralityDiff) > 0.01) return centralityDiff;
+
+      // More recent interaction = higher priority
+      const aTime = a.mostRecentInteraction
+        ? new Date(a.mostRecentInteraction as string).getTime()
+        : 0;
+      const bTime = b.mostRecentInteraction
+        ? new Date(b.mostRecentInteraction as string).getTime()
+        : 0;
+      return bTime - aTime;
     });
 
-    filtered = filtered
-      .sort((a, b) => {
-        const aTime = a.mostRecentInteraction
-          ? new Date(a.mostRecentInteraction).getTime()
-          : 0;
-        const bTime = b.mostRecentInteraction
-          ? new Date(b.mostRecentInteraction).getTime()
-          : 0;
-        return bTime - aTime;
-      })
-      .slice(0, 20);
+    // Get max contacts for each level (level 4 has fewest, level 0 has most)
+    const levelCounts = zoomLevels.map(z => z.count());
 
-    return [...specialNodes, ...filtered];
-  }, [nodes, centralityRangeMin, centralityRangeMax, centeredNodeId]);
+    // Assign minZoomLevel to each contact based on their rank
+    // Contacts within level 4's count get minZoomLevel 0 (visible everywhere)
+    // Contacts within level 3's count but not level 4's get minZoomLevel 1
+    // etc.
+    const nodesWithLevel = sortedNodes.map((node, index) => {
+      let minZoomLevel = 4; // Default: only visible at level 0
+
+      // Find the highest zoom level (most zoomed in) that includes this contact
+      for (let level = 4; level >= 0; level--) {
+        if (index < levelCounts[level]) {
+          minZoomLevel = 4 - level; // Convert: level 4 → minZoomLevel 0, level 0 → minZoomLevel 4
+          break;
+        }
+      }
+
+      return { ...node, minZoomLevel };
+    });
+
+    // Special nodes always visible (minZoomLevel 0)
+    const specialWithLevel = specialNodes.map(node => ({ ...node, minZoomLevel: 0 }));
+
+    return [...specialWithLevel, ...nodesWithLevel];
+  }, [nodes, zoomLevels, centeredNodeId]);
+
+  // Filter nodes based on current zoom level
+  const filteredNodes = useMemo(() => {
+    const isViewingMe = !centeredNodeId || centeredNodeId === 'me';
+
+    if (!isViewingMe) {
+      // When viewing specific contact/entity, show all nodes
+      return nodesWithZoomLevel;
+    }
+
+    // At zoom level N, show contacts where minZoomLevel <= (4 - N)
+    // Level 0 (zoomed out): show minZoomLevel <= 4 (all)
+    // Level 4 (zoomed in): show minZoomLevel <= 0 (only priority)
+    const maxMinZoomLevel = 4 - currentZoomIndex;
+
+    return nodesWithZoomLevel.filter(node =>
+      (node.minZoomLevel ?? 0) <= maxMinZoomLevel
+    );
+  }, [nodesWithZoomLevel, currentZoomIndex, centeredNodeId]);
 
   // Filter edges to only include those where both nodes are visible
   // On main "Me" view, hide edges; on contact-specific view, show them
@@ -89,7 +230,7 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
     });
   }, [edges, filteredNodes, centeredNodeId]);
 
-  useNetworkSimulation(filteredNodes, filteredEdges, dimensions.width, dimensions.height);
+  useNetworkSimulation(filteredNodes, filteredEdges, canvasSize, canvasSize);
 
   const { handleClick, handleTouchStart, handleTouchEnd } = useNodeInteraction({
     onNodeClick: (nodeId) => {
@@ -113,16 +254,12 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
     setSelectedEdge(null);
   };
 
-  const handleCentralityIn = () => {
-    increaseCentrality();
+  const handleZoomIn = () => {
+    zoomIn();
   };
 
-  const handleCentralityOut = () => {
-    decreaseCentrality();
-  };
-
-  const handleResetCentrality = () => {
-    resetCentrality();
+  const handleZoomOut = () => {
+    zoomOut();
   };
 
   const helpContent = isMobile ? (
@@ -134,23 +271,16 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
         • Tap a contact to center the view on them
       </DialogContentText>
       <DialogContentText gutterBottom>
-        • Pinch to zoom in/out
+        • Drag to pan the view
       </DialogContentText>
       <DialogContentText gutterBottom sx={{ mt: 2 }}>
-        <strong>Centrality Controls (bottom right):</strong>
+        <strong># Contacts (bottom right):</strong>
       </DialogContentText>
       <DialogContentText gutterBottom>
-        • <strong>+</strong> Show more central contacts (more connections in common)
+        • <strong>+</strong> Show more contacts
       </DialogContentText>
       <DialogContentText gutterBottom>
-        • <strong>−</strong> Show less central contacts (fewer connections in common)
-      </DialogContentText>
-      <DialogContentText gutterBottom>
-        • <strong>Reset</strong> Show all contacts
-      </DialogContentText>
-      <DialogContentText sx={{ mt: 2 }}>
-        Contacts closer to the center have higher centrality scores. Use +/− to filter by centrality ranges.
-        Contacts are filtered by most recent interaction to prevent density issues overwhelming the graph.
+        • <strong>−</strong> Show fewer contacts
       </DialogContentText>
     </>
   ) : (
@@ -162,26 +292,16 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
         • Click a contact to center the view on them
       </DialogContentText>
       <DialogContentText gutterBottom>
-        • Scroll wheel to zoom in/out
-      </DialogContentText>
-      <DialogContentText gutterBottom>
         • Drag to pan the view
       </DialogContentText>
       <DialogContentText gutterBottom sx={{ mt: 2 }}>
-        <strong>Centrality Controls (bottom right):</strong>
+        <strong># Contacts (bottom right):</strong>
       </DialogContentText>
       <DialogContentText gutterBottom>
-        • <strong>+</strong> Show more central contacts (more connections in common)
+        • <strong>+</strong> Show more contacts
       </DialogContentText>
       <DialogContentText gutterBottom>
-        • <strong>−</strong> Show less central contacts (fewer connections in common)
-      </DialogContentText>
-      <DialogContentText gutterBottom>
-        • <strong>Reset</strong> Show all contacts
-      </DialogContentText>
-      <DialogContentText sx={{ mt: 2 }}>
-        Contacts closer to the center have higher centrality scores. Use +/− to filter by centrality ranges.
-        Contacts are filtered by most recent interaction to prevent density issues overwhelming the graph.
+        • <strong>−</strong> Show fewer contacts
       </DialogContentText>
     </>
   );
@@ -224,21 +344,26 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
       <GraphCanvas
         nodes={filteredNodes}
         edges={filteredEdges}
-        width={dimensions.width}
-        height={dimensions.height}
+        width={canvasSize}
+        height={canvasSize}
         onNodeClick={handleClick}
         onNodeTouchStart={handleTouchStart}
         onNodeTouchEnd={handleTouchEnd}
         onEdgeClick={handleEdgeClick}
         selectedEdge={selectedEdge}
         onBackgroundClick={handleDismissEdge}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        useStandardZoom={!!(centeredNodeId && centeredNodeId !== 'me')}
       />
 
-      <ZoomControls
-        onZoomIn={handleCentralityIn}
-        onZoomOut={handleCentralityOut}
-        onReset={handleResetCentrality}
-      />
+      {/* Only show zoom controls when viewing "Me" network */}
+      {(!centeredNodeId || centeredNodeId === 'me') && (
+        <ZoomControls
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+        />
+      )}
 
       <IconButton
         onClick={() => setHelpOpen(true)}

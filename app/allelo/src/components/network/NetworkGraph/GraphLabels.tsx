@@ -13,9 +13,9 @@ export const GraphLabels = ({ nodes, zoomLevel }: GraphLabelsProps) => {
     if (!node.x || !node.y) return { x: 0, y: 0 };
 
     if (node.isCentered) {
-      const nodeSize = 80;
+      const nodeSize = 40;
       return {
-        x: node.x + nodeSize / 2 + 10,
+        x: node.x + nodeSize / 2 + 6,
         y: node.y,
       };
     }
@@ -24,10 +24,10 @@ export const GraphLabels = ({ nodes, zoomLevel }: GraphLabelsProps) => {
       return { x: node.x, y: node.y };
     }
 
-    const nodeSize = 40;
+    const nodeSize = 30;
     return {
       x: node.x,
-      y: node.y - nodeSize / 2 - 15,
+      y: node.y + nodeSize / 2 + 12,
     };
   };
 

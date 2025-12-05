@@ -18,6 +18,9 @@ interface GraphCanvasProps {
   onEdgeClick?: (edgeId: string) => void;
   selectedEdge?: GraphEdgeType | null;
   onBackgroundClick?: () => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  useStandardZoom?: boolean; // Use standard d3 zoom instead of custom zoom levels
 }
 
 export const GraphCanvas = ({
@@ -31,6 +34,9 @@ export const GraphCanvas = ({
   onEdgeClick,
   selectedEdge,
   onBackgroundClick,
+  onZoomIn,
+  onZoomOut,
+  useStandardZoom = false,
 }: GraphCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
@@ -41,19 +47,75 @@ export const GraphCanvas = ({
     const svg = select(svgRef.current);
     const g = select(gRef.current);
 
-    const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.3, 10])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
-      });
+    const viewportRect = svgRef.current.getBoundingClientRect();
+    const viewportCenterX = viewportRect.width / 2;
+    const viewportCenterY = viewportRect.height / 2;
+    const canvasCenterX = width / 2;
+    const canvasCenterY = height / 2;
 
-    svg.call(zoomBehavior.transform, zoomIdentity);
-    svg.call(zoomBehavior);
+    if (useStandardZoom) {
+      // Standard d3 zoom with pan and scale
+      const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.3, 3])
+        .on('zoom', (event) => {
+          g.attr('transform', event.transform.toString());
+        });
+
+      // Calculate initial transform to center the view
+      const initialTransform = zoomIdentity
+        .translate(viewportCenterX - canvasCenterX, viewportCenterY - canvasCenterY);
+
+      svg.call(zoomBehavior.transform, initialTransform);
+      svg.call(zoomBehavior);
+    } else {
+      // Pan only - no zoom scaling (for custom zoom levels)
+      const panBehavior = d3Zoom<SVGSVGElement, unknown>()
+        .scaleExtent([1, 1])
+        .filter((event) => {
+          // Allow pan (drag), but prevent default zoom on wheel
+          return !event.ctrlKey && event.type !== 'wheel';
+        })
+        .on('zoom', (event) => {
+          // Only apply translation, not scale
+          g.attr('transform', `translate(${event.transform.x},${event.transform.y})`);
+        });
+
+      // Calculate translate to center "Me" in viewport
+      const initialTransform = zoomIdentity
+        .translate(viewportCenterX - canvasCenterX, viewportCenterY - canvasCenterY);
+
+      svg.call(panBehavior.transform, initialTransform);
+      svg.call(panBehavior);
+    }
 
     return () => {
       svg.on('.zoom', null);
     };
-  }, []);
+  }, [width, height, useStandardZoom]);
+
+  // Handle scroll wheel for custom zoom level changes (only when not using standard zoom)
+  useEffect(() => {
+    if (!svgRef.current || useStandardZoom) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+
+      if (event.deltaY < 0) {
+        // Scroll up = zoom in (fewer contacts)
+        onZoomIn?.();
+      } else if (event.deltaY > 0) {
+        // Scroll down = zoom out (more contacts)
+        onZoomOut?.();
+      }
+    };
+
+    const svgElement = svgRef.current;
+    svgElement.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      svgElement.removeEventListener('wheel', handleWheel);
+    };
+  }, [onZoomIn, onZoomOut, useStandardZoom]);
 
   // Get source and target node IDs for the selected edge
   const selectedSourceId = selectedEdge
@@ -66,10 +128,8 @@ export const GraphCanvas = ({
   return (
     <svg
       ref={svgRef}
-      width="100%"
-      height="100%"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="xMidYMid meet"
+      width={width}
+      height={height}
       style={{ display: 'block' }}
       onClick={onBackgroundClick}
     >
@@ -82,10 +142,10 @@ export const GraphCanvas = ({
           </feMerge>
         </filter>
         <clipPath id="clip-circle-normal">
-          <circle r="20" />
+          <circle r="15" />
         </clipPath>
         <clipPath id="clip-circle-centered">
-          <circle r="40" />
+          <circle r="20" />
         </clipPath>
       </defs>
 

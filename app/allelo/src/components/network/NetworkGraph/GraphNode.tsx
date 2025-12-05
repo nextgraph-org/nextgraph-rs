@@ -68,9 +68,9 @@ export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }:
     );
   }
 
-  const baseSize = node.isCentered ? 80 : 30;
+  const baseSize = node.isCentered ? 40 : 30;
   const nodeSize = baseSize;
-  const borderWidth = node.isCentered ? 4 : 2;
+  const borderWidth = 2;
   const isEntity = node.type === 'entity';
 
   return (
@@ -109,7 +109,7 @@ export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }:
           textAnchor="middle"
           dy=".35em"
           fill={isEntity ? 'white' : getNodeColor()}
-          fontSize={node.isCentered ? '24' : '14'}
+          fontSize="14"
           fontWeight={600}
         >
           {node.initials}
