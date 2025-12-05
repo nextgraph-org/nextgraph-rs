@@ -60,6 +60,8 @@ export class OrmConnection<T extends BaseType> {
             : null;
 
     private constructor(shapeType: ShapeType<T>, scope: Scope) {
+        window.ormSignalConnections = OrmConnection.idToEntry;
+
         this.shapeType = shapeType;
         this.scope = scope;
         this.refCount = 1;

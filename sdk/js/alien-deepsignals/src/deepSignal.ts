@@ -1038,18 +1038,35 @@ type DeepSignalObjectProps<T> = {
 
 /** Utility functions for sets. */
 type DeepSignalSetProps<T> = {
-    first(): DeepSignal<T> | undefined;
+    /** Get the element that was first inserted into the set. */
+    first(): undefined | (T extends object ? DeepSignal<T> : T);
+
+    /**
+     * Retrieve an entry from the Set by its synthetic ID.
+     * @param id - The synthetic ID (string or number) assigned to the entry.
+     * @returns The proxied entry if found, undefined otherwise.
+     */
     getById(id: string | number): DeepSignal<T> | undefined;
+    /**
+     * Retrieve an entry from the Set by constructing an ID from graphIri and subjectIri.
+     * This is a convenience method that constructs the ID as "graphIri|subjectIri".
+     * @param graphIri - The graph IRI part of the identifier.
+     * @param subjectIri - The subject IRI part of the identifier.
+     * @returns The proxied entry if found, undefined otherwise.
+     */
+    // NOTE: This is a bad separation of concerns here.
     getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
 };
 
-/** Utility functions for sets. */
-export type DeepSignalSet<S, T = Set<S>> = Set<DeepSignal<S>> &
-    DeepSignalObjectProps<T> & {
-        first(): DeepSignal<S> | undefined;
-        getById(id: string | number): DeepSignal<S> | undefined;
-        getBy(graphIri: string, subjectIri: string): DeepSignal<S> | undefined;
-    };
+/** Reactive Set wrapper that accepts raw or proxied entries. */
+export interface DeepSignalSet<T>
+    extends Set<DeepSignal<T>>,
+        DeepSignalObjectProps<Set<T>>,
+        DeepSignalSetProps<T> {
+    add(value: T | DeepSignal<T>): this;
+    delete(value: T | DeepSignal<T>): boolean;
+    has(value: T | DeepSignal<T>): boolean;
+}
 
 /**
  * The object returned by the @see deepSignal function.
@@ -1059,16 +1076,22 @@ export type DeepSignalSet<S, T = Set<S>> = Set<DeepSignal<S>> &
  */
 export type DeepSignal<T> = T extends Function
     ? T
-    : // Do not re-proxy objects that are already DeepSignals
-      T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
+    : T extends string | number | boolean
       ? T
-      : T extends Array<infer I>
-        ? DeepSignal<I>[]
-        : T extends Set<infer S>
-          ? DeepSignalSet<S, T>
-          : T extends object
-            ? { [K in keyof T]: DeepSignal<T[K]> }
-            : T;
+      : // Do not re-proxy objects that are already DeepSignals
+        T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
+        ? T
+        : T extends Array<infer I>
+          ? DeepSignal<I>[]
+          : T extends Set<infer S>
+            ? DeepSignalSet<S>
+            : T extends object
+              ? DeepSignalObject<T>
+              : T;
+
+export type DeepSignalObject<T extends object> = {
+    [K in keyof T]: DeepSignal<T[K]>;
+};
 
 /**
  * Create a deep reactive proxy for objects, arrays or Sets.

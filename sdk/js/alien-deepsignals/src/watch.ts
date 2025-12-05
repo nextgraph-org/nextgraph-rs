@@ -99,5 +99,3 @@ export function watch<Root extends object>(
         registerCleanup,
     };
 }
-
-export const observe = watch;

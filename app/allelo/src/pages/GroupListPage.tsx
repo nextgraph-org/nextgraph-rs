@@ -11,6 +11,8 @@ import { GroupFeed } from '@/components/groups/GroupPage/GroupFeed/GroupFeed';
 import {useGroups} from "@/hooks/groups/useGroups.ts";
 import {useCallback} from "react";
 import {SearchFilter} from "@/components/contacts/ContactFilters";
+import { useShape } from '@ng-org/signals/react';
+import { SocialGroupShapeType } from '@/.orm/shapes/group.shapeTypes';
 
 export const GroupListPage = () => {
   const {
@@ -19,6 +21,8 @@ export const GroupListPage = () => {
     addFilter,
     filters
   } = useGroups({limit: 10});
+  const groupSet = useShape(SocialGroupShapeType);
+  
   const navigate = useNavigate();
 
   const searchQuery = filters.searchQuery;

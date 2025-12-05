@@ -56,22 +56,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
       groups?.add(groupObj);
 
-      /*if (groups) {
-        for (const item of groups) {
-          if (item["@id"] === id) {
-            group.hasAdmin?.forEach((el) => {
-              item.hasAdmin?.add(el);
-            });
-            group.hasMember?.forEach((el) => {
-              item.hasMember?.add(el);
-            })
-            group.tag?.forEach((el) => {
-              item.tag?.add(el);
-            })
-            break;
-          }
-        }
-      }*/
 
       return docId;
     } catch (err) {
