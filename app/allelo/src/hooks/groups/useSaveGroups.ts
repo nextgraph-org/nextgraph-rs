@@ -43,6 +43,13 @@ export function useSaveGroups(): UseSaveGroupsReturn {
       );
 
       const id = generateUri(docId);
+
+      if (group.hasMember && group.hasAdmin) {
+        group.hasMember = new Set([...group.hasMember, ...group.hasAdmin]);
+      }
+
+      //TODO: we need to update contacts with details about invitation
+
       const groupObj: SocialGroup = {
         "@graph": docId,
         "@id": id,
@@ -55,7 +62,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
       }
 
       groups?.add(groupObj);
-
 
       return docId;
     } catch (err) {
