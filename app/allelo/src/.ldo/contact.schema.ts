@@ -3921,27 +3921,48 @@ export const contactSchema: Schema = {
           expressions: [
             {
               type: "TripleConstraint",
-              predicate: "did:ng:x:core#value",
+              predicate: "did:ng:x:contact#groupId",
               valueExpr: {
                 type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#string",
+                nodeKind: "iri",
               },
               annotations: [
                 {
                   type: "Annotation",
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
-                    value: "Mostly to preserve current mock UI group id",
+                    value: "Group id",
                   },
                 },
               ],
             },
             {
               type: "TripleConstraint",
-              predicate: "did:ng:x:core#source",
+              predicate: "did:ng:x:contact#memberStatus",
               valueExpr: {
                 type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#string",
+                values: [
+                  "did:ng:k:contact:memberStatus#invited",
+                  "did:ng:k:contact:memberStatus#joined",
+                  "did:ng:k:contact:memberStatus#declined",
+                ],
+              },
+              annotations: [
+                {
+                  type: "Annotation",
+                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
+                  object: {
+                    value: "Status of group member",
+                  },
+                },
+              ],
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:contact#joinDate",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#date",
               },
               min: 0,
               max: 1,
@@ -3950,7 +3971,7 @@ export const contactSchema: Schema = {
                   type: "Annotation",
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
-                    value: "Source of the internal group data",
+                    value: "When user joined",
                   },
                 },
               ],
@@ -3970,6 +3991,25 @@ export const contactSchema: Schema = {
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
                     value: "Whether this is hidden from list",
+                  },
+                },
+              ],
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:core#source",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#string",
+              },
+              min: 0,
+              max: 1,
+              annotations: [
+                {
+                  type: "Annotation",
+                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
+                  object: {
+                    value: "Source of the groups",
                   },
                 },
               ],

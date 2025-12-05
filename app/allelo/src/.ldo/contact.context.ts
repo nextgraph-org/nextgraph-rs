@@ -1225,6 +1225,21 @@ export const contactContext: LdoJsonldContext = {
     "@type": "@id",
     "@isCollection": true,
   },
+  groupId: {
+    "@id": "did:ng:x:contact#groupId",
+    "@type": "@id",
+  },
+  memberStatus: {
+    "@id": "did:ng:x:contact#memberStatus",
+    "@isCollection": true,
+  },
+  invited: "did:ng:k:contact:memberStatus#invited",
+  joined: "did:ng:k:contact:memberStatus#joined",
+  declined: "did:ng:k:contact:memberStatus#declined",
+  joinDate: {
+    "@id": "did:ng:x:contact#joinDate",
+    "@type": "http://www.w3.org/2001/XMLSchema#date",
+  },
   headline: {
     "@id": "did:ng:x:contact#headline",
     "@type": "@id",
