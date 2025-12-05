@@ -872,7 +872,10 @@ importers:
         version: 2.1.7
       typescript:
         specifier: ^5.9.2
-        version: 5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(jiti@2.6.1)(jsdom@20.0.3)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
 
   sdk/js/signals:
     dependencies:

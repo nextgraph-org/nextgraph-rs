@@ -25,10 +25,6 @@ describe("watch advanced", () => {
         expect(batches).toBeGreaterThan(0);
     });
 
-    // multi-source value mode removed; patch-only now - skip equivalent
-
-    // getter source value mode removed in patch-only watcher
-
     it("watch once option still stops after first batch", async () => {
         const st = deepSignal({ a: 1 });
         let count = 0;
@@ -44,8 +40,6 @@ describe("watch advanced", () => {
         await Promise.resolve();
         expect(count).toBe(1);
     });
-
-    // observe value mode removed; observe is alias of watch
 });
 
 describe("patches & root ids", () => {
