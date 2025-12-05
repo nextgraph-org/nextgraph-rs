@@ -1238,6 +1238,18 @@ INSERT DATA {
                         shape: None,
                     }],
                 }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/friend".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "friend".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: -1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
             ],
         }),
     );
@@ -1288,6 +1300,30 @@ INSERT DATA {
             valType: None,
             value: Some(json!("Alice")),
         },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/friend", root),
+            valType: None,
+            value: Some(json!([])),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/friend", root),
+            valType: Some(OrmPatchType::set),
+            value: Some(json!([])),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/friend", root),
+            valType: Some(OrmPatchType::set),
+            value: Some(json!(["http://example.org/Bob"])),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/friend", root),
+            valType: Some(OrmPatchType::set),
+            value: Some(json!(["http://example.org/Craig"])),
+        },
     ];
 
     orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
@@ -1314,9 +1350,21 @@ INSERT DATA {
             && q.object.to_string().contains("http://example.org/Person")
             && quad_has_graph(q, &doc_nuri)
     });
+    let has_friend_bob = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/friend"
+            && q.object.to_string().contains("http://example.org/Bob")
+            && quad_has_graph(q, &doc_nuri)
+    });
+    let has_friend_craig = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/friend"
+            && q.object.to_string().contains("http://example.org/Craig")
+            && quad_has_graph(q, &doc_nuri)
+    });
 
     assert!(has_name, "New person should have name");
     assert!(has_type, "New person should have type");
+    assert!(has_friend_bob, "New person should have friend Bob");
+    assert!(has_friend_craig, "New person should have friend Craig");
 
     log_info!("✓ Test passed: Creation of root object");
 }
