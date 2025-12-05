@@ -264,7 +264,9 @@ export class OrmConnection<T extends BaseType> {
  * @returns Patches with stringified path
  */
 export function deepPatchesToWasm(patches: DeepPatch[]): Patches {
-    return patches.map((patch) => {
+    return patches.flatMap((patch) => {
+        if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
+            return [];
         const path = "/" + patch.path.join("/");
         return { ...patch, path };
     }) as Patches;

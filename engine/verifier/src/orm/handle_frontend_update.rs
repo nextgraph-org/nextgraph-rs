@@ -102,7 +102,11 @@ impl Verifier {
             .await
         {
             Err(e) => {
-                //log_info!("[orm_frontend_update] query failed: {:?}", e);
+                log_info!(
+                    "[orm_frontend_update] query failed: {:?}\nQuery: {}",
+                    e,
+                    sparql_update
+                );
 
                 Err(e)
             }
@@ -549,10 +553,12 @@ fn create_sparql_update_query_for_patches(
                 } else {
                     if let Some(val) = &p.value {
                         let sparql_val = json_to_sparql_val(val);
-                        if schema.is_multi() {
-                            builder.add_value(graph, subj, pred, &sparql_val);
-                        } else {
-                            builder.overwrite_value(graph, subj, pred, &sparql_val);
+                        if sparql_val.len() > 0 {
+                            if schema.is_multi() {
+                                builder.add_value(graph, subj, pred, &sparql_val);
+                            } else {
+                                builder.overwrite_value(graph, subj, pred, &sparql_val);
+                            }
                         }
                     }
                 }
