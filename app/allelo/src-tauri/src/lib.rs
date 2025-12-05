@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fs::write;
 
 use async_std::stream::StreamExt;
+use ng_net::orm::OrmPatches;
 use oxrdf::Triple;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -578,6 +579,27 @@ async fn new_orm_start(
     let mut req = AppRequest::new_orm_start(scope, shape_type);
     req.set_session_id(session_id);
     Ok(req)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn orm_update(
+    scope: String,
+    shape_type_name: String,
+    diff: OrmPatches,
+    session_id: u64,
+) -> Result<(), String> {
+    let scope = if scope.is_empty() || scope == "did:ng:i" {
+        NuriV0::new_entire_user_site()
+    } else {
+        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
+    };
+    let mut request = AppRequest::new_orm_update(scope, shape_type_name, diff);
+    request.set_session_id(session_id);
+    //log_info!("[orm_update] calling orm_update");
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -1189,6 +1211,7 @@ impl AppBuilder {
                 discrete_update,
                 app_request_stream,
                 new_orm_start,
+                orm_update,
                 new_file_get,
                 //file_get,
                 file_save_to_downloads,

@@ -64,6 +64,7 @@ const mapping = {
     "retrieve_ng_bootstrap": ["location"],
     "upload_start": ["session_id", "nuri", "mimetype"],
     "upload_done": ["upload_id","session_id","nuri","filename"],
+    "orm_update": ["scope","shape_type_name","diff","session_id"],
 }
 
 
