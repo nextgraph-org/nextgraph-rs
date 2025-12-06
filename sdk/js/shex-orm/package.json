@@ -12,7 +12,7 @@
     "build:ts": "rm -rf dist && tsc && pnpm run update-permission && pnpm copy-templates",
     "copy-templates": "mkdir -p dist && rsync -qav --include=\"*/\" --include=\"*.ejs\" --exclude=\"*\" src/ dist/",
     "update-permission": "chmod +x ./dist/cli.js",
-    "test": "jest --coverage",
+    "test": "vitest run",
     "prepublishOnly": " npm run build",
     "lint": "eslint src/** --fix --no-error-on-unmatched-pattern",
     "test:init": "rm -rf ./example-init && cp -R ./example-init-placeholder ./example-init && cd ./example-init && ../dist/index.js init",
@@ -22,7 +22,7 @@
     "Laurin Weger",
     "Jackson Morgan"
   ],
-  "license": "MIT",
+  "license": "MIT/Apache-2.0",
   "devDependencies": {
     "@types/child-process-promise": "^2.2.2",
     "@types/ejs": "^3.1.1",
@@ -30,7 +30,8 @@
     "@types/jsonld": "^1.5.15",
     "@types/prompts": "^2.4.9",
     "@types/shexj": "^2.1.4",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@jeswr/shacl2shex": "^1.1.0",
@@ -62,6 +63,5 @@
     "access": "public",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts"
-  },
-  "gitHead": "840910c56ec3f61416f031cc76771a5673af6757"
+  }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -6,6 +6,7 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::local_broker::{
     doc_create, doc_query_quads_for_shape_type, doc_sparql_update, orm_start,
@@ -619,11 +620,11 @@ async fn test_orm_creation() {
 
     // TODO: Use new graph-based logic.
     // log_info!("=== Starting test test_orm_nested_2 ===");
-    // test_orm_nested_2(session_id).await;
+    // _test_orm_nested_2(session_id).await;
     // log_info!("=== Test test_orm_nested_2 ran successfully ===\n\n");
     //
     // log_info!("=== Starting test test_orm_nested_3 ===");
-    // test_orm_nested_3(session_id).await;
+    // _test_orm_nested_3(session_id).await;
     // log_info!("=== Test test_orm_nested_2 ran successfully ===\n\n");
 
     log_info!("=== Starting test test_orm_nested_4 ===");
@@ -1986,7 +1987,7 @@ INSERT DATA {
     cancel_fn();
 }
 
-async fn test_orm_nested_2(session_id: u64) {
+async fn _test_orm_nested_2(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
@@ -2132,7 +2133,7 @@ INSERT DATA {
     cancel_fn();
 }
 
-async fn test_orm_nested_3(session_id: u64) {
+async fn _test_orm_nested_3(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"

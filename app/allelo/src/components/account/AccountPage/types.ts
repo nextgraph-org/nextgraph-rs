@@ -8,7 +8,7 @@ export interface ProfileSectionProps {
   onGenerateQR?: () => void;
   onRefreshCredentials?: () => void;
   initialProfileData?: Contact;
-  resource: NextGraphResource
+  resource: NextGraphResource;
 }
 
 export interface SettingsSectionProps {

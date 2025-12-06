@@ -499,7 +499,7 @@ export const contactSchema: Schema = {
           },
         ],
         maxCardinality: 1,
-        minCardinality: 1,
+        minCardinality: 0,
         iri: "did:ng:x:contact#rcard",
         readablePredicate: "rcard",
       },
@@ -1353,20 +1353,20 @@ export const contactSchema: Schema = {
           },
         ],
         maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
+        minCardinality: 0,
+        iri: "did:ng:x:core#photoUrl",
+        readablePredicate: "photoUrl",
       },
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "iri",
           },
         ],
         maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#data",
-        readablePredicate: "data",
+        minCardinality: 1,
+        iri: "did:ng:x:core#photoIRI",
+        readablePredicate: "photoIRI",
       },
       {
         dataTypes: [
@@ -2695,13 +2695,29 @@ export const contactSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "iri",
           },
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
+        iri: "did:ng:x:contact#groupId",
+        readablePredicate: "groupId",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "literal",
+            literals: [
+              "did:ng:k:contact:memberStatus#invited",
+              "did:ng:k:contact:memberStatus#joined",
+              "did:ng:k:contact:memberStatus#declined",
+            ],
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "did:ng:x:contact#memberStatus",
+        readablePredicate: "memberStatus",
       },
       {
         dataTypes: [
@@ -2711,8 +2727,8 @@ export const contactSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
+        iri: "did:ng:x:contact#joinDate",
+        readablePredicate: "joinDate",
       },
       {
         dataTypes: [
@@ -2724,6 +2740,17 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:core#hidden",
         readablePredicate: "hidden",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:core#source",
+        readablePredicate: "source",
       },
     ],
   },
@@ -4045,20 +4072,20 @@ export const contactSchema: Schema = {
           },
         ],
         maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
+        minCardinality: 0,
+        iri: "did:ng:x:core#photoUrl",
+        readablePredicate: "photoUrl",
       },
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "iri",
           },
         ],
         maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#data",
-        readablePredicate: "data",
+        minCardinality: 1,
+        iri: "did:ng:x:core#photoIRI",
+        readablePredicate: "photoIRI",
       },
       {
         dataTypes: [
@@ -5387,13 +5414,29 @@ export const contactSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "iri",
           },
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
+        iri: "did:ng:x:contact#groupId",
+        readablePredicate: "groupId",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "literal",
+            literals: [
+              "did:ng:k:contact:memberStatus#invited",
+              "did:ng:k:contact:memberStatus#joined",
+              "did:ng:k:contact:memberStatus#declined",
+            ],
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "did:ng:x:contact#memberStatus",
+        readablePredicate: "memberStatus",
       },
       {
         dataTypes: [
@@ -5403,8 +5446,8 @@ export const contactSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
+        iri: "did:ng:x:contact#joinDate",
+        readablePredicate: "joinDate",
       },
       {
         dataTypes: [
@@ -5416,6 +5459,17 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:core#hidden",
         readablePredicate: "hidden",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:core#source",
+        readablePredicate: "source",
       },
     ],
   },

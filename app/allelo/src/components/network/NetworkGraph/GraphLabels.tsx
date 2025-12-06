@@ -3,9 +3,10 @@ import { GraphNode } from '@/types/network';
 
 interface GraphLabelsProps {
   nodes: GraphNode[];
+  zoomLevel?: number;
 }
 
-export const GraphLabels = ({ nodes }: GraphLabelsProps) => {
+export const GraphLabels = ({ nodes, zoomLevel }: GraphLabelsProps) => {
   const theme = useTheme();
 
   const calculateLabelPosition = (node: GraphNode) => {
@@ -36,6 +37,7 @@ export const GraphLabels = ({ nodes }: GraphLabelsProps) => {
         .filter((node) => node.priority !== 'low' && node.x && node.y)
         .map((node) => {
           const pos = calculateLabelPosition(node);
+
           return (
             <text
               key={`label-${node.id}`}

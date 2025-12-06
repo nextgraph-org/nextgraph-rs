@@ -9,9 +9,12 @@ const calculatePriority = (contact: Contact): NodePriority => {
   const hasHighInteractionCount = (contact.interactionCount || 0) > 10;
   const hasVouches = (contact.vouchesSent || 0) + (contact.vouchesReceived || 0) > 0;
   const photo = resolveFrom(contact, 'photo');
-  const hasPhoto = !!photo?.value;
+  const hasPhoto = !!photo;
 
-  if ((hasRecentInteraction || hasHighInteractionCount || hasVouches) && hasPhoto) {
+  const centralityScore = contact.centralityScore || 0;
+  const isCentralContact = centralityScore > 0;
+
+  if ((hasRecentInteraction || hasHighInteractionCount || hasVouches || isCentralContact) && hasPhoto) {
     return 'high';
   }
 
@@ -31,6 +34,11 @@ export const mapContactsToNodes = (
   contacts: Contact[],
   centeredContactId?: string
 ): GraphNode[] => {
+  const maxCentralityScore = Math.max(
+    ...contacts.map(c => c.centralityScore || 0),
+    1
+  );
+
   return contacts.map((contact) => {
     // Handle name - can be a Set-like object or an array
     let name = resolveFrom(contact, 'name');
@@ -50,17 +58,24 @@ export const mapContactsToNodes = (
       }
     }
 
-    const photo = resolveFrom(contact, 'photo');
+    //const photo = resolveFrom(contact, 'photo');
     const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
+
+    const centralityScore = contact.centralityScore || 0;
+    const normalizedCentrality = maxCentralityScore > 0
+      ? centralityScore / maxCentralityScore
+      : 0;
 
     return {
       id: contact['@id'] || nameValue,
       type: 'person' as const,
       name: nameValue,
-      avatar: photo?.value,
+      //TODO: use hook after avatar: photo?.value,
       initials: getInitials(nameValue),
       isCentered: contact['@id'] === centeredContactId,
       priority: calculatePriority(contact),
+      centrality: normalizedCentrality,
+      mostRecentInteraction: contact.mostRecentInteraction || contact.lastInteractionAt,
     };
   });
 };
@@ -105,7 +120,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
     if (contact.internalGroup) {
       contact.internalGroup.forEach((groupId) => {
         const otherContacts = contacts.filter(
-          (c) => c.internalGroup?.some((g) => g.value === groupId.value) && c['@id'] !== contactId
+          (c) => c.internalGroup?.some((g) => g.groupId === groupId.groupId) && c['@id'] !== contactId
         );
 
         otherContacts.forEach((otherContact) => {
@@ -119,7 +134,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
             otherContact['@id'] || '',
             hasRecentInteraction ? 'confirmed' : 'weak',
             hasRecentInteraction ? 0.8 : 0.3,
-            contact.relationshipCategory
+            //TODO: resolve later contact.relationshipCategory
           );
         });
       });

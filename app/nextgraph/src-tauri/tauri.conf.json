@@ -2,11 +2,11 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NextGraph",
   "version": "0.1.2",
-  "identifier": "org.nextgraph.app",
+  "identifier": "org.nextgraph.everything",
   "build": {
-    "beforeDevCommand": "",
+    "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -24,6 +24,9 @@
     }
   },
   "bundle": {
+    "macOS": {
+      "signingIdentity": "E800200424A903E5AB833BD6A40C0D1D254930C8"
+    },
     "active": true,
     "targets": "all",
     "icon": [

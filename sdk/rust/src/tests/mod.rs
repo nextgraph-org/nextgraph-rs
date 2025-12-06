@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -6,6 +6,7 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_repo::log_err;
 use serde_json::Value;
@@ -81,29 +82,4 @@ fn sort_arrays(value: &mut Value) {
         }
         _ => {}
     }
-}
-
-/// Helper to recursively remove nested "@id" fields from nested objects,
-/// but only if they are not at the root level.
-fn remove_id_fields(value: &mut Value) {
-    fn remove_id_fields_inner(value: &mut Value, is_root: bool) {
-        match value {
-            Value::Object(map) => {
-                if !is_root {
-                    map.remove("@id");
-                }
-                for v in map.values_mut() {
-                    remove_id_fields_inner(v, false);
-                }
-            }
-            Value::Array(arr) => {
-                for v in arr {
-                    remove_id_fields_inner(v, false);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    remove_id_fields_inner(value, true);
 }

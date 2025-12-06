@@ -72,14 +72,22 @@ onmessage = (e) => {
         const args = e.data.args;
         const port = e.data.port;
         if ( e.data.streamed ) {
-            //console.log("processing streamed request ...",method, args);
+            //console.log("processing streamed request in worker ...",method, args);
             args.push((callbacked)=> {
                 port.postMessage({stream:true, ret:callbacked});
             });
             try {
                 let cancel_function = () => {};
+                port.onmessage = (m) => {
+                    if (m.data.close) {
+                        port.close();
+                        cancel_function();
+                        cancel_function = () => {};
+                    }
+                };
                 port.onclose = () => {
                     cancel_function();
+                    cancel_function = () => {};
                 };
                 cancel_function = await Reflect.apply(ng[method], null, args);
                 port.postMessage({stream:true});

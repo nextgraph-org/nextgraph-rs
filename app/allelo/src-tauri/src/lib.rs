@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fs::write;
 
 use async_std::stream::StreamExt;
+use ng_net::orm::OrmPatches;
 use oxrdf::Triple;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -33,6 +34,8 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
+
+use tauri_plugin_google_auth;
 
 #[cfg(mobile)]
 mod mobile;
@@ -576,6 +579,55 @@ async fn new_orm_start(
     let mut req = AppRequest::new_orm_start(scope, shape_type);
     req.set_session_id(session_id);
     Ok(req)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn orm_update(
+    scope: String,
+    shape_type_name: String,
+    diff: OrmPatches,
+    session_id: u64,
+) -> Result<(), String> {
+    let scope = if scope.is_empty() || scope == "did:ng:i" {
+        NuriV0::new_entire_user_site()
+    } else {
+        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
+    };
+    let mut request = AppRequest::new_orm_update(scope, shape_type_name, diff);
+    request.set_session_id(session_id);
+    //log_info!("[orm_update] calling orm_update");
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn get_qrcode_for_contact(
+    session_id: u64,
+    contact: String,
+    size: u32,
+) -> Result<String, String> {
+    let nuri = NuriV0::new_from(&contact).map_err(|e| e.to_string())?;
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::QrCodeProfile,
+        nuri,
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(
+            size,
+        ))),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    match response {
+        AppResponse::V0(AppResponseV0::Text(qrcode)) => Ok(qrcode),
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -1138,7 +1190,9 @@ impl AppBuilder {
             // }
             Ok(())
         });
-        builder = builder.plugin(tauri_plugin_opener::init());
+        builder = builder
+            .plugin(tauri_plugin_opener::init())
+            .plugin(tauri_plugin_google_auth::init());
         #[cfg(mobile)]
         {
             builder = builder
@@ -1186,6 +1240,8 @@ impl AppBuilder {
                 discrete_update,
                 app_request_stream,
                 new_orm_start,
+                orm_update,
+                get_qrcode_for_contact,
                 new_file_get,
                 //file_get,
                 file_save_to_downloads,

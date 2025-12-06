@@ -1289,7 +1289,7 @@ const HomePage = () => {
         maxWidth="md" 
         sx={{ 
           position: 'fixed',
-          bottom: { xs: '60px', md: '15px' },
+          bottom: { xs: '80px', md: '15px' },
           left: { xs: 0, md: '280px' },
           right: 0,
           pb: 1, 

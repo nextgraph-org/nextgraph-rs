@@ -1,13 +1,11 @@
 # Reactive ORM Library for NextGraph
 
-
 ## How to Define Object Schemas (Shapes)
 
 You define shapes using the shex schema. To build the typescript types and schemas you need to use the package [@ng-org/shex-orm](../shex-orm/README.md).
 
-
-
 ## How to use
+
 Once you have a shape type, you can use it to create ORM objects. We provide hooks for react, vue, and svelte.
 
 Just pass a shape type object to the hook and it will return proxied signal-object. They behave like regular objects
@@ -21,6 +19,7 @@ Modifying one of them, will cause a re-render in the other components too.
 Additionally, modifications are immediately pushed to the database.
 
 **Note**: Before you can use the library, you need to initialize ng:
+
 ```ts
 import { ng, init } from "@ng-org/web";
 import { initNg } from "@ng-org/signals";
@@ -32,7 +31,6 @@ await init(
     true,
     []
 );
-
 ```
 
 ### Adding new objects
@@ -42,6 +40,7 @@ to the database. For sub-objects, you are not forced to specify a graph IRI or s
 the parent graph's IRI is used and a random IRI, respectively.
 
 ### React
+
 ```tsx
 import { useShape } from "@ng-org/signals/react";
 import { DogShapeType } from "../shapes/orm/dogShape.shapeTypes";
@@ -63,6 +62,7 @@ const dogs = useShape(DogShapeType);
 ```
 
 ### Svelte
+
 ```ts
 import { useShape } from "@ng-org/signals/svelte";
 import { DogShapeType } from "../shapes/orm/dogShape.shapeTypes";
@@ -70,3 +70,17 @@ import { DogShapeType } from "../shapes/orm/dogShape.shapeTypes";
 // `dogs` is a rune of type `Set<Dog>`
 const dogs = useShape(DogShapeType);
 ```
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+  at your option.
+
+`SPDX-License-Identifier: Apache-2.0 OR MIT`
+
+---
+
+NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.

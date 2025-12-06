@@ -14,9 +14,9 @@ import {WelcomeToVaultPage} from '@/components/auth/WelcomeToVaultPage';
 import ImportPage from '@/pages/ImportPage';
 import ContactListPage from '@/pages/ContactListPage';
 import ContactViewPage from '@/pages/ContactViewPage';
-import {GroupPage} from '@/components/groups/GroupPage';
-import GroupDetailPage from '@/components/groups/GroupDetailPage/GroupDetailPage';
-import {GroupInfoPage} from '@/components/groups/GroupInfoPage';
+import {GroupListPage} from '@/pages/GroupListPage';
+import GroupDetailPage from '@/pages/GroupDetailPage';
+import {GroupInfoPage} from '@/pages/GroupInfoPage';
 import CreateGroupPage from '@/pages/CreateGroupPage';
 import {InvitationPage} from '@/components/invitations/InvitationPage';
 import HomePage from '@/pages/HomePage';
@@ -27,7 +27,7 @@ import {PhoneVerificationPage} from '@/components/account/PhoneVerificationPage'
 import {createAppTheme} from '@/theme/theme';
 import CreateContactPage from "@/pages/CreateContactPage";
 import CreateProfilePage from "@/pages/CreateProfilePage";
-import {AccountPage} from "@/pages/AccountPage.tsx";
+import {AccountPage} from "@/pages/AccountPage";
 import {OnboardingRoute} from '@/components/routing/OnboardingRoute';
 
 import {useSvelteComponent} from "svelte-in-react";
@@ -110,7 +110,7 @@ const RoutesWithAuth = () => {
                 <Route path="/contacts" element={<ContactListPage/>}/>
                 <Route path="/contacts/create" element={<CreateContactPage/>}/>
                 <Route path="/contacts/:id" element={<ContactViewPage/>}/>
-                <Route path="/groups" element={<GroupPage/>}/>
+                <Route path="/groups" element={<GroupListPage/>}/>
                 <Route path="/groups/create" element={<CreateGroupPage/>}/>
                 <Route path="/groups/:groupId" element={<GroupDetailPage/>}/>
                 <Route path="/groups/:groupId/info" element={<GroupInfoPage/>}/>

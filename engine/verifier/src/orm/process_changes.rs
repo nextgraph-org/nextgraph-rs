@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -6,6 +6,7 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use futures::channel::mpsc::UnboundedSender;
 use ng_repo::errors::VerifierError;
@@ -874,8 +875,15 @@ impl Verifier {
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
     ) -> Result<(UnboundedSender<AppResponse>, &OrmSubscription), VerifierError> {
-        let subs = self.orm_subscriptions.get_mut(nuri).unwrap();
+        let mut subs = self.orm_subscriptions.remove(nuri).unwrap();
         subs.retain(|sub| !sub.sender.is_closed());
+        if subs.is_empty() {
+            return Err(VerifierError::OrmSubscriptionNotFound);
+        }
+        let subs = self
+            .orm_subscriptions
+            .entry(nuri.clone())
+            .or_insert_with(|| subs);
         match subs // Filter shapes, if present.
             .iter()
             .filter(|s| match shape {

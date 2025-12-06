@@ -473,11 +473,13 @@ export interface Photo {
   /**
    * The URL of the photo
    */
-  value: string;
+  photoUrl?: string;
   /**
-   * The binary photo data
+   * The IRI of blob
    */
-  data?: string;
+  photoIRI: {
+    "@id": string;
+  };
   /**
    * True if the photo is a default photo
    */
@@ -1387,17 +1389,36 @@ export interface InternalGroup {
   "@id"?: string;
   "@context"?: LdoJsonldContext;
   /**
-   * Mostly to preserve current mock UI group id
+   * Group id
    */
-  value: string;
+  groupId: {
+    "@id": string;
+  };
   /**
-   * Source of the internal group data
+   * Status of group member
    */
-  source?: string;
+  memberStatus:
+    | {
+        "@id": "invited";
+      }
+    | {
+        "@id": "joined";
+      }
+    | {
+        "@id": "declined";
+      };
+  /**
+   * When user joined
+   */
+  joinDate?: string;
   /**
    * Whether this is hidden from list
    */
   hidden?: boolean;
+  /**
+   * Source of the groups
+   */
+  source?: string;
 }
 
 /**

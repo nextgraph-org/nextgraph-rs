@@ -6,9 +6,8 @@ import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 export const DEFAULT_CENTER: [number, number] = [39.8283, -98.5795];
 export const DEFAULT_ZOOM = 4;
 
-export const createCustomIcon = (contact: Contact): L.DivIcon => {
+export const createCustomIcon = (contact: Contact, displayUrl: string | undefined): L.DivIcon => {
   const name = resolveFrom(contact, 'name');
-  const photo = resolveFrom(contact, 'photo');
 
   const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
   const initials = (displayName || 'Unknown')
@@ -24,8 +23,8 @@ export const createCustomIcon = (contact: Contact): L.DivIcon => {
         height: 60px;
         border-radius: 50%;
         background: ${
-          photo?.value
-            ? `url('${photo.value}') center/cover, linear-gradient(135deg, #1976d2, #42a5f5)`
+      displayUrl
+            ? `url('${displayUrl}') center/cover, linear-gradient(135deg, #1976d2, #42a5f5)`
             : 'linear-gradient(135deg, #1976d2, #42a5f5)'
         };
         border: 3px solid white;
@@ -35,7 +34,7 @@ export const createCustomIcon = (contact: Contact): L.DivIcon => {
         justify-content: center;
         color: white;
         font-weight: 600;
-        font-size: ${photo?.value ? '12px' : '16px'};
+        font-size: ${displayUrl ? '12px' : '16px'};
         font-family: 'Roboto', sans-serif;
         cursor: pointer;
         transition: transform 0.2s ease;
@@ -47,7 +46,7 @@ export const createCustomIcon = (contact: Contact): L.DivIcon => {
       onerror="this.style.background='linear-gradient(135deg, #1976d2, #42a5f5)';"
       >
         ${
-          photo?.value
+            displayUrl
             ? `<span style="
             position: absolute;
             top: -8px;

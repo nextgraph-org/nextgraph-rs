@@ -940,9 +940,13 @@ export const contactContext: LdoJsonldContext = {
     "@type": "@id",
     "@isCollection": true,
   },
-  data: {
-    "@id": "did:ng:x:contact#data",
-    "@type": "http://www.w3.org/2001/XMLSchema#base64Binary",
+  photoUrl: {
+    "@id": "did:ng:x:core#photoUrl",
+    "@type": "http://www.w3.org/2001/XMLSchema#string",
+  },
+  photoIRI: {
+    "@id": "did:ng:x:core#photoIRI",
+    "@type": "@id",
   },
   coverPhoto: {
     "@id": "did:ng:x:contact#coverPhoto",
@@ -1220,6 +1224,21 @@ export const contactContext: LdoJsonldContext = {
     "@id": "did:ng:x:contact#internalGroup",
     "@type": "@id",
     "@isCollection": true,
+  },
+  groupId: {
+    "@id": "did:ng:x:contact#groupId",
+    "@type": "@id",
+  },
+  memberStatus: {
+    "@id": "did:ng:x:contact#memberStatus",
+    "@isCollection": true,
+  },
+  invited: "did:ng:k:contact:memberStatus#invited",
+  joined: "did:ng:k:contact:memberStatus#joined",
+  declined: "did:ng:k:contact:memberStatus#declined",
+  joinDate: {
+    "@id": "did:ng:x:contact#joinDate",
+    "@type": "http://www.w3.org/2001/XMLSchema#date",
   },
   headline: {
     "@id": "did:ng:x:contact#headline",

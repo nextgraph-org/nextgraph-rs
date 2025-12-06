@@ -38,6 +38,7 @@ export const init = async function(callback:Function | null, singleton:boolean, 
   }
 }
 
+//TODO: add all the streamed functions
 const streamed_api: Record<string,number> = {
   "doc_subscribe": 2,
   "orm_start": 3,
@@ -49,7 +50,7 @@ function rpc( method:string, args?: any) : Promise<any> {
   const { port1, port2 } = new MessageChannel();
   //console.log("POSTING",method, args);
   let callback_idx = streamed_api[method];
-  if (callback_idx !== undefined) { //TODO: add all the streamed functions
+  if (callback_idx !== undefined) { 
     let callback = args[callback_idx];
     let new_args = args.slice(0, -1);
     parent.postMessage({ method, streamed:true, args:new_args, port: port2 }, config.origin, [port2]);
@@ -59,12 +60,24 @@ function rpc( method:string, args?: any) : Promise<any> {
         if (m.data.stream) {
           if (!resolved) {
             resolve(()=>{ 
+              port1.postMessage({close:true});
               port1.close();
             });
             resolved = true;
           }
           if (m.data.ret !== undefined) {
-            (callback)(m.data.ret);
+            let cbret = (callback)(m.data.ret);
+            if (cbret?.then) {
+                cbret.then((val: boolean | undefined)=> { 
+                    if (val === true) {
+                        port1.postMessage({close:true});
+                        port1.close();
+                    }
+                });
+            } else if (cbret === true) {
+                port1.postMessage({close:true});
+                port1.close();
+            }
           }
         } else if (!m.data.ok) {
           if (!resolved) {

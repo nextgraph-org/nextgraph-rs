@@ -62,10 +62,10 @@ export function transformRawContact(rawContact: RawContact): Contact {
       position: rawContact.position,
       source: 'contacts'
     }]) : undefined,
-    photo: rawContact.profileImage ? new BasicLdSet([{
+/*    photo: rawContact.profileImage ? new BasicLdSet([{
       value: rawContact.profileImage,
       source: 'contacts'
-    }]) : undefined,
+    }]) : undefined,*/
     address: rawContact.location ? new BasicLdSet([{
       locality: rawContact.location.city,
       region: rawContact.location.state,
@@ -88,10 +88,10 @@ export function transformRawContact(rawContact: RawContact): Contact {
     interactionCount: rawContact.interactionCount || 0,
     recentInteractionScore: rawContact.recentInteractionScore || 0,
     sharedTagsCount: rawContact.sharedTagsCount || 0,
-    internalGroup: rawContact.groupIds ? new BasicLdSet(rawContact.groupIds.map((groupId) => ({
-      value: groupId,
+    /*internalGroup: rawContact.groupIds ? new BasicLdSet(rawContact.groupIds.map((groupId) => ({
+      groupId: groupId,
       source: 'contacts'
-    }))) : undefined,
+    }))) : undefined,*/
     // Transform dates
     createdAt: rawContact.createdAt ? {
       valueDateTime: rawContact.createdAt

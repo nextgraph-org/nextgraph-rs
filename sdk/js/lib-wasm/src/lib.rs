@@ -1148,7 +1148,44 @@ pub async fn import_contact_from_qrcode(
 }
 
 #[wasm_bindgen]
-pub async fn get_qrcode_for_profile(session_id: JsValue, size: JsValue) -> Result<String, String> {
+pub async fn get_qrcode_for_contact(
+    session_id: JsValue,
+    contact: String,
+    size: JsValue,
+) -> Result<String, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)
+        .map_err(|_| "Deserialization error of size".to_string())?;
+
+    let nuri = NuriV0::new_from(&contact).map_err(|e| e.to_string())?;
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::QrCodeProfile,
+        nuri,
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(
+            size,
+        ))),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    match response {
+        AppResponse::V0(AppResponseV0::Text(qrcode)) => Ok(qrcode),
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub async fn get_qrcode_for_profile(
+    session_id: JsValue,
+    contact: String,
+    size: JsValue,
+) -> Result<String, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)
@@ -1438,7 +1475,7 @@ async fn app_request_stream_(
     spawn_and_log_error(inner_task(reader, callback.clone(), canceller_tx.clone()));
 
     let cb = Closure::once(move || {
-        log_debug!("trying to cancel");
+        //log_info!("trying to cancel");
         //sender.close_channel()
         let _ = canceller_tx.unbounded_send(());
         canceller_tx.close_channel();
@@ -1470,8 +1507,13 @@ pub async fn app_request_with_nuri_command(
     session_id: JsValue,
     payload: JsValue,
 ) -> Result<JsValue, String> {
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
-        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} app_request_with_nuri_command {:?}",
+                session_id, command
+            )
+        })?;
     let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
 
     let command = serde_wasm_bindgen::from_value::<AppRequestCommandV0>(command)
@@ -1509,8 +1551,13 @@ pub async fn doc_create(
     destination: String,
     store_repo: JsValue,
 ) -> Result<JsValue, String> {
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
-        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} doc_create",
+                session_id
+            )
+        })?;
 
     let store_repo = serde_wasm_bindgen::from_value::<Option<StoreRepo>>(store_repo)
         .map_err(|_| "Deserialization error of store_repo".to_string())?;
@@ -1584,7 +1631,6 @@ pub async fn file_get(
 ) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-
     let nuri =
         NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?;
 
@@ -1594,7 +1640,6 @@ pub async fn file_get(
         NuriV0::new_from(&branch_nuri)
             .map_err(|e| format!("error with branch_nuri: {}", e.to_string()))?
     };
-
     file_get_(session_id, nuri, branch_nuri, callback).await
 }
 
@@ -1825,8 +1870,14 @@ pub async fn doc_subscribe(
     session_id: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
-        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} doc_subscribe {repo_o}",
+                session_id
+            )
+        })?;
+
     let mut request = AppRequest::doc_fetch_repo_subscribe(repo_o).map_err(|e| e.to_string())?;
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
@@ -1841,8 +1892,14 @@ pub async fn orm_start(
 ) -> Result<JsValue, String> {
     let shape_type: OrmShapeType = serde_wasm_bindgen::from_value::<OrmShapeType>(shapeType)
         .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
-        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} orm_start",
+                session_id
+            )
+        })?;
+
     let scope = if scope.is_empty() || scope == "did:ng:i" {
         NuriV0::new_entire_user_site()
     } else {
@@ -1870,10 +1927,16 @@ pub async fn orm_update(
         NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
     };
     let mut request = AppRequest::new_orm_update(scope, shapeTypeName, diff);
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
-        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} orm_update",
+                session_id
+            )
+        })?;
+
     request.set_session_id(session_id);
-    log_info!("[orm_update] calling orm_update");
+    //log_info!("[orm_update] calling orm_update");
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;

@@ -16,6 +16,7 @@
   import { origin } from "./store";
   import { onMount, tick, onDestroy } from "svelte";
   import ng from "@ng-org/ui-common/api";
+  import {worker_ready} from "../../../../sdk/js/api-web";
   import { 
     NotFound,
     WalletLogin,
@@ -73,7 +74,7 @@
   routes.set("/user", User);
   routes.set("/wallet", WalletInfo);
   routes.set("/user/accounts", AccountInfo);
-  routes.set("/wallet/scanqr", ScanQRWeb);
+  routes.set("/scanqr", ScanQRWeb);
   routes.set("/error", Error);
   routes.set("*", NotFound);
 
@@ -100,13 +101,14 @@
 
     window.document.getElementById("splash").className="noshow";
     window.document.getElementById("app").className="";
-    
-    try {
-      await disconnections_subscribe();
-    } catch (e) {
-      console.warn(e);
-      //console.log("called disconnections_subscribe twice");
-    }
+    await worker_ready;
+
+    // try {
+    //   await disconnections_subscribe();
+    // } catch (e) {
+    //   console.warn(e);
+    //   //console.log("called disconnections_subscribe twice");
+    // }
 
       // ON WEB CLIENTS
       window.addEventListener("storage", async (event) => {
@@ -128,7 +130,7 @@
       // https://bugs.webkit.org/show_bug.cgi?id=229814
       wallet_channel = new BroadcastChannel("ng_wallet");
       window.wallet_channel = wallet_channel;
-      wallet_channel.postMessage({ cmd: "startup" }, location.href);
+      
       wallet_channel.onmessage = async (event) => {
         // console.log(event.data.cmd, event.data);
         if (!location.href.startsWith(event.origin)) return;
@@ -263,8 +265,9 @@
         if (value) {
           logged_in = true;
           document.getElementById("banner").innerText = "Wallet opened for "+host;
+          let iframe_parent = window.document.getElementById("nextgraph-net-auth-iframe-parent");
           let iframe = window.document.getElementById("nextgraph-net-auth-iframe");
-          iframe?.classList.add('nextgraph-net-auth-iframe--active');
+          iframe_parent?.classList.add('nextgraph-net-auth-iframe-parent--active');
           window.document.getElementById("app").style["display"] = "none";
           let origin = window.location.origin;
           let encoded_origin = encodeURIComponent(origin);
@@ -288,7 +291,7 @@
               window.removeEventListener("message",ready_handler);
               const { port1, port2 } = new MessageChannel();
               port1.onmessage = async (e) => {
-                console.log("in broker auth got port message", e.data);
+                //console.log("in broker auth got port message", e.data);
                 if (e.data.done) {
                   // end of session
                   window.location.href = origin_url;
@@ -296,15 +299,24 @@
                   const method = e.data.method;
                   const args = e.data.args;
                   const port = e.data.port;
-                  if ( e.data.streamed ) {
+                  // TODO: once nextgraph.net is re-deployed, remove all the ORs
+                  if ( e.data.streamed || method === "doc_subscribe" || method === "orm_start" || method === "app_request_stream" || method === "file_get" ) {
                     //console.log("processing streamed request ...",method, args);
                     args.push((callbacked)=> {
                       port.postMessage({stream:true, ret:callbacked});
                     });
                     try {
                       let cancel_function = () => {};
+                      port.onmessage = (m) => {
+                          if (m.data.close) {
+                              port.close();
+                              cancel_function();
+                              cancel_function = () => {};
+                          }
+                      };
                       port.onclose = () => {
-                        cancel_function();
+                          cancel_function();
+                          cancel_function = () => {};
                       };
                       cancel_function = await Reflect.apply(ng[method], null, args);
                       port.postMessage({stream:true});
@@ -343,6 +355,7 @@
           window.location.href = origin_url;
         }
       });
+      wallet_channel.postMessage({ cmd: "startup" }, location.href);
       //TODO: remove this 
       //active_session.set({session_id:1});
   });

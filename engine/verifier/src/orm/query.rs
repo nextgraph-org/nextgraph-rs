@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -6,6 +6,7 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_repo::errors::VerifierError;
 use ng_repo::log::*;
@@ -251,7 +252,6 @@ impl Verifier {
         // Log base IRI safely even when None
         let nuri_dbg = nuri.as_deref().unwrap_or("");
         //log_info!("querying select\n{}\n{}\n", nuri_dbg, query);
-
         let parsed = Query::parse(&query, nuri.as_deref())
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
@@ -292,7 +292,7 @@ impl Verifier {
                                 },
                             };
 
-                            log_debug!("quad fetched: {:?}", quad);
+                            // log_debug!("quad fetched: {:?}", quad);
                             result_quads.push(quad);
                         }
                     }

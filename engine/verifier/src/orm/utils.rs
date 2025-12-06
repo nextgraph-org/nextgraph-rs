@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -6,6 +6,7 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_oxigraph::oxrdf::{GraphName, Quad, Subject};
 use ng_repo::types::OverlayId;
@@ -52,39 +53,6 @@ pub fn group_by_graph_and_subject<'a>(
 
     return quads_by_key;
 }
-
-/// Creates a new HashMap of (graph_iri, subject_iri) => Quad[]
-/// Filtered for the allowed subjects and predicates in the shape.
-pub fn group_for_shape_and_subjects<'a>(
-    all_quads: &HashMap<GraphSubjectKey, Vec<&'a Quad>>,
-    shape: &OrmSchemaShape,
-    allowed_subjects: &[SubjectIri],
-) -> HashMap<GraphSubjectKey, Vec<&'a Quad>> {
-    let allowed_preds_set: HashSet<&str> =
-        shape.predicates.iter().map(|p| p.iri.as_str()).collect();
-
-    let mut ret: HashMap<GraphSubjectKey, Vec<&'a Quad>> = HashMap::new();
-
-    // Iterate over all (graph,subject) buckets and filter by allowed subjects (if any)
-    for ((graph_iri, subject_iri), quads) in all_quads.iter() {
-        if !allowed_subjects.is_empty() && !allowed_subjects.contains(subject_iri) {
-            continue;
-        }
-
-        for quad in quads {
-            if allowed_preds_set.contains(quad.predicate.as_str()) {
-                ret.entry((graph_iri.clone(), subject_iri.clone()))
-                    .or_insert_with(Vec::new)
-                    .push(*quad);
-            }
-        }
-    }
-
-    ret
-}
-
-// let allowed_preds_set: HashSet<&str> =
-//     shape.predicates.iter().map(|p| p.iri.as_str()).collect();
 
 pub fn nuri_to_string(nuri: &NuriV0) -> String {
     // Get repo_id and overlay_id from the nuri

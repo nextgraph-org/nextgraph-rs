@@ -1,68 +1,39 @@
-import {forwardRef, useState} from 'react';
+import {forwardRef, useCallback, useState} from 'react';
 import {
-  Typography,
   Box,
   Grid,
-  Card,
-  CardContent,
-  Avatar,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Link,
   IconButton,
   Collapse,
 } from '@mui/material';
 import {
   UilEdit,
-  UilCheckCircle,
   UilAngleUp, UilAngleDown,
 } from '@iconscout/react-unicons';
 import type {ProfileSectionProps} from '../types';
-import {useNavigate} from "react-router-dom";
-import {FormPhoneField} from "@/components/ui/FormPhoneField/FormPhoneField";
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
 import {MultiPropertyWithVisibility} from "@/components/contacts/MultiPropertyWithVisibility";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {ContactTags} from "@/components/contacts";
+import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
   ({initialProfileData, resource}, ref) => {
-    const navigate = useNavigate();
-
     const [isEditing, setIsEditing] = useState(false);
-    const [showGreencheckDialog, setShowGreencheckDialog] = useState(false);
     const [showNameDetails, setShowNameDetails] = useState(false);
-    const [greencheckData, setGreencheckData] = useState({
-      phone: '',
-    });
-    const [valid, setValid] = useState<boolean>(false);
-
     const name = resolveFrom(initialProfileData, 'name');
     const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
 
-    const avatar = resolveFrom(initialProfileData, 'photo');
-
-    const handleEdit = () => {
+    const handleEdit = useCallback(() => {
       setIsEditing(true);
       setShowNameDetails(true);
-    };
+    }, []);
 
-    const handleSave = () => {
+    const handleSave = useCallback(() => {
       setIsEditing(false);
       setShowNameDetails(false);
-    };
-
-    const handleGreencheckConnect = () => {
-      setShowGreencheckDialog(true);
-    };
-
-    const handleGreencheckSubmit = () => {
-      navigate('/verify-phone/' + greencheckData.phone)
-    };
+    }, []);
 
     return (
       <Box ref={ref} sx={{position: 'relative'}}>
@@ -71,22 +42,10 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
           <Grid size={{xs: 12, md: 4}}>
             <Box sx={{
               display: 'flex',
-              gap: 2,
               alignItems: "center"
             }}>
-              <Avatar
-                sx={{
-                  width: {xs: 100, md: 120,},
-                  height: {xs: 100, md: 120,},
-                  mb: 2,
-                  bgcolor: 'primary.main',
-                  fontSize: '3rem'
-                }}
-                alt="Profile"
-                src={avatar?.value}
-              >
-                {displayName?.charAt(0)}
-              </Avatar>
+                    <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}
+                                         isEditing={isEditing} forProfile={true}/>
               <Box sx={{
                 display: "flex",
                 flexDirection: "row",
@@ -197,7 +156,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 resource={resource}
               />
             </Box>
-            <Box>
+            <Box sx={{pt: 1}}>
               <ContactTags contact={initialProfileData} resource={resource}/>
             </Box>
           </Grid>
@@ -281,50 +240,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   resource={resource}
                 />
               </Box>
-
-              {/* Greencheck Section - only show in edit mode */}
-              {isEditing && (
-                <Box sx={{mt: 2}}>
-                  <Card sx={{backgroundColor: 'grey.50', border: '1px solid', borderColor: 'grey.200'}}>
-                    <CardContent sx={{py: 2}}>
-                      <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                        <Box>
-                          <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 0.5}}>
-                            <UilCheckCircle size="20" style={{color: 'inherit'}}/>
-                            <Typography variant="body2" sx={{fontWeight: 600}}>
-                              Claim other accounts via Greencheck
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" color="text.secondary" sx={{display: 'block'}}>
-                            Verify and import your profiles from other platforms
-                          </Typography>
-                        </Box>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={handleGreencheckConnect}
-                          sx={{ml: 2}}
-                        >
-                          Connect
-                        </Button>
-                      </Box>
-                      <Link
-                        href="https://greencheck.world/about"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{
-                          fontSize: '0.875rem',
-                          fontWeight: 600,
-                          display: 'inline-block',
-                          mt: 2
-                        }}
-                      >
-                        Learn more about Greencheck →
-                      </Link>
-                    </CardContent>
-                  </Card>
-                </Box>
-              )}
             </Box>
           </Grid>
         </Grid>
@@ -355,52 +270,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
           )}
         </Box>
 
-        {/* Greencheck Connection Dialog */}
-        <Dialog open={showGreencheckDialog} onClose={() => setShowGreencheckDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Connect to Greencheck</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary" sx={{mb: 3}}>
-              Enter your details to verify and claim your accounts from other platforms via Greencheck.
-            </Typography>
 
-            <Box sx={{display: 'flex', flexDirection: 'column', gap: 2, pt: 1}}>
-              <FormPhoneField
-                fullWidth
-                label="Phone number"
-                value={greencheckData.phone}
-                onChange={(e) => {
-                  setValid(e.isValid);
-                  setGreencheckData(prev => ({...prev, phone: e.target.value}))
-                }}
-                required
-              />
-            </Box>
-
-            <Box sx={{
-              mt: 3,
-              p: 2,
-              backgroundColor: 'info.50',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'info.200'
-            }}>
-              <Typography variant="caption" color="text.secondary">
-                <strong>Note:</strong> Greencheck will verify your identity and help you claim profiles from LinkedIn,
-                Twitter, Facebook, and other platforms.
-              </Typography>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowGreencheckDialog(false)}>Cancel</Button>
-            <Button
-              variant="contained"
-              onClick={handleGreencheckSubmit}
-              disabled={!valid || greencheckData.phone.trim() === ""}
-            >
-              Connect to Greencheck
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Box>
     );
   }

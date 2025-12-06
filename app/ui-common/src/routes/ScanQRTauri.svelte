@@ -32,7 +32,7 @@
   onMount(async () => {
 
     // Load Native Scanner
-    nativeScanner = await import("@tauri-apps/plugin-barcode-scanner");
+    nativeScanner = await import("@ng-org/plugin-barcode-scanner");
 
     let perms = await nativeScanner.requestPermissions();
     console.log(perms);

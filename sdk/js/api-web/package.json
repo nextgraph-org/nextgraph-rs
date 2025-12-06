@@ -4,6 +4,10 @@
   "version": "0.1.2",
   "type": "module",
   "main": "main.ts",
+  "license": "MIT/Apache-2.0",
+  "authors": [
+    "Niko Bonnieure"
+  ],
   "exports": {
     ".": {
       "default": "./main.ts"

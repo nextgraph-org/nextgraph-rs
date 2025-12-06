@@ -1,9 +1,10 @@
 import {LdSet} from '@ldo/ldo';
 import {SocialContact} from '@/.ldo/contact.typings';
-import {Contact, Source} from "@/types/contact";
+import {Contact} from "@/types/contact";
 import {contactContext} from "@/.ldo/contact.context";
 import {BasicLdSet} from "@/lib/ldo/BasicLdSet";
 import {geoApiService} from "@/services/geoApiService.ts";
+import {defaultPolicy} from "@/config/sources.ts";
 
 export const contactCommonProperties = [
   "@id",
@@ -81,7 +82,7 @@ function hasProperty(item: any, property: string): item is { [property]?: any } 
   return item && typeof item === 'object' && item[property] && item[property];
 }
 
-const defaultPolicy: Source[] = ["user", "GreenCheck", "linkedin", "Android Phone", "iPhone", "Gmail", "vcard"];
+
 
 export function resolveFrom<K extends ResolvableKey>(
   socialContact: SocialContact | undefined,
@@ -130,7 +131,8 @@ export function getSubProperty(item: ItemOf<keyof ContactLdSetProperties>, prope
   }
 }
 
-export function getPropsByFilter<K extends keyof ContactLdSetProperties>(socialContact: SocialContact, key: K, filterParams: Partial<ItemOf<keyof ContactLdSetProperties>>): ItemOf<K>[] {
+export function getPropsByFilter<K extends keyof ContactLdSetProperties>(socialContact: SocialContact | undefined, key: K, filterParams: Partial<ItemOf<keyof ContactLdSetProperties>>): ItemOf<K>[] {
+  if (!socialContact) return [];
   //@ts-expect-error this is crazy, but that how it works
   return (socialContact[key]?.toArray() ?? []).filter((item) => {
     const filterProps = Object.keys(filterParams) as (keyof ItemOf<keyof ContactLdSetProperties>)[];
@@ -270,6 +272,7 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
 
         handleLdoBug(el, "type2", withIds);
         handleLdoBug(el, "valueIRI", withIds);
+        handleLdoBug(el, "photoIRI", withIds);
 
         contact[property]!.add(el);
       });
@@ -313,7 +316,10 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
   await geoApiService.initContactGeoCodes(contact);
 
   //TODO: remove this when we would have real data
-  contact.centralityScore = Math.round(100 * Math.random());
+  // Only generate the centralityScore once, so we can reliably test the network graph
+  if (contact.centralityScore === undefined) {
+    contact.centralityScore = Math.round(100 * Math.random());
+  }
   //// TODO:
 
   return contact;

@@ -167,7 +167,7 @@ export interface SocialContact {
   /**
    * Original IRI: did:ng:x:contact#rcard
    */
-  rcard: IRI;
+  rcard?: IRI;
   /**
    * Original IRI: did:ng:x:contact#naoStatus
    */
@@ -650,15 +650,15 @@ export interface Photo {
   /**
    * The URL of the photo
    *
-   * Original IRI: did:ng:x:core#value
+   * Original IRI: did:ng:x:core#photoUrl
    */
-  value: string;
+  photoUrl?: string;
   /**
-   * The binary photo data
+   * The IRI of blob
    *
-   * Original IRI: did:ng:x:contact#data
+   * Original IRI: did:ng:x:core#photoIRI
    */
-  data?: string;
+  photoIRI: IRI;
   /**
    * True if the photo is a default photo
    *
@@ -1548,23 +1548,38 @@ export interface InternalGroup {
   readonly "@graph": IRI;
   readonly "@id": IRI;
   /**
-   * Mostly to preserve current mock UI group id
+   * Group id
    *
-   * Original IRI: did:ng:x:core#value
+   * Original IRI: did:ng:x:contact#groupId
    */
-  value: string;
+  groupId: IRI;
   /**
-   * Source of the internal group data
+   * Status of group member
    *
-   * Original IRI: did:ng:x:core#source
+   * Original IRI: did:ng:x:contact#memberStatus
    */
-  source?: string;
+  memberStatus:
+    | "did:ng:k:contact:memberStatus#invited"
+    | "did:ng:k:contact:memberStatus#joined"
+    | "did:ng:k:contact:memberStatus#declined";
+  /**
+   * When user joined
+   *
+   * Original IRI: did:ng:x:contact#joinDate
+   */
+  joinDate?: string;
   /**
    * Whether this is hidden from list
    *
    * Original IRI: did:ng:x:core#hidden
    */
   hidden?: boolean;
+  /**
+   * Source of the groups
+   *
+   * Original IRI: did:ng:x:core#source
+   */
+  source?: string;
 }
 
 /**

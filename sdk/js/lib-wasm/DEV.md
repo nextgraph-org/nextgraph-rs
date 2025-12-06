@@ -17,7 +17,7 @@ cargo install cargo-run-script
 ```
 
 Please note that the dev and prod builds share the same output folder, they thus override each other.
-When building the app, be sure to have the production build of the SDK in the output folder.
+When building the app for production, be sure to have the [production build](#production-build) of this SDK in the output folder.
 
 ```bash
 // for the app sdk (browser)
@@ -47,7 +47,9 @@ wasm-pack test --chrome --headless
 in a separate terminal, from the root of the mono-repo :
 
 ```bash
+# only run that once when you install your dev env:
 pnpm buildfrontdev3
+# run this every time you start to work anew:
 cd engine/broker/auth
 pnpm dev3
 ```
@@ -56,25 +58,34 @@ in a separate terminal, from the root of the mono-repo :
 
 ```bash
 cd infra/ngnet
+# only run that once when you install your dev env:
 cargo run-script buildfrontdev3
+# run this every time you start to work anew:
 cargo run
 ```
 
-in a separate terminal, from the root of the mono-repo, start your local ngd
+in a separate terminal, from the root of the mono-repo, start your local ngd (run this every time you start to work anew)
 
 ```bash
 export NG_DEV3=1; cargo run -r -p ngd -- -vv --save-key -l 14400
-# Then log in to your account by opening
+# Then use the invitation like provided in output of ngd (the second one with port 14400, without replacing the port with 1421) to create an account
+# Then, keep your wallet open by having this URL opened in another tab :
 # http://localhost:14400
 ```
+
+In this setup you can only have one account. if you need to reset the account/wallet, you can delete `.ng` folder at root of repo, or install and run the ngaccount binary by doing (optional) :
+
+- take note of the PeerID of the node that is displayed in the log output of ngd (you will maybe need it later)
+- open your web-browser's console log, and copy the USER PRIV_KEY that is displayed in a warning (you will maybe need it later)
+- the follow [the steps in chapter "setting up local account server" of this readme](../../../DEV-ALLELO.md#setting-up-local-account-server) to install and run your ngaccount server
 
 finally, start your local third party webapp you will use to test the WASM SDK.
 in a separate terminal, from the root of the mono-repo,
 
 ```bash
-# This is up to you. By example :
-cd sdk/js/examples/multi-framework-signals
-pnpm dev
+# for the allelo app
+cd app/allelo
+pnpm webdev3
 # Then open that app in your browser
 ```
 
@@ -82,7 +93,7 @@ every time you modify the SDK, re-run (at the root of mono-repo) :
 
 ```bash
 cargo run-script libwasmdev3
-# Or in the sdk/js/lib-wasm folder run cargo run-script appdev3
+# Or in the sdk/js/lib-wasm folder run: cargo run-script appdev3
 ```
 
 ## Production build

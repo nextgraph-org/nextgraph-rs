@@ -8,6 +8,17 @@ import SvelteRoot from "../components/SvelteRoot.svelte";
 const title = "Multi-framework app";
 ---
 
+<!--
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// Licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice may not be copied, modified, or distributed except
+// according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
 <script>
     import { ng, init } from "@ng-org/web";
     import { initNg } from "@ng-org/signals";
@@ -22,19 +33,26 @@ const title = "Multi-framework app";
                 public_store_id: unknown;
             };
         }) => {
-            console.log("ng web initialized. event.status, session_id:", event.status, event.session.session_id);
+            console.log(
+                "ng web initialized. event.status, session_id:",
+                event.status,
+                event.session.session_id
+            );
             console.log(await ng.locales());
             let info = await ng.client_info();
             console.log(info.V0.details);
             initNg(ng, event.session);
 
+            // This is for debugging/test purposes only.
+            // @ts-expect-error
             window.ng = ng;
-            window.session = event.session;            
+
+            // @ts-expect-error
+            window.session = event.session;
         },
         true,
         []
     );
-    
 </script>
 <Layout title={title}>
     <Highlight vue>
@@ -48,5 +66,4 @@ const title = "Multi-framework app";
     <Highlight svelte>
         <SvelteRoot client:only />
     </Highlight>
-
 </Layout>

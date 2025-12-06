@@ -19,9 +19,11 @@
     "webdev": "cross-env NG_ENV_WEB=1 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
     "webdev3": "cross-env NG_ENV_WEB=3 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
     "webbuild": "cross-env NG_ENV_WEB=1 NG_ENV_ONEFILE=1 vite build && node prepare-web-file.cjs",
+    "webbuild3": "cross-env NG_ENV_WEB=3 NG_ENV_ONEFILE=1 vite build && node prepare-web-file.cjs",
     "libwasm": "cd ../.. && cargo install cargo-run-script && cargo run-script libwasm"
   },
   "dependencies": {
+    "@choochmeque/tauri-plugin-google-auth-api": "^0.3.4",
     "@dnd-kit/core": "^6.1.0",
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/utilities": "^3.2.1",
@@ -45,7 +47,7 @@
     "@smui/switch": "^8.0.3",
     "@smui/textfield": "^8.0.3",
     "@tauri-apps/api": "^2.9.0",
-    "@tauri-apps/plugin-barcode-scanner": "workspace:*",
+    "@ng-org/plugin-barcode-scanner": "workspace:*",
     "@tauri-apps/plugin-log": "^2.7.0",
     "@tauri-apps/plugin-opener": "^2",
     "async-proxy": "^0.4.1",
@@ -60,7 +62,6 @@
     "libphonenumber-js": "^1.12.17",
     "mustache": "^4.2.0",
     "openai": "^6.8.0",
-    "qrcode.react": "^4.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.62.0",

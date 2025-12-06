@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -6,6 +6,7 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::local_broker::{doc_sparql_update, orm_start};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
@@ -37,7 +38,7 @@ async fn test_orm_patch_creation() {
 
     test_cross_graph_child_in_separate_graph(session_id).await;
 
-    // test_patch_add_nested_1(session_id).await;  // TODO: Edge case not yet fully implemented
+    // _test_patch_add_nested_1(session_id).await;  // TODO: Edge case not yet fully implemented
 }
 
 /// Test that when a root object references a child object that lives in a different graph,
@@ -596,7 +597,7 @@ DELETE DATA {
 /// Tests edge case that is an open TODO about a modified nested object
 /// that changes so that another allowed shape becomes valid.
 /// See handle_backend_update's TODO comment.
-async fn test_patch_add_nested_1(session_id: u64) {
+async fn _test_patch_add_nested_1(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"

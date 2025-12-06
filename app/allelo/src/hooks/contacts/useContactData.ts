@@ -7,7 +7,7 @@ import {SocialContact} from "@/.ldo/contact.typings";
 import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
 import {useMockContactSubject} from "@/hooks/contacts/useMockContactSubject";
 
-export const useContactData = (nuri: string | null, isProfile = false, /*refreshKey = 0*/) => {
+export const useContactData = (nuri: string | null | undefined, isProfile = false, /*refreshKey = 0*/) => {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -17,15 +17,15 @@ let wallet_port;
 //let web_origin_host;
 let session;
 
-async function rpc( method:string, port: MessagePort, args?: any) : Promise<any> {
+async function rpc( method:string, port: MessagePort, streamed: boolean, args?: any) : Promise<any> {
 
-  wallet_port.postMessage({ method, args, port: port }, [port]);
+  wallet_port.postMessage({ method, args, streamed, port: port }, [port]);
 
 }
 
 window.addEventListener("message", async (event)=>{
   //console.log("ngnet auth got msg from", event.origin, event.data);
-  const { method, port } = event.data;
+  const { method, port, streamed } = event.data;
   if (event.origin === parent_origin) {
     if (event.data.ready) return;
     if ( method === "init" ) {
@@ -35,7 +35,7 @@ window.addEventListener("message", async (event)=>{
       //web_origin_host = url.host;
       session = event.data.session;
       port.onclose = () => {
-        console.error("BSP parent window closed its port with us, te redirecting server");
+        console.error("BSP parent window closed its port with us, the redirecting server");
       };
       wallet_port = port;
 
@@ -55,7 +55,7 @@ window.addEventListener("message", async (event)=>{
     } else {
       //console.log("ngnet forward to Broker", method, event.data.args)
       // forward to app auth window
-      await rpc(method, port, event.data.args);
+      await rpc(method, port, streamed, event.data.args);
     }
 
   }
