@@ -152,7 +152,6 @@ export class OrmConnection<T extends BaseType> {
 
     private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent) => {
         if (this.suspendDeepWatcher || !patches.length) return;
-        console.debug("[onSignalObjectUpdate] got changes:", patches);
 
         const ormPatches = deepPatchesToWasm(patches);
 
@@ -248,7 +247,9 @@ export class OrmConnection<T extends BaseType> {
             // We use the root subject's graph as the basis.
             // TODO: We could use the closest parent's graph instead.
             subjectIri =
-                (path[0] as string).substring(0, 9 + 44) + ":q:" + randomString;
+                ((path[0] ?? graphIri) as string).substring(0, 9 + 44) +
+                ":q:" +
+                randomString;
         }
 
         return {

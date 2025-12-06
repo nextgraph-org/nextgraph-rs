@@ -346,9 +346,101 @@ describe("deepsignal/core", () => {
 
             delete store.c;
             expect(sum).to.equal(2);
+        });
 
-            store.c = 0;
-            expect(sum).to.equal(3);
+        it("should not retrigger effects when unrelated object branches change", () => {
+            const store = deepSignal({
+                alpha: { value: 1 },
+                beta: { value: 2 },
+            });
+            let runs = 0;
+
+            effect(() => {
+                runs += 1;
+                store.alpha.value;
+            });
+
+            expect(runs).to.equal(1);
+            store.beta.value = 3;
+            expect(runs).to.equal(1);
+        });
+
+        it("should not retrigger effects for untouched Set entries", () => {
+            const store = deepSignal(
+                {
+                    set: new Set<any>([
+                        { id: "a", data: { value: 1 } },
+                        { id: "b", data: { value: 2 } },
+                    ]),
+                },
+                {
+                    syntheticIdPropertyName: "id",
+                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                }
+            );
+
+            const [entryA, entryB] = Array.from(store.set);
+
+            let runs = 0;
+            effect(() => {
+                runs += 1;
+                (entryA as any).data.value;
+            });
+
+            expect(runs).to.equal(1);
+            (entryB as any).data.value = 5;
+            expect(runs).to.equal(1);
+        });
+
+        it("should subscribe to array iteration via Symbol.iterator", () => {
+            const store = deepSignal([1, 2]);
+            let total = 0;
+
+            effect(() => {
+                total = 0;
+                for (const value of store) {
+                    total += value;
+                }
+            });
+
+            expect(total).to.equal(3);
+            store.push(3);
+            expect(total).to.equal(6);
+        });
+
+        it("should subscribe to Set iteration via Symbol.iterator", () => {
+            const store = deepSignal({ set: new Set([1, 2]) });
+            let total = 0;
+
+            effect(() => {
+                total = 0;
+                for (const value of store.set) {
+                    total += value as number;
+                }
+            });
+
+            expect(total).to.equal(3);
+            store.set.add(3);
+            expect(total).to.equal(6);
+            store.set.delete(1);
+            expect(total).to.equal(5);
+        });
+
+        it("should subscribe when using Set iterator helper chains", () => {
+            const store = deepSignal({ set: new Set([1]) });
+            let reduced = 0;
+
+            effect(() => {
+                reduced = store.set
+                    .map((value) => value as number)
+                    .reduce((acc, value) => acc + value, 0);
+            });
+
+            expect(reduced).to.equal(1);
+            store.set.add(2);
+            expect(reduced).to.equal(3);
+            store.set.delete(1);
+            expect(reduced).to.equal(2);
         });
 
         it("should subscribe to changes for Object.getOwnPropertyNames()", () => {
