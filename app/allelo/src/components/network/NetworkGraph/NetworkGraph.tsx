@@ -67,8 +67,8 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
   }, [nodes.length, edges.length, currentZoomIndex, centeredNodeId]);
 
   // Compute zoom levels based on contact data
-  // Level 0 = zoomed out (largest canvas, all contacts)
-  // Level 4 = zoomed in (smallest canvas, fewer contacts)
+  // Level 0 = zoomed in (largest canvas, all contacts)
+  // Level 4 = zoomed out (smallest canvas, fewer contacts)
   const zoomLevels = useMemo(() => {
     const isViewingMe = !centeredNodeId || centeredNodeId === 'me';
     if (!isViewingMe) {
@@ -92,7 +92,7 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
       new ZoomInfo(maxDimension, c10, c8, c6, c4, c2)
     );
 
-    // Reverse levels so index 0 = largest canvas (zoomed out), index 4 = smallest (zoomed in)
+    // Reverse levels so index 0 = largest canvas (zoomed in), index 4 = smallest (zoomed out)
     const reversedLevels = [...rawLevels].reverse();
 
     // Ensure exactly 5 levels by padding if needed
@@ -135,7 +135,7 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
   }, [zoomLevels, currentZoomIndex, setMaxZoomIndex, setCanvasSize, centeredNodeId, viewportDimensions]);
 
   // Compute nodes with minZoomLevel assigned based on priority
-  // minZoomLevel: 0 = visible at all zoom levels, 4 = only visible at level 0 (zoomed out)
+  // minZoomLevel: 0 = visible at all zoom levels, 4 = only visible at level 0 (zoomed in)
   const nodesWithZoomLevel = useMemo(() => {
     const isViewingMe = !centeredNodeId || centeredNodeId === 'me';
 
@@ -177,7 +177,7 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
     const nodesWithLevel = sortedNodes.map((node, index) => {
       let minZoomLevel = 4; // Default: only visible at level 0
 
-      // Find the highest zoom level (most zoomed in) that includes this contact
+      // Find the highest zoom level (most zoomed out) that includes this contact
       for (let level = 4; level >= 0; level--) {
         if (index < levelCounts[level]) {
           minZoomLevel = 4 - level; // Convert: level 4 → minZoomLevel 0, level 0 → minZoomLevel 4
@@ -204,8 +204,8 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
     }
 
     // At zoom level N, show contacts where minZoomLevel <= (4 - N)
-    // Level 0 (zoomed out): show minZoomLevel <= 4 (all)
-    // Level 4 (zoomed in): show minZoomLevel <= 0 (only priority)
+    // Level 0 (zoomed in): show minZoomLevel <= 4 (all)
+    // Level 4 (zoomed out): show minZoomLevel <= 0 (only priority)
     const maxMinZoomLevel = 4 - currentZoomIndex;
 
     return nodesWithZoomLevel.filter(node =>

@@ -8,7 +8,7 @@ interface NetworkGraphState {
   centeredNodeId: string | null;
   viewHistory: string[];
   simulation: Simulation<GraphNode, GraphEdge> | null;
-  currentZoomIndex: number; // 0-4, where 0=most zoomed out, 4=most zoomed in
+  currentZoomIndex: number; // 0-4, where 0=most zoomed in, 4=most zoomed out
   canvasSize: number; // The current canvas size in pixels
   maxZoomIndex: number; // Maximum zoom index available (depends on data)
 
@@ -32,7 +32,7 @@ export const useNetworkGraphStore = create<NetworkGraphState>((set, get) => ({
   centeredNodeId: null,
   viewHistory: [],
   simulation: null,
-  currentZoomIndex: 0, // Start fully zoomed out (showing all contacts on largest canvas)
+  currentZoomIndex: 0, // Start fully zoomed in (showing all contacts on largest canvas)
   canvasSize: 1200,
   maxZoomIndex: 4,
 
