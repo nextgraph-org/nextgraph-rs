@@ -13,9 +13,8 @@ import {
     getDeepSignalVersion,
     isDeepSignal,
     subscribeDeepMutations,
-    type DeepPatch,
-    type DeepPatchBatch,
 } from "./deepSignal";
+import { DeepPatch, DeepPatchBatch } from "./types";
 
 export type RegisterCleanup = (cleanupFn: () => void) => void;
 
