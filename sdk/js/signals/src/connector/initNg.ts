@@ -11,10 +11,10 @@
 import * as NG from "@ng-org/lib-wasm";
 
 type Session = {
-    session_id: unknown;
-    protected_store_id: unknown;
-    private_store_id: unknown;
-    public_store_id: unknown;
+    session_id: string | number;
+    protected_store_id: string;
+    private_store_id: string;
+    public_store_id: string;
 };
 
 let resolveNgSession: (value: { ng: typeof NG; session: Session }) => void;
@@ -25,6 +25,6 @@ export const ngSession = new Promise<{ ng: typeof NG; session: Session }>(
     }
 );
 
-export function initNg(ngImpl: typeof NG, session: Session) {
+export function initNgSignals(ngImpl: typeof NG, session: Session) {
     resolveNgSession({ ng: ngImpl, session });
 }

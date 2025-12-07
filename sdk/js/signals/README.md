@@ -35,9 +35,9 @@ await init(
 
 ### Adding new objects
 
-When adding an object to the root set, you must specify the `@graph` and `@id` (subject IRI) of the object. This will add the new object
-to the database. For sub-objects, you are not forced to specify a graph IRI or subject IRI, they may be empty `""`. In that cases,
-the parent graph's IRI is used and a random IRI, respectively.
+When adding an object to the root set, you must specify the `@graph` IRI of the object. With this, a new object is added to the database.
+If you do not want to specify the `@id` (subject IRI), set the property to `""` and a random subject IRI is generated based on the graph IRI. For sub-objects, you are not forced to specify a graph IRI either.
+In that cases, the parent graph's IRI is used.
 
 ### React
 

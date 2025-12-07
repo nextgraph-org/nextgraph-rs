@@ -8,64 +8,24 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { computed, signal, isSignal } from "./core";
-
-/** Deep mutation emitted from a deepSignal root. */
-export type DeepPatch = {
-    path: (string | number)[];
-} & (
-    | { op: "add"; type?: "object" | "set"; value?: any }
-    | { op: "remove"; type?: "set"; value?: any }
-);
-
-/** Batched patch payload tagged with a monotonically increasing version. */
-export interface DeepPatchBatch {
-    version: number;
-    patches: DeepPatch[];
-}
-
-export type DeepPatchSubscriber = (batch: DeepPatchBatch) => void;
-
-export interface DeepSignalOptions {
-    propGenerator?: DeepSignalPropGenFn;
-    syntheticIdPropertyName?: string;
-    readOnlyProps?: string[];
-}
-
-export type DeepSignalPropGenFn = (props: {
-    path: (string | number)[];
-    inSet: boolean;
-    object: any;
-}) => {
-    syntheticId?: string | number;
-    extraProps?: Record<string, unknown>;
-};
-
-interface ProxyMeta {
-    raw: object;
-    parent?: object;
-    key?: string | number | symbol;
-    isSyntheticId?: boolean;
-    root: symbol;
-    options: DeepSignalOptions;
-    setInfo?: SetMeta;
-}
-
-interface SetMeta {
-    idForObject: WeakMap<object, string>;
-    objectForId: Map<string, object>;
-}
-
-interface RootState {
-    options?: DeepSignalOptions;
-    version: number;
-    listeners: Set<DeepPatchSubscriber>;
-    pending: DeepPatch[];
-}
-
-type WritableSignal<T = any> = ReturnType<typeof signal<T>>;
-type ComputedSignal<T = any> = ReturnType<typeof computed<T>>;
-type SignalLike<T = any> = WritableSignal<T> | ComputedSignal<T>;
+import { computed, signal } from "./core";
+import {
+    DeepPatch,
+    DeepPatchBatch,
+    DeepPatchSubscriber,
+    DeepSignal,
+    DeepSignalOptions,
+    DeepSignalPropGenFn,
+    ProxyMeta,
+    RootState,
+    SetMeta,
+    SignalLike,
+    WritableSignal,
+} from "./types";
+import {
+    createIteratorWithHelpers,
+    iteratorHelperKeys,
+} from "./iteratorHelpers";
 
 const rawToProxy = new WeakMap<object, any>();
 const proxyToMeta = new WeakMap<object, ProxyMeta>();
@@ -695,8 +655,14 @@ const objectHandlers: ProxyHandler<any> = {
         if (key === META_KEY) return getMeta(receiver);
 
         // TODO: Why are we doing this?
-        if (typeof key === "symbol" && !isReactiveSymbol(key))
-            return Reflect.get(target, key, receiver);
+        if (typeof key === "symbol") {
+            if (key === Symbol.iterator) {
+                const iterableSig = ensureIterableSignal(target);
+                iterableSig();
+            }
+            if (!isReactiveSymbol(key))
+                return Reflect.get(target, key, receiver);
+        }
 
         // Get object map from key to signal.
         const signals = ensureSignalMap(receiver);
@@ -820,26 +786,23 @@ function createSetIterator(
     mapValue: (value: any) => any
 ) {
     const iterator = target.values();
-    return {
-        [Symbol.iterator]() {
-            return this;
-        },
-        next() {
-            const next = iterator.next();
-            if (next.done) return next;
-            const meta = getMeta(receiver)!;
-            const proxied = ensureEntryProxy(
-                receiver,
-                next.value,
-                assignSyntheticId(meta, next.value, [], true),
-                meta
-            );
-            return {
-                value: mapValue(proxied),
-                done: false,
-            };
-        },
-    };
+    const iterableSignal = ensureIterableSignal(target);
+    iterableSignal();
+    return createIteratorWithHelpers(() => {
+        const next = iterator.next();
+        if (next.done) return next;
+        const meta = getMeta(receiver)!;
+        const proxied = ensureEntryProxy(
+            receiver,
+            next.value,
+            assignSyntheticId(meta, next.value, [], true),
+            meta
+        );
+        return {
+            value: mapValue(proxied),
+            done: false,
+        };
+    });
 }
 
 /** Proxy handler providing deep-signal semantics for native Set instances. */
@@ -854,6 +817,8 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
         if (key === "first") {
             return function first() {
+                const iterableSig = ensureIterableSignal(target);
+                iterableSig();
                 const iterator = target.values().next();
                 if (iterator.done) return undefined;
                 const meta = getMeta(receiver)!;
@@ -867,6 +832,8 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
         if (key === "getById") {
             return function getById(this: any, id: string | number) {
+                const iterableSig = ensureIterableSignal(target);
+                iterableSig();
                 const meta = getMeta(receiver);
                 if (!meta?.setInfo) return undefined;
                 const entry = meta.setInfo.objectForId.get(String(id));
@@ -880,6 +847,8 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 graphIri: string,
                 subjectIri: string
             ) {
+                const iterableSig = ensureIterableSignal(target);
+                iterableSig();
                 return (this as any).getById(`${graphIri}|${subjectIri}`);
             };
         }
@@ -998,13 +967,37 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 ]);
             };
         }
+        if (typeof key === "string" && iteratorHelperKeys.has(key)) {
+            return function iteratorHelper(this: any, ...args: any[]) {
+                const iterator = createSetIterator(
+                    target,
+                    receiver,
+                    (value) => value
+                );
+                const helper = (iterator as any)[key];
+                if (typeof helper !== "function") {
+                    throw new TypeError(
+                        `Iterator helper '${String(key)}' is not available`
+                    );
+                }
+                return helper.apply(iterator, args);
+            };
+        }
         if (key === "forEach") {
             return function forEach(
                 this: any,
                 callback: (value: any, value2: any, set: Set<any>) => void,
                 thisArg?: any
             ) {
+                const iterableSig = ensureIterableSignal(target);
+                iterableSig();
                 const meta = getMeta(receiver)!;
+                let index = 0;
+                const expectsIteratorSignature = callback.length <= 2;
+                const iteratorCallback = callback as unknown as (
+                    value: any,
+                    index: number
+                ) => void;
                 target.forEach((entry) => {
                     const proxied = ensureEntryProxy(
                         receiver,
@@ -1012,7 +1005,11 @@ const setHandlers: ProxyHandler<Set<any>> = {
                         assignSyntheticId(meta, entry, [], true),
                         meta
                     );
-                    callback.call(thisArg, proxied, proxied, receiver);
+                    if (expectsIteratorSignature) {
+                        iteratorCallback.call(thisArg, proxied, index++);
+                    } else {
+                        callback.call(thisArg, proxied, proxied, receiver);
+                    }
                 });
             };
         }
@@ -1029,69 +1026,6 @@ const setHandlers: ProxyHandler<Set<any>> = {
 export function isDeepSignal(value: any): boolean {
     return !!getMeta(value);
 }
-
-/** Raw and meta key. */
-type DeepSignalObjectProps<T> = {
-    [RAW_KEY]: T;
-    [META_KEY]: ProxyMeta;
-};
-
-/** Utility functions for sets. */
-type DeepSignalSetProps<T> = {
-    /** Get the element that was first inserted into the set. */
-    first(): undefined | (T extends object ? DeepSignal<T> : T);
-
-    /**
-     * Retrieve an entry from the Set by its synthetic ID.
-     * @param id - The synthetic ID (string or number) assigned to the entry.
-     * @returns The proxied entry if found, undefined otherwise.
-     */
-    getById(id: string | number): DeepSignal<T> | undefined;
-    /**
-     * Retrieve an entry from the Set by constructing an ID from graphIri and subjectIri.
-     * This is a convenience method that constructs the ID as "graphIri|subjectIri".
-     * @param graphIri - The graph IRI part of the identifier.
-     * @param subjectIri - The subject IRI part of the identifier.
-     * @returns The proxied entry if found, undefined otherwise.
-     */
-    // NOTE: This is a bad separation of concerns here.
-    getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
-};
-
-/** Reactive Set wrapper that accepts raw or proxied entries. */
-export interface DeepSignalSet<T>
-    extends Set<DeepSignal<T>>,
-        DeepSignalObjectProps<Set<T>>,
-        DeepSignalSetProps<T> {
-    add(value: T | DeepSignal<T>): this;
-    delete(value: T | DeepSignal<T>): boolean;
-    has(value: T | DeepSignal<T>): boolean;
-}
-
-/**
- * The object returned by the @see deepSignal function.
- * It is decorated with utility functions for sets and a
- * `__raw__` prop to get the underlying non-reactive object
- * and `__meta__` prop, to get the internal metadata.
- */
-export type DeepSignal<T> = T extends Function
-    ? T
-    : T extends string | number | boolean
-      ? T
-      : // Do not re-proxy objects that are already DeepSignals
-        T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
-        ? T
-        : T extends Array<infer I>
-          ? DeepSignal<I>[]
-          : T extends Set<infer S>
-            ? DeepSignalSet<S>
-            : T extends object
-              ? DeepSignalObject<T>
-              : T;
-
-export type DeepSignalObject<T extends object> = {
-    [K in keyof T]: DeepSignal<T[K]>;
-};
 
 /**
  * Create a deep reactive proxy for objects, arrays or Sets.
