@@ -99,7 +99,6 @@ export class OrmConnection<T extends BaseType> {
                     session.session_id,
                     this.onBackendMessage
                 );
-                console.debug("Created session ", this);
             } catch (e) {
                 console.error(e);
             }

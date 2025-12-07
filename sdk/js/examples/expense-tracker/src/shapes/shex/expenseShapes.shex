@@ -14,7 +14,7 @@ ex:Expense {
     // rdfs:comment "The number of items bought" ;
   ex:dateOfPurchase xsd:date
     // rdfs:comment "The date of purchase" ;
-  ex:expenseCategory @ex:ExpenseCategory +
+  ex:expenseCategory IRI *
     // rdfs:comment "The use category of the product" ;  
   ex:isRecurring xsd:boolean
     // rdfs:comment "True, if this is a recurring expense (e.g. bus pass)" ;

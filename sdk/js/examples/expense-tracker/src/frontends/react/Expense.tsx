@@ -58,12 +58,16 @@ export function Expenses() {
             totalPrice: 0,
             paymentStatus: "http://example.org/Paid",
             isRecurring: false,
-            expenseCategory: new Set<ExpenseCategory>(),
+            expenseCategory: new Set<string>(),
             dateOfPurchase: new Date().toISOString(),
             title: "New expense",
             recurrenceInterval: "",
         });
     }, [expenses]);
+
+    const expensesSorted = [...expenses].sort((a, b) =>
+        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+    );
 
     return (
         <section className="panel">
@@ -81,13 +85,13 @@ export function Expenses() {
                 </button>
             </header>
             <div className="cards-stack">
-                {expenses.size === 0 ? (
+                {expensesSorted.length === 0 ? (
                     <p className="muted">
                         Nothing tracked yet - log your first purchase to kick
                         things off.
                     </p>
                 ) : (
-                    [...expenses].map((expense) => (
+                    expensesSorted.map((expense) => (
                         <Expense
                             key={expense["@graph"] + "|" + expense["@id"]}
                             expense={expense}
@@ -227,13 +231,10 @@ export function Expense({
                     availableCategories.length ? (
                         <div className="category-picker">
                             {availableCategories.map((category) => {
-                                const isChecked = [
-                                    ...expense.expenseCategory,
-                                ].some(
-                                    (c) =>
-                                        c["@id"] === category["@id"] &&
-                                        c["@graph"] === category["@graph"]
+                                const isChecked = expense.expenseCategory.has(
+                                    category["@id"]
                                 );
+
                                 const key =
                                     category["@graph"] + "|" + category["@id"];
                                 return (
@@ -248,11 +249,11 @@ export function Expense({
                                             onChange={(e) => {
                                                 if (e.target.checked) {
                                                     expense.expenseCategory.add(
-                                                        category
+                                                        category["@id"]
                                                     );
                                                 } else {
                                                     expense.expenseCategory.delete(
-                                                        category
+                                                        category["@id"]
                                                     );
                                                 }
                                             }}
@@ -279,12 +280,12 @@ export function Expense({
                     )
                 ) : expense.expenseCategory.size ? (
                     <div className="chip-list">
-                        {[...expense.expenseCategory].map((category) => {
-                            const key =
-                                category["@graph"] + "|" + category["@id"];
+                        {[...expense.expenseCategory].map((categoryIri) => {
                             return (
-                                <span className="chip" key={key}>
-                                    {category.categoryName || "Unnamed"}
+                                <span className="chip" key={categoryIri}>
+                                    {availableCategories.find(
+                                        (c) => c["@id"] === categoryIri
+                                    )?.categoryName || "Unnamed"}
                                 </span>
                             );
                         })}
