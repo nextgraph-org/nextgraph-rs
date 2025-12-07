@@ -3,6 +3,7 @@
 Reactive ORM library for NextGraph — use typed, reactive objects that automatically sync to NextGraph's encrypted, local-first storage.
 
 For a walk-through, you can see the the [expense-tracker example app](https://git.nextgraph.org/NextGraph/expense-tracker) which shows
+
 - React, Vue, and Svelte frontends sharing data
 - SHEX schema definitions
 - CRUD operations
@@ -11,24 +12,24 @@ For a walk-through, you can see the the [expense-tracker example app](https://gi
 ## Table of Contents
 
 - [@ng-org/signals](#ng-orgsignals)
-  - [Table of Contents](#table-of-contents)
-  - [Installation](#installation)
-  - [Quick Start](#quick-start)
-  - [Defining Schemas](#defining-schemas)
-  - [Framework Usage](#framework-usage)
-    - [React](#react)
-    - [Vue](#vue)
-    - [Svelte](#svelte)
-  - [Working with Data](#working-with-data)
-    - [Adding Objects](#adding-objects)
-    - [Modifying Objects](#modifying-objects)
-    - [Deleting Objects](#deleting-objects)
-    - [Working with Sets](#working-with-sets)
-    - [Relationships](#relationships)
-  - [API Reference](#api-reference)
-    - [`useShape(shapeType)`](#useshapeshapetype)
-    - [Shared State](#shared-state)
-  - [License](#license)
+    - [Table of Contents](#table-of-contents)
+    - [Installation](#installation)
+    - [Quick Start](#quick-start)
+    - [Defining Schemas](#defining-schemas)
+    - [Framework Usage](#framework-usage)
+        - [React](#react)
+        - [Vue](#vue)
+        - [Svelte](#svelte)
+    - [Working with Data](#working-with-data)
+        - [Adding Objects](#adding-objects)
+        - [Modifying Objects](#modifying-objects)
+        - [Deleting Objects](#deleting-objects)
+        - [Working with Sets](#working-with-sets)
+        - [Relationships](#relationships)
+    - [API Reference](#api-reference)
+        - [`useShape(shapeType)`](#useshapeshapetype)
+        - [Shared State](#shared-state)
+    - [License](#license)
 
 ---
 
@@ -66,7 +67,7 @@ await init(
 Then use `useShape()` in your components:
 
 ```typescript
-import { useShape } from "@ng-org/signals/react";  // or /vue, /svelte
+import { useShape } from "@ng-org/signals/react"; // or /vue, /svelte
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
 const dogs = useShape(DogShapeType);
@@ -84,6 +85,7 @@ for (const dog of dogs) {
 Define your data model using [SHEX (Shape Expressions)](https://shex.io/):
 
 **`shapes/shex/dogShape.shex`**:
+
 ```shex
 PREFIX ex: <http://example.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -103,6 +105,7 @@ Generate TypeScript types. Add the following to your `package.json` scripts and 
 ```
 
 This creates:
+
 - `dogShape.typings.ts` — TypeScript interfaces
 - `dogShape.shapeTypes.ts` — Shape type objects for `useShape()`
 - `dogShape.schema.ts` — Internal schema metadata
@@ -121,16 +124,16 @@ import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import type { Dog } from "./shapes/orm/dogShape.typings";
 
 export function DogList() {
-    const dogs = useShape(DogShapeType);  // DeepSignalSet<Dog>
+    const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
 
     return (
         <ul>
-            {[...dogs].map(dog => (
+            {[...dogs].map((dog) => (
                 <li key={dog["@id"]}>
                     {/* Direct mutation triggers re-render */}
                     <input
                         value={dog.name}
-                        onChange={e => dog.name = e.target.value}
+                        onChange={(e) => (dog.name = e.target.value)}
                     />
                 </li>
             ))}
@@ -143,26 +146,46 @@ export function DogList() {
 
 ### Vue
 
-**Parent component** (`DogList.vue`):
+In component `DogManager.vue`
+
 ```vue
 <script setup lang="ts">
+import { DeepSignal } from "@ng-org/alien-deepsignals";
+import DogComponent from "./Dog.vue";
+import { Dog } from "./types.ts";
 import { useShape } from "@ng-org/signals/vue";
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import DogCard from "./DogCard.vue";
 
-const dogs = useShape(DogShapeType);  // DeepSignalSet<Dog>
+const dogs: DeepSignal<Dog> = useShape(DogShapeType);
 </script>
 
 <template>
-    <DogCard
-        v-for="dog in dogs"
-        :key="dog['@id']"
-        :dog="dog"
-    />
+    <DogComponent v-for="dog in dogs" :key="dog.id" :dog="dog" />
+</template>
+```
+
+In a child component, `Dog.vue`. Note that you need to use `useDeepSignal`, to gain reactivity.
+
+```vue
+<script setup lang="ts">
+import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
+
+const props = defineProps<{
+    dog: DeepSignal<Dog>;
+}>();
+
+// Important!
+// In vue child components, you need to wrap deepSignal objects into useDeepSignal hooks, to ensure the component re-renders.
+const dog = useDeepSignal(props.dog);
+</script>
+<template>
+    {{ dog.name }}
 </template>
 ```
 
 **Child component** (`DogCard.vue`):
+
 ```vue
 <script setup lang="ts">
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
@@ -187,14 +210,14 @@ const dog = useDeepSignal(props.dog);
 
 ```svelte
 <script lang="ts">
-import { useShape } from "@ng-org/signals/svelte";
-import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
+    import { useShape } from "@ng-org/signals/svelte";
+    import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
-const dogs = useShape(DogShapeType);  // Reactive store
+    const dogs = useShape(DogShapeType); // Reactive store
 </script>
 
 <ul>
-    {#each [...$dogs] as dog (dog['@id'])}
+    {#each [...$dogs] as dog (dog["@id"])}
         <li>
             <input bind:value={dog.name} />
         </li>
@@ -228,9 +251,9 @@ const docIri = await session.ng.doc_create(
 
 // Add to the reactive set
 dogs.add({
-    "@graph": docIri,                   // Required: document IRI
-    "@type": "http://example.org/Dog",  // Required: RDF type
-    "@id": "",                          // Empty = auto-generate subject IRI
+    "@graph": docIri, // Required: document IRI
+    "@type": "http://example.org/Dog", // Required: RDF type
+    "@id": "", // Empty = auto-generate subject IRI
     name: "Buddy",
     age: 3,
     toys: new Set(["ball", "rope"]),
@@ -251,6 +274,7 @@ dog.age = 4;
 ```
 
 Changes are:
+
 - Immediately reflected in all components using the same shape
 - Automatically persisted to NextGraph storage
 - Synced to other devices in real-time
@@ -301,7 +325,7 @@ Link objects by storing the target's `@id` IRI:
 dog.owner = person["@id"];
 
 // Resolve the relationship
-const owner = people.find(p => p["@id"] === dog.owner);
+const owner = people.find((p) => p["@id"] === dog.owner);
 ```
 
 ---
@@ -317,6 +341,7 @@ const dogs = useShape(DogShapeType);
 ```
 
 **DeepSignalSet methods:**
+
 - `add(obj)` — Add a new object
 - `delete(obj)` — Remove an object
 - `has(obj)` — Check if object exists
@@ -337,7 +362,7 @@ Licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  
+
 at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
