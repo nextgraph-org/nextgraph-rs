@@ -53,12 +53,42 @@ const dogs = useShape(DogShapeType);
 
 ### Vue
 
-```ts
+In component `DogManager.vue`
+```vue
+<script setup lang="ts"> 
+import { DeepSignal } from "@ng-org/alien-deepsignals";
+import DogComponent from "./Dog.vue";
+import { Dog } from "./types.ts";
 import { useShape } from "@ng-org/signals/vue";
 import { DogShapeType } from "../shapes/orm/dogShape.shapeTypes";
 
-// Type Set<Dog>, it's now a reactive variable.
-const dogs = useShape(DogShapeType);
+const dogs: DeepSignal<Dog> = useShape(DogShapeType);
+</script>
+
+<template>
+    <DogComponent
+        v-for="dog in dogs"
+        :key="dog.id"
+        :dog="dog"
+    />
+</template>
+```
+In a child component, `Dog.vue`. Note that you need to use `useDeepSignal`, to gain reactivity.
+```vue
+<script setup lang="ts">
+import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
+
+const props = defineProps<{
+    dog: DeepSignal<Dog>;
+}>();
+
+// Important!
+// In vue child components, you need to wrap deepSignal objects into useDeepSignal hooks, to ensure the component re-renders.
+const dog = useDeepSignal(props.dog);
+</script>
+<template>
+    {{dog.name}}
+</template>
 ```
 
 ### Svelte
