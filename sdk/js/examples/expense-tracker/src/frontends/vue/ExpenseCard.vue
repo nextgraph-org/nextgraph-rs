@@ -16,11 +16,16 @@ import type {
     ExpenseCategory,
 } from "../../shapes/orm/expenseShapes.typings";
 import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
+import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 
 const props = defineProps<{
     expense: Expense;
     availableCategories: DeepSignalSet<ExpenseCategory>;
 }>();
+
+// Important!
+// In vue, you need to wrap children into useDeepSignal hooks, to ensure the component re-renders.
+const expense = useDeepSignal(props.expense);
 
 const isEditing = ref(false);
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
@@ -39,35 +44,32 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 const purchaseDate = computed(() =>
-    props.expense.dateOfPurchase
-        ? new Date(props.expense.dateOfPurchase).toLocaleDateString()
+    expense.dateOfPurchase
+        ? new Date(expense.dateOfPurchase).toLocaleDateString()
         : "Date not set"
 );
 
 const totalPriceDisplay = computed(() =>
-    currencyFormatter.format(props.expense.totalPrice)
+    currencyFormatter.format(expense.totalPrice)
 );
 
-const selectedCategories = computed<ExpenseCategory[]>(() =>
-    Array.from(props.expense.expenseCategory)
-);
+
 
 function toggleCategory(category: ExpenseCategory, checked: boolean) {
     if (checked) {
-        props.expense.expenseCategory.add(category);
+        expense.expenseCategory.add(category["@id"]);
     } else {
-        props.expense.expenseCategory.delete(category);
+        expense.expenseCategory.delete(category["@id"]);
     }
 }
 
 function isCategorySelected(category: ExpenseCategory) {
-    return selectedCategories.value.some(
-        (entry) =>
-            entry["@graph"] === category["@graph"] &&
-            entry["@id"] === category["@id"]
-    );
+    return expense.expenseCategory.has(category["@id"])
 }
 
+function nameOfCategory(categoryIri: string) {
+    return props.availableCategories.find(c => c["@id"] === categoryIri)?.categoryName;
+}
 
 function categoryKey(category: ExpenseCategory) {
     return `${category["@graph"]}|${category["@id"]}`;
@@ -81,11 +83,11 @@ function categoryKey(category: ExpenseCategory) {
                 <input
                     v-if="isEditing"
                     class="header-input"
-                    v-model="props.expense.title"
+                    v-model="expense.title"
                     placeholder="Expense title"
                 />
                 <h3 v-else class="header-title">
-                    {{ props.expense.title || "New expense" }}
+                    {{ expense.title || "New expense" }}
                 </h3>
                 <p class="muted small-margin">
                     {{ purchaseDate }}
@@ -106,11 +108,11 @@ function categoryKey(category: ExpenseCategory) {
                 <textarea
                     v-if="isEditing"
                     class="textarea"
-                    v-model="props.expense.description"
+                    v-model="expense.description"
                     placeholder="Add helpful context"
                 ></textarea>
                 <p v-else class="value-text">
-                    {{ props.expense.description || "No description yet." }}
+                    {{ expense.description || "No description yet." }}
                 </p>
             </div>
             <div class="field-group">
@@ -119,7 +121,7 @@ function categoryKey(category: ExpenseCategory) {
                     v-if="isEditing"
                     type="number"
                     class="input"
-                    v-model="props.expense.totalPrice"
+                    v-model="expense.totalPrice"
                 />
                 <span v-else class="value-text">{{ totalPriceDisplay }}</span>
             </div>
@@ -130,16 +132,16 @@ function categoryKey(category: ExpenseCategory) {
                     type="number"
                     min="1"
                     class="input"
-                    v-model="props.expense.amount"
+                    v-model="expense.amount"
                 />
-                <span v-else class="value-text">{{ props.expense.amount ?? 1 }}</span>
+                <span v-else class="value-text">{{ expense.amount ?? 1 }}</span>
             </div>
             <div class="field-group">
                 <span class="field-label">Payment status</span>
                 <select
                     v-if="isEditing"
                     class="select"
-                    v-model="props.expense.paymentStatus"
+                    v-model="expense.paymentStatus"
                 >
                     <option
                         v-for="[statusIri, label] in paymentStatusEntries"
@@ -150,7 +152,7 @@ function categoryKey(category: ExpenseCategory) {
                     </option>
                 </select>
                 <span v-else class="value-text">
-                    {{ paymentStatusLabels[props.expense.paymentStatus] ?? "Unknown" }}
+                    {{ paymentStatusLabels[expense.paymentStatus] ?? "Unknown" }}
                 </span>
             </div>
         </div>
@@ -184,13 +186,13 @@ function categoryKey(category: ExpenseCategory) {
                 </p>
             </template>
             <template v-else>
-                <div v-if="selectedCategories.length" class="chip-list">
+                <div v-if="expense.expenseCategory.size" class="chip-list">
                     <span
-                        v-for="category in selectedCategories"
-                        :key="categoryKey(category)"
+                        v-for="category in expense.expenseCategory"
+                        :key="category"
                         class="chip"
                     >
-                        {{ category.categoryName || "Unnamed" }}
+                        {{ nameOfCategory(category) || "Unnamed" }}
                     </span>
                 </div>
                 <p v-else class="muted">

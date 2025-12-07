@@ -1,13 +1,16 @@
 <script lang="ts">
+  import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
   import type {
     Expense,
     ExpenseCategory,
   } from "../../shapes/orm/expenseShapes.typings";
 
-  export let expense: Expense;
-  export let availableCategories: ExpenseCategory[] = [];
+  let {
+    expense = $bindable(),
+    availableCategories = $bindable(),
+  }: { expense: Expense; availableCategories: Set<ExpenseCategory> } = $props();
 
-  let isEditing = false;
+  let isEditing = $state(false);
 
   const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
     "http://example.org/Paid": "Paid",
@@ -23,29 +26,35 @@
     minimumFractionDigits: 2,
   });
 
-  $: purchaseDate = expense.dateOfPurchase
-    ? new Date(expense.dateOfPurchase).toLocaleDateString()
-    : "Date not set";
-  $: totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
-  $: selectedCategories = Array.from(expense.expenseCategory ?? []);
+  const purchaseDate = $derived(
+    expense.dateOfPurchase
+      ? new Date(expense.dateOfPurchase).toLocaleDateString()
+      : "Date not set"
+  );
+  const totalPriceDisplay = $derived(
+    currencyFormatter.format(expense.totalPrice ?? 0)
+  );
 
-  const categoryKey = (category: ExpenseCategory) =>
-    `${category["@graph"]}|${category["@id"]}`;
+  const categoryKey = (category: ExpenseCategory) => {
+    return `${category["@graph"]}|${category["@id"]}`;
+  };
 
   function toggleCategory(category: ExpenseCategory, checked: boolean) {
+    console.log("toggling category", category);
     if (checked) {
-      expense.expenseCategory.add(category);
+      expense.expenseCategory.add(category["@id"]);
     } else {
-      expense.expenseCategory.delete(category);
+      expense.expenseCategory.delete(category["@id"]);
     }
   }
 
   function isCategorySelected(category: ExpenseCategory) {
-    return selectedCategories.some(
-      (entry) =>
-        entry["@graph"] === category["@graph"] &&
-        entry["@id"] === category["@id"]
-    );
+    return expense.expenseCategory.has(category["@id"]);
+  }
+
+  function nameOfCategory(categoryIri: string) {
+    return availableCategories.values().find((c) => c["@id"] === categoryIri)
+      ?.categoryName;
   }
 </script>
 
@@ -67,7 +76,7 @@
       type="button"
       class="icon-btn"
       aria-label={isEditing ? "Close editing" : "Edit expense"}
-      on:click={() => (isEditing = !isEditing)}
+      onclick={() => (isEditing = !isEditing)}
     >
       {isEditing ? "🗸" : "🖉"}
     </button>
@@ -124,15 +133,15 @@
   <div class="field-group">
     <span class="field-label">Categories</span>
     {#if isEditing}
-      {#if availableCategories.length}
+      {#if availableCategories.size}
         <div class="category-picker">
-          {#each availableCategories as category (categoryKey(category))}
+          {#each availableCategories as category}
             <label class="category-option">
               <input
                 type="checkbox"
                 class="checkbox"
                 checked={isCategorySelected(category)}
-                on:change={(event) =>
+                onchange={(event) =>
                   toggleCategory(
                     category,
                     event.currentTarget?.checked ?? false
@@ -151,10 +160,10 @@
         <p class="muted">No categories available yet. Create one above.</p>
       {/if}
     {:else}
-      {#if selectedCategories.length}
+      {#if expense.expenseCategory.size}
         <div class="chip-list">
-          {#each selectedCategories as category (categoryKey(category))}
-            <span class="chip">{category.categoryName || "Unnamed"}</span>
+          {#each expense.expenseCategory as categoryIri}
+            <span class="chip">{nameOfCategory(categoryIri) || "Unnamed"}</span>
           {/each}
         </div>
       {:else}

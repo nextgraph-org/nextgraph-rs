@@ -30,7 +30,7 @@ export function ExpenseCategories() {
             <header className="panel-header">
                 <div>
                     <p className="label-accent">Categories</p>
-                    <h2 className="badge-line">
+                    <h2 className="title">
                         Expense Categories
                         <span className="badge">
                             {expenseCategories.size} total

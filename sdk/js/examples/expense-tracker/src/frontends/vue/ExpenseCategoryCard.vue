@@ -12,14 +12,18 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
+import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 
 const props = defineProps<{
     category: ExpenseCategory;
 }>();
 
+// Important! To subscribe to reactivity of deepSignal children, you mus call `useDeepSignal`.
+const category = useDeepSignal(props.category);
+
 const isEditing = ref(false);
 const idBase = computed(
-    () => props.category["@id"] ?? props.category.categoryName ?? "category"
+    () => category["@id"] ?? category.categoryName ?? "category"
 );
 
 </script>
@@ -30,7 +34,7 @@ const idBase = computed(
             <div>
                 <p class="label-accent">Category</p>
                 <h3 class="title">
-                    {{ props.category.categoryName || "Untitled category" }}
+                    {{ category.categoryName || "Untitled category" }}
                 </h3>
             </div>
             <button
@@ -53,8 +57,9 @@ const idBase = computed(
                 <input
                     :id="`${idBase}-name`"
                     class="text-input"
-                    v-model="props.category.categoryName"
+                    :value="category.categoryName ?? ''"
                     placeholder="e.g. Groceries"
+                    @input="(e) => (category.categoryName = (e.target as HTMLInputElement).value)"
                 />
             </div>
             <div>
@@ -67,14 +72,14 @@ const idBase = computed(
                 <textarea
                     :id="`${idBase}-description`"
                     class="text-area"
-                    v-model="props.category.description"
+                    :value="category.description ?? ''"
                     placeholder="Optional context for this spend bucket"
-                    
+                    @input="(e) => (category.description = (e.target as HTMLTextAreaElement).value)"
                 ></textarea>
             </div>
         </div>
         <p v-else class="description">
-            {{ props.category.description || "No description yet." }}
+            {{ category.description || "No description yet." }}
         </p>
     </article>
 </template>
