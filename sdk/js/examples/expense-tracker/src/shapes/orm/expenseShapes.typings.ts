@@ -57,7 +57,7 @@ export interface Expense {
    *
    * Original IRI: http://example.org/expenseCategory
    */
-  expenseCategory: Set<ExpenseCategory>;
+  expenseCategory: Set<IRI>;
   /**
    * True, if this is a recurring expense (e.g. bus pass)
    *

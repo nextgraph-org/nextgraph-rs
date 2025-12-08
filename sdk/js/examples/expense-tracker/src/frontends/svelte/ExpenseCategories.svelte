@@ -25,7 +25,6 @@
     });
   }
 
-  $: categoryList = Array.from($expenseCategories ?? []);
   const categoryKey = (category: any) =>
     `${category["@graph"]}|${category["@id"]}`;
 </script>
@@ -45,11 +44,11 @@
       </button>
     </div>
   </header>
-  {#if !categoryList.length}
+  {#if !$expenseCategories.size}
     <p class="muted">No categories yet</p>
   {:else}
     <div class="cards-grid">
-      {#each categoryList as category (categoryKey(category))}
+      {#each $expenseCategories as category (categoryKey(category))}
         <ExpenseCategoryCard {category} />
       {/each}
     </div>

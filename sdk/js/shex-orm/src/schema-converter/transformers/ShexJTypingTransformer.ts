@@ -559,7 +559,8 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
             const isExtra = extraTripleConstraints.has(tripleConstraint);
             const isPlural =
                 isExtra || max === -1 || (max !== undefined && max !== 1);
-            const isOptional = tripleConstraint.min === 0;
+            const isOptional =
+                tripleConstraint.min === 0 && tripleConstraint.max == 1;
 
             let valueType: dom.Type = dom.type.any;
             if (transformedChildren.valueExpr)

@@ -79,13 +79,11 @@ export const expenseShapesSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "shape",
-            shape:
-              "http://example.org/Expense||http://example.org/expenseCategory",
+            valType: "iri",
           },
         ],
         maxCardinality: -1,
-        minCardinality: 1,
+        minCardinality: 0,
         iri: "http://example.org/expenseCategory",
         readablePredicate: "expenseCategory",
       },
@@ -134,46 +132,6 @@ export const expenseShapesSchema: Schema = {
         minCardinality: 1,
         iri: "http://example.org/paymentStatus",
         readablePredicate: "paymentStatus",
-      },
-    ],
-  },
-  "http://example.org/Expense||http://example.org/expenseCategory": {
-    iri: "http://example.org/Expense||http://example.org/expenseCategory",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "literal",
-            literals: ["http://example.org/ExpenseCategory"],
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        readablePredicate: "@type",
-        extra: true,
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "http://example.org/categoryName",
-        readablePredicate: "categoryName",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "http://example.org/description",
-        readablePredicate: "description",
       },
     ],
   },

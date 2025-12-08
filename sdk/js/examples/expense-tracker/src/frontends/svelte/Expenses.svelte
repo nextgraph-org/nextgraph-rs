@@ -12,7 +12,7 @@
   import ExpenseCard from "./ExpenseCard.svelte";
 
   const expenses = useShape(ExpenseShapeType);
-  const categoryShape = useShape(ExpenseCategoryShapeType);
+  const categories = useShape(ExpenseCategoryShapeType);
 
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
@@ -33,14 +33,17 @@
       totalPrice: obj.totalPrice ?? 0,
       paymentStatus: obj.paymentStatus ?? "http://example.org/Paid",
       isRecurring: obj.isRecurring ?? false,
-      expenseCategory: obj.expenseCategory ?? new Set<ExpenseCategory>(),
+      expenseCategory: obj.expenseCategory ?? new Set<string>(),
       dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
       title: obj.title ?? "New Expense",
     });
   }
+  const expensesSorted = $derived(
+    [...$expenses].sort((a, b) =>
+      a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+    )
+  );
 
-  $: expenseList = Array.from($expenses ?? []);
-  $: availableCategories = Array.from($categoryShape ?? []);
   const expenseKey = (expense: Expense) =>
     `${expense["@graph"]}|${expense["@id"]}`;
 </script>
@@ -51,18 +54,21 @@
       <p class="label-accent">Expenses</p>
       <h2 class="title">Recent activity</h2>
     </div>
-    <button class="primary-btn" on:click={() => createExpense({})}>
+    <button class="primary-btn" onclick={() => createExpense({})}>
       + Add expense
     </button>
   </header>
   <div class="cards-stack">
-    {#if !expenseList.length}
+    {#if !$expenses.size}
       <p class="muted">
         Nothing tracked yet — log your first purchase to kick things off.
       </p>
     {:else}
-      {#each expenseList as expense (expenseKey(expense))}
-        <ExpenseCard {expense} {availableCategories} />
+      {#each expensesSorted as expense, index (expenseKey(expense))}
+        <ExpenseCard
+          bind:expense={expensesSorted[index]}
+          bind:availableCategories={$categories}
+        />
       {/each}
     {/if}
   </div>
