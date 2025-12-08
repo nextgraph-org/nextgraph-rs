@@ -17,7 +17,7 @@
       type="button"
       class="icon-btn"
       aria-label={isEditing ? "Close editing" : "Edit category"}
-      on:click={() => (isEditing = !isEditing)}
+      onclick={() => (isEditing = !isEditing)}
     >
       {isEditing ? "🗸" : "🖉"}
     </button>
@@ -29,7 +29,9 @@
         <input
           id={`${idBase}-name`}
           class="text-input"
-          bind:value={category.categoryName}
+          value={category.categoryName ?? ""}
+          oninput={(event) =>
+            (category.categoryName = event.currentTarget?.value ?? "")}
           placeholder="e.g. Groceries"
         />
       </div>
@@ -40,7 +42,9 @@
         <textarea
           id={`${idBase}-description`}
           class="text-area"
-          bind:value={category.description}
+          value={category.description ?? ""}
+          oninput={(event) =>
+            (category.description = event.currentTarget?.value ?? "")}
           placeholder="Optional context for this spend bucket"
         ></textarea>
       </div>

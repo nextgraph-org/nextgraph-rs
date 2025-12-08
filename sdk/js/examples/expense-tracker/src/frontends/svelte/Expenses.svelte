@@ -66,8 +66,8 @@
     {:else}
       {#each expensesSorted as expense, index (expenseKey(expense))}
         <ExpenseCard
-          bind:expense={expensesSorted[index]}
-          bind:availableCategories={$categories}
+          expense={expensesSorted[index]}
+          availableCategories={$categories}
         />
       {/each}
     {/if}
