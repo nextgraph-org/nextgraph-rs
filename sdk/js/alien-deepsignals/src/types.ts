@@ -177,3 +177,5 @@ export type DeepSignal<T> = T extends Function
 export type DeepSignalObject<T extends object> = {
     [K in keyof T]: DeepSignal<T[K]>;
 };
+
+export type RevertDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
