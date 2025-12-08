@@ -58,7 +58,7 @@ export function useDeepSignal<T extends object>(
     const patchesStore = writable<DeepPatchBatch | null>(null);
 
     const unsubscribe = subscribeDeepMutations(
-        deepProxy as any,
+        deepProxy,
         (batch: DeepPatchBatch) => {
             if (!rootId) return;
             if (batch.patches.length) {
@@ -77,11 +77,11 @@ export function useDeepSignal<T extends object>(
     const applyReplacement = (next: any) => {
         if (!next || typeof next !== "object") return;
         // Remove keys absent in next
-        for (const k of Object.keys(deepProxy as any)) {
+        for (const k of Object.keys(deepProxy)) {
             if (!(k in next)) delete (deepProxy as any)[k];
         }
         // Assign / overwrite provided keys
-        Object.assign(deepProxy as any, next);
+        Object.assign(deepProxy, next);
     };
 
     const store: UseDeepSignalResult<T> = {
