@@ -24,6 +24,7 @@ import {
 import {useContactView} from "@/hooks/contacts/useContactView";
 import {VouchesAndPraises} from "@/components/contacts/VouchesAndPraises";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {useResolvedContact} from "@/stores/contactOrmStore.ts";
 
 const ContactViewPage = () => {
   const {id} = useParams<{ id: string }>();
@@ -40,6 +41,7 @@ const ContactViewPage = () => {
     toggleHumanityVerification,
     resource
   } = useContactView(id || null/*, refreshKey*/);
+  const {ormContact} = useResolvedContact(resource ? resource["uri"] : null);
   
   const handleRefreshVouches = () => {
     setVouchesRefreshKey(prev => prev + 1);
@@ -117,6 +119,7 @@ const ContactViewPage = () => {
           isLoading={isLoading}
           isEditing={isEditing}
           resource={resource}
+          ormContact={ormContact}
         />
 
         <Divider sx={{my: 3}}/>
