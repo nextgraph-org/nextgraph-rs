@@ -1,23 +1,17 @@
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {defaultPolicy} from "@/config/sources.ts";
 
-export const contactCommonProperties = [
-  "@id",
-  "@graph",
-  "@type",
-  "naoStatus",
-  "invitedAt",
-  "createdAt",
-  "updatedAt",
-  "joinedAt",
-  "centralityScore",
-  "mostRecentInteraction"
-] as const satisfies readonly (keyof SocialContact)[];
+type ContactSetProperties = {
+  [K in keyof SocialContact as NonNullable<SocialContact[K]> extends Set<any> ? K : never]: SocialContact[K]
+};
 
-export type ContactLdSetProperties = Omit<
-  SocialContact,
-  (typeof contactCommonProperties)[number]
->;
+export type ContactLdSetProperties = {
+  [K in keyof ContactSetProperties as NonNullable<ContactSetProperties[K]> extends Set<infer U>
+    ? U extends { "@id": any }
+      ? K
+      : never
+    : never]: ContactSetProperties[K]
+};
 
 type KeysWithSelected<T> = {
   [K in keyof T]-?: NonNullable<T[K]> extends Set<infer U>
@@ -87,7 +81,7 @@ export function resolveFrom<K extends ResolvableKey>(
   const set = socialContact[key];
   if (!set) return;
 
-  let selectedItem: ItemOf<K> | undefined;;
+  let selectedItem: ItemOf<K> | undefined;
   for (const item of set) {
     // @ts-expect-error for now
     if (hasSelected(item) && item.selected || hasProperty(item, "preferred") && item.preferred) {
@@ -114,4 +108,43 @@ export function resolveFrom<K extends ResolvableKey>(
     if (hit) return hit;
   }
   return fallback;
+}
+
+export function setUpdatedTime(contactObj: SocialContact) {
+  const currentDateTime = new Date(Date.now()).toISOString();
+  if (contactObj.updatedAt) {
+    contactObj.updatedAt.valueDateTime = currentDateTime;
+  } else {
+    contactObj.updatedAt = {
+      "@graph": "",
+      "@id": "",
+      valueDateTime: currentDateTime,
+      source: "user",
+    }
+  }
+}
+
+export function updatePropertyFlag<K extends ResolvableKey>(
+  contact: SocialContact,
+  key: K,
+  itemId: string,
+  flag: string,           // "preferred" | "selected" | "hidden"
+  mode: "single" | "toggle" = "single",
+): void {
+  const set = contact[key];
+  if (!set) return;
+
+  const items = [...set];
+
+  if (mode === "single") {
+    items.forEach(el => {
+      if (!el["@id"]) return;
+      (el as any)[flag] = el["@id"] === itemId;
+    });
+  } else {
+    const target = items.find(el => el["@id"] === itemId);
+    if (target) {
+      (target as any)[flag] = !((target as any)[flag] ?? false);
+    }
+  }
 }

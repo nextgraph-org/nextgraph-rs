@@ -20,10 +20,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
   const groups = useShape(SocialGroupShapeType)
 
-  function generateUri(base: string) {
-    return base.substring(0, 9 + 44);
-  }
-
   const createGroup = useCallback(async (group: Partial<SocialGroup>): Promise<string> => {
     if (!session || !session.ng) {
       const errorMsg = 'No active session available';
@@ -42,8 +38,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         "store"
       );
 
-      const id = generateUri(docId);
-
       if (group.hasMember && group.hasAdmin) {
         group.hasMember = new Set([...group.hasMember, ...group.hasAdmin]);
       }
@@ -52,7 +46,7 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
       const groupObj: SocialGroup = {
         "@graph": docId,
-        "@id": id,
+        "@id": "",
         "@type": "did:ng:x:social:group#Group",
         "title": group.title ?? "",
         "description": group.description,
