@@ -170,32 +170,4 @@ describe("tier3: Set iteration variants", () => {
         );
         stop();
     });
-
-    it("iterator helper polyfill runs when Iterator.from is missing", () => {
-        const iteratorCtor: any = (globalThis as any).Iterator;
-        const hadFrom = !!iteratorCtor && "from" in iteratorCtor;
-        const originalFrom = iteratorCtor?.from;
-
-        if (iteratorCtor) {
-            delete iteratorCtor.from;
-        }
-
-        try {
-            const st = deepSignal({ s: new Set([1, 2, 3]) });
-            const results = st.s
-                .values()
-                .map((value) => (value as number) * 3)
-                .drop(1)
-                .toArray();
-            expect(results).to.deep.equal([6, 9]);
-        } finally {
-            if (iteratorCtor) {
-                if (hadFrom) {
-                    iteratorCtor.from = originalFrom;
-                } else {
-                    delete iteratorCtor.from;
-                }
-            }
-        }
-    });
 });

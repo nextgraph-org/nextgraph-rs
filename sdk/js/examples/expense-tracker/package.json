@@ -26,7 +26,6 @@
     "@astrojs/svelte": "7.2.0",
     "@astrojs/vue": "^5.1.0",
     "@ng-org/alien-deepsignals": "workspace:*",
-    "@ng-org/lib-wasm": "workspace:*",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
     "@types/shexj": "^2.1.7",
@@ -41,6 +40,7 @@
     "vue": "3.5.19"
   },
   "devDependencies": {
+    "@ng-org/lib-wasm": "workspace:*",
     "@ng-org/shex-orm": "workspace:*",
     "@playwright/test": "^1.55.0",
     "@types/node": "24.3.0",

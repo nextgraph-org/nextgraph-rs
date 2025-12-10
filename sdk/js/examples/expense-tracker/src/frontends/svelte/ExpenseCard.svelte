@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
   import type {
     Expense,
     ExpenseCategory,
@@ -40,7 +39,6 @@
   };
 
   function toggleCategory(category: ExpenseCategory, checked: boolean) {
-    console.log("toggling category", category);
     if (checked) {
       expense.expenseCategory.add(category["@id"]);
     } else {
@@ -64,7 +62,9 @@
       {#if isEditing}
         <input
           class="header-input"
-          bind:value={expense.title}
+          value={expense.title ?? ""}
+          oninput={(event) =>
+            (expense.title = event.currentTarget?.value ?? "")}
           placeholder="Expense title"
         />
       {:else}
@@ -87,7 +87,9 @@
       {#if isEditing}
         <textarea
           class="textarea"
-          bind:value={expense.description}
+          value={expense.description ?? ""}
+          oninput={(event) =>
+            (expense.description = event.currentTarget?.value ?? "")}
           placeholder="Add helpful context"
         ></textarea>
       {:else}
@@ -97,7 +99,15 @@
     <div class="field-group">
       <span class="field-label">Total price (€)</span>
       {#if isEditing}
-        <input type="number" class="input" bind:value={expense.totalPrice} />
+        <input
+          type="number"
+          class="input"
+          value={expense.totalPrice ?? 0}
+          oninput={(event) => {
+            const next = event.currentTarget?.valueAsNumber;
+            expense.totalPrice = Number.isFinite(next) ? (next ?? 0) : 0;
+          }}
+        />
       {:else}
         <span class="value-text">{totalPriceDisplay}</span>
       {/if}
@@ -109,7 +119,11 @@
           type="number"
           min="1"
           class="input"
-          bind:value={expense.amount}
+          value={expense.amount ?? 1}
+          oninput={(event) => {
+            const next = event.currentTarget?.valueAsNumber;
+            expense.amount = Number.isFinite(next) ? (next ?? 1) : 1;
+          }}
         />
       {:else}
         <span class="value-text">{expense.amount ?? 1}</span>
@@ -118,7 +132,16 @@
     <div class="field-group">
       <span class="field-label">Payment status</span>
       {#if isEditing}
-        <select class="select" bind:value={expense.paymentStatus}>
+        <select
+          class="select"
+          value={expense.paymentStatus}
+          onchange={(event) => {
+            const selected = event.currentTarget?.value;
+            if (selected) {
+              expense.paymentStatus = selected as Expense["paymentStatus"];
+            }
+          }}
+        >
           {#each paymentStatusEntries as [iri, label]}
             <option value={iri}>{label}</option>
           {/each}

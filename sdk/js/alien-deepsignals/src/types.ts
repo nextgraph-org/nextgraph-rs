@@ -14,7 +14,13 @@ export interface DeepPatchBatch {
     patches: DeepPatch[];
 }
 
+/** Batched patch payload for justInTime listeners. */
+export interface DeepPatchJITBatch {
+    patches: DeepPatch[];
+}
+
 export type DeepPatchSubscriber = (batch: DeepPatchBatch) => void;
+export type DeepPatchJITSubscriber = (batch: DeepPatchJITBatch) => void;
 
 export interface DeepSignalOptions {
     propGenerator?: DeepSignalPropGenFn;
@@ -49,8 +55,9 @@ export interface SetMeta {
 export interface RootState {
     options?: DeepSignalOptions;
     version: number;
+    justInTimeListeners: Set<DeepPatchJITSubscriber>;
     listeners: Set<DeepPatchSubscriber>;
-    pending: DeepPatch[];
+    pendingPatches: DeepPatch[];
 }
 
 type WritableSignalFunction<T> = typeof signal<T>;
@@ -87,56 +94,12 @@ export type DeepSignalSetProps<T> = {
     getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
 };
 
-export type DeepSignalSetIteratorMethods<T> = {
-    map<U>(
-        callbackfn: (value: DeepSignal<T>, index: number) => U
-    ): IteratorObject<U, undefined, unknown>;
-    filter<S extends DeepSignal<T>>(
-        predicate: (value: DeepSignal<T>, index: number) => value is S
-    ): IteratorObject<S, undefined, unknown>;
-    filter(
-        predicate: (value: DeepSignal<T>, index: number) => unknown
-    ): IteratorObject<DeepSignal<T>, undefined, unknown>;
-    take(limit: number): IteratorObject<DeepSignal<T>, undefined, unknown>;
-    drop(count: number): IteratorObject<DeepSignal<T>, undefined, unknown>;
-    flatMap<U>(
-        callback: (
-            value: DeepSignal<T>,
-            index: number
-        ) => Iterator<U, unknown, undefined> | Iterable<U, unknown, undefined>
-    ): IteratorObject<U, undefined, unknown>;
-    reduce(
-        callbackfn: (
-            previousValue: DeepSignal<T>,
-            currentValue: DeepSignal<T>,
-            currentIndex: number
-        ) => DeepSignal<T>
-    ): DeepSignal<T>;
-    reduce<U>(
-        callbackfn: (
-            previousValue: U,
-            currentValue: DeepSignal<T>,
-            currentIndex: number
-        ) => U,
-        initialValue: U
-    ): U;
-    toArray(): DeepSignal<T>[];
-    some(predicate: (value: DeepSignal<T>, index: number) => unknown): boolean;
-    every(predicate: (value: DeepSignal<T>, index: number) => unknown): boolean;
-    find<S extends DeepSignal<T>>(
-        predicate: (value: DeepSignal<T>, index: number) => value is S
-    ): S | undefined;
-    find(
-        predicate: (value: DeepSignal<T>, index: number) => unknown
-    ): DeepSignal<T> | undefined;
-};
-
 /** Reactive Set wrapper that accepts raw or proxied entries. */
 export interface DeepSignalSet<T>
     extends Set<DeepSignal<T>>,
         DeepSignalObjectProps<Set<T>>,
-        DeepSignalSetProps<T>,
-        DeepSignalSetIteratorMethods<T> {
+        SetIterator<DeepSignal<T>>,
+        DeepSignalSetProps<T> {
     add(value: T | DeepSignal<T>): this;
     delete(value: T | DeepSignal<T>): boolean;
     has(value: T | DeepSignal<T>): boolean;
@@ -177,3 +140,5 @@ export type DeepSignal<T> = T extends Function
 export type DeepSignalObject<T extends object> = {
     [K in keyof T]: DeepSignal<T[K]>;
 };
+
+export type RevertDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
