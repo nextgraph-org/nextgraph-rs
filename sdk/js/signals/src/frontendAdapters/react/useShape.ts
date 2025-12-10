@@ -19,18 +19,12 @@ const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope = ""
 ) => {
-    // Helper to trigger re-render after data arrived.
-    const [_, setTick] = useState(0);
-
     const handleRef = useRef(createSignalObjectForShape(shape, scope));
 
     const handle = handleRef.current;
     const state = useDeepSignal(handle.signalObject);
 
     useEffect(() => {
-        // Ensure first render after initial data is applied
-        handle.readyPromise?.then(() => setTick((t) => t + 1));
-
         return () => {
             handleRef.current.stop();
         };

@@ -1277,3 +1277,252 @@ describe("watch (patch mode)", () => {
         });
     });
 });
+
+describe("watch (triggerInstantly / JIT listeners)", () => {
+    it("triggers callback synchronously when triggerInstantly is true", () => {
+        const state = deepSignal({ count: 0 });
+        const callTimes: number[] = [];
+        let syncMarker = 0;
+
+        const { stopListening: stop } = watch(
+            state,
+            ({ patches }) => {
+                callTimes.push(syncMarker);
+            },
+            { triggerInstantly: true }
+        );
+
+        syncMarker = 1;
+        state.count = 1;
+        syncMarker = 2;
+
+        // Callback should have been called synchronously (at syncMarker = 1)
+        expect(callTimes).toEqual([1]);
+
+        stop();
+    });
+
+    it("triggers callback asynchronously when triggerInstantly is false", async () => {
+        const state = deepSignal({ count: 0 });
+        const callTimes: number[] = [];
+        let syncMarker = 0;
+
+        const { stopListening: stop } = watch(state, ({ patches }) => {
+            callTimes.push(syncMarker);
+        });
+
+        syncMarker = 1;
+        state.count = 1;
+        syncMarker = 2;
+
+        // Callback should NOT have been called yet (batched in microtask)
+        expect(callTimes).toEqual([]);
+
+        await Promise.resolve();
+
+        // Now callback should have been called (at syncMarker = 2)
+        expect(callTimes).toEqual([2]);
+
+        stop();
+    });
+
+    it("JIT listener receives patches without version", () => {
+        const state = deepSignal({ value: "initial" });
+        let receivedVersion: number | undefined = 999; // sentinel value
+
+        const { stopListening: stop } = watch(
+            state,
+            ({ patches, version }) => {
+                receivedVersion = version;
+            },
+            { triggerInstantly: true }
+        );
+
+        state.value = "changed";
+
+        // JIT listeners should not receive a version (it's undefined)
+        expect(receivedVersion).toBeUndefined();
+
+        stop();
+    });
+
+    it("batched listener receives patches with version", async () => {
+        const state = deepSignal({ value: "initial" });
+        let receivedVersion: number | undefined;
+
+        const { stopListening: stop } = watch(state, ({ patches, version }) => {
+            receivedVersion = version;
+        });
+
+        state.value = "changed";
+        await Promise.resolve();
+
+        // Batched listeners should receive a version number
+        expect(receivedVersion).toBeDefined();
+        expect(typeof receivedVersion).toBe("number");
+        expect(receivedVersion).toBeGreaterThan(0);
+
+        stop();
+    });
+
+    it("JIT listener is called for each mutation, not batched", () => {
+        const state = deepSignal({ a: 1, b: 2 });
+        const patchCalls: DeepPatch[][] = [];
+
+        const { stopListening: stop } = watch(
+            state,
+            ({ patches }) => {
+                patchCalls.push([...patches]);
+            },
+            { triggerInstantly: true }
+        );
+
+        state.a = 10;
+        state.b = 20;
+
+        // Should be called twice (once per mutation), not once with batched patches
+        expect(patchCalls).toHaveLength(2);
+        expect(patchCalls[0]).toEqual([{ op: "add", path: ["a"], value: 10 }]);
+        expect(patchCalls[1]).toEqual([{ op: "add", path: ["b"], value: 20 }]);
+
+        stop();
+    });
+
+    it("batched listener receives all mutations in one batch", async () => {
+        const state = deepSignal({ a: 1, b: 2 });
+        const patchCalls: DeepPatch[][] = [];
+
+        const { stopListening: stop } = watch(state, ({ patches }) => {
+            patchCalls.push([...patches]);
+        });
+
+        state.a = 10;
+        state.b = 20;
+
+        await Promise.resolve();
+
+        // Should be called once with all patches batched
+        expect(patchCalls).toHaveLength(1);
+        expect(patchCalls[0]).toEqual([
+            { op: "add", path: ["a"], value: 10 },
+            { op: "add", path: ["b"], value: 20 },
+        ]);
+
+        stop();
+    });
+
+    it("both JIT and batched listeners can coexist on the same root", async () => {
+        const state = deepSignal({ count: 0 });
+        const jitPatches: DeepPatch[][] = [];
+        const batchedPatches: DeepPatch[][] = [];
+
+        const { stopListening: stopJit } = watch(
+            state,
+            ({ patches }) => {
+                jitPatches.push([...patches]);
+            },
+            { triggerInstantly: true }
+        );
+
+        const { stopListening: stopBatched } = watch(state, ({ patches }) => {
+            batchedPatches.push([...patches]);
+        });
+
+        state.count = 1;
+        state.count = 2;
+
+        // JIT should have received 2 calls immediately
+        expect(jitPatches).toHaveLength(2);
+
+        // Batched should have received 0 calls so far
+        expect(batchedPatches).toHaveLength(0);
+
+        await Promise.resolve();
+
+        // Now batched should have received 1 call with all patches
+        expect(batchedPatches).toHaveLength(1);
+        expect(batchedPatches[0]).toEqual([
+            { op: "add", path: ["count"], value: 1 },
+            { op: "add", path: ["count"], value: 2 },
+        ]);
+
+        stopJit();
+        stopBatched();
+    });
+
+    it("JIT listener works with nested object mutations", () => {
+        const state = deepSignal({ user: { name: "Alice", age: 30 } });
+        const patches: DeepPatch[][] = [];
+
+        const { stopListening: stop } = watch(
+            state,
+            ({ patches: p }) => {
+                patches.push([...p]);
+            },
+            { triggerInstantly: true }
+        );
+
+        state.user.name = "Bob";
+        state.user.age = 31;
+
+        expect(patches).toHaveLength(2);
+        expect(patches[0]).toEqual([
+            { op: "add", path: ["user", "name"], value: "Bob" },
+        ]);
+        expect(patches[1]).toEqual([
+            { op: "add", path: ["user", "age"], value: 31 },
+        ]);
+
+        stop();
+    });
+
+    it("JIT listener works with Set mutations", () => {
+        const state = deepSignal({ items: new Set([1, 2]) });
+        const patches: DeepPatch[][] = [];
+
+        const { stopListening: stop } = watch(
+            state,
+            ({ patches: p }) => {
+                patches.push([...p]);
+            },
+            { triggerInstantly: true }
+        );
+
+        state.items.add(3);
+        state.items.delete(1);
+
+        expect(patches).toHaveLength(2);
+        expect(patches[0]).toEqual([
+            { op: "add", path: ["items"], type: "set", value: [3] },
+        ]);
+        expect(patches[1]).toEqual([
+            { op: "remove", path: ["items"], type: "set", value: 1 },
+        ]);
+
+        stop();
+    });
+
+    it("stopping JIT listener prevents further callbacks", () => {
+        const state = deepSignal({ value: 0 });
+        let callCount = 0;
+
+        const { stopListening: stop } = watch(
+            state,
+            () => {
+                callCount++;
+            },
+            { triggerInstantly: true }
+        );
+
+        state.value = 1;
+        expect(callCount).toBe(1);
+
+        stop();
+
+        state.value = 2;
+        state.value = 3;
+
+        // Should still be 1, no more calls after stop
+        expect(callCount).toBe(1);
+    });
+});
