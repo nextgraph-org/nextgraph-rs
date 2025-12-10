@@ -10,7 +10,8 @@
 
 import { watch } from "../../watch.js";
 import { useEffect, useRef, useState } from "react";
-import { DeepSignal, deepSignal, DeepSignalOptions } from "../../deepSignal.js";
+import { deepSignal } from "../../deepSignal";
+import { DeepSignalOptions } from "../../types.js";
 
 /**
  * Create or use an existing deepSignal object in your component.
@@ -30,10 +31,14 @@ const useSignal = <T extends object>(
     const [, setTick] = useState(0);
 
     useEffect(() => {
-        const { stopListening } = watch(shapeSignalRef.current, () => {
-            // trigger a React re-render when the deep signal updates
-            setTick((t) => t + 1);
-        });
+        const { stopListening } = watch(
+            shapeSignalRef.current,
+            () => {
+                // trigger a React re-render when the deep signal updates
+                setTick((t) => t + 1);
+            },
+            { triggerInstantly: true }
+        );
 
         return () => {
             stopListening();
