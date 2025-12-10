@@ -8,8 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { ExpenseCategories } from "./ExpenseCategory";
-import { Expenses } from "./Expense";
+import { ExpenseCategories } from "./ExpenseCategories";
+import { Expenses } from "./Expenses";
 
 export function ReactExpenseTracker() {
     return (
