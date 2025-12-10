@@ -39,43 +39,6 @@ For a walk-through, you can see the the [expense-tracker example app](https://gi
 pnpm add @ng-org/signals @ng-org/web @ng-org/alien-deepsignals
 ```
 
-=======
-
-- React, Vue, and Svelte frontends sharing data
-- SHEX schema definitions
-- CRUD operations
-- Cross-framework real-time sync
-
-## Table of Contents
-
-- [@ng-org/signals](#ng-orgsignals)
-    - [Table of Contents](#table-of-contents)
-    - [Installation](#installation)
-    - [Quick Start](#quick-start)
-    - [Defining Schemas](#defining-schemas)
-    - [Framework Usage](#framework-usage)
-        - [React](#react)
-        - [Vue](#vue)
-        - [Svelte](#svelte)
-    - [Working with Data](#working-with-data)
-        - [Adding Objects](#adding-objects)
-        - [Modifying Objects](#modifying-objects)
-        - [Deleting Objects](#deleting-objects)
-        - [Working with Sets](#working-with-sets)
-        - [Relationships](#relationships)
-    - [API Reference](#api-reference)
-        - [`useShape(shapeType)`](#useshapeshapetype)
-        - [Shared State](#shared-state)
-    - [License](#license)
-
----
-
-## Installation
-
-```bash
-pnpm add @ng-org/signals @ng-org/web @ng-org/alien-deepsignals
-```
-
 For schema code generation, also install:
 
 ```bash
@@ -104,7 +67,11 @@ await init(
 Then use `useShape()` in your components:
 
 ```typescript
+<<<<<<< HEAD
 import { useShape } from "@ng-org/signals/react"; // or /vue, /svelte
+=======
+import { useShape } from "@ng-org/signals/react";  // or /vue, /svelte
+>>>>>>> a4ce29cd (ng signals: improve documentation)
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
 const dogs = useShape(DogShapeType);
@@ -122,6 +89,11 @@ for (const dog of dogs) {
 Define your data model using [SHEX (Shape Expressions)](https://shex.io/):
 
 **`shapes/shex/dogShape.shex`**:
+<<<<<<< HEAD
+
+=======
+
+> > > > > > > a4ce29cd (ng signals: improve documentation)
 
 ```shex
 PREFIX ex: <http://example.org/>
@@ -142,6 +114,11 @@ Generate TypeScript types. Add the following to your `package.json` scripts and 
 ```
 
 This creates:
+<<<<<<< HEAD
+
+=======
+
+> > > > > > > a4ce29cd (ng signals: improve documentation)
 
 - `dogShape.typings.ts` — TypeScript interfaces
 - `dogShape.shapeTypes.ts` — Shape type objects for `useShape()`
@@ -196,24 +173,6 @@ const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
 
 <template>
     <DogCard v-for="dog in dogs" :key="dog['@id']" :dog="dog" />
-</template>
-```
-
-**Child component** (`DogCard.vue`):
-
-```vue
-<script setup lang="ts">
-import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
-import type { Dog } from "./shapes/orm/dogShape.typings";
-
-const props = defineProps<{ dog: Dog }>();
-
-// Required for reactivity in child components!
-const dog = useDeepSignal(props.dog);
-</script>
-
-<template>
-    {{ dog.name }}
 </template>
 ```
 
@@ -395,8 +354,7 @@ Licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+  at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 

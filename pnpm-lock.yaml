@@ -867,7 +867,21 @@ importers:
     dependencies:
       alien-signals:
         specifier: ^2.0.7
+<<<<<<< HEAD
         version: 2.0.8
+=======
+        version: 2.0.7
+    optionalDependencies:
+      react:
+        specifier: ^19.0.0 || ^18.0.0
+        version: 19.1.1
+      svelte:
+        specifier: ^5.0.0
+        version: 5.39.13
+      vue:
+        specifier: ^3.0.0
+        version: 3.5.19(typescript@5.9.2)
+>>>>>>> a4ce29cd (ng signals: improve documentation)
     devDependencies:
       '@astrojs/react':
         specifier: ^4.4.2
@@ -913,6 +927,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.2
+<<<<<<< HEAD
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.1)(jiti@2.6.1)(jsdom@20.0.3)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
     optionalDependencies:
       react:
@@ -924,6 +939,9 @@ importers:
       vue:
         specifier: ^3.0.0
         version: 3.5.19(typescript@5.9.3)
+=======
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.18.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.1)(yaml@2.8.1)
+>>>>>>> a4ce29cd (ng signals: improve documentation)
 
   sdk/js/api-web:
     dependencies:
@@ -983,6 +1001,91 @@ importers:
         specifier: ^3.6.20
         version: 3.6.20
 
+<<<<<<< HEAD
+=======
+  sdk/js/examples/expense-tracker:
+    dependencies:
+      '@astrojs/react':
+        specifier: 4.3.0
+        version: 4.3.0(@types/node@24.3.0)(@types/react-dom@19.1.7(@types/react@19.1.10))(@types/react@19.1.10)(jiti@2.6.1)(lightningcss@1.30.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(yaml@2.8.1)
+      '@astrojs/svelte':
+        specifier: 7.2.0
+        version: 7.2.0(@types/node@24.3.0)(astro@5.14.4(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(svelte@5.39.12)(typescript@5.9.2)(yaml@2.8.1)
+      '@astrojs/vue':
+        specifier: ^5.1.0
+        version: 5.1.3(@types/node@24.3.0)(astro@5.14.4(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(vue@3.5.19(typescript@5.9.2))(yaml@2.8.1)
+      '@ng-org/alien-deepsignals':
+        specifier: workspace:*
+        version: link:../../alien-deepsignals
+      '@ng-org/signals':
+        specifier: workspace:*
+        version: link:../../signals
+      '@ng-org/web':
+        specifier: ^0.1.2-alpha.4
+        version: 0.1.2-alpha.4
+      '@types/react':
+        specifier: 19.1.10
+        version: 19.1.10
+      '@types/react-dom':
+        specifier: 19.1.7
+        version: 19.1.7(@types/react@19.1.10)
+      '@types/shexj':
+        specifier: ^2.1.7
+        version: 2.1.7
+      alien-signals:
+        specifier: ^2.0.7
+        version: 2.0.7
+      astro:
+        specifier: 5.14.4
+        version: 5.14.4(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
+      install:
+        specifier: ^0.13.0
+        version: 0.13.0
+      npm:
+        specifier: ^11.5.2
+        version: 11.6.0
+      prettier-eslint:
+        specifier: ^16.4.2
+        version: 16.4.2(prettier-plugin-svelte@3.4.0(prettier@3.6.2)(svelte@5.39.12))(typescript@5.9.2)
+      react:
+        specifier: 19.1.1
+        version: 19.1.1
+      react-dom:
+        specifier: 19.1.1
+        version: 19.1.1(react@19.1.1)
+      svelte:
+        specifier: 5.39.12
+        version: 5.39.12
+      vite-plugin-top-level-await:
+        specifier: ^1.6.0
+        version: 1.6.0(@swc/helpers@0.5.17)(rollup@4.50.2)(vite@7.1.3(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
+      vite-plugin-wasm:
+        specifier: ^3.5.0
+        version: 3.5.0(vite@7.1.3(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
+      vue:
+        specifier: 3.5.19
+        version: 3.5.19(typescript@5.9.2)
+    devDependencies:
+      '@ng-org/lib-wasm':
+        specifier: workspace:*
+        version: link:../../lib-wasm/pkg
+      '@ng-org/shex-orm':
+        specifier: workspace:*
+        version: link:../../shex-orm
+      '@playwright/test':
+        specifier: ^1.55.0
+        version: 1.55.0
+      '@types/node':
+        specifier: 24.3.0
+        version: 24.3.0
+      vite:
+        specifier: 7.1.3
+        version: 7.1.3(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.1)(yaml@2.8.1)
+
+>>>>>>> a4ce29cd (ng signals: improve documentation)
   sdk/js/examples/multi-framework-signals:
     dependencies:
       '@astrojs/react':
@@ -1307,6 +1410,9 @@ importers:
         specifier: ^0.4.1
         version: 0.4.1
     devDependencies:
+      '@ng-org/lib-wasm':
+        specifier: workspace:*
+        version: link:../lib-wasm/pkg
       '@types/node':
         specifier: ^18.7.10
         version: 18.19.130
