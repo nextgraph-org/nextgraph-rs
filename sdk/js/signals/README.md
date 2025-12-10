@@ -39,6 +39,43 @@ For a walk-through, you can see the the [expense-tracker example app](https://gi
 pnpm add @ng-org/signals @ng-org/web @ng-org/alien-deepsignals
 ```
 
+=======
+
+- React, Vue, and Svelte frontends sharing data
+- SHEX schema definitions
+- CRUD operations
+- Cross-framework real-time sync
+
+## Table of Contents
+
+- [@ng-org/signals](#ng-orgsignals)
+    - [Table of Contents](#table-of-contents)
+    - [Installation](#installation)
+    - [Quick Start](#quick-start)
+    - [Defining Schemas](#defining-schemas)
+    - [Framework Usage](#framework-usage)
+        - [React](#react)
+        - [Vue](#vue)
+        - [Svelte](#svelte)
+    - [Working with Data](#working-with-data)
+        - [Adding Objects](#adding-objects)
+        - [Modifying Objects](#modifying-objects)
+        - [Deleting Objects](#deleting-objects)
+        - [Working with Sets](#working-with-sets)
+        - [Relationships](#relationships)
+    - [API Reference](#api-reference)
+        - [`useShape(shapeType)`](#useshapeshapetype)
+        - [Shared State](#shared-state)
+    - [License](#license)
+
+---
+
+## Installation
+
+```bash
+pnpm add @ng-org/signals @ng-org/web @ng-org/alien-deepsignals
+```
+
 For schema code generation, also install:
 
 ```bash
@@ -146,39 +183,35 @@ export function DogList() {
 
 ### Vue
 
-In component `DogManager.vue`
+**Parent component** (`DogList.vue`):
 
 ```vue
 <script setup lang="ts">
-import { DeepSignal } from "@ng-org/alien-deepsignals";
-import DogComponent from "./Dog.vue";
-import { Dog } from "./types.ts";
 import { useShape } from "@ng-org/signals/vue";
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import DogCard from "./DogCard.vue";
 
-const dogs: DeepSignal<Dog> = useShape(DogShapeType);
+const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
 </script>
 
 <template>
-    <DogComponent v-for="dog in dogs" :key="dog.id" :dog="dog" />
+    <DogCard v-for="dog in dogs" :key="dog['@id']" :dog="dog" />
 </template>
 ```
 
-In a child component, `Dog.vue`. Note that you need to use `useDeepSignal`, to gain reactivity.
+**Child component** (`DogCard.vue`):
 
 ```vue
 <script setup lang="ts">
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
+import type { Dog } from "./shapes/orm/dogShape.typings";
 
-const props = defineProps<{
-    dog: DeepSignal<Dog>;
-}>();
+const props = defineProps<{ dog: Dog }>();
 
-// Important!
-// In vue child components, you need to wrap deepSignal objects into useDeepSignal hooks, to ensure the component re-renders.
+// Required for reactivity in child components!
 const dog = useDeepSignal(props.dog);
 </script>
+
 <template>
     {{ dog.name }}
 </template>
