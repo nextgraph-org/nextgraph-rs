@@ -8,17 +8,12 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useCallback, useState } from "react";
-import { useShape } from "@ng-org/signals/react";
-import {
-    ExpenseCategoryShapeType,
-    ExpenseShapeType,
-} from "../../shapes/orm/expenseShapes.shapeTypes";
+import { useState } from "react";
 import type {
     Expense,
     ExpenseCategory,
 } from "../../shapes/orm/expenseShapes.typings";
-import { sessionPromise } from "../../utils/ngSession";
+import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
     "http://example.org/Paid": "Paid",
@@ -33,89 +28,37 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
 });
 
-export function Expenses() {
-    const expenses = useShape(ExpenseShapeType);
-    const expenseCategories = useShape(ExpenseCategoryShapeType);
-
-    const availableCategories = [...expenseCategories];
-
-    const createExpense = useCallback(async () => {
-        const session = await sessionPromise;
-        const docId = await session.ng.doc_create(
-            session.session_id,
-            "Graph",
-            "data:graph",
-            "store",
-            undefined
-        );
-
-        expenses.add({
-            "@graph": docId,
-            "@type": "http://example.org/Expense",
-            "@id": "",
-            amount: 1,
-            description: "",
-            totalPrice: 0,
-            paymentStatus: "http://example.org/Paid",
-            isRecurring: false,
-            expenseCategory: new Set<string>(),
-            dateOfPurchase: new Date().toISOString(),
-            title: "New expense",
-            recurrenceInterval: "",
-        });
-    }, [expenses]);
-
-    const expensesSorted = [...expenses].sort((a, b) =>
-        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    );
-
-    return (
-        <section className="panel">
-            <header className="panel-header">
-                <div>
-                    <p className="label-accent">Expenses</p>
-                    <h2 className="title">Recent activity</h2>
-                </div>
-                <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={createExpense}
-                >
-                    + Add expense
-                </button>
-            </header>
-            <div className="cards-stack">
-                {expensesSorted.length === 0 ? (
-                    <p className="muted">
-                        Nothing tracked yet - log your first purchase to kick
-                        things off.
-                    </p>
-                ) : (
-                    expensesSorted.map((expense) => (
-                        <Expense
-                            key={expense["@graph"] + "|" + expense["@id"]}
-                            expense={expense}
-                            availableCategories={availableCategories}
-                        />
-                    ))
-                )}
-            </div>
-        </section>
-    );
-}
-
-export function Expense({
+export function ExpenseCard({
     expense,
     availableCategories,
 }: {
     expense: Expense;
-    availableCategories: ExpenseCategory[];
+    availableCategories: DeepSignalSet<ExpenseCategory>;
 }) {
     const [isEditing, setIsEditing] = useState(false);
+
     const purchaseDate = expense.dateOfPurchase
         ? new Date(expense.dateOfPurchase).toLocaleDateString()
         : "Date not set";
     const totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
+
+    const categoryKey = (category: ExpenseCategory) =>
+        `${category["@graph"]}|${category["@id"]}`;
+
+    const isCategorySelected = (category: ExpenseCategory) =>
+        expense.expenseCategory.has(category["@id"]);
+
+    const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
+        if (checked) {
+            expense.expenseCategory.add(category["@id"]);
+        } else {
+            expense.expenseCategory.delete(category["@id"]);
+        }
+    };
+
+    const nameOfCategory = (categoryIri: string) =>
+        [...availableCategories].find((c) => c["@id"] === categoryIri)
+            ?.categoryName || "Unnamed";
 
     return (
         <article className="expense-card">
@@ -126,7 +69,9 @@ export function Expense({
                             className="header-input"
                             value={expense.title ?? ""}
                             placeholder="Expense title"
-                            onChange={(e) => (expense.title = e.target.value)}
+                            onChange={(e) => {
+                                expense.title = e.target.value;
+                            }}
                         />
                     ) : (
                         <h3 className="header-title">
@@ -228,49 +173,35 @@ export function Expense({
             <div className="field-group">
                 <span className="field-label">Categories</span>
                 {isEditing ? (
-                    availableCategories.length ? (
+                    availableCategories.size ? (
                         <div className="category-picker">
-                            {availableCategories.map((category) => {
-                                const isChecked = expense.expenseCategory.has(
-                                    category["@id"]
-                                );
-
-                                const key =
-                                    category["@graph"] + "|" + category["@id"];
-                                return (
-                                    <label
-                                        className="category-option"
-                                        key={key}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            className="checkbox"
-                                            checked={isChecked}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    expense.expenseCategory.add(
-                                                        category["@id"]
-                                                    );
-                                                } else {
-                                                    expense.expenseCategory.delete(
-                                                        category["@id"]
-                                                    );
-                                                }
-                                            }}
-                                        />
-                                        <span className="category-text">
-                                            <strong>
-                                                {category.categoryName ||
-                                                    "Unnamed"}
-                                            </strong>
-                                            <small className="muted">
-                                                {category.description ||
-                                                    "No description"}
-                                            </small>
-                                        </span>
-                                    </label>
-                                );
-                            })}
+                            {[...availableCategories].map((category) => (
+                                <label
+                                    className="category-option"
+                                    key={categoryKey(category)}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        className="checkbox"
+                                        checked={isCategorySelected(category)}
+                                        onChange={(e) =>
+                                            toggleCategory(
+                                                category,
+                                                e.target.checked
+                                            )
+                                        }
+                                    />
+                                    <span className="category-text">
+                                        <strong>
+                                            {category.categoryName || "Unnamed"}
+                                        </strong>
+                                        <small className="muted">
+                                            {category.description ||
+                                                "No description"}
+                                        </small>
+                                    </span>
+                                </label>
+                            ))}
                         </div>
                     ) : (
                         <p className="muted">
@@ -280,15 +211,11 @@ export function Expense({
                     )
                 ) : expense.expenseCategory.size ? (
                     <div className="chip-list">
-                        {[...expense.expenseCategory].map((categoryIri) => {
-                            return (
-                                <span className="chip" key={categoryIri}>
-                                    {availableCategories.find(
-                                        (c) => c["@id"] === categoryIri
-                                    )?.categoryName || "Unnamed"}
-                                </span>
-                            );
-                        })}
+                        {[...expense.expenseCategory].map((categoryIri) => (
+                            <span className="chip" key={categoryIri}>
+                                {nameOfCategory(categoryIri)}
+                            </span>
+                        ))}
                     </div>
                 ) : (
                     <p className="muted">No categories linked.</p>
