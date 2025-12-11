@@ -7,6 +7,7 @@ import {
 } from '@/lib/greencheck-api-client/types';
 import {SocialContact, Name, PhoneNumber, Email, Url, Photo} from '@/.ldo/contact.typings';
 import {BasicLdSet} from "@/lib/ldo/BasicLdSet";
+import {mapBoxSearchService} from "@/services/mapBoxSearchService.ts";
 
 export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Partial<SocialContact> {
   const contact: Partial<SocialContact> = {
@@ -114,12 +115,12 @@ export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Parti
   return contact;
 }
 
-export function mapCentralityResponseToSocialContacts(
+export async function mapCentralityResponseToSocialContacts(
   response: CentralityResponse,
   linkedinContacts: Record<string, string>,
   getCentrality?: boolean,
   getProfileDetails?: boolean
-): Record<string, Partial<SocialContact>> {
+): Promise<Record<string, Partial<SocialContact>>> {
   const contacts: Record<string, Partial<SocialContact>> = {};
 
   const centrality = response.centrality;
@@ -159,6 +160,8 @@ export function mapCentralityResponseToSocialContacts(
           value: data.loc,
           source: source
         }]);
+        //TODO: this is fallback for coordinates via paid API
+        await mapBoxSearchService.initContactGeoCodes(contact);
       }
     }
     contacts[contactNuri] = contact;
