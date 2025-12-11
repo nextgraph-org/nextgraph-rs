@@ -14,7 +14,13 @@ import {
     isDeepSignal,
     subscribeDeepMutations,
 } from "./deepSignal";
-import { DeepPatch, DeepPatchBatch, DeepSignal } from "./types";
+import {
+    DeepPatch,
+    DeepPatchBatch,
+    DeepSignal,
+    DeepSignalObject,
+    DeepSignalSet,
+} from "./types";
 
 export type RegisterCleanup = (cleanupFn: () => void) => void;
 
@@ -44,7 +50,7 @@ export type WatchPatchCallback<T extends object> = (
 ) => void;
 
 export function watch<T extends object>(
-    source: DeepSignal<T>,
+    source: DeepSignalSet<T> | DeepSignalObject<T> | DeepSignal<T>,
     callback: WatchPatchCallback<T>,
     options: WatchOptions = {}
 ) {
@@ -86,7 +92,7 @@ export function watch<T extends object>(
         callback({
             patches: batch.patches,
             version: batch.version,
-            newValue: next,
+            newValue: next as DeepSignal<T>,
         });
         if (once) stopListening();
     };
