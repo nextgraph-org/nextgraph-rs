@@ -10,6 +10,7 @@ import {iconFilter} from "@/hooks/contacts/useContacts";
 import {useContactData} from "@/hooks/contacts/useContactData";
 import {useDraggable} from "@dnd-kit/core";
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 export interface ContactCardProps {
   nuri: string;
@@ -31,6 +32,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
    }, ref) => {
     const theme = useTheme();
     const {contact, resource} = useContactData(nuri);
+    const {ormContact} = useContactOrm(nuri);
     const draggedContactIds = useMemo(
       () => (getDragContactIds ? getDragContactIds(nuri) : [nuri]),
       [getDragContactIds, nuri]

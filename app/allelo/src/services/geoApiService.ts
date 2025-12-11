@@ -1,6 +1,7 @@
 import type {Contact} from "@/types/contact.ts";
 import {Address} from "@/.ldo/contact.typings.ts";
 import {GEO_API_URL} from "@/config/importers.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 interface GeoCode {
   "lat": number,
@@ -48,7 +49,7 @@ class GeoApiService {
     }
   }
 
-  public async initContactGeoCodes(contact: Contact) {
+  public async initContactGeoCodes(contact: Contact | SocialContact) {
     if (!contact.address)
       return;
 
