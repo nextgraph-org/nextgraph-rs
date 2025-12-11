@@ -60,6 +60,7 @@ export class OrmConnection<T extends BaseType> {
             : null;
 
     private constructor(shapeType: ShapeType<T>, scope: Scope) {
+        // @ts-expect-error
         window.ormSignalConnections = OrmConnection.idToEntry;
 
         this.shapeType = shapeType;
@@ -149,7 +150,7 @@ export class OrmConnection<T extends BaseType> {
         }, this.WAIT_BEFORE_RELEASE);
     };
 
-    private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent) => {
+    private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent<T>) => {
         if (this.suspendDeepWatcher || !patches.length) return;
 
         const ormPatches = deepPatchesToWasm(patches);
