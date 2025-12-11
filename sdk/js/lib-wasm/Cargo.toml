@@ -1,7 +1,7 @@
 [package]
 name = "lib-wasm"
 version = "0.1.2"
-description = "JS app SDK of NextGraph"
+description = "WASM library of NextGraph"
 publish = false
 # version.workspace = true
 edition.workspace = true

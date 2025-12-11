@@ -30,21 +30,6 @@ You need to create a Wallet for yourself, on one of our Public Broker Service Pr
 npm i @ng-org/web
 ```
 
-Additionally, you can use [LDO (Linked Data Object) library](https://ldo.js.org/latest/guides/nextgraph/) to help you with RDF handling in the client side.
-
-```
-npm i @ldo/connected-nextgraph
-```
-
-More documentation on LDO can be found [here](https://www.npmjs.com/package/@ldo/connected-nextgraph).
-
-The LDO library also offers a React plugin that will be demonstrated in another example.
-
-You will find a full example web app [here](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/ng-sdk-js/example-webapp-vite).
-Specially you will find there instructions for setting up your local dev env.
-
-You have to first call the `init()` and `ng.login()`, then once you receive the status `loggedin` in the callback, you can start using the whole API.
-
 ## APIs
 
 All the functions are async. you must use them with `await` (or `.then()`).

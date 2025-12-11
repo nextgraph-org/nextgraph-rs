@@ -658,18 +658,12 @@ importers:
       '@ng-org/alien-deepsignals':
         specifier: workspace:*
         version: link:../../alien-deepsignals
-      '@ng-org/lib-wasm':
-        specifier: workspace:*
-        version: link:../../lib-wasm/pkg
-      '@ng-org/shex-orm':
-        specifier: workspace:*
-        version: link:../../shex-orm
       '@ng-org/signals':
         specifier: workspace:*
         version: link:../../signals
       '@ng-org/web':
-        specifier: ^0.1.2-alpha.4
-        version: 0.1.2-alpha.4
+        specifier: ^0.1.2-alpha.5
+        version: 0.1.2
       '@types/react':
         specifier: 19.1.10
         version: 19.1.10
@@ -713,6 +707,12 @@ importers:
         specifier: 3.5.19
         version: 3.5.19(typescript@5.9.2)
     devDependencies:
+      '@ng-org/lib-wasm':
+        specifier: workspace:*
+        version: link:../../lib-wasm/pkg
+      '@ng-org/shex-orm':
+        specifier: workspace:*
+        version: link:../../shex-orm
       '@playwright/test':
         specifier: ^1.55.0
         version: 1.55.0
@@ -966,10 +966,10 @@ importers:
         version: 4.3.0(@types/node@24.3.0)(@types/react-dom@19.1.7(@types/react@19.1.10))(@types/react@19.1.10)(jiti@2.6.1)(lightningcss@1.30.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(yaml@2.8.1)
       '@astrojs/svelte':
         specifier: 7.1.0
-        version: 7.1.0(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(svelte@5.39.12)(typescript@5.9.2)(yaml@2.8.1)
+        version: 7.1.0(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(svelte@5.39.12)(typescript@5.9.2)(yaml@2.8.1)
       '@astrojs/vue':
         specifier: ^5.1.0
-        version: 5.1.1(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(vue@3.5.19(typescript@5.9.2))(yaml@2.8.1)
+        version: 5.1.1(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(vue@3.5.19(typescript@5.9.2))(yaml@2.8.1)
       '@gn8/alien-signals-react':
         specifier: ^0.1.1
         version: 0.1.1(alien-signals@2.0.7)(react@19.1.1)
@@ -1002,7 +1002,7 @@ importers:
         version: 2.0.7
       astro:
         specifier: 5.13.2
-        version: 5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
+        version: 5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
       install:
         specifier: ^0.13.0
         version: 0.13.0
@@ -1050,6 +1050,9 @@ importers:
         specifier: ^0.4.1
         version: 0.4.1
     devDependencies:
+      '@ng-org/lib-wasm':
+        specifier: workspace:*
+        version: link:../lib-wasm/pkg
       '@types/node':
         specifier: ^18.7.10
         version: 18.19.124
@@ -2968,11 +2971,11 @@ packages:
   '@microsoft/tsdoc@0.15.1':
     resolution: {integrity: sha512-4aErSrCR/On/e5G2hDP0wjooqDdauzEbIq8hIkIe5pXV0rtWJZvdCEKL0ykZxex+IxIwBp0eGeV48hQN07dXtw==}
 
+  '@ng-org/web@0.1.2':
+    resolution: {integrity: sha512-GsJuttmNxsjBrqtci5YYTV6g+pe9c4UuXtOW4vrYy0WrATkBI+bpICbn6sIOy909j5M4ovXAYOcWgvRfSDmTDA==}
+
   '@ng-org/web@0.1.2-alpha.2':
     resolution: {integrity: sha512-WElSVA8JQKPtn8cFsXfJ5D2G7mIOvADnPwtNzJ4Ga1c1tDNGRSN0KLf335UwEl1qZ0u/srp9Wjn76y9R7yQGlQ==}
-
-  '@ng-org/web@0.1.2-alpha.4':
-    resolution: {integrity: sha512-QTQQBitnxBYThfJUXfvdT6RJflzwokmZ0I4jmky4q330eq4a0phAGnTwa9FOWsfACC0hIMR8J6F3JvHz9N3/4A==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -8827,10 +8830,10 @@ snapshots:
       - tsx
       - yaml
 
-  '@astrojs/svelte@7.1.0(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(svelte@5.39.12)(typescript@5.9.2)(yaml@2.8.1)':
+  '@astrojs/svelte@7.1.0(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(svelte@5.39.12)(typescript@5.9.2)(yaml@2.8.1)':
     dependencies:
       '@sveltejs/vite-plugin-svelte': 5.1.1(svelte@5.39.12)(vite@6.4.1(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
-      astro: 5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
+      astro: 5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
       svelte: 5.39.12
       svelte2tsx: 0.7.43(svelte@5.39.12)(typescript@5.9.2)
       typescript: 5.9.2
@@ -8905,12 +8908,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/vue@5.1.1(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(vue@3.5.19(typescript@5.9.2))(yaml@2.8.1)':
+  '@astrojs/vue@5.1.1(@types/node@24.3.0)(astro@5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1))(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(vue@3.5.19(typescript@5.9.2))(yaml@2.8.1)':
     dependencies:
       '@vitejs/plugin-vue': 5.2.1(vite@6.4.1(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))(vue@3.5.19(typescript@5.9.2))
       '@vitejs/plugin-vue-jsx': 4.2.0(vite@6.4.1(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))(vue@3.5.19(typescript@5.9.2))
       '@vue/compiler-sfc': 3.5.21
-      astro: 5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
+      astro: 5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1)
       vite: 6.4.1(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1)
       vite-plugin-vue-devtools: 7.7.7(rollup@4.50.2)(vite@6.4.1(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))(vue@3.5.19(typescript@5.9.2))
       vue: 3.5.19(typescript@5.9.2)
@@ -9748,7 +9751,7 @@ snapshots:
     dependencies:
       buffer: 6.0.3
 
-  '@capsizecss/unpack@2.4.0':
+  '@capsizecss/unpack@2.4.0(encoding@0.1.13)':
     dependencies:
       blob-to-buffer: 1.2.9
       cross-fetch: 3.2.0(encoding@0.1.13)
@@ -10986,11 +10989,11 @@ snapshots:
 
   '@microsoft/tsdoc@0.15.1': {}
 
-  '@ng-org/web@0.1.2-alpha.2':
+  '@ng-org/web@0.1.2':
     dependencies:
       async-proxy: 0.4.1
 
-  '@ng-org/web@0.1.2-alpha.4':
+  '@ng-org/web@0.1.2-alpha.2':
     dependencies:
       async-proxy: 0.4.1
 
@@ -12994,13 +12997,13 @@ snapshots:
       estree-walker: 3.0.3
       js-tokens: 9.0.1
 
-  astro@5.13.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1):
+  astro@5.13.2(@types/node@24.3.0)(encoding@0.1.13)(jiti@2.6.1)(lightningcss@1.30.1)(rollup@4.50.2)(typescript@5.9.2)(yaml@2.8.1):
     dependencies:
       '@astrojs/compiler': 2.13.0
       '@astrojs/internal-helpers': 0.7.2
       '@astrojs/markdown-remark': 6.3.6
       '@astrojs/telemetry': 3.3.0
-      '@capsizecss/unpack': 2.4.0
+      '@capsizecss/unpack': 2.4.0(encoding@0.1.13)
       '@oslojs/encoding': 1.1.0
       '@rollup/pluginutils': 5.3.0(rollup@4.50.2)
       acorn: 8.15.0

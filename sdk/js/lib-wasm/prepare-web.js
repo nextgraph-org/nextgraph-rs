@@ -6,6 +6,9 @@ const PATH_README = './pkg/README.md';
 const pkg_json = fs.readFileSync(PATH);
 let pkg = JSON.parse(pkg_json)
 pkg.name = "@ng-org/lib-wasm";
+pkg.publishConfig = {
+    access: "public"
+};
 pkg.files.push("lib_wasm_bg.wasm.d.ts");
 pkg.files.push("snippets/**/*.js");
 fs.writeFileSync(PATH, JSON.stringify(pkg, null, 2), 'utf8');
