@@ -1,5 +1,5 @@
 import { ng, init as initNgWeb } from "@ng-org/web";
-import { initNg as initNgSignals } from "@ng-org/signals";
+import { initNg as initNgSignals } from "@ng-org/orm";
 import type * as NG from "@ng-org/lib-wasm";
 
 export let session: NextGraphSession | undefined;

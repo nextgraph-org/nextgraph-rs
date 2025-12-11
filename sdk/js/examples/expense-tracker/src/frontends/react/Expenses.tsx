@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useCallback } from "react";
-import { useShape } from "@ng-org/signals/react";
+import { useShape } from "@ng-org/orm/react";
 import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,

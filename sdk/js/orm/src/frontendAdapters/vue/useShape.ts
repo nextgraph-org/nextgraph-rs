@@ -8,8 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.js";
-import type { Scope } from "../../types.js";
+import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
+import type { Scope } from "../../types.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { onBeforeUnmount } from "vue";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";

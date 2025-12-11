@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useShape } from "@ng-org/signals/vue";
+import { useShape } from "@ng-org/orm/vue";
 import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,
