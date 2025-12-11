@@ -1,5 +1,8 @@
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {defaultPolicy} from "@/config/sources.ts";
+import {geoApiService} from "@/services/geoApiService.ts";
+import {contactNonSetProperties, contactSetProperties} from "@/.orm/shapes/contact.utils.ts";
+import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 
 type ContactSetProperties = {
   [K in keyof SocialContact as NonNullable<SocialContact[K]> extends Set<any> ? K : never]: SocialContact[K]
@@ -147,4 +150,59 @@ export function updatePropertyFlag<K extends ResolvableKey>(
       (target as any)[flag] = !((target as any)[flag] ?? false);
     }
   }
+}
+
+function handleDictionaries(el: any, key: string) {
+  if (!el[key]) return;
+
+  let normalized = el[key];
+  if ("@id" in normalized) {
+    normalized = normalized["@id"];
+  }
+
+  if (key === "type2") {
+    el["type"] = appendPrefixToDictValue(key, normalized);
+    delete el[key];
+  } else {
+    el[key] = appendPrefixToDictValue(key, normalized);
+  }
+}
+
+export async function processContactFromJSON(jsonContact: any): Promise<SocialContact> {
+  const contact = {
+    "@graph": "",
+    "@id": "",
+    "@type": new Set(["http://www.w3.org/2006/vcard/ns#Individual"])
+  } as SocialContact;
+  contactSetProperties.forEach(property => {
+    if (jsonContact[property] && Array.isArray(jsonContact[property])) {
+      const props = jsonContact[property].map((el: any) => {
+        handleDictionaries(el, "type2");
+        // handleDictionaries(el, "type");
+        handleDictionaries(el, "valueIRI");
+        handleDictionaries(el, "photoIRI");
+
+        return el;
+      });
+
+      contact[property] ??= new Set(props);
+    }
+  });
+
+  contactNonSetProperties.forEach(property => {
+    if (jsonContact[property]) {
+      contact[property] = jsonContact[property];
+    }
+  })
+
+  await geoApiService.initContactGeoCodes(contact);
+
+  //TODO: remove this when we would have real data
+  // Only generate the centralityScore once, so we can reliably test the network graph
+  if (contact.centralityScore === undefined) {
+    contact.centralityScore = Math.round(100 * Math.random());
+  }
+  //// TODO:
+
+  return contact;
 }

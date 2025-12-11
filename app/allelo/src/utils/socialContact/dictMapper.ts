@@ -1,6 +1,6 @@
 import {contactContext} from "@/.ldo/contact.context.ts";
 
-const dictPrefixes = {
+export const dictPrefixes = {
   "tag": "did:ng:k:contact:tag#",
   "organization": "did:ng:k:org:type#",
   "gender": "did:ng:k:gender#",
@@ -48,4 +48,21 @@ export function getContactIriValue(dictType: DictType, value?: string) {
     value = "other";
   }
   return [{"@id": value}];
+}
+
+export function appendPrefixToDictValue(dictType: string, value?: string) {
+  if (!value) {
+    return "";
+  }
+  if (!dictPrefixes[dictType]) {
+    return value;
+  }
+
+  const dictionary = getContactDictValues(dictType);
+  if (!dictionary || !dictionary.includes(value)) {
+    console.log("Unknown value: " + value, " dictionary: " + dictType);
+    value = "other";
+  }
+
+  return dictPrefixes[dictType] + value;
 }

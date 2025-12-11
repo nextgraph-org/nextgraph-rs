@@ -128,7 +128,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     const containerOverlay = session.privateStoreId!.substring(46);
     // @ts-expect-error TODO output format of ng sparql query
     return contactIDsResult.results.bindings.map(
-      (binding) => binding.contactUri.value + containerOverlay
+      (binding) => binding.contactUri.value.substring(0,53) + containerOverlay
     );
   }, [session, filters, limit]);
 
