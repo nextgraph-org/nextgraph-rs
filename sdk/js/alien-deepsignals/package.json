@@ -1,6 +1,6 @@
 {
   "name": "@ng-org/alien-deepsignals",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": false,
   "authors": [
     "Laurin Weger",
@@ -12,6 +12,7 @@
   ],
   "main": "src/index.ts",
   "publishConfig": {
+    "access": "public",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
@@ -22,13 +23,13 @@
       }
     }
   },
-  "description": "NextGraph adaptation of AlienDeepSignals 🧶 -alien signals, but using regular JavaScript objects",
+  "description": "NextGraph adaptation of AlienDeepSignals - alien signals, but using regular JavaScript objects",
   "scripts": {
     "test": "vitest --coverage --dir src/test/lib",
     "test:frontend": "playwright test src/test/frontend",
     "dev": "tsup --watch src",
     "build:ts": "tsup",
-    "release": "bumpp && npm run build && npm publish --registry=https://registry.npmjs.org/"
+    "release": "bumpp && npm run build:ts && npm publish --registry=https://registry.npmjs.org/"
   },
   "exports": {
     ".": {

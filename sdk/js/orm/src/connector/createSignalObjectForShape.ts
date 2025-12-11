@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { Diff, Scope } from "../types.js";
+import type { Diff, Scope } from "../types.ts";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 import { OrmConnection } from "./ormConnectionHandler.ts";
 

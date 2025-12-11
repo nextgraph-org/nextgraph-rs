@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import React, { useEffect, useState } from "react";
-import { useShape } from "@ng-org/signals/react";
+import { useShape } from "@ng-org/orm/react";
 import flattenObject from "../utils/flattenObject";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";

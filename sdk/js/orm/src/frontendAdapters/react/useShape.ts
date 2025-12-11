@@ -12,8 +12,8 @@ import type { BaseType } from "@ng-org/shex-orm";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
 import { useEffect, useRef, useState } from "react";
-import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.js";
-import type { Scope } from "../../types.js";
+import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
+import type { Scope } from "../../types.ts";
 
 const useShape = <T extends BaseType>(
     shape: ShapeType<T>,

@@ -2,7 +2,7 @@ import {useCallback, useState} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialGroup} from "@/.orm/shapes/group.typings";
-import {useShape} from "@ng-org/signals/react";
+import {useShape} from "@ng-org/orm/react";
 import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
 
 interface UseSaveGroupsReturn {

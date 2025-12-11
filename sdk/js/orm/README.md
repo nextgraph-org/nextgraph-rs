@@ -1,4 +1,4 @@
-# @ng-org/signals
+# @ng-org/orm
 
 Reactive ORM library for NextGraph — use typed, reactive objects that automatically sync to NextGraph's encrypted, local-first storage.
 
@@ -11,7 +11,7 @@ For a walk-through, you can see the the [expense-tracker example app](https://gi
 
 ## Table of Contents
 
-- [@ng-org/signals](#ng-orgsignals)
+- [@ng-org/orm](#ng-orgorm)
     - [Table of Contents](#table-of-contents)
     - [Installation](#installation)
     - [Quick Start](#quick-start)
@@ -36,7 +36,7 @@ For a walk-through, you can see the the [expense-tracker example app](https://gi
 ## Installation
 
 ```bash
-pnpm add @ng-org/signals @ng-org/web @ng-org/alien-deepsignals
+pnpm add @ng-org/orm @ng-org/web @ng-org/alien-deepsignals
 ```
 
 For schema code generation, also install:
@@ -53,7 +53,7 @@ Before using the ORM, initialize NextGraph in your app entry point:
 
 ```typescript
 import { ng, init } from "@ng-org/web";
-import { initNg } from "@ng-org/signals";
+import { initNg } from "@ng-org/orm";
 
 await init(
     async (event) => {
@@ -67,11 +67,7 @@ await init(
 Then use `useShape()` in your components:
 
 ```typescript
-<<<<<<< HEAD
-import { useShape } from "@ng-org/signals/react"; // or /vue, /svelte
-=======
-import { useShape } from "@ng-org/signals/react";  // or /vue, /svelte
->>>>>>> a4ce29cd (ng signals: improve documentation)
+import { useShape } from "@ng-org/orm/react"; // or /vue, /svelte
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
 const dogs = useShape(DogShapeType);
@@ -89,11 +85,6 @@ for (const dog of dogs) {
 Define your data model using [SHEX (Shape Expressions)](https://shex.io/):
 
 **`shapes/shex/dogShape.shex`**:
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > a4ce29cd (ng signals: improve documentation)
 
 ```shex
 PREFIX ex: <http://example.org/>
@@ -114,11 +105,6 @@ Generate TypeScript types. Add the following to your `package.json` scripts and 
 ```
 
 This creates:
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > a4ce29cd (ng signals: improve documentation)
 
 - `dogShape.typings.ts` — TypeScript interfaces
 - `dogShape.shapeTypes.ts` — Shape type objects for `useShape()`
@@ -133,7 +119,7 @@ See [@ng-org/shex-orm](../shex-orm/README.md) for full documentation.
 ### React
 
 ```tsx
-import { useShape } from "@ng-org/signals/react";
+import { useShape } from "@ng-org/orm/react";
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import type { Dog } from "./shapes/orm/dogShape.typings";
 
@@ -164,7 +150,7 @@ export function DogList() {
 
 ```vue
 <script setup lang="ts">
-import { useShape } from "@ng-org/signals/vue";
+import { useShape } from "@ng-org/orm/vue";
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import DogCard from "./DogCard.vue";
 
@@ -202,7 +188,7 @@ const dog = useDeepSignal(props.dog);
 
 ```svelte
 <script lang="ts">
-    import { useShape } from "@ng-org/signals/svelte";
+    import { useShape } from "@ng-org/orm/svelte";
     import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
     const dogs = useShape(DogShapeType); // Reactive store

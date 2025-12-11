@@ -59,12 +59,12 @@ importers:
       '@mui/material':
         specifier: ^7.2.0
         version: 7.3.6(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.1))(@types/react@19.2.7)(react@19.1.1))(@types/react@19.2.7)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@ng-org/orm':
+        specifier: workspace:*
+        version: link:../../sdk/js/orm
       '@ng-org/plugin-barcode-scanner':
         specifier: workspace:*
         version: link:../barcode-scanner
-      '@ng-org/signals':
-        specifier: workspace:*
-        version: link:../../sdk/js/signals
       '@ng-org/web':
         specifier: workspace:*
         version: link:../../sdk/js/web
@@ -997,12 +997,12 @@ importers:
       '@ng-org/alien-deepsignals':
         specifier: workspace:*
         version: link:../../alien-deepsignals
+      '@ng-org/orm':
+        specifier: workspace:*
+        version: link:../../orm
       '@ng-org/shex-orm':
         specifier: workspace:*
         version: link:../../shex-orm
-      '@ng-org/signals':
-        specifier: workspace:*
-        version: link:../../signals
       '@ng-org/web':
         specifier: workspace:*
         version: link:../../web
@@ -1137,86 +1137,7 @@ importers:
 
   sdk/js/lib-wasm/pkg: {}
 
-  sdk/js/shex-orm:
-    dependencies:
-      '@jeswr/shacl2shex':
-        specifier: ^1.1.0
-        version: 1.5.1
-      '@ldo/traverser-shexj':
-        specifier: 1.0.0-alpha.28
-        version: 1.0.0-alpha.28
-      '@ldo/type-traverser':
-        specifier: 1.0.0-alpha.28
-        version: 1.0.0-alpha.28
-      '@shexjs/parser':
-        specifier: ^1.0.0-alpha.24
-        version: 1.0.0-alpha.28
-      child-process-promise:
-        specifier: ^2.2.1
-        version: 2.2.1
-      commander:
-        specifier: ^14.0.1
-        version: 14.0.2
-      dts-dom:
-        specifier: ~3.6.0
-        version: 3.6.0
-      ejs:
-        specifier: ^3.1.8
-        version: 3.1.10
-      fs-extra:
-        specifier: ^10.1.0
-        version: 10.1.0
-      jsonld2graphobject:
-        specifier: ^0.0.5
-        version: 0.0.5
-      loading-cli:
-        specifier: ^1.1.0
-        version: 1.1.2
-      prettier:
-        specifier: ^3.0.3
-        version: 3.6.2
-      prompts:
-        specifier: ^2.4.2
-        version: 2.4.2
-      rdf-dereference-store:
-        specifier: ^1.4.0
-        version: 1.4.0
-      rdf-namespaces:
-        specifier: ^1.13.1
-        version: 1.16.0
-      ts-morph:
-        specifier: ^24.0.0
-        version: 24.0.0
-      type-fest:
-        specifier: ^2.19.0
-        version: 2.19.0
-    devDependencies:
-      '@types/child-process-promise':
-        specifier: ^2.2.2
-        version: 2.2.6
-      '@types/ejs':
-        specifier: ^3.1.1
-        version: 3.1.5
-      '@types/fs-extra':
-        specifier: ^9.0.13
-        version: 9.0.13
-      '@types/jsonld':
-        specifier: ^1.5.15
-        version: 1.5.15
-      '@types/prompts':
-        specifier: ^2.4.9
-        version: 2.4.9
-      '@types/shexj':
-        specifier: ^2.1.4
-        version: 2.1.7
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(jiti@2.6.1)(jsdom@20.0.3)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
-
-  sdk/js/signals:
+  sdk/js/orm:
     dependencies:
       '@astrojs/react':
         specifier: 4.3.0
@@ -1297,6 +1218,85 @@ importers:
       vite:
         specifier: 7.1.3
         version: 7.1.3(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(jiti@2.6.1)(jsdom@20.0.3)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
+
+  sdk/js/shex-orm:
+    dependencies:
+      '@jeswr/shacl2shex':
+        specifier: ^1.1.0
+        version: 1.5.1
+      '@ldo/traverser-shexj':
+        specifier: 1.0.0-alpha.28
+        version: 1.0.0-alpha.28
+      '@ldo/type-traverser':
+        specifier: 1.0.0-alpha.28
+        version: 1.0.0-alpha.28
+      '@shexjs/parser':
+        specifier: ^1.0.0-alpha.24
+        version: 1.0.0-alpha.28
+      child-process-promise:
+        specifier: ^2.2.1
+        version: 2.2.1
+      commander:
+        specifier: ^14.0.1
+        version: 14.0.2
+      dts-dom:
+        specifier: ~3.6.0
+        version: 3.6.0
+      ejs:
+        specifier: ^3.1.8
+        version: 3.1.10
+      fs-extra:
+        specifier: ^10.1.0
+        version: 10.1.0
+      jsonld2graphobject:
+        specifier: ^0.0.5
+        version: 0.0.5
+      loading-cli:
+        specifier: ^1.1.0
+        version: 1.1.2
+      prettier:
+        specifier: ^3.0.3
+        version: 3.6.2
+      prompts:
+        specifier: ^2.4.2
+        version: 2.4.2
+      rdf-dereference-store:
+        specifier: ^1.4.0
+        version: 1.4.0
+      rdf-namespaces:
+        specifier: ^1.13.1
+        version: 1.16.0
+      ts-morph:
+        specifier: ^24.0.0
+        version: 24.0.0
+      type-fest:
+        specifier: ^2.19.0
+        version: 2.19.0
+    devDependencies:
+      '@types/child-process-promise':
+        specifier: ^2.2.2
+        version: 2.2.6
+      '@types/ejs':
+        specifier: ^3.1.1
+        version: 3.1.5
+      '@types/fs-extra':
+        specifier: ^9.0.13
+        version: 9.0.13
+      '@types/jsonld':
+        specifier: ^1.5.15
+        version: 1.5.15
+      '@types/prompts':
+        specifier: ^2.4.9
+        version: 2.4.9
+      '@types/shexj':
+        specifier: ^2.1.4
+        version: 2.1.7
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(jiti@2.6.1)(jsdom@20.0.3)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
@@ -4169,20 +4169,38 @@ packages:
     resolution: {integrity: sha512-VK4gIQdIuhlU2vU8HiZAvffj4zPzLrDjLaBS0uKiLS0VTSpee4rejLJs4HiXCfPXFY7xOdW+As9dBH7kKpXWew==}
     engines: {node: '>=0.10.0'}
 
+  '@shikijs/core@3.17.0':
+    resolution: {integrity: sha512-/HjeOnbc62C+n33QFNFrAhUlIADKwfuoS50Ht0pxujxP4QjZAlFp5Q+OkDo531SCTzivx5T18khwyBdKoPdkuw==}
+
   '@shikijs/core@3.19.0':
     resolution: {integrity: sha512-L7SrRibU7ZoYi1/TrZsJOFAnnHyLTE1SwHG1yNWjZIVCqjOEmCSuK2ZO9thnRbJG6TOkPp+Z963JmpCNw5nzvA==}
+
+  '@shikijs/engine-javascript@3.17.0':
+    resolution: {integrity: sha512-WwF99xdP8KfuDrIbT4wxyypfhoIxMeeOCp1AiuvzzZ6JT5B3vIuoclL8xOuuydA6LBeeNXUF/XV5zlwwex1jlA==}
 
   '@shikijs/engine-javascript@3.19.0':
     resolution: {integrity: sha512-ZfWJNm2VMhKkQIKT9qXbs76RRcT0SF/CAvEz0+RkpUDAoDaCx0uFdCGzSRiD9gSlhm6AHkjdieOBJMaO2eC1rQ==}
 
+  '@shikijs/engine-oniguruma@3.17.0':
+    resolution: {integrity: sha512-flSbHZAiOZDNTrEbULY8DLWavu/TyVu/E7RChpLB4WvKX4iHMfj80C6Hi3TjIWaQtHOW0KC6kzMcuB5TO1hZ8Q==}
+
   '@shikijs/engine-oniguruma@3.19.0':
     resolution: {integrity: sha512-1hRxtYIJfJSZeM5ivbUXv9hcJP3PWRo5prG/V2sWwiubUKTa+7P62d2qxCW8jiVFX4pgRHhnHNp+qeR7Xl+6kg==}
+
+  '@shikijs/langs@3.17.0':
+    resolution: {integrity: sha512-icmur2n5Ojb+HAiQu6NEcIIJ8oWDFGGEpiqSCe43539Sabpx7Y829WR3QuUW2zjTM4l6V8Sazgb3rrHO2orEAw==}
 
   '@shikijs/langs@3.19.0':
     resolution: {integrity: sha512-dBMFzzg1QiXqCVQ5ONc0z2ebyoi5BKz+MtfByLm0o5/nbUu3Iz8uaTCa5uzGiscQKm7lVShfZHU1+OG3t5hgwg==}
 
+  '@shikijs/themes@3.17.0':
+    resolution: {integrity: sha512-/xEizMHLBmMHwtx4JuOkRf3zwhWD2bmG5BRr0IPjpcWpaq4C3mYEuTk/USAEglN0qPrTwEHwKVpSu/y2jhferA==}
+
   '@shikijs/themes@3.19.0':
     resolution: {integrity: sha512-H36qw+oh91Y0s6OlFfdSuQ0Ld+5CgB/VE6gNPK+Hk4VRbVG/XQgkjnt4KzfnnoO6tZPtKJKHPjwebOCfjd6F8A==}
+
+  '@shikijs/types@3.17.0':
+    resolution: {integrity: sha512-wjLVfutYWVUnxAjsWEob98xgyaGv0dTEnMZDruU5mRjVN7szcGOfgO+997W2yR6odp+1PtSBNeSITRRTfUzK/g==}
 
   '@shikijs/types@3.19.0':
     resolution: {integrity: sha512-Z2hdeEQlzuntf/BZpFG8a+Fsw9UVXdML7w0o3TgSXV3yNESGon+bs9ITkQb3Ki7zxoXOOu5oJWqZ2uto06V9iQ==}
@@ -9089,6 +9107,9 @@ packages:
   shellwords@0.1.1:
     resolution: {integrity: sha512-vFwSUfQvqybiICwZY5+DAWIPLKsWO31Q91JSKl3UYv+K5c2QRPzn0qzec6QPu1Qc9eHYItiP3NdJqNVqetYAww==}
 
+  shiki@3.17.0:
+    resolution: {integrity: sha512-lUZfWsyW7czITYTdo/Tb6ZM4VfyXlzmKYBQBjTz+pBzPPkP08RgIt00Ls1Z50Cl3SfwJsue6WbJeF3UgqLVI9Q==}
+
   shiki@3.19.0:
     resolution: {integrity: sha512-77VJr3OR/VUZzPiStyRhADmO2jApMM0V2b1qf0RpfWya8Zr1PeZev5AEpPGAAKWdiYUtcZGBE4F5QvJml1PvWA==}
 
@@ -11934,18 +11955,17 @@ snapshots:
       lru-cache: 10.4.3
       sparqlalgebrajs: 5.0.2
 
-  '@covector/apply@0.10.0(mocha@10.8.2)':
+  '@covector/apply@0.10.0':
     dependencies:
       '@covector/files': 0.8.0
       effection: 2.0.8(mocha@10.8.2)
       semver: 7.7.3
     transitivePeerDependencies:
       - encoding
-      - mocha
 
-  '@covector/assemble@0.12.0':
+  '@covector/assemble@0.12.0(mocha@10.8.2)':
     dependencies:
-      '@covector/command': 0.8.0
+      '@covector/command': 0.8.0(mocha@10.8.2)
       '@covector/files': 0.8.0
       effection: 2.0.8(mocha@10.8.2)
       js-yaml: 4.1.1
@@ -11956,6 +11976,7 @@ snapshots:
       unified: 9.2.2
     transitivePeerDependencies:
       - encoding
+      - mocha
       - supports-color
 
   '@covector/changelog@0.12.0':
@@ -11970,12 +11991,13 @@ snapshots:
       - encoding
       - supports-color
 
-  '@covector/command@0.8.0':
+  '@covector/command@0.8.0(mocha@10.8.2)':
     dependencies:
       '@effection/process': 2.1.4
       effection: 2.0.8(mocha@10.8.2)
     transitivePeerDependencies:
       - encoding
+      - mocha
 
   '@covector/files@0.8.0':
     dependencies:
@@ -14271,6 +14293,13 @@ snapshots:
     dependencies:
       relativize-url: 0.1.0
 
+  '@shikijs/core@3.17.0':
+    dependencies:
+      '@shikijs/types': 3.17.0
+      '@shikijs/vscode-textmate': 10.0.2
+      '@types/hast': 3.0.4
+      hast-util-to-html: 9.0.5
+
   '@shikijs/core@3.19.0':
     dependencies:
       '@shikijs/types': 3.19.0
@@ -14278,24 +14307,48 @@ snapshots:
       '@types/hast': 3.0.4
       hast-util-to-html: 9.0.5
 
+  '@shikijs/engine-javascript@3.17.0':
+    dependencies:
+      '@shikijs/types': 3.17.0
+      '@shikijs/vscode-textmate': 10.0.2
+      oniguruma-to-es: 4.3.4
+
   '@shikijs/engine-javascript@3.19.0':
     dependencies:
       '@shikijs/types': 3.19.0
       '@shikijs/vscode-textmate': 10.0.2
       oniguruma-to-es: 4.3.4
 
+  '@shikijs/engine-oniguruma@3.17.0':
+    dependencies:
+      '@shikijs/types': 3.17.0
+      '@shikijs/vscode-textmate': 10.0.2
+
   '@shikijs/engine-oniguruma@3.19.0':
     dependencies:
       '@shikijs/types': 3.19.0
       '@shikijs/vscode-textmate': 10.0.2
 
+  '@shikijs/langs@3.17.0':
+    dependencies:
+      '@shikijs/types': 3.17.0
+
   '@shikijs/langs@3.19.0':
     dependencies:
       '@shikijs/types': 3.19.0
 
+  '@shikijs/themes@3.17.0':
+    dependencies:
+      '@shikijs/types': 3.17.0
+
   '@shikijs/themes@3.19.0':
     dependencies:
       '@shikijs/types': 3.19.0
+
+  '@shikijs/types@3.17.0':
+    dependencies:
+      '@shikijs/vscode-textmate': 10.0.2
+      '@types/hast': 3.0.4
 
   '@shikijs/types@3.19.0':
     dependencies:
@@ -16610,7 +16663,7 @@ snapshots:
       prompts: 2.4.2
       rehype: 13.0.2
       semver: 7.7.3
-      shiki: 3.19.0
+      shiki: 3.17.0
       smol-toml: 1.5.2
       tinyexec: 0.3.2
       tinyglobby: 0.2.15
@@ -17347,10 +17400,10 @@ snapshots:
   covector@0.12.4(mocha@10.8.2):
     dependencies:
       '@clack/prompts': 0.7.0
-      '@covector/apply': 0.10.0(mocha@10.8.2)
-      '@covector/assemble': 0.12.0
+      '@covector/apply': 0.10.0
+      '@covector/assemble': 0.12.0(mocha@10.8.2)
       '@covector/changelog': 0.12.0
-      '@covector/command': 0.8.0
+      '@covector/command': 0.8.0(mocha@10.8.2)
       '@covector/files': 0.8.0
       effection: 2.0.8(mocha@10.8.2)
       globby: 11.1.0
@@ -21249,6 +21302,17 @@ snapshots:
       rechoir: 0.6.2
 
   shellwords@0.1.1: {}
+
+  shiki@3.17.0:
+    dependencies:
+      '@shikijs/core': 3.17.0
+      '@shikijs/engine-javascript': 3.17.0
+      '@shikijs/engine-oniguruma': 3.17.0
+      '@shikijs/langs': 3.17.0
+      '@shikijs/themes': 3.17.0
+      '@shikijs/types': 3.17.0
+      '@shikijs/vscode-textmate': 10.0.2
+      '@types/hast': 3.0.4
 
   shiki@3.19.0:
     dependencies:

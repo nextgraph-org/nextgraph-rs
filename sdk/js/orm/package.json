@@ -1,6 +1,6 @@
 {
-  "name": "@ng-org/signals",
-  "version": "0.1.0",
+  "name": "@ng-org/orm",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "authors": [
@@ -11,7 +11,7 @@
   "scripts": {
     "test": "vitest",
     "test:e2e": "playwright test",
-    "build:ts": "rm -rf dist && tsc"
+    "build:ts": "rm -rf dist && tsc --noEmit"
   },
   "exports": {
     ".": {
@@ -58,10 +58,10 @@
     "@gn8/alien-signals-svelte": "^0.1.1",
     "@gn8/alien-signals-vue": "^0.1.1",
     "@ng-org/shex-orm": "workspace:*",
+    "@ng-org/alien-deepsignals": "workspace:*",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
     "@types/shexj": "^2.1.7",
-    "@ng-org/alien-deepsignals": "workspace:*",
     "alien-signals": "^2.0.7",
     "astro": "5.13.2",
     "install": "^0.13.0",

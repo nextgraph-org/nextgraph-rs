@@ -1,7 +1,7 @@
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContactShapeType as Shape} from "@/.orm/shapes/contact.shapeTypes";
-import {useShape} from "@ng-org/signals/react";
+import {useShape} from "@ng-org/orm/react";
 
 export const useContactOrm = (nuri: string | null | undefined, isProfile = false) => {
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;

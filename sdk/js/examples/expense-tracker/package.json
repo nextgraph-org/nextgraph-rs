@@ -1,5 +1,5 @@
 {
-  "name": "@ng-org/example-multi-framework-signals",
+  "name": "@ng-org/expense-tracker",
   "version": "0.1.0",
   "private": true,
   "authors": [
@@ -18,8 +18,8 @@
     "build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
   },
   "dependencies": {
-    "@ng-org/signals": "workspace:*",
-    "@ng-org/web": "^0.1.2-alpha.5",
+    "@ng-org/orm": "workspace:*",
+    "@ng-org/web": "0.1.2-alpha.5",
     "@astrojs/react": "4.3.0",
     "vite-plugin-wasm": "^3.5.0",
     "vite-plugin-top-level-await": "^1.6.0",

@@ -1,4 +1,4 @@
-import {useShape} from "@ng-org/signals/react";
+import {useShape} from "@ng-org/orm/react";
 import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
 import {useCallback, useMemo} from "react";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
