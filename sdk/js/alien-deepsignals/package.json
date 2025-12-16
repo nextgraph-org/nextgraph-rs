@@ -1,6 +1,6 @@
 {
   "name": "@ng-org/alien-deepsignals",
-  "version": "0.1.2-alpha.1",
+  "version": "0.1.2-alpha.2",
   "private": false,
   "authors": [
     "Laurin Weger",
@@ -18,8 +18,8 @@
     "types": "dist/index.d.ts",
     "exports": {
       ".": {
-        "import": "./dist/index.mjs",
-        "require": "./dist/index.js"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
       "./react": {
         "types": "./dist/hooks/react/index.d.ts",
