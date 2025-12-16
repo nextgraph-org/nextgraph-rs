@@ -922,8 +922,8 @@ importers:
   sdk/js/api-web:
     dependencies:
       '@ng-org/lib-wasm':
-        specifier: 0.1.2
-        version: 0.1.2
+        specifier: workspace:*
+        version: link:../lib-wasm/pkg
       async-proxy:
         specifier: ^0.4.1
         version: 0.4.1
@@ -995,8 +995,8 @@ importers:
         specifier: workspace:*
         version: link:../../orm
       '@ng-org/shex-orm':
-        specifier: 0.1.2-alpha.1
-        version: 0.1.2-alpha.1
+        specifier: workspace:*
+        version: link:../../shex-orm
       '@ng-org/web':
         specifier: workspace:*
         version: link:../../web
@@ -1158,8 +1158,8 @@ importers:
         specifier: workspace:*
         version: link:../alien-deepsignals
       '@ng-org/shex-orm':
-        specifier: 0.1.2-alpha.1
-        version: 0.1.2-alpha.1
+        specifier: workspace:*
+        version: link:../shex-orm
       '@types/react':
         specifier: 19.1.10
         version: 19.1.10
@@ -1198,8 +1198,8 @@ importers:
         version: 3.5.19(typescript@5.9.3)
     devDependencies:
       '@ng-org/lib-wasm':
-        specifier: 0.1.2
-        version: 0.1.2
+        specifier: workspace:*
+        version: link:../lib-wasm/pkg
       '@playwright/test':
         specifier: ^1.55.0
         version: 1.57.0
@@ -1302,8 +1302,8 @@ importers:
         version: 0.4.1
     devDependencies:
       '@ng-org/lib-wasm':
-        specifier: 0.1.2
-        version: 0.1.2
+        specifier: workspace:*
+        version: link:../lib-wasm/pkg
       '@types/node':
         specifier: ^18.7.10
         version: 18.19.130
@@ -3681,13 +3681,6 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
-
-  '@ng-org/lib-wasm@0.1.2':
-    resolution: {integrity: sha512-wJrTmHPQV7/8Whh64cXU4rUxkklzbuqFXJrin1ZWRV2Oq6+1pwCyeKKx8AbjbYe1SU2BCESTOq5LoIovoejPIA==}
-
-  '@ng-org/shex-orm@0.1.2-alpha.1':
-    resolution: {integrity: sha512-ErpBhM87h+9UDgLehlQVLZxg0Ufi63gKygmZkamxWiijfMQFEOTh7coxx4Fnx9Ps6/6zZyqVS97lLFoI3Ee+5w==}
-    hasBin: true
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -13564,30 +13557,6 @@ snapshots:
       react-is: 19.2.1
     optionalDependencies:
       '@types/react': 19.2.7
-
-  '@ng-org/lib-wasm@0.1.2': {}
-
-  '@ng-org/shex-orm@0.1.2-alpha.1':
-    dependencies:
-      '@jeswr/shacl2shex': 1.5.1
-      '@ldo/traverser-shexj': 1.0.0-alpha.28
-      '@ldo/type-traverser': 1.0.0-alpha.28
-      '@shexjs/parser': 1.0.0-alpha.28
-      child-process-promise: 2.2.1
-      commander: 14.0.2
-      dts-dom: 3.6.0
-      ejs: 3.1.10
-      fs-extra: 10.1.0
-      jsonld2graphobject: 0.0.5
-      loading-cli: 1.1.2
-      prettier: 3.6.2
-      prompts: 2.4.2
-      rdf-dereference-store: 1.4.0
-      rdf-namespaces: 1.16.0
-      ts-morph: 24.0.0
-      type-fest: 2.19.0
-    transitivePeerDependencies:
-      - encoding
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
