@@ -1,7 +1,7 @@
 {
   "name": "@ng-org/orm",
-  "version": "0.1.2",
-  "private": true,
+  "version": "0.1.2-alpha.1",
+  "private": false,
   "type": "module",
   "authors": [
     "Laurin Weger"
@@ -11,7 +11,7 @@
   "scripts": {
     "test": "vitest",
     "test:e2e": "playwright test",
-    "build:ts": "rm -rf dist && tsc --noEmit"
+    "build:ts": "rm -rf dist && tsc"
   },
   "exports": {
     ".": {
@@ -30,6 +30,7 @@
   "publishConfig": {
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "access": "public",
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
