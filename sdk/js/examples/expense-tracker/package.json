@@ -40,8 +40,8 @@
     "vue": "3.5.19"
   },
   "devDependencies": {
-    "@ng-org/lib-wasm": "workspace:*",
-    "@ng-org/shex-orm": "workspace:*",
+    "@ng-org/lib-wasm": "0.1.2",
+    "@ng-org/shex-orm": "0.1.2-alpha.1",
     "@playwright/test": "^1.55.0",
     "@types/node": "24.3.0",
     "@types/react": "19.1.10",
