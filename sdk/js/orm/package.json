@@ -57,7 +57,7 @@
     "@gn8/alien-signals-solid": "^0.1.1",
     "@gn8/alien-signals-svelte": "^0.1.1",
     "@gn8/alien-signals-vue": "^0.1.1",
-    "@ng-org/shex-orm": "workspace:*",
+    "@ng-org/shex-orm": "0.1.2-alpha.1",
     "@ng-org/alien-deepsignals": "workspace:*",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
@@ -73,7 +73,7 @@
     "vue": "3.5.19"
   },
   "devDependencies": {
-    "@ng-org/lib-wasm": "workspace:*",
+    "@ng-org/lib-wasm": "0.1.2",
     "@playwright/test": "^1.55.0",
     "@types/node": "24.3.0",
     "@types/react": "19.1.10",

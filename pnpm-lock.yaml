@@ -1051,8 +1051,8 @@ importers:
         version: 0.4.1
     devDependencies:
       '@ng-org/lib-wasm':
-        specifier: ^0.1.2
-        version: 0.1.2
+        specifier: workspace:*
+        version: link:../lib-wasm/pkg
       '@types/node':
         specifier: ^18.7.10
         version: 18.19.124
@@ -2970,9 +2970,6 @@ packages:
 
   '@microsoft/tsdoc@0.15.1':
     resolution: {integrity: sha512-4aErSrCR/On/e5G2hDP0wjooqDdauzEbIq8hIkIe5pXV0rtWJZvdCEKL0ykZxex+IxIwBp0eGeV48hQN07dXtw==}
-
-  '@ng-org/lib-wasm@0.1.2':
-    resolution: {integrity: sha512-wJrTmHPQV7/8Whh64cXU4rUxkklzbuqFXJrin1ZWRV2Oq6+1pwCyeKKx8AbjbYe1SU2BCESTOq5LoIovoejPIA==}
 
   '@ng-org/web@0.1.2-alpha.2':
     resolution: {integrity: sha512-WElSVA8JQKPtn8cFsXfJ5D2G7mIOvADnPwtNzJ4Ga1c1tDNGRSN0KLf335UwEl1qZ0u/srp9Wjn76y9R7yQGlQ==}
@@ -10887,8 +10884,6 @@ snapshots:
       resolve: 1.22.10
 
   '@microsoft/tsdoc@0.15.1': {}
-
-  '@ng-org/lib-wasm@0.1.2': {}
 
   '@ng-org/web@0.1.2-alpha.2':
     dependencies:

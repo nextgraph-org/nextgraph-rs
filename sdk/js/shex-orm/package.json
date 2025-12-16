@@ -1,6 +1,6 @@
 {
   "name": "@ng-org/shex-orm",
-  "version": "0.1.2",
+  "version": "0.1.2-alpha.1",
   "description": "",
   "type": "module",
   "main": "src/index.ts",
@@ -53,8 +53,7 @@
     "type-fest": "^2.19.0"
   },
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "publishConfig": {
     "bin": {

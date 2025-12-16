@@ -1,9 +1,5 @@
 # Schema Converter SHEX > TypeScript
 
-[![Apache 2.0 Licensed][license-image]][license-link]
-[![MIT Licensed][license-image2]][license-link2]
-[![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
-
 CLI tool to convert SHEX shapes to schemas and TypeScript definitions ("shape types") that can be used for creating ORM objects.
 
 ## How to Use

@@ -15,8 +15,7 @@
   },
   "dependencies": {
     "async-proxy": "^0.4.1",
-    "@ng-org/lib-wasm": "workspace:*"
+    "@ng-org/lib-wasm": "0.1.2"
   },
-  "devDependencies": {
-  }
+  "devDependencies": {}
 }
