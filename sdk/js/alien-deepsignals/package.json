@@ -20,6 +20,18 @@
       ".": {
         "import": "./dist/index.mjs",
         "require": "./dist/index.js"
+      },
+      "./react": {
+        "types": "./dist/hooks/react/index.d.ts",
+        "default": "./dist/hooks/react/index.js"
+      },
+      "./svelte": {
+        "types": "./dist/hooks/svelte/index.d.ts",
+        "default": "./dist/hooks/svelte/index.js"
+      },
+      "./vue": {
+        "types": "./dist/hooks/vue/index.d.ts",
+        "default": "./dist/hooks/vue/index.js"
       }
     }
   },
@@ -28,8 +40,7 @@
     "test": "vitest --coverage --dir src/test/lib",
     "test:frontend": "playwright test src/test/frontend",
     "dev": "tsup --watch src",
-    "build:ts": "tsup",
-    "release": "bumpp && npm run build:ts && npm publish --registry=https://registry.npmjs.org/"
+    "build:ts": "tsc"
   },
   "exports": {
     ".": {
