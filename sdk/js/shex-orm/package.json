@@ -13,7 +13,7 @@
     "copy-templates": "mkdir -p dist && rsync -qav --include=\"*/\" --include=\"*.ejs\" --exclude=\"*\" src/ dist/",
     "update-permission": "chmod +x ./dist/cli.js",
     "test": "vitest run",
-    "prepublishOnly": " npm run build",
+    "prepublishOnly": "pnpm run build",
     "lint": "eslint src/** --fix --no-error-on-unmatched-pattern",
     "test:init": "rm -rf ./example-init && cp -R ./example-init-placeholder ./example-init && cd ./example-init && ../dist/index.js init",
     "test:create": "rm -rf ./example-create && ./dist/index.js create ./example-create"

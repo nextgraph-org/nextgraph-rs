@@ -11,7 +11,8 @@
   "scripts": {
     "test": "vitest",
     "test:e2e": "playwright test",
-    "build:ts": "rm -rf dist && tsc --noEmit"
+    "build:ts": "rm -rf dist && tsc --noEmit",
+    "prepublishOnly": "pnpm build:ts"
   },
   "exports": {
     ".": {
@@ -83,7 +84,6 @@
     "typescript": "^5.3.0"
   },
   "files": [
-    "dist",
-    "src"
+    "dist"
   ]
 }
