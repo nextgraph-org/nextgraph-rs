@@ -65,20 +65,7 @@ export const groupSchema: Schema = {
             {
               type: "TripleConstraint",
               predicate: "did:ng:x:social:group#hasMember",
-              valueExpr: {
-                type: "NodeConstraint",
-                nodeKind: "iri",
-              },
-              min: 0,
-              max: -1,
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:social:group#hasAdmin",
-              valueExpr: {
-                type: "NodeConstraint",
-                nodeKind: "iri",
-              },
+              valueExpr: "did:ng:x:contact:class#GroupMembership",
               min: 0,
               max: -1,
             },
@@ -159,6 +146,58 @@ export const groupSchema: Schema = {
           ],
         },
         extra: ["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"],
+      },
+    },
+    {
+      id: "did:ng:x:contact:class#GroupMembership",
+      type: "ShapeDecl",
+      shapeExpr: {
+        type: "Shape",
+        expression: {
+          type: "EachOf",
+          expressions: [
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:contact#contactId",
+              valueExpr: {
+                type: "NodeConstraint",
+                nodeKind: "iri",
+              },
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:contact#memberStatus",
+              valueExpr: {
+                type: "NodeConstraint",
+                values: [
+                  "did:ng:k:contact:memberStatus#invited",
+                  "did:ng:k:contact:memberStatus#joined",
+                  "did:ng:k:contact:memberStatus#declined",
+                ],
+              },
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:contact#joinDate",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#date",
+              },
+              min: 0,
+              max: 1,
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:contact#isAdmin",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#boolean",
+              },
+              min: 0,
+              max: 1,
+            },
+          ],
+        },
       },
     },
   ],

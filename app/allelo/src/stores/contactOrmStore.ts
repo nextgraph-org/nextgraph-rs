@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SocialContact } from "@/.orm/shapes/contact.typings";
+import {SocialContact} from "@/.orm/shapes/contact.typings";
 import { resolveFrom, ResolvableKey, ItemOf } from "@/utils/socialContact/contactUtilsOrm";
 import { renderTemplate, defaultTemplates } from "@/utils/templateRenderer";
 import { useContactOrm } from "@/hooks/contacts/useContactOrm";
@@ -13,6 +13,7 @@ interface ContactOrmState {
   resolveAddress: (contact: SocialContact | undefined) => string | undefined;
   resolveOrganization: (contact: SocialContact | undefined) => string | undefined;
   resolvePhoto: (contact: SocialContact | undefined) => string | undefined;
+  // resolveGroupMemberData: (contact: SocialContact | undefined, groupId?: string | undefined) => InternalGroup | undefined;
 }
 
 export const useContactOrmStore = create<ContactOrmState>(() => ({
@@ -82,6 +83,18 @@ export const useContactOrmStore = create<ContactOrmState>(() => ({
     const photoItem = resolveFrom(contact, 'photo');
     return photoItem?.photoIRI;
   },
+
+  // resolveGroupMemberData: (contact, groupId) => {
+  //   if (!contact || !groupId) return undefined;
+  //   const groups = contact.internalGroup;
+  //   if (!groups) return;
+  //
+  //   for (const item of groups) {
+  //     if (item.groupId === groupId) {
+  //       return item;
+  //     }
+  //   }
+  // },
 }));
 
 /**
@@ -98,6 +111,7 @@ export function useResolvedContact(nuri: string | null | undefined, isProfile = 
     resolveAddress,
     resolveOrganization,
     resolvePhoto,
+    // resolveGroupMemberData
   } = useContactOrmStore();
 
   return {
@@ -108,5 +122,6 @@ export function useResolvedContact(nuri: string | null | undefined, isProfile = 
     address: resolveAddress(ormContact),
     organization: resolveOrganization(ormContact),
     photo: resolvePhoto(ormContact),
+    // groupMemberData: resolveGroupMemberData(ormContact, groupId),
   };
 }

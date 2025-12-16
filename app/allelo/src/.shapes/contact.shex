@@ -22,7 +22,6 @@ PREFIX ngkgender: <did:ng:k:gender#>
 PREFIX ngkhumrel: <did:ng:k:humanRelationship#>
 PREFIX ngknickname: <did:ng:k:contact:nickname#>
 PREFIX ngprof: <did:ng:k:skills:language:proficiency#>
-PREFIX ngkmemberstatus: <did:ng:k:contact:memberStatus#>
 
 ngc:SocialContact EXTRA a {
   # Core type definitions
@@ -119,9 +118,6 @@ ngc:SocialContact EXTRA a {
 
   # Contact import groups
   ngcontact:contactImportGroup @ngc:ContactImportGroup * ;
-
-  # Internal groups
-  ngcontact:internalGroup @ngc:InternalGroup * ;
 
   # Headlines
   ngcontact:headline @ngc:Headline * ;
@@ -596,19 +592,6 @@ ngc:ContactImportGroup {
     // rdfs:comment "Source of the group data" ;
   ngcore:hidden xsd:boolean ?
     // rdfs:comment "Whether this is hidden from list" ;
-}
-
-ngc:InternalGroup {
-  ngcontact:groupId IRI
-    // rdfs:comment "Group id" ;
-  ngcontact:memberStatus [ ngkmemberstatus:invited ngkmemberstatus:joined ngkmemberstatus:declined ]
-    // rdfs:comment "Status of group member" ;
-  ngcontact:joinDate xsd:date ?
-      // rdfs:comment "When user joined" ;
-  ngcore:hidden xsd:boolean ?
-    // rdfs:comment "Whether this is hidden from list" ;
-  ngcore:source xsd:string ?
-      // rdfs:comment "Source of the groups" ;
 }
 
 ngc:NaoStatus {

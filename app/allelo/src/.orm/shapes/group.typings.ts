@@ -35,11 +35,7 @@ export interface SocialGroup {
   /**
    * Original IRI: did:ng:x:social:group#hasMember
    */
-  hasMember?: Set<IRI>;
-  /**
-   * Original IRI: did:ng:x:social:group#hasAdmin
-   */
-  hasAdmin?: Set<IRI>;
+  hasMember?: Set<GroupMembership>;
   /**
    * Original IRI: did:ng:x:social:group#createdAt
    */
@@ -76,4 +72,31 @@ export interface SocialPost {
    * Original IRI: did:ng:x:social:post#description
    */
   description: string;
+}
+
+/**
+ * GroupMembership Type
+ */
+export interface GroupMembership {
+  readonly "@graph": IRI;
+  readonly "@id": IRI;
+  /**
+   * Original IRI: did:ng:x:contact#contactId
+   */
+  contactId: IRI;
+  /**
+   * Original IRI: did:ng:x:contact#memberStatus
+   */
+  memberStatus:
+    | "did:ng:k:contact:memberStatus#invited"
+    | "did:ng:k:contact:memberStatus#joined"
+    | "did:ng:k:contact:memberStatus#declined";
+  /**
+   * Original IRI: did:ng:x:contact#joinDate
+   */
+  joinDate?: string;
+  /**
+   * Original IRI: did:ng:x:contact#isAdmin
+   */
+  isAdmin?: boolean;
 }

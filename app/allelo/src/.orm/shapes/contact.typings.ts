@@ -137,10 +137,6 @@ export interface SocialContact {
    */
   contactImportGroup?: Set<ContactImportGroup>;
   /**
-   * Original IRI: did:ng:x:contact#internalGroup
-   */
-  internalGroup?: Set<InternalGroup>;
-  /**
    * Original IRI: did:ng:x:contact#headline
    */
   headline?: Set<Headline>;
@@ -1539,47 +1535,6 @@ export interface ContactImportGroup {
    * Original IRI: did:ng:x:core#hidden
    */
   hidden?: boolean;
-}
-
-/**
- * InternalGroup Type
- */
-export interface InternalGroup {
-  readonly "@graph": IRI;
-  readonly "@id": IRI;
-  /**
-   * Group id
-   *
-   * Original IRI: did:ng:x:contact#groupId
-   */
-  groupId: IRI;
-  /**
-   * Status of group member
-   *
-   * Original IRI: did:ng:x:contact#memberStatus
-   */
-  memberStatus:
-    | "did:ng:k:contact:memberStatus#invited"
-    | "did:ng:k:contact:memberStatus#joined"
-    | "did:ng:k:contact:memberStatus#declined";
-  /**
-   * When user joined
-   *
-   * Original IRI: did:ng:x:contact#joinDate
-   */
-  joinDate?: string;
-  /**
-   * Whether this is hidden from list
-   *
-   * Original IRI: did:ng:x:core#hidden
-   */
-  hidden?: boolean;
-  /**
-   * Source of the groups
-   *
-   * Original IRI: did:ng:x:core#source
-   */
-  source?: string;
 }
 
 /**

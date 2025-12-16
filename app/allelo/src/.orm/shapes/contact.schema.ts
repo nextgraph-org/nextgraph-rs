@@ -406,19 +406,6 @@ export const contactSchema: Schema = {
           {
             valType: "shape",
             shape:
-              "did:ng:x:contact:class#SocialContact||did:ng:x:contact#internalGroup",
-          },
-        ],
-        maxCardinality: -1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#internalGroup",
-        readablePredicate: "internalGroup",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "shape",
-            shape:
               "did:ng:x:contact:class#SocialContact||did:ng:x:contact#headline",
           },
         ],
@@ -2686,71 +2673,6 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:core#hidden",
         readablePredicate: "hidden",
-      },
-    ],
-  },
-  "did:ng:x:contact:class#SocialContact||did:ng:x:contact#internalGroup": {
-    iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#internalGroup",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "iri",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#groupId",
-        readablePredicate: "groupId",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "literal",
-            literals: [
-              "did:ng:k:contact:memberStatus#invited",
-              "did:ng:k:contact:memberStatus#joined",
-              "did:ng:k:contact:memberStatus#declined",
-            ],
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#memberStatus",
-        readablePredicate: "memberStatus",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#joinDate",
-        readablePredicate: "joinDate",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#hidden",
-        readablePredicate: "hidden",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
       },
     ],
   },
@@ -5405,71 +5327,6 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:core#hidden",
         readablePredicate: "hidden",
-      },
-    ],
-  },
-  "did:ng:x:contact:class#InternalGroup": {
-    iri: "did:ng:x:contact:class#InternalGroup",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "iri",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#groupId",
-        readablePredicate: "groupId",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "literal",
-            literals: [
-              "did:ng:k:contact:memberStatus#invited",
-              "did:ng:k:contact:memberStatus#joined",
-              "did:ng:k:contact:memberStatus#declined",
-            ],
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#memberStatus",
-        readablePredicate: "memberStatus",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#joinDate",
-        readablePredicate: "joinDate",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#hidden",
-        readablePredicate: "hidden",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
       },
     ],
   },
