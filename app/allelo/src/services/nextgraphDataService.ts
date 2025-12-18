@@ -261,6 +261,11 @@ WHERE {
     `FILTER (?${key} = <${value}>)`
   ];
 
+  makeStringFilter = (key: string, value: string) => [
+    `?contactUri ngcontact:${key} ?${key} .`,
+    `FILTER (?${key} = '${value}')`
+  ];
+
   getFilterData(key: string, value: string): string[] {
     switch (key) {
       case "fts":
@@ -283,6 +288,13 @@ WHERE {
           ];
         }
         return this.makeEqualityFilter(key, value);
+      case "naoStatus":
+        if (value === "not_invited") {
+          return [
+            `FILTER NOT EXISTS { ?contactUri ngcontact:naoStatus ?naoStatus }`
+          ];
+        }
+        return this.makeStringFilter(key, value);
       default:
         return this.makeEqualityFilter(key, value);
     }

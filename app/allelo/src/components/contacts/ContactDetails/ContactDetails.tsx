@@ -41,7 +41,7 @@ export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
     // };
 
     const getNaoStatusIndicator = (contact: Contact) => {
-      switch (contact.naoStatus?.value) {
+      switch (contact.naoStatus) {
         case 'member':
           return {
             icon: <VerifiedUser/>,

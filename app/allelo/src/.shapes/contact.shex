@@ -141,7 +141,7 @@ ngc:SocialContact EXTRA a {
   ngcontact:rcard IRI ? ;
 
   # Status and timestamps
-  ngcontact:naoStatus @ngc:NaoStatus ? ;
+  ngcontact:naoStatus xsd:string ? ;
   ngcontact:invitedAt @ngc:InvitedAt ? ;
   ngcontact:createdAt @ngc:CreatedAt ? ;
   ngcontact:updatedAt @ngc:UpdatedAt ? ;
@@ -592,15 +592,6 @@ ngc:ContactImportGroup {
     // rdfs:comment "Source of the group data" ;
   ngcore:hidden xsd:boolean ?
     // rdfs:comment "Whether this is hidden from list" ;
-}
-
-ngc:NaoStatus {
-  ngcore:value xsd:string
-    // rdfs:comment "NAO status value" ;
-  ngcore:source xsd:string ?
-    // rdfs:comment "Source of the status data" ;
-  ngcore:selected xsd:boolean ?
-    // rdfs:comment "Whether this is main" ;
 }
 
 ngc:InvitedAt {

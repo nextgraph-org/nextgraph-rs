@@ -167,7 +167,7 @@ export interface SocialContact {
   /**
    * Original IRI: did:ng:x:contact#naoStatus
    */
-  naoStatus?: NaoStatus;
+  naoStatus?: string;
   /**
    * Original IRI: did:ng:x:contact#invitedAt
    */
@@ -1535,32 +1535,6 @@ export interface ContactImportGroup {
    * Original IRI: did:ng:x:core#hidden
    */
   hidden?: boolean;
-}
-
-/**
- * NaoStatus Type
- */
-export interface NaoStatus {
-  readonly "@graph": IRI;
-  readonly "@id": IRI;
-  /**
-   * NAO status value
-   *
-   * Original IRI: did:ng:x:core#value
-   */
-  value: string;
-  /**
-   * Source of the status data
-   *
-   * Original IRI: did:ng:x:core#source
-   */
-  source?: string;
-  /**
-   * Whether this is main
-   *
-   * Original IRI: did:ng:x:core#selected
-   */
-  selected?: boolean;
 }
 
 /**

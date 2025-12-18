@@ -493,9 +493,7 @@ export const contactSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "shape",
-            shape:
-              "did:ng:x:contact:class#SocialContact||did:ng:x:contact#naoStatus",
+            valType: "string",
           },
         ],
         maxCardinality: 1,
@@ -3065,44 +3063,6 @@ export const contactSchema: Schema = {
       },
     ],
   },
-  "did:ng:x:contact:class#SocialContact||did:ng:x:contact#naoStatus": {
-    iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#naoStatus",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#selected",
-        readablePredicate: "selected",
-      },
-    ],
-  },
   "did:ng:x:contact:class#SocialContact||did:ng:x:contact#invitedAt": {
     iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#invitedAt",
     predicates: [
@@ -5327,44 +5287,6 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:core#hidden",
         readablePredicate: "hidden",
-      },
-    ],
-  },
-  "did:ng:x:contact:class#NaoStatus": {
-    iri: "did:ng:x:contact:class#NaoStatus",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#selected",
-        readablePredicate: "selected",
       },
     ],
   },

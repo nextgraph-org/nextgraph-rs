@@ -47,8 +47,7 @@ export const ContactListTab = ({
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
-
+  
   const mode = searchParams.get('mode');
   const isSelectionMode = mode === 'select' || mode === 'create-group';
 
@@ -60,6 +59,12 @@ export const ContactListTab = ({
   useEffect(() => {
     onSelectionChange?.(selectedContacts);
   }, [selectedContacts, onSelectionChange]);
+
+  useEffect(() => {
+    if (forGroup) {
+      addFilter("naoStatusFilter", "member");
+    }
+  }, [addFilter, forGroup]);
 
   // Clear selections when filters change
   useEffect(() => {
