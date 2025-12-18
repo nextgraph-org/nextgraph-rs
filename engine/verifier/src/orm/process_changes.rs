@@ -718,7 +718,7 @@ impl Verifier {
                 |groups: Vec<(String, Vec<((String, String), bool)>)>| -> Result<(), NgError> {
                     for (shape_iri, objects_to_eval) in groups {
                         // Extract schema and shape Arc first (before any borrows)
-                        let schema = orm_subscription.shape_type.schema.clone();
+                        let schema = &orm_subscription.shape_type.schema;
                         let shape_arc = schema.get(&shape_iri).unwrap().clone();
 
                         // Data might need to be fetched (if it has not been during initialization or nested shape fetch).
@@ -733,7 +733,7 @@ impl Verifier {
                                 // Create sparql query
                                 let new_quads = self.query_quads_for_shape(
                                     Some(orm_subscription.nuri.clone()),
-                                    &schema,
+                                    schema,
                                     &shape_iri,
                                     Some(objects_to_fetch),
                                 )?;
