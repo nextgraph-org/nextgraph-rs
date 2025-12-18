@@ -13,6 +13,7 @@ dist-web
 *.local
 public_dev
 .env
+.env.prod
 
 # Editor directories and files
 .vscode/*
