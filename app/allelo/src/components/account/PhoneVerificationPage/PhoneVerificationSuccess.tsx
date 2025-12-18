@@ -84,7 +84,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
           const inverted: Record<string, string> = Object.fromEntries(
             Object.entries(accounts).map(([key, value]) => [value, key])
           );
-          const updContacts = mapCentralityResponseToSocialContacts(resp, inverted, retrieveNetworkCentrality, retrieveProfileDetails);
+          const updContacts = await mapCentralityResponseToSocialContacts(resp, inverted, retrieveNetworkCentrality, retrieveProfileDetails);
           for (const i in updContacts) {
             await updateContact(i, updContacts[i]);
           }
