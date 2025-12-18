@@ -7,9 +7,6 @@ import {
 } from '@/utils/socialContact/contactUtils.ts';
 import {BasicLdSet} from '@/lib/ldo/BasicLdSet';
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
-import {
-  processContactFromJSON as processContactFromJSONOrm,
-} from '@/utils/socialContact/contactUtilsOrm.ts';
 
 // Get the base URL for assets based on the environment
 const getAssetUrl = (path: string) => {
@@ -215,11 +212,6 @@ export const dataService = {
     return contacts.filter(contact => (contact.mergedInto?.size ?? 0) === 0);
   },
 
-  async getContactsOrm(withIds = true): Promise<Contact[]> {
-    const contacts = await this.loadContactsOrm(withIds);
-    return contacts.filter(contact => (contact.mergedInto?.size ?? 0) === 0);
-  },
-
   async loadContacts(withIds = true): Promise<Contact[]> {
     return new Promise((resolve) => {
       setTimeout(async () => {
@@ -231,27 +223,6 @@ export const dataService = {
           );
 
           contacts.push(profile);
-
-          isLoaded = true;
-          loadedWithIDs = withIds;
-          resolve(contacts);
-        } catch (error) {
-          console.error("Failed to load contacts:", error);
-          resolve([]);
-        }
-      }, 100);
-    });
-  },
-
-  async loadContactsOrm(withIds = true): Promise<Contact[]> {
-    return new Promise((resolve) => {
-      setTimeout(async () => {
-        try {
-          const response = await fetch(getAssetUrl("contacts.json"));
-          const contactsData = await response.json() as any[];
-          const contacts = await Promise.all(
-            contactsData.map(jsonContact => processContactFromJSONOrm(jsonContact, withIds))
-          );
 
           isLoaded = true;
           loadedWithIDs = withIds;

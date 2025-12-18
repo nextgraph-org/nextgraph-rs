@@ -5,8 +5,6 @@ import {nextgraphDataService} from "@/services/nextgraphDataService";
 import {Contact} from "@/types/contact";
 import {dataService} from "@/services/dataService.ts";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
-import {useShape} from "@ng-org/signals/react";
-import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes.ts";
 
 interface UseSaveContactsReturn {
   saveContacts: (contacts: Contact[], onProgress?: (current: number, total: number) => void) => Promise<void>;
@@ -23,7 +21,6 @@ export function useSaveContacts(): UseSaveContactsReturn {
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
   const {commitData, createData, changeData} = useLdo();
-  const contactsSet = useShape(SocialContactShapeType);
 
   const isNextGraph = isNextGraphEnabled();
 
@@ -39,7 +36,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
 
     try {
       if (isNextGraph) {
-        await nextgraphDataService.saveContactsOrm(session!, contacts, contactsSet, onProgress);
+        await nextgraphDataService.saveContacts(session!, contacts, createData, commitData, changeData, onProgress);
       } else {
         await dataService.addContacts(contacts);
       }
@@ -50,7 +47,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [isNextGraph, session, contactsSet]);
+  }, [session, createData, commitData, changeData, isNextGraph]);
 
   const createContact = useCallback(async (contact: Contact): Promise<Contact | undefined> => {
     if (!session || !session.ng) {

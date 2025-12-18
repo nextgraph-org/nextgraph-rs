@@ -81,6 +81,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                                                                currentItem,
                                                                hideSources,
                                                                isMultipleField,
+                                                               resource
                                                              }: PropertyWithSourcesProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -91,29 +92,29 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   const [currentValue, setCurrentValue] = useState<string>();
   const [localValue, setLocalValue] = useState<string>("");
   const [currentItemId, setCurrentItemId] = useState<string>();
+  const [displayValue, setDisplayValue] = useState<string>("");
 
-  // Don't memoize: deep signal proxy needs to be accessed on every render to track mutations
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const currentItemRef = currentItem ?? ((contact && resolveFrom(contact, propertyKey)) ?? {});
-  const value = currentItemRef[subKey] ?? "";
+  const handleChange = useCallback(() => {
+    const currentItemRef = currentItem ?? ((contact && resolveFrom(contact, propertyKey)) ?? {});
+    setCurrentItemId(currentItemRef["@id"]);
+    const value = currentItemRef[subKey] ?? "";
+    setCurrentValue(value);
+    setLocalValue(value);
 
-  const displayValue = useMemo(() => {
     if (!value && template) {
       const templateData = templateProperty && contact
         ? resolveFrom(contact, templateProperty)
         : currentItemRef;
-      return renderTemplate(template, templateData);
+      const rendered = renderTemplate(template, templateData);
+      setDisplayValue(rendered);
+    } else {
+      setDisplayValue(value);
     }
-    return value;
-  }, [value, template, templateProperty, contact, currentItemRef]);
+  }, [contact, propertyKey, subKey, template, currentItem, templateProperty]);
 
-  // Update state in useEffect when the computed value changes
   useEffect(() => {
-    setCurrentValue(value);
-    setLocalValue(value);
-    setCurrentItemId(currentItemRef["@id"]);
-  }, [value, displayValue, currentItemRef]);
-
+    handleChange();
+  }, [handleChange]);
 
   const fieldValidation = useFieldValidation(localValue, validateType, {validateOn: "change", required: required});
 
@@ -183,8 +184,9 @@ export const PropertyWithSources = <K extends ResolvableKey>({
         updatePermissionsNode(propertyKey);
     } else {
       editPropertyWithUserSource(contact, true);
+      handleChange();
     }
-  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, updatePermissionsNode]);
+  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, updatePermissionsNode, handleChange]);
 
   // Handle page navigation/unload to persist any unsaved changes
   useEffect(() => {
@@ -227,7 +229,8 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     }
 
     handleClose();
-  }, [contact, isMultipleField, isNextgraph, propertyKey, updatePermissionsNode]);
+    handleChange();
+  }, [contact, handleChange, isMultipleField, isNextgraph, propertyKey, updatePermissionsNode]);
 
   const [isValid, setIsValid] = useState(true);
 

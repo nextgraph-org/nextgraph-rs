@@ -9,7 +9,6 @@ import {ContactLdSetProperties, contactLdSetProperties, resolveFrom} from "@/uti
 import {AppSettings} from "@/.ldo/settings.typings.ts";
 import {AppSettingsShapeType} from "@/.ldo/settings.shapeTypes.ts";
 import {imageService} from "@/services/imageService";
-import {SocialContact as SocialContactOrm} from "@/.orm/shapes/contact.typings";
 
 export function ldoToJson(obj: any, depth: number = 0): any {
   if (obj?.toArray) {
@@ -568,48 +567,6 @@ WHERE {
 
     for (let i = 0; i < contacts.length; i++) {
       await this.createContact(session, contacts[i], createData, commitData, changeData, rCardId);
-
-      onProgress?.(i + 1, contacts.length);
-
-      // Log progress every 30 contacts
-      if ((i + 1) % 30 === 0) {
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-        const contactsPerSecond = ((i + 1) / (Date.now() - startTime) * 1000).toFixed(2);
-        console.log(`✓ Saved ${i + 1}/${contacts.length} contacts | ${elapsed}s elapsed | ${contactsPerSecond} contacts/sec`);
-      }
-    }
-
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    const avgSpeed = (contacts.length / (Date.now() - startTime) * 1000).toFixed(2);
-    console.log(`✅ Completed saving ${contacts.length} contacts in ${totalTime}s | Average: ${avgSpeed} contacts/sec`);
-  };
-
-  async saveContactsOrm(
-    session: NextGraphSession,
-    contacts: SocialContactOrm[],
-    contactsSet: Set<SocialContactOrm>,
-    onProgress?: (current: number, total: number) => void
-  ) {
-    const startTime = Date.now();
-    console.log(`Starting to save ${contacts.length} contacts...`);
-
-
-    const rCardId = await this.getRCardId(session);
-
-    for (let i = 0; i < contacts.length; i++) {
-      //TODO: name contact
-      console.log(contacts[i]);
-      const docId = await session.ng!.doc_create(
-        session.sessionId,
-        "Graph",
-        "data:graph",
-        "store"
-      );
-
-      contacts[i]["@graph"] = docId;
-
-      contacts[i].rcard = rCardId;
-      contactsSet.add(contacts[i]);
 
       onProgress?.(i + 1, contacts.length);
 

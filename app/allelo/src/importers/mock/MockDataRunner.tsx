@@ -10,7 +10,7 @@ export function MockDataRunner({open, onGetResult}: SourceRunnerProps) {
       return [];
     }
 
-    return await dataService.getContactsOrm(false);
+    return await dataService.getContacts(false);
   }, [isNextGraph])
 
   useEffect(() => {
