@@ -9,7 +9,7 @@ This folder implements the rust-side "ORM" layer that turns RDF quads into ergon
 
 The ORM lets apps work with graph data as if it were typed objects while preserving RDF semantics and multi-graph realities.
 
-If you just want to use the SDK, see the [TypeScript library](../../../../sdk/js/signals/README.md). You can also use the [Rust SDK](../../../../sdk/rust/README.md) which is however not documented and probably not going to be of big use (see the [tests](../../../../sdk/rust/src/tests/) as a reference).
+If you just want to use the SDK, see the [TypeScript library](../../../../sdk/js/orm/README.md). You can also use the [Rust SDK](../../../../sdk/rust/README.md) which is however not documented and probably not going to be of big use (see the [tests](../../../../sdk/rust/src/tests/) as a reference).
 
 ## Core concepts
 
@@ -52,7 +52,7 @@ Defined in `engine/verifier/src/orm/types.rs` (internal) and `engine/net/src/orm
 
 For an example of how the schema looks like, see the [shex-orm generator README](../../../../sdk/js/shex-orm/README.md).
 
-For the patch format, see the [TypeScript definitions](../../../../sdk/js/signals/src/connector/applyPatches.ts).
+For the patch format, see the [TypeScript definitions](../../../../sdk/js/orm/src/connector/applyPatches.ts).
 
 All values (including patch `value`) use `serde_json::Value` externally for flexibility. Validation & conversion to RDF happens inside the verifier.
 

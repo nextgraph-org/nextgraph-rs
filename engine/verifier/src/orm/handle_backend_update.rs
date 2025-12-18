@@ -123,13 +123,13 @@ impl Verifier {
 
                 // Send patches if the subscription's session is different to the origin's session.
                 // TODO: Is this the session_id the correct way to check this?
-                // if origin_session_id != orm_subscription.session_id {
-                //     // Create and send patches from changes
-                //     Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
-                // }
+                if origin_session_id != orm_subscription.session_id {
+                    // Create and send patches from changes
+                    Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
+                }
 
                 //log_info!("[apply_changes_to_all_scopes]: Create and send patches for orm_subscription.session_id {} and origin_session_id {}", orm_subscription.session_id, origin_session_id);
-                Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
+                //Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
             }
 
             // Put the subscriptions back
