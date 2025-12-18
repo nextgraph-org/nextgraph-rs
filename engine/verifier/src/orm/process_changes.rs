@@ -455,13 +455,15 @@ impl Verifier {
         // Track which (shape, graph, subject) have had quads applied already in this run.
         let mut already_applied: HashSet<(String, String, String)> = HashSet::new();
 
+        log_info!("[process_changes_for_subscription] Called and starting while loop with {} elements on stack", shape_validation_stack.len());
+
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
         while let Some((shape, graph_subject_to_validate)) = shape_validation_stack.pop() {
-            // log_info!(
-            //     "[process_changes_for_subscription]   - processing objects for shape {}",
-            //     shape.iri
-            // );
+            log_info!(
+                "[process_changes_for_subscription]   - processing objects for shape {}",
+                shape.iri
+            );
 
             // Variables to collect nested objects that need validation.
             // Children have highest priority, then SELF, then PARENTS (last).
@@ -474,10 +476,10 @@ impl Verifier {
 
             // For each modified subject, apply changes to tracked orm objects, link nested refs, and validate.
             for (graph_iri, subject_iri) in graph_subject_to_validate.iter() {
-                // log_info!(
-                //     "[process_changes_for_subscription] Processing subject {}",
-                //     subject_iri
-                // );
+                log_info!(
+                    "[process_changes_for_subscription]     - Processing subject {}",
+                    subject_iri
+                );
 
                 // Cycle detection: Check if this (shape, graph, subject) combination is already being validated.
                 let validation_key = (shape.iri.clone(), graph_iri.clone(), subject_iri.clone());
@@ -623,7 +625,7 @@ impl Verifier {
                 }
 
                 // Schedule SELF (second priority)
-                let (reschedule_self, self_needs_fetch) = match need_self_eval {
+                let (reschedule_self, self_needs_data) = match need_self_eval {
                     NeedEvalSelf::NoReevaluate => (false, false),
                     NeedEvalSelf::Reevaluate => (true, false),
                     NeedEvalSelf::FetchAndReevaluate => (true, true),
@@ -634,8 +636,13 @@ impl Verifier {
                 let (reschedule_self, self_needs_fetch) =
                     if !reschedule_self && any_child_queued_this_pass {
                         (true, false)
+                    } else if shape.iri == orm_subscription.shape_type.shape
+                        && change.prev_valid == TrackedOrmObjectValidity::Pending
+                    {
+                        // If this is a root shape that is new (i.e. prev. pending), that means we have all data already.
+                        (reschedule_self, false)
                     } else {
-                        (reschedule_self, self_needs_fetch)
+                        (reschedule_self, self_needs_data)
                     };
 
                 if reschedule_self {
@@ -698,20 +705,20 @@ impl Verifier {
                 };
 
             let child_groups = build_groups(child_objects_to_eval);
-            // log_info!(
-            //     "[process_changes_for_subscription]  - Building child group {:?}",
-            //     child_groups
-            // );
+            log_info!(
+                "[process_changes_for_subscription]  - Building child group {:?}",
+                child_groups
+            );
             let self_groups = build_groups(self_objects_to_eval);
-            // log_info!(
-            //     "[process_changes_for_subscription]  - Building self group {:?}",
-            //     self_groups
-            // );
+            log_info!(
+                "[process_changes_for_subscription]  - Building self group {:?}",
+                self_groups
+            );
             let parent_groups = build_groups(parent_objects_to_eval);
-            // log_info!(
-            //     "[process_changes_for_subscription]  - Building parent group {:?}",
-            //     parent_groups
-            // );
+            log_info!(
+                "[process_changes_for_subscription]  - Building parent group {:?}",
+                parent_groups
+            );
 
             // Helper to push groups into the stack
             let mut push_groups =
@@ -738,7 +745,7 @@ impl Verifier {
                                     Some(objects_to_fetch),
                                 )?;
 
-                                // log_info!("[process_changes_for_subscription] recursive call for shape {} and quads {:?}", shape_iri,  schema);
+                                log_info!("[process_changes_for_subscription] recursive call for shape {} and quads {:?}", shape_iri,  schema);
 
                                 // Recursively process nested objects.
                                 self.process_changes_for_subscription(
@@ -758,6 +765,7 @@ impl Verifier {
                             .map(|((g, s), _)| (g.clone(), s.clone()))
                             .collect();
                         if pairs_not_to_fetch.len() > 0 {
+                            log_info!("[process_changes_for_subscription] pushing to stack {shape_iri},\n{:?}", pairs_not_to_fetch);
                             shape_validation_stack.push((shape_arc, pairs_not_to_fetch));
                         } else {
                             //  No objects to queue for shape  (all needed fetching)
@@ -781,6 +789,7 @@ impl Verifier {
             }
             loop_counter += 1;
 
+            log_info!("[process_changes_for_subscription] Increasing counter to {loop_counter}");
             // Assertion: Prevent infinite loop.
             if loop_counter > 100 {
                 for (is_validated, validity, subject_iri, shape_iri, graph_iri) in
