@@ -184,15 +184,21 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 // type or literal
                 const nodeConstraint =
                     transformedChildren.valueExpr as DataType;
+
                 return {
-                    dataTypes: [
-                        {
-                            valType: nodeConstraint.valType,
-                            literals: nodeConstraint.literals,
-                        },
-                    ],
+                    dataTypes: !Array.isArray(nodeConstraint.literals)
+                        ? [
+                              {
+                                  valType: nodeConstraint.valType,
+                                  literals: nodeConstraint.literals,
+                              },
+                          ]
+                        : nodeConstraint.literals.map((lit) => ({
+                              valType: nodeConstraint.valType,
+                              literals: [lit],
+                          })),
                     ...commonProperties,
-                };
+                } as Predicate;
             }
         },
     },
