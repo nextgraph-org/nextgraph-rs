@@ -10,7 +10,7 @@
 
 import { watch } from "../../watch.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { deepSignal, DeepSignalOptions } from "../../";
+import { deepSignal, DeepSignalOptions } from "../..";
 
 /**
  * Create or use an existing deepSignal object in your component.
@@ -57,7 +57,7 @@ const useSignal = <T extends object>(
         return () => {
             stopListening();
         };
-    }, [shapeSignal]);
+    }, []);
 
     return ret;
 };
