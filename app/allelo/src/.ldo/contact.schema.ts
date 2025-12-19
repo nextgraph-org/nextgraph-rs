@@ -272,13 +272,6 @@ export const contactSchema: Schema = {
             },
             {
               type: "TripleConstraint",
-              predicate: "did:ng:x:contact#internalGroup",
-              valueExpr: "did:ng:x:contact:class#InternalGroup",
-              min: 0,
-              max: -1,
-            },
-            {
-              type: "TripleConstraint",
               predicate: "did:ng:x:contact#headline",
               valueExpr: "did:ng:x:contact:class#Headline",
               min: 0,
@@ -3903,113 +3896,6 @@ export const contactSchema: Schema = {
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
                     value: "Whether this is hidden from list",
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      },
-    },
-    {
-      id: "did:ng:x:contact:class#InternalGroup",
-      type: "ShapeDecl",
-      shapeExpr: {
-        type: "Shape",
-        expression: {
-          type: "EachOf",
-          expressions: [
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:contact#groupId",
-              valueExpr: {
-                type: "NodeConstraint",
-                nodeKind: "iri",
-              },
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Group id",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:contact#memberStatus",
-              valueExpr: {
-                type: "NodeConstraint",
-                values: [
-                  "did:ng:k:contact:memberStatus#invited",
-                  "did:ng:k:contact:memberStatus#joined",
-                  "did:ng:k:contact:memberStatus#declined",
-                ],
-              },
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Status of group member",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:contact#joinDate",
-              valueExpr: {
-                type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#date",
-              },
-              min: 0,
-              max: 1,
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "When user joined",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:core#hidden",
-              valueExpr: {
-                type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#boolean",
-              },
-              min: 0,
-              max: 1,
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Whether this is hidden from list",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:core#source",
-              valueExpr: {
-                type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#string",
-              },
-              min: 0,
-              max: 1,
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Source of the groups",
                   },
                 },
               ],

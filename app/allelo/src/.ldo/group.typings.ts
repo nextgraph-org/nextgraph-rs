@@ -23,12 +23,7 @@ export interface SocialGroup {
   logoIRI?: {
     "@id": string;
   };
-  hasMember?: LdSet<{
-    "@id": string;
-  }>;
-  hasAdmin?: LdSet<{
-    "@id": string;
-  }>;
+  hasMember?: LdSet<GroupMembership>;
   createdAt?: string;
   post?: LdSet<SocialPost>;
 }
@@ -50,4 +45,27 @@ export interface SocialPost {
     "@id": string;
   }>;
   description: string;
+}
+
+/**
+ * GroupMembership Type
+ */
+export interface GroupMembership {
+  "@id"?: string;
+  "@context"?: LdoJsonldContext;
+  contactId: {
+    "@id": string;
+  };
+  memberStatus:
+    | {
+        "@id": "invited";
+      }
+    | {
+        "@id": "joined";
+      }
+    | {
+        "@id": "declined";
+      };
+  joinDate?: string;
+  isAdmin?: boolean;
 }

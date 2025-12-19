@@ -17,7 +17,6 @@ import {
   ContactViewHeader,
   ContactInfo,
   ContactDetails,
-  ContactGroups,
   ContactActions,
   RejectedVouchesAndPraises
 } from '@/components/contacts';
@@ -35,7 +34,6 @@ const ContactViewPage = () => {
 
   const {
     contact,
-    contactGroupsNuris,
     isLoading,
     error,
     toggleHumanityVerification,
@@ -127,7 +125,7 @@ const ContactViewPage = () => {
         <Grid container spacing={3}>
           <Grid size={{xs: 12, md: 6}}>
             <ContactInfo contact={contact} isEditing={isEditing} resource={resource}/>
-            <ContactGroups groupsNuris={contactGroupsNuris ?? []}/>
+            {/*<ContactGroups groupsNuris={contactGroupsNuris ?? []}/>*/}
           </Grid>
 
           <Grid size={{xs: 12, md: 6}}>

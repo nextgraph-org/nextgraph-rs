@@ -1,7 +1,4 @@
-import {NextGraphSession, CommitDataFunction, ChangeDataFunction} from "@/types/nextgraph";
-import {dataset} from "@/lib/nextgraph";
-import {SocialGroup} from "@/.ldo/group.typings";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {NextGraphSession} from "@/types/nextgraph";
 
 interface SortParams {
   sortBy: string;
@@ -159,92 +156,6 @@ class GroupService {
     return filterData.join("\n");
   }
 
-  private async persistSocialGroup(
-    session: NextGraphSession,
-    groupToImport: Partial<SocialGroup>,
-    commitData: CommitDataFunction,
-    changeData: ChangeDataFunction,
-    resource: NextGraphResource,
-    subject: SocialGroup
-  ) {
-    if (!session || !session.ng) {
-      throw new Error('No active session available');
-    }
-
-    const changedGroup = changeData(subject, resource);
-
-    for (const propertyKey in groupToImport) {
-      if (["@id", "@context", "type"].includes(propertyKey)) {
-        continue;
-      }
-
-      const importValue = groupToImport[propertyKey as keyof SocialGroup];
-      if (importValue !== undefined) {
-        //@ts-expect-error dynamic property assignment
-        changedGroup[propertyKey] = importValue;
-      }
-    }
-
-    const result = await commitData(changedGroup);
-    if (result.isError) {
-      throw new Error(`Failed to commit: ${result.message}`);
-    }
-  }
-
-  async updateGroup(
-    session: NextGraphSession | undefined,
-    group: SocialGroup,
-    changes: Partial<SocialGroup>,
-    commitData: CommitDataFunction,
-    changeData: ChangeDataFunction,
-  ) {
-    if (!session || !session.ng) {
-      throw new Error('No active session available');
-    }
-
-    const resource = dataset.getResource(group["@id"]!);
-    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
-      throw new Error(`Failed to get resource`);
-    }
-
-    const groupObj = changeData(group, resource);
-
-    await this.persistSocialGroup(session, changes, commitData, changeData, resource, groupObj);
-
-    // Update header if title changed
-    if (changes.title) {
-      await session!.ng!.update_header(session.sessionId, group["@id"]!.substring(0, 53), changes.title);
-    }
-  }
-
-  async addMembers(
-    session: NextGraphSession | undefined,
-    group: SocialGroup,
-    memberIds: string[],
-    commitData: CommitDataFunction,
-    changeData: ChangeDataFunction,
-  ) {
-    if (!session || !session.ng) {
-      throw new Error('No active session available');
-    }
-
-    const resource = dataset.getResource(group["@id"]!);
-    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
-      throw new Error(`Failed to get resource`);
-    }
-
-    const groupObj = changeData(group, resource);
-
-    // Add new members to existing members
-    memberIds.forEach(memberId => {
-      groupObj.hasMember?.add({"@id": memberId});
-    });
-
-    const result = await commitData(groupObj);
-    if (result.isError) {
-      throw new Error(`Failed to commit: ${result.message}`);
-    }
-  }
 }
 
 export const groupService = GroupService.getInstance();

@@ -30,7 +30,6 @@ import type {
   Membership,
   Tag,
   ContactImportGroup,
-  InternalGroup,
   NaoStatus,
   InvitedAt,
   CreatedAt,
@@ -160,10 +159,6 @@ export const TagShapeType: ShapeType<Tag> = {
 export const ContactImportGroupShapeType: ShapeType<ContactImportGroup> = {
   schema: contactSchema,
   shape: "did:ng:x:contact:class#ContactImportGroup",
-};
-export const InternalGroupShapeType: ShapeType<InternalGroup> = {
-  schema: contactSchema,
-  shape: "did:ng:x:contact:class#InternalGroup",
 };
 export const NaoStatusShapeType: ShapeType<NaoStatus> = {
   schema: contactSchema,

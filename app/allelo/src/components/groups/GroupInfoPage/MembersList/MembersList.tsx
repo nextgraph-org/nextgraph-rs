@@ -15,16 +15,16 @@ import {UilUserPlus} from '@iconscout/react-unicons';
 import {MemberListItem} from './MemberListItem';
 import {AddMembersDialog} from './AddMembersDialog';
 import {useGroupData} from '@/hooks/groups/useGroupData';
+import {GroupMembership} from "@/.orm/shapes/group.typings.ts";
 
 export interface MembersListProps {
   groupId: string;
-  membersNuris: Set<string> | undefined;
-  adminsNuris: Set<string> | undefined;
+  groupMembers: Set<GroupMembership> | undefined;
   isCurrentUserAdmin: boolean;
 }
 
 export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
-  ({groupId, membersNuris, isCurrentUserAdmin, adminsNuris}, ref) => {
+  ({groupId, groupMembers, isCurrentUserAdmin}, ref) => {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
     const [removedContactName, setRemovedContactName] = useState("");
@@ -64,7 +64,7 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
           <CardContent sx={{p: 3}}>
             <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
               <Typography variant="h6" sx={{fontWeight: 600}}>
-                Members ({membersNuris?.size || 0})
+                Members ({groupMembers?.size || 0})
               </Typography>
               {isCurrentUserAdmin && <Button
                   variant="contained"
@@ -84,13 +84,12 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
             </Box>
 
             <List sx={{width: '100%'}}>
-              {([...(membersNuris ?? [])]).map((memberNuri, index) => (
+              {([...(groupMembers ?? [])]).map((member, index) => (
                 <MemberListItem
-                  key={memberNuri}
-                  memberNuri={memberNuri}
+                  key={member["@id"]}
+                  member={member}
                   isCurrentUserAdmin={isCurrentUserAdmin}
-                  isMemberAdmin={[...adminsNuris ?? []].includes(memberNuri)}
-                  isLastItem={index === (membersNuris?.size || 1) - 1}
+                  isLastItem={index === (groupMembers?.size || 1) - 1}
                   onRemoveMember={handleRemoveMember}
                 />
               ))}

@@ -12,10 +12,10 @@ import { computed, signal } from "./core";
 import {
     DeepPatch,
     DeepPatchBatch,
+    DeepPatchJITSubscriber,
     DeepPatchSubscriber,
     DeepSignal,
     DeepSignalOptions,
-    DeepSignalPropGenFn,
     ProxyMeta,
     RootState,
     SetMeta,
@@ -213,31 +213,6 @@ function resolveContainerPath(meta: ProxyMeta | undefined) {
     return buildPath(parentMeta, meta.key, !!meta.isSyntheticId);
 }
 
-/** Queue a microtask flush for the given deepSignal root if not already pending. */
-function queueFlush(rootId: symbol) {
-    if (pendingRoots.has(rootId)) return;
-    pendingRoots.add(rootId);
-    queueMicrotask(() => flushRoot(rootId));
-}
-
-/** Deliver the pending patch batch (if any) to listeners registered on the root. */
-function flushRoot(rootId: symbol) {
-    pendingRoots.delete(rootId);
-    const state = rootStates.get(rootId);
-    if (!state) return;
-    if (!state.pending.length || state.listeners.size === 0) {
-        state.pending.length = 0;
-        return;
-    }
-    state.version += 1;
-    const batch: DeepPatchBatch = {
-        version: state.version,
-        patches: state.pending.slice(),
-    };
-    state.pending.length = 0;
-    state.listeners.forEach((cb) => cb(batch));
-}
-
 /**
  * Build and enqueue patches for a mutation, only if listeners exist on the root.
  */
@@ -247,13 +222,42 @@ function schedulePatch(
 ) {
     if (!meta) return;
     const state = rootStates.get(meta.root);
-    if (!state || state.listeners.size === 0) return;
+    const hasListeners =
+        state &&
+        (state.listeners.size > 0 || state.justInTimeListeners.size > 0);
+    if (!hasListeners) return;
+
     const result = build();
     if (!result) return;
     const patches = Array.isArray(result) ? result : [result];
     if (!patches.length) return;
-    state.pending.push(...patches);
-    queueFlush(meta.root);
+
+    state.pendingPatches.push(...patches);
+
+    // Notify justInTimeListeners immediately (without version, since batch hasn't finalized).
+    state.justInTimeListeners.forEach((cb) => cb({ patches }));
+
+    // Schedule a microtask flush for batched listeners if it hasn't been from previous calls.
+    if (state.listeners.size > 0 && !pendingRoots.has(meta.root)) {
+        pendingRoots.add(meta.root);
+
+        queueMicrotask(() => {
+            pendingRoots.delete(meta.root);
+            const state = rootStates.get(meta.root);
+            if (!state) return;
+            if (!state.pendingPatches.length || state.listeners.size === 0) {
+                state.pendingPatches.length = 0;
+                return;
+            }
+            state.version += 1;
+            const batch: DeepPatchBatch = {
+                version: state.version,
+                patches: state.pendingPatches.slice(),
+            };
+            state.pendingPatches.length = 0;
+            state.listeners.forEach((cb) => cb(batch));
+        });
+    }
 }
 
 /**
@@ -356,7 +360,11 @@ function initializeObjectTreeIfNoListeners(
     if (!meta || !meta.options?.propGenerator) return;
     if (!value || typeof value !== "object") return;
     const state = rootStates.get(meta.root);
-    if (state && state.listeners.size > 0) return;
+    if (
+        state &&
+        (state.listeners.size > 0 || state.justInTimeListeners.size > 0)
+    )
+        return;
     initializeObjectTree(meta, value, basePath ?? [], inSet);
 }
 
@@ -1051,8 +1059,9 @@ export function deepSignal<T extends object>(
         },
         version: 0,
         listeners: new Set<DeepPatchSubscriber>(),
-        pending: [],
-    };
+        justInTimeListeners: new Set<DeepPatchJITSubscriber>(),
+        pendingPatches: [],
+    } satisfies RootState;
 
     rootStates.set(root, rootState);
 
@@ -1060,20 +1069,35 @@ export function deepSignal<T extends object>(
     return proxy as DeepSignal<T>;
 }
 
-/** Register a deep mutation subscriber for the provided root or proxy. */
+/**
+ * Low-level function, you should probably use `watch` instead.
+ *
+ * Register a deep mutation subscriber for the provided root or proxy.
+ */
 export function subscribeDeepMutations(
     root: object | symbol,
-    cb: DeepPatchSubscriber
+    cb: DeepPatchSubscriber | DeepPatchJITSubscriber,
+    triggerInstantly: boolean = false
 ): () => void {
     const rootId = typeof root === "symbol" ? root : getDeepSignalRootId(root);
     if (!rootId)
         throw new Error("subscribeDeepMutations() expects a deepSignal root");
+
     const state = rootStates.get(rootId);
     if (!state) throw new Error("Unknown deepSignal root");
-    state.listeners.add(cb);
-    return () => {
-        state.listeners.delete(cb);
-    };
+
+    // Add to listeners / justInTimeListeners.
+    if (triggerInstantly) {
+        state.justInTimeListeners.add(cb as DeepPatchJITSubscriber);
+        return () => {
+            state.justInTimeListeners.delete(cb as DeepPatchJITSubscriber);
+        };
+    } else {
+        state.listeners.add(cb);
+        return () => {
+            state.listeners.delete(cb);
+        };
+    }
 }
 
 /** Return the root identifier symbol for a deepSignal proxy (if any). */

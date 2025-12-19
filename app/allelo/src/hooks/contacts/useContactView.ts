@@ -1,5 +1,5 @@
 import {dataService} from '@/services/dataService';
-import {useState, useCallback, useMemo} from 'react';
+import {useState, useCallback} from 'react';
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
 
 export const useContactView = (id: string | null/*, refreshKey = 0*/) => {
@@ -13,12 +13,12 @@ export const useContactView = (id: string | null/*, refreshKey = 0*/) => {
     resource
   } = useContactData(id, false/*, refreshKey*/);
 
-  const contactGroupsNuris = useMemo(() => contact?.internalGroup?.toArray().map((el) => {
+/*  const contactGroupsNuris = useMemo(() => contact?.internalGroup?.toArray().map((el) => {
     if (el.groupId && el.groupId["@id"]) {
       return el?.groupId["@id"];
     }
     return "";
-  }), [contact?.internalGroup]);
+  }), [contact?.internalGroup]);*/
 
 
   const toggleHumanityVerification = useCallback(async () => {
@@ -54,7 +54,7 @@ export const useContactView = (id: string | null/*, refreshKey = 0*/) => {
     // Data
     contact,
     resource,
-    contactGroupsNuris,
+    //contactGroupsNuris,
     // Loading states
     isLoading: contactLoading,
 

@@ -4,6 +4,7 @@ import {nextgraphDataService} from "@/services/nextgraphDataService";
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
+import {contactsOverlay} from "@/constants/overlays.ts";
 
 export interface ContactsFilters extends SortParams {
   searchQuery?: string;
@@ -125,7 +126,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     const totalContactsInDB = contactsCountResult.results.bindings[0].totalCount.value as number;
 
     setTotalCount(totalContactsInDB);
-    const containerOverlay = session.privateStoreId!.substring(46);
+    const containerOverlay = contactsOverlay(session);
     // @ts-expect-error TODO output format of ng sparql query
     return contactIDsResult.results.bindings.map(
       (binding) => binding.contactUri.value.substring(0,53) + containerOverlay
