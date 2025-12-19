@@ -123,11 +123,15 @@ export const groupSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:memberStatus#invited",
-              "did:ng:k:contact:memberStatus#joined",
-              "did:ng:k:contact:memberStatus#declined",
-            ],
+            literals: ["did:ng:k:contact:memberStatus#invited"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#joined"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#declined"],
           },
         ],
         maxCardinality: 1,
@@ -301,11 +305,15 @@ export const groupSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:memberStatus#invited",
-              "did:ng:k:contact:memberStatus#joined",
-              "did:ng:k:contact:memberStatus#declined",
-            ],
+            literals: ["did:ng:k:contact:memberStatus#invited"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#joined"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#declined"],
           },
         ],
         maxCardinality: 1,
