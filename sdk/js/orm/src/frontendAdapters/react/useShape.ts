@@ -11,7 +11,7 @@
 import type { BaseType } from "@ng-org/shex-orm";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
 import type { Scope } from "../../types.ts";
 
@@ -19,16 +19,18 @@ const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope = ""
 ) => {
-    const handleRef = useRef(createSignalObjectForShape(shape, scope));
-
-    const handle = handleRef.current;
-    const state = useDeepSignal(handle.signalObject);
+    const signalHandler = useMemo(
+        () => createSignalObjectForShape(shape, scope),
+        [shape, scope]
+    );
 
     useEffect(() => {
         return () => {
-            handleRef.current.stop();
+            signalHandler.stop();
         };
-    }, [shape, scope]);
+    }, [signalHandler]);
+
+    const state = useDeepSignal(signalHandler.signalObject);
 
     return state;
 };
