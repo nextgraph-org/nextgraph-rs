@@ -57,7 +57,7 @@ const useSignal = <T extends object>(
         return () => {
             stopListening();
         };
-    }, []);
+    }, [shapeSignal]);
 
     return ret;
 };
