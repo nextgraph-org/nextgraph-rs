@@ -80,20 +80,28 @@ pub fn decode_json_pointer(path: &String) -> String {
     path.replace("~1", "/").replace("~0", "~")
 }
 
-/// SPARQL literal escape: backslash, quotes, newlines, tabs.
-pub fn escape_literal(lit: &str) -> String {
+/// SPARQL literal escape: https://www.w3.org/TR/sparql11-query/#grammarEscapes
+pub fn escape_sparql_string(lit: &str) -> String {
     let mut out = String::with_capacity(lit.len() + 4);
     for c in lit.chars() {
         match c {
-            '\\' => out.push_str("\\\\"),
-            '\"' => out.push_str("\\\""),
+            '\t' => out.push_str("\\t"),
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
+            '\u{08}' => out.push_str("\\b"), // Backspace
+            '\u{0C}' => out.push_str("\\f"), // Form feed
+            '\"' => out.push_str("\\\""),
+            '\'' => out.push_str("\\'"),
+            '\\' => out.push_str("\\\\"),
             _ => out.push(c),
         }
     }
     return out;
+}
+
+pub fn is_uri_escaped(iri: &str) -> bool {
+    let re = Regex::new(r"^[^<>\{\}\|^`\\\x00-\x20]*$").unwrap();
+    re.is_match(iri)
 }
 
 pub fn json_to_sparql_val(json: &serde_json::Value) -> String {
