@@ -30,8 +30,7 @@ import {
 /** The current proxy object for the raw object (others might exist but are not the current / clean ones). */
 const rawToProxy = new WeakMap<object, any>();
 const rawToMeta = new WeakMap<object, ProxyMeta>();
-// Key needs to become raw object
-const proxySignals = new WeakMap<object, Map<PropertyKey, SignalLike>>();
+const propertiesToSignals = new WeakMap<object, Map<PropertyKey, SignalLike>>();
 const iterableSignals = new WeakMap<
     object,
     ReturnType<typeof signal<number>>
@@ -80,9 +79,10 @@ function shouldProxy(value: any): value is object {
 /**
  * Get or create the map in `proxySignals` for key `proxy`.
  */
-function ensureSignalMap(proxy: object): Map<PropertyKey, SignalLike> {
-    if (!proxySignals.has(proxy)) proxySignals.set(proxy, new Map());
-    return proxySignals.get(proxy)!;
+function ensureSignalMap(rawObj: object): Map<PropertyKey, SignalLike> {
+    if (!propertiesToSignals.has(rawObj))
+        propertiesToSignals.set(rawObj, new Map());
+    return propertiesToSignals.get(rawObj)!;
 }
 
 /**
@@ -516,7 +516,7 @@ function createProxy<T extends object>(
         options,
     };
 
-    proxySignals.set(proxy, new Map());
+    propertiesToSignals.set(target, new Map());
     rawToMeta.set(target, meta);
     rawToProxy.set(target, proxy);
 
@@ -657,7 +657,7 @@ const objectHandlers: ProxyHandler<any> = {
         }
 
         // Get object map from key to signal.
-        const signals = ensureSignalMap(receiver);
+        const signals = ensureSignalMap(target);
 
         // TODO: Why are we doing this?
         // Ensure that target object is signal.
@@ -702,7 +702,7 @@ const objectHandlers: ProxyHandler<any> = {
         const previous = hadKey ? (target as any)[key] : undefined;
         const result = Reflect.set(target, key, raw, receiver);
         if (!hasAccessor) {
-            const signals = ensureSignalMap(receiver);
+            const signals = ensureSignalMap(target);
             setSignalValue(signals, key, proxied);
         }
         if (!hadKey) touchIterable(target);
@@ -727,15 +727,14 @@ const objectHandlers: ProxyHandler<any> = {
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.deleteProperty(target, key);
 
-        const receiver = rawToProxy.get(target);
         const meta = rawToMeta.get(target);
 
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
         const result = Reflect.deleteProperty(target, key);
         if (hadKey) {
-            if (receiver && proxySignals.has(receiver)) {
+            if (propertiesToSignals.has(target)) {
                 // Trigger signal
-                const signals = proxySignals.get(receiver)!;
+                const signals = propertiesToSignals.get(target)!;
                 const existing = signals.get(key);
                 if (
                     existing &&
