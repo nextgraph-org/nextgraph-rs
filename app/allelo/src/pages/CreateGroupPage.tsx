@@ -83,7 +83,8 @@ const CreateGroupPage = () => {
     const socialGroupId = await createGroup(groupObj, selectedMembers, ormContact["@id"]!);
     
     if (socialGroupId) {
-      navigate(`/groups/${socialGroupId}`);
+      //wait a bit until a group creates
+      setTimeout(() =>  navigate(`/groups/${socialGroupId}`), 1000);
     }
   }, [ormContact, formData, selectedMembers, createGroup, navigate]);
 

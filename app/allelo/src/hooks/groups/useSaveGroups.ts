@@ -60,16 +60,21 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         contactId: adminNuri,
         memberStatus: "did:ng:k:contact:memberStatus#joined",
         isAdmin: true,
+        joinDate: (new Date()).toISOString()
       })
 
+      //@ts-expect-error TODO: remove if optional sets starts to work
       const groupObj: SocialGroup = {
         "@graph": docId,
         "@id": id,
-        "@type": "did:ng:x:social:group#Group",
+        "@type": new Set(["did:ng:x:social:group#Group"]),
         "title": group.title ?? "",
         "description": group.description,
-        "tag": group.tag,
         "hasMember": new Set(members),
+      }
+
+      if (group.tag) {
+        groupObj.tag = group.tag;
       }
 
       groups?.add(groupObj);
