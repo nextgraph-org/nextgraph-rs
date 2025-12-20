@@ -63,7 +63,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         joinDate: (new Date()).toISOString()
       })
 
-      //@ts-expect-error TODO: remove if optional sets starts to work
       const groupObj: SocialGroup = {
         "@graph": docId,
         "@id": id,
@@ -71,10 +70,7 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         "title": group.title ?? "",
         "description": group.description,
         "hasMember": new Set(members),
-      }
-
-      if (group.tag) {
-        groupObj.tag = group.tag;
+        "tag": group.tag,
       }
 
       groups?.add(groupObj);
