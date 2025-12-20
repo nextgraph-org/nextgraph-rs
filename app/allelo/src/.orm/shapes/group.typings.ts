@@ -33,7 +33,7 @@ export interface SocialGroup {
   /**
    * Original IRI: did:ng:x:social:group#tag
    */
-  tag: Set<IRI>;
+  tag?: Set<IRI>;
   /**
    * Original IRI: did:ng:x:social:group#logoIRI
    */
@@ -41,7 +41,7 @@ export interface SocialGroup {
   /**
    * Original IRI: did:ng:x:social:group#hasMember
    */
-  hasMember: Set<GroupMembership>;
+  hasMember?: Set<GroupMembership>;
   /**
    * Original IRI: did:ng:x:social:group#createdAt
    */
@@ -49,7 +49,7 @@ export interface SocialGroup {
   /**
    * Original IRI: did:ng:x:social:group#post
    */
-  post: Set<SocialPost>;
+  post?: Set<SocialPost>;
 }
 
 /**
@@ -71,7 +71,7 @@ export interface SocialPost {
   /**
    * Original IRI: did:ng:x:social:post#author
    */
-  author: Set<IRI>;
+  author?: Set<IRI>;
   /**
    * Original IRI: did:ng:x:social:post#createdAt
    */
@@ -79,7 +79,7 @@ export interface SocialPost {
   /**
    * Original IRI: did:ng:x:social:post#tag
    */
-  tag: Set<IRI>;
+  tag?: Set<IRI>;
   /**
    * Original IRI: did:ng:x:social:post#description
    */

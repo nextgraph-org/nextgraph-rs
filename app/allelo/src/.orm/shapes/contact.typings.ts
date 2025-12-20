@@ -29,143 +29,143 @@ export interface SocialContact {
   /**
    * Original IRI: did:ng:x:contact#phoneNumber
    */
-  phoneNumber: Set<PhoneNumber>;
+  phoneNumber?: Set<PhoneNumber>;
   /**
    * Original IRI: did:ng:x:contact#name
    */
-  name: Set<Name>;
+  name?: Set<Name>;
   /**
    * Original IRI: did:ng:x:contact#email
    */
-  email: Set<Email>;
+  email?: Set<Email>;
   /**
    * Original IRI: did:ng:x:contact#address
    */
-  address: Set<Address>;
+  address?: Set<Address>;
   /**
    * Original IRI: did:ng:x:contact#organization
    */
-  organization: Set<Organization>;
+  organization?: Set<Organization>;
   /**
    * Original IRI: did:ng:x:contact#photo
    */
-  photo: Set<Photo>;
+  photo?: Set<Photo>;
   /**
    * Original IRI: did:ng:x:contact#coverPhoto
    */
-  coverPhoto: Set<CoverPhoto>;
+  coverPhoto?: Set<CoverPhoto>;
   /**
    * Original IRI: did:ng:x:contact#url
    */
-  url: Set<Url>;
+  url?: Set<Url>;
   /**
    * Original IRI: did:ng:x:contact#birthday
    */
-  birthday: Set<Birthday>;
+  birthday?: Set<Birthday>;
   /**
    * Original IRI: did:ng:x:contact#biography
    */
-  biography: Set<Biography>;
+  biography?: Set<Biography>;
   /**
    * Original IRI: did:ng:x:contact#event
    */
-  event: Set<Event>;
+  event?: Set<Event>;
   /**
    * Original IRI: did:ng:x:contact#gender
    */
-  gender: Set<Gender>;
+  gender?: Set<Gender>;
   /**
    * Original IRI: did:ng:x:contact#nickname
    */
-  nickname: Set<Nickname>;
+  nickname?: Set<Nickname>;
   /**
    * Original IRI: did:ng:x:contact#occupation
    */
-  occupation: Set<Occupation>;
+  occupation?: Set<Occupation>;
   /**
    * Original IRI: did:ng:x:contact#relation
    */
-  relation: Set<Relation>;
+  relation?: Set<Relation>;
   /**
    * Original IRI: did:ng:x:contact#interest
    */
-  interest: Set<Interest>;
+  interest?: Set<Interest>;
   /**
    * Original IRI: did:ng:x:contact#skill
    */
-  skill: Set<Skill>;
+  skill?: Set<Skill>;
   /**
    * Original IRI: did:ng:x:contact#locationDescriptor
    */
-  locationDescriptor: Set<LocationDescriptor>;
+  locationDescriptor?: Set<LocationDescriptor>;
   /**
    * Original IRI: did:ng:x:contact#locale
    */
-  locale: Set<Locale>;
+  locale?: Set<Locale>;
   /**
    * Original IRI: did:ng:x:contact#account
    */
-  account: Set<Account>;
+  account?: Set<Account>;
   /**
    * Original IRI: did:ng:x:contact#sipAddress
    */
-  sipAddress: Set<SipAddress>;
+  sipAddress?: Set<SipAddress>;
   /**
    * Original IRI: did:ng:x:contact#extId
    */
-  extId: Set<ExternalId>;
+  extId?: Set<ExternalId>;
   /**
    * Original IRI: did:ng:x:contact#fileAs
    */
-  fileAs: Set<FileAs>;
+  fileAs?: Set<FileAs>;
   /**
    * Original IRI: did:ng:x:contact#calendarUrl
    */
-  calendarUrl: Set<CalendarUrl>;
+  calendarUrl?: Set<CalendarUrl>;
   /**
    * Original IRI: did:ng:x:contact#clientData
    */
-  clientData: Set<ClientData>;
+  clientData?: Set<ClientData>;
   /**
    * Original IRI: did:ng:x:contact#userDefined
    */
-  userDefined: Set<UserDefined>;
+  userDefined?: Set<UserDefined>;
   /**
    * Original IRI: did:ng:x:contact#membership
    */
-  membership: Set<Membership>;
+  membership?: Set<Membership>;
   /**
    * Original IRI: did:ng:x:contact#tag
    */
-  tag: Set<Tag>;
+  tag?: Set<Tag>;
   /**
    * Original IRI: did:ng:x:contact#contactImportGroup
    */
-  contactImportGroup: Set<ContactImportGroup>;
+  contactImportGroup?: Set<ContactImportGroup>;
   /**
    * Original IRI: did:ng:x:contact#headline
    */
-  headline: Set<Headline>;
+  headline?: Set<Headline>;
   /**
    * Original IRI: did:ng:x:contact#industry
    */
-  industry: Set<Industry>;
+  industry?: Set<Industry>;
   /**
    * Original IRI: did:ng:x:contact#education
    */
-  education: Set<Education>;
+  education?: Set<Education>;
   /**
    * Original IRI: did:ng:x:contact#language
    */
-  language: Set<Language>;
+  language?: Set<Language>;
   /**
    * Original IRI: did:ng:x:contact#project
    */
-  project: Set<Project>;
+  project?: Set<Project>;
   /**
    * Original IRI: did:ng:x:contact#publication
    */
-  publication: Set<Publication>;
+  publication?: Set<Publication>;
   /**
    * Original IRI: did:ng:x:contact#rcard
    */
@@ -193,11 +193,11 @@ export interface SocialContact {
   /**
    * Original IRI: did:ng:x:contact#mergedInto
    */
-  mergedInto: Set<IRI>;
+  mergedInto?: Set<IRI>;
   /**
    * Original IRI: did:ng:x:contact#mergedFrom
    */
-  mergedFrom: Set<IRI>;
+  mergedFrom?: Set<IRI>;
   /**
    * Original IRI: did:ng:x:contact#centralityScore
    */

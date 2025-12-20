@@ -37,7 +37,6 @@ export const contactSetProperties = [
   "membership",
   "tag",
   "contactImportGroup",
-  "internalGroup",
   "headline",
   "industry",
   "education",

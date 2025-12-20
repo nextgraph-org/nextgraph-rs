@@ -67,7 +67,7 @@ export interface RCardPermission {
    *
    * Original IRI: did:ng:x:social:rcard:permission#triple
    */
-  triple: Set<RCardPermissionTriple>;
+  triple?: Set<RCardPermissionTriple>;
   /**
    * Display zone for the property
    *
@@ -138,5 +138,5 @@ export interface RCard {
    *
    * Original IRI: did:ng:x:social:rcard:permission#permission
    */
-  permission: Set<RCardPermission>;
+  permission?: Set<RCardPermission>;
 }
