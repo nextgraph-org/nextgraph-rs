@@ -30,6 +30,7 @@ import {
 /** The current proxy object for the raw object (others might exist but are not the current / clean ones). */
 const rawToProxy = new WeakMap<object, any>();
 const rawToMeta = new WeakMap<object, ProxyMeta>();
+// TODO: We can move them to the meta objects.
 const propertiesToSignals = new WeakMap<object, Map<PropertyKey, SignalLike>>();
 const iterableSignals = new WeakMap<
     object,
@@ -154,6 +155,21 @@ function isReactiveSymbol(key: PropertyKey): key is symbol {
 }
 
 /**
+ * Replaces the old proxy to a raw object with a new one.
+ * Used so that we can indicate modifications along the path of a change by equality checks.
+ */
+function replaceProxy(meta: ProxyMeta) {
+    if (!meta.parent || !meta.key) return;
+
+    // Create a new proxy for this raw object -- frontend libs like react need this to recognize changes along this path.
+    const handlers = meta.raw instanceof Set ? setHandlers : objectHandlers;
+    const proxy = new Proxy(meta.raw, handlers);
+    rawToProxy.set(meta.raw, proxy);
+    const signal = propertiesToSignals.get(meta.parent.raw)?.get(meta.key);
+    signal?.(proxy);
+}
+
+/**
  * Walk the metadata chain to build the patch path for a property access.
  * Handles numbers, symbols (using description) and synthetic ID markers.
  */
@@ -181,10 +197,14 @@ function buildPath(
                 : escapePathSegment(String(normalized))
         );
     };
+
     push(key, skipEscape);
     let cursor = meta;
     while (cursor && cursor.parent && cursor.key !== undefined) {
         push(cursor.key, !!cursor.isSyntheticId);
+
+        replaceProxy(cursor);
+
         cursor = cursor.parent;
     }
     return path;
@@ -193,6 +213,7 @@ function buildPath(
 /** Resolve the path for a container itself (without the child key appended). */
 function resolveContainerPath(meta: ProxyMeta | undefined) {
     if (!meta || !meta.parent || meta.key === undefined) return [];
+    replaceProxy(meta);
     return buildPath(meta.parent, meta.key, !!meta.isSyntheticId);
 }
 
@@ -358,19 +379,19 @@ function initializeObjectTreeIfNoListeners(
  * Returns value if parent has no metadata record.
  */
 function ensureChildProxy<T>(
-    value: T,
+    rawChild: T,
     parent: any,
     key: PropertyKey,
     isSyntheticId = false
 ): DeepSignal<T> | T {
-    if (!shouldProxy(value)) return value;
+    if (!shouldProxy(rawChild)) return rawChild;
 
     const parentRaw = parent[RAW_KEY] || parent;
     const parentMeta = rawToMeta?.get(parentRaw);
 
-    if (rawToProxy.has(value)) {
-        const proxied = rawToProxy.get(value);
-        const proxiedMeta = rawToMeta.get(value);
+    if (rawToProxy.has(rawChild)) {
+        const proxied = rawToProxy.get(rawChild);
+        const proxiedMeta = rawToMeta.get(rawChild);
         if (proxiedMeta) {
             proxiedMeta.parent = parentMeta;
             proxiedMeta.key = key;
@@ -379,11 +400,11 @@ function ensureChildProxy<T>(
         return proxied;
     }
 
-    if (!parentMeta) return value;
+    if (!parentMeta) return rawChild;
 
     // Create proxy if none exists yet.
     const proxy = createProxy(
-        value,
+        rawChild,
         parentMeta.root,
         parentMeta.options,
         parentMeta,
@@ -659,22 +680,19 @@ const objectHandlers: ProxyHandler<any> = {
         // Get object map from key to signal.
         const signals = ensureSignalMap(target);
 
-        // TODO: Why are we doing this?
         // Ensure that target object is signal.
         ensureComputed(signals, target, key, receiver);
 
         // Add signal if it does not exist already and did not have a getter.
         if (!signals.has(key)) {
-            let rawValue = Reflect.get(target, key, receiver);
+            let rawChild = Reflect.get(target, key, receiver);
 
-            if (typeof rawValue === "function")
-                return rawValue.bind(receiver ?? target);
+            if (typeof rawChild === "function")
+                return rawChild.bind(receiver ?? target);
 
-            rawValue = shouldProxy(rawValue)
-                ? ensureChildProxy(rawValue, receiver, key)
-                : rawValue;
+            const childProxyOrRaw = ensureChildProxy(rawChild, receiver, key);
 
-            signals.set(key, signal(rawValue));
+            signals.set(key, signal(childProxyOrRaw));
         }
 
         // Call and return signal
@@ -699,7 +717,7 @@ const objectHandlers: ProxyHandler<any> = {
             (typeof desc.get === "function" || typeof desc.set === "function");
         const { raw, proxied } = ensureValueForWrite(value, receiver, key);
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
-        const previous = hadKey ? (target as any)[key] : undefined;
+
         const result = Reflect.set(target, key, raw, receiver);
         if (!hasAccessor) {
             const signals = ensureSignalMap(target);
@@ -851,6 +869,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
         if (key === "add") {
             return function add(this: any, value: any) {
                 const containerPath = resolveContainerPath(meta);
+
                 const rawValue = value[RAW_KEY] ?? value;
                 const sizeBefore = target.size;
                 const result = target.add(rawValue);
