@@ -27,9 +27,10 @@ import {
     iteratorHelperKeys,
 } from "./iteratorHelpers";
 
+/** The current proxy object for the raw object (others might exist but are not the current / clean ones). */
 const rawToProxy = new WeakMap<object, any>();
-const proxyToRaw = new WeakMap<object, any>();
 const rawToMeta = new WeakMap<object, ProxyMeta>();
+// Key needs to become raw object
 const proxySignals = new WeakMap<object, Map<PropertyKey, SignalLike>>();
 const iterableSignals = new WeakMap<
     object,
@@ -364,7 +365,7 @@ function ensureChildProxy<T>(
 ): DeepSignal<T> | T {
     if (!shouldProxy(value)) return value;
 
-    const parentRaw = proxyToRaw.get(parent) ?? parent;
+    const parentRaw = parent[RAW_KEY] || parent;
     const parentMeta = rawToMeta?.get(parentRaw);
 
     if (rawToProxy.has(value)) {
@@ -419,7 +420,7 @@ function assignSyntheticId(
     path: (string | number)[],
     inSet: boolean
 ) {
-    const rawEntry: any = proxyToRaw.get(entry) ?? entry;
+    const rawEntry: any = entry?.[RAW_KEY] ?? entry;
     if (!rawEntry || typeof rawEntry !== "object") {
         return rawEntry as string | number;
     }
@@ -518,7 +519,6 @@ function createProxy<T extends object>(
     proxySignals.set(proxy, new Map());
     rawToMeta.set(target, meta);
     rawToProxy.set(target, proxy);
-    proxyToRaw.set(proxy, target);
 
     return proxy as DeepSignal<T>;
 }
@@ -852,7 +852,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
         if (key === "add") {
             return function add(this: any, value: any) {
                 const containerPath = resolveContainerPath(meta);
-                const rawValue = proxyToRaw.get(value) ?? value;
+                const rawValue = value[RAW_KEY] ?? value;
                 const sizeBefore = target.size;
                 const result = target.add(rawValue);
                 if (target.size !== sizeBefore) {
@@ -897,7 +897,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
         if (key === "delete") {
             return function deleteEntry(this: any, value: any) {
                 const containerPath = resolveContainerPath(meta);
-                const rawValue = proxyToRaw.get(value) ?? value;
+                const rawValue = value?.[RAW_KEY] ?? value;
                 const synthetic =
                     rawValue && typeof rawValue === "object"
                         ? ensureSetInfo(meta!).idForObject.get(rawValue)
@@ -1008,7 +1008,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
         if (key === "has") {
             return function has(this: any, value: any) {
-                return target.has(proxyToRaw.get(value) ?? value);
+                return target.has(value?.[RAW_KEY] ?? value);
             };
         }
         return Reflect.get(target, key, receiver);
@@ -1017,7 +1017,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
 
 /** Runtime guard that checks whether a value is a deepSignal proxy. */
 export function isDeepSignal(value: any): boolean {
-    return !!proxyToRaw.has(value);
+    return !!value?.[RAW_KEY];
 }
 
 /**
@@ -1087,7 +1087,7 @@ export function subscribeDeepMutations(
 
 /** Return the root identifier symbol for a deepSignal proxy (if any). */
 export function getDeepSignalRootId(value: any): symbol | undefined {
-    return rawToMeta.get(proxyToRaw.get(value) ?? value)?.root;
+    return rawToMeta.get(value?.[RAW_KEY] ?? value)?.root;
 }
 
 /** Retrieve the current patch version for a deepSignal root (if tracked). */
@@ -1108,7 +1108,8 @@ export function shallow<T extends object>(obj: T): T {
 /** Force a specific synthetic ID to be used for a Set entry prior to insertion. */
 export function setSetEntrySyntheticId(obj: object, id: string | number) {
     if (!obj || typeof obj !== "object") return;
-    forcedSyntheticIds.set(proxyToRaw.get(obj) ?? obj, String(id));
+    // @ts-ignore
+    forcedSyntheticIds.set(obj[RAW_KEY] ?? obj, String(id));
 }
 
 /** Convenience helper to add an entry to a proxied Set with a pre-defined synthetic ID. */
