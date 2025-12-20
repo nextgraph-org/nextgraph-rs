@@ -117,7 +117,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
   contacts.forEach((contact) => {
     const contactId = contact['@id'] || '';
 
-    if (contact.internalGroup) {
+    /*if (contact.internalGroup) {
       contact.internalGroup.forEach((groupId) => {
         const otherContacts = contacts.filter(
           (c) => c.internalGroup?.some((g) => g.groupId === groupId.groupId) && c['@id'] !== contactId
@@ -138,7 +138,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
           );
         });
       });
-    }
+    }*/
 
     if (contact.relation) {
       contact.relation.forEach((rel) => {

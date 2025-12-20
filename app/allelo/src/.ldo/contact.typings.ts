@@ -55,7 +55,6 @@ export interface SocialContact {
   membership?: LdSet<Membership>;
   tag?: LdSet<Tag>;
   contactImportGroup?: LdSet<ContactImportGroup>;
-  internalGroup?: LdSet<InternalGroup>;
   headline?: LdSet<Headline>;
   industry?: LdSet<Industry>;
   education?: LdSet<Education>;
@@ -1380,45 +1379,6 @@ export interface ContactImportGroup {
    * Whether this is hidden from list
    */
   hidden?: boolean;
-}
-
-/**
- * InternalGroup Type
- */
-export interface InternalGroup {
-  "@id"?: string;
-  "@context"?: LdoJsonldContext;
-  /**
-   * Group id
-   */
-  groupId: {
-    "@id": string;
-  };
-  /**
-   * Status of group member
-   */
-  memberStatus:
-    | {
-        "@id": "invited";
-      }
-    | {
-        "@id": "joined";
-      }
-    | {
-        "@id": "declined";
-      };
-  /**
-   * When user joined
-   */
-  joinDate?: string;
-  /**
-   * Whether this is hidden from list
-   */
-  hidden?: boolean;
-  /**
-   * Source of the groups
-   */
-  source?: string;
 }
 
 /**

@@ -41,7 +41,7 @@ const GroupDetailPage = () => {
 
   let contactNuris: string[] = [];
   if (group.hasMember)
-    contactNuris = [...group.hasMember];
+    contactNuris = [...group.hasMember].map(el => el.contactId);
 
   return (
     <Box sx={{width: "100%", px: {xs: 1, sm: 3}, py: {xs: 1, sm: 2}}}>

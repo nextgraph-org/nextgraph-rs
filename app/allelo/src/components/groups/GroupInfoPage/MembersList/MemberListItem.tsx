@@ -9,23 +9,45 @@ import {
 import {UilUserMinus} from '@iconscout/react-unicons';
 import {useResolvedContact} from "@/stores/contactOrmStore.ts";
 import {ContactCardAvatarOrm} from "@/components/contacts/ContactCardAvatar";
+import {formatDate} from "@/utils/dateHelpers.ts";
+import {useCallback} from "react";
+import {GroupMembership} from "@/.orm/shapes/group.typings.ts";
 
 export interface MemberListItemProps {
-  memberNuri: string;
+  member: GroupMembership;
   isCurrentUserAdmin: boolean;
-  isMemberAdmin: boolean;
   isLastItem: boolean;
   onRemoveMember: (nuri: string, name: string) => void;
 }
 
 export const MemberListItem = ({
-                                 memberNuri,
+                                 member,
                                  isCurrentUserAdmin,
                                  isLastItem,
                                  onRemoveMember,
-                                 isMemberAdmin
                                }: MemberListItemProps) => {
-  const {name, ormContact} = useResolvedContact(memberNuri);
+  const {name, ormContact} = useResolvedContact(member.contactId, false);
+
+  const resolveMemberStatus = useCallback(() => {
+    if (!member) {
+      return "";
+    }
+    switch (member?.memberStatus) {
+      case "did:ng:k:contact:memberStatus#invited":
+        return 'Invitation sent'
+      case "did:ng:k:contact:memberStatus#joined":
+        return `Joined ${member.joinDate ? formatDate(member.joinDate, {
+          month: "short",
+          hour: undefined,
+          minute: undefined
+        }) : 'Unknown'}`;
+      case "did:ng:k:contact:memberStatus#declined":
+        return 'Declined';
+      default:
+        console.warn("Unterminate group member state");
+        return "";
+    }
+  }, [member]);
 
   return (
     <ListItem
@@ -46,7 +68,7 @@ export const MemberListItem = ({
               <Typography variant="subtitle1" sx={{fontWeight: 600}}>
                 {name}
               </Typography>
-              {isMemberAdmin && (
+              {member?.isAdmin && (
                 <Chip
                   label="Admin"
                   size="small"
@@ -65,7 +87,7 @@ export const MemberListItem = ({
                   sx={{height: 20, fontSize: '0.7rem'}}
                 />
               )}*/}
-              {isCurrentUserAdmin && !isMemberAdmin && (
+              {isCurrentUserAdmin && !member?.isAdmin && (
                 <Button
                   variant="outlined"
                   color="error"
@@ -96,11 +118,7 @@ export const MemberListItem = ({
         }
         secondary={
           <Typography variant="body2" color="text.secondary">
-            {/*{member.status === 'Invited' ? 'Invitation sent' : `Joined ${member.joinedAt ? formatDate(member.joinedAt, {
-              month: "short",
-              hour: undefined,
-              minute: undefined
-            }) : 'Unknown'}`}*/}
+            {resolveMemberStatus()}
           </Typography>
         }
       />

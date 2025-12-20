@@ -182,8 +182,7 @@ export const GroupInfoPage = () => {
           {/* Members List */}
           <MembersList
             groupId={groupId!}
-            membersNuris={group.hasMember}
-            adminsNuris={group.hasAdmin}
+            groupMembers={group.hasMember}
             isCurrentUserAdmin={isAdmin}
           />
 

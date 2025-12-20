@@ -10,7 +10,13 @@ export type IRI = string;
  * RCardPermissionTriple Type
  */
 export interface RCardPermissionTriple {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * First level property key from ContactLdSetProperties if differs from RCardPermission
@@ -30,7 +36,13 @@ export interface RCardPermissionTriple {
  * RCardPermission Type
  */
 export interface RCardPermission {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Instance object of the property
@@ -95,14 +107,20 @@ export interface RCardPermission {
  * RCard Type
  */
 export interface RCard {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Defines the node as an RCard
    *
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": "did:ng:x:social:rcard#Card";
+  "@type": Set<"did:ng:x:social:rcard#Card" | (IRI & {})>;
   /**
    * Unique identifier for the relationship category
    *

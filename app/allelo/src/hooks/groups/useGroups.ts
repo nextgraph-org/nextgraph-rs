@@ -3,6 +3,7 @@ import type {SortParams} from '@/types/contact';
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {groupService} from "@/services/groupService.ts";
+import {groupsOverlay} from "@/constants/overlays.ts";
 
 export interface GroupFilters extends SortParams {
   searchQuery?: string;
@@ -75,8 +76,7 @@ export const useGroups = ({limit = 10, initialFilters}: UseGroupsParams = {}): u
 
     setTotalCount(totalContactsInDB);
 
-    //TODO: this should be changed to another store
-    const containerOverlay = session.privateStoreId!.substring(46);
+    const containerOverlay = groupsOverlay(session);
     // @ts-expect-error TODO output format of ng sparql query
     return groupsIDsResult.results.bindings.map(
       (binding) => binding.groupUri.value.substring(0,53) + containerOverlay

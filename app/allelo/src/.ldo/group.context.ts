@@ -39,11 +39,6 @@ export const groupContext: LdoJsonldContext = {
         "@type": "@id",
         "@isCollection": true,
       },
-      hasAdmin: {
-        "@id": "did:ng:x:social:group#hasAdmin",
-        "@type": "@id",
-        "@isCollection": true,
-      },
       createdAt: {
         "@id": "did:ng:x:social:group#createdAt",
         "@type": "http://www.w3.org/2001/XMLSchema#dateTime",
@@ -77,10 +72,24 @@ export const groupContext: LdoJsonldContext = {
     "@type": "@id",
     "@isCollection": true,
   },
-  hasAdmin: {
-    "@id": "did:ng:x:social:group#hasAdmin",
+  contactId: {
+    "@id": "did:ng:x:contact#contactId",
     "@type": "@id",
+  },
+  memberStatus: {
+    "@id": "did:ng:x:contact#memberStatus",
     "@isCollection": true,
+  },
+  invited: "did:ng:k:contact:memberStatus#invited",
+  joined: "did:ng:k:contact:memberStatus#joined",
+  declined: "did:ng:k:contact:memberStatus#declined",
+  joinDate: {
+    "@id": "did:ng:x:contact#joinDate",
+    "@type": "http://www.w3.org/2001/XMLSchema#date",
+  },
+  isAdmin: {
+    "@id": "did:ng:x:contact#isAdmin",
+    "@type": "http://www.w3.org/2001/XMLSchema#boolean",
   },
   createdAt: {
     "@id": "did:ng:x:social:group#createdAt",

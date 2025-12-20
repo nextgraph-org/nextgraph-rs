@@ -78,7 +78,7 @@ class NextgraphDataService {
   }
 
   async getContactsCount(session: NextGraphSession, filterParams?: Map<string, string>) {
-    const sparql = this.getCountQuery("vcard:Individual", session,  filterParams);
+    const sparql = this.getCountQuery("vcard:Individual", session, filterParams);
 
     return await session.ng!.sparql_query(session.sessionId, sparql);
   };
@@ -409,7 +409,7 @@ WHERE {
 
   async createSettings(session: NextGraphSession, privateStoreId?: string) {
     if (!session || !session.sessionId) {
-      return ;
+      return;
     }
 
     privateStoreId ??= "did:ng:" + session.privateStoreId;
@@ -425,10 +425,10 @@ WHERE {
 
   async isSettingsCreated(session?: NextGraphSession, base?: string, nuri?: string) {
     if (!session || !session.sessionId) {
-      return ;
+      return;
     }
     base ??= "did:ng:" + session.privateStoreId?.substring(0, 46);
-    nuri ??="did:ng:" + session.privateStoreId;
+    nuri ??= "did:ng:" + session.privateStoreId;
     const sparql = `
       PREFIX ngset: <did:ng:x:settings#>
       ASK { <> a ngset:Settings . }`;
@@ -480,17 +480,18 @@ WHERE {
 
     const blob = await response.blob();
     const fileName = photo.photoUrl.split('/').pop() || 'photo.jpg';
-    const file = new File([blob], fileName, { type: blob.type });
+    const file = new File([blob], fileName, {type: blob.type});
 
     const nuri = await imageService.uploadFile(
       file,
       contactId,
       sessionId,
-      () => {} // No-op progress callback
+      () => {
+      } // No-op progress callback
     );
 
     if (nuri) {
-      photo.photoIRI = { "@id": nuri };
+      photo.photoIRI = {"@id": nuri};
     }
   }
 

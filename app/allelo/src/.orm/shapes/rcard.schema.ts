@@ -86,11 +86,15 @@ export const rcardSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:social:rcard:permission:zone#top",
-              "did:ng:k:social:rcard:permission:zone#bottom",
-              "did:ng:k:social:rcard:permission:zone#middle",
-            ],
+            literals: ["did:ng:k:social:rcard:permission:zone#top"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:social:rcard:permission:zone#bottom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:social:rcard:permission:zone#middle"],
           },
         ],
         maxCardinality: 1,
@@ -278,11 +282,15 @@ export const rcardSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:social:rcard:permission:zone#top",
-              "did:ng:k:social:rcard:permission:zone#bottom",
-              "did:ng:k:social:rcard:permission:zone#middle",
-            ],
+            literals: ["did:ng:k:social:rcard:permission:zone#top"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:social:rcard:permission:zone#bottom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:social:rcard:permission:zone#middle"],
           },
         ],
         maxCardinality: 1,

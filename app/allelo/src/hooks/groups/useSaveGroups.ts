@@ -1,12 +1,12 @@
 import {useCallback, useState} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
-import {SocialGroup} from "@/.orm/shapes/group.typings";
+import {GroupMembership, SocialGroup} from "@/.orm/shapes/group.typings";
 import {useShape} from "@ng-org/orm/react";
 import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
 
 interface UseSaveGroupsReturn {
-  createGroup: (group: Partial<SocialGroup>) => Promise<string>;
+  createGroup: (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string) => Promise<string>;
   isLoading: boolean;
   error: string | null;
 }
@@ -18,13 +18,14 @@ export function useSaveGroups(): UseSaveGroupsReturn {
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
 
-  const groups = useShape(SocialGroupShapeType)
+  const groups = useShape(SocialGroupShapeType);
+
 
   function generateUri(base: string) {
     return base.substring(0, 9 + 44);
   }
 
-  const createGroup = useCallback(async (group: Partial<SocialGroup>): Promise<string> => {
+  const createGroup = useCallback(async (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string): Promise<string> => {
     if (!session || !session.ng) {
       const errorMsg = 'No active session available';
       setError(errorMsg);
@@ -44,21 +45,32 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
       const id = generateUri(docId);
 
-      if (group.hasMember && group.hasAdmin) {
-        group.hasMember = new Set([...group.hasMember, ...group.hasAdmin]);
-      }
+      const members: GroupMembership[] = membersNuris.map(nuri => {
+        return {
+          "@id": "",
+          "@graph": "",
+          contactId: nuri,
+          memberStatus: "did:ng:k:contact:memberStatus#invited"
+        }
+      });
 
-      //TODO: we need to update contacts with details about invitation
+      members.push({
+        "@id": "",
+        "@graph": "",
+        contactId: adminNuri,
+        memberStatus: "did:ng:k:contact:memberStatus#joined",
+        isAdmin: true,
+        joinDate: (new Date()).toISOString()
+      })
 
       const groupObj: SocialGroup = {
         "@graph": docId,
         "@id": id,
-        "@type": "did:ng:x:social:group#Group",
+        "@type": new Set(["did:ng:x:social:group#Group"]),
         "title": group.title ?? "",
         "description": group.description,
-        "hasAdmin": group.hasAdmin,
+        "hasMember": new Set(members),
         "tag": group.tag,
-        "hasMember": group.hasMember,
       }
 
       groups?.add(groupObj);
