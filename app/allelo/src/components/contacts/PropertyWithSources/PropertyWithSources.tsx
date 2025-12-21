@@ -10,29 +10,36 @@ import {
 import {
   UilEllipsisV as MoreVert,
 } from '@iconscout/react-unicons';
-import type {Contact} from '@/types/contact';
 import {
   ContactKeysWithSelected,
+  ContactLdSetProperties,
   setUpdatedTime,
   updatePropertyFlag,
   resolveFrom
-} from '@/utils/socialContact/contactUtils.ts';
+} from '@/utils/socialContact/contactUtilsOrm';
 import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper";
-import {useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
 import {renderTemplate} from "@/utils/templateRenderer";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 type ResolvableKey = ContactKeysWithSelected;
+
+// Extract keys of the Set element type for a given property key
+type SubKeyOf<K extends ResolvableKey> = K extends keyof ContactLdSetProperties
+  ? NonNullable<ContactLdSetProperties[K]> extends Set<infer U>
+    ? keyof U & string
+    : never
+  : never;
 
 interface PropertyWithSourcesProps<K extends ResolvableKey> {
   label?: string;
   icon?: React.ReactNode;
-  contact: Contact | undefined;
+  contact: SocialContact | undefined;
   propertyKey: K;
-  subKey?: string;
+  subKey?: SubKeyOf<K>;
   // Display customization
   variant?: 'default' | 'header' | 'inline';
   textVariant?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body1' | 'body2';
@@ -77,10 +84,10 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                                                                resource
                                                              }: PropertyWithSourcesProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const {commitData, changeData} = useLdo();
 
   const isNextgraph = useMemo(() => isNextGraphEnabled(), []);
-  const {updatePermissionsNode} = useUpdatePermission(contact);
+  //TODO: const {updatePermissionsNode} = useUpdatePermission(contact);
+  const updatePermissionsNode = (el: string) => {};
 
   const [currentValue, setCurrentValue] = useState<string>();
   const [localValue, setLocalValue] = useState<string>("");
@@ -88,7 +95,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   const [displayValue, setDisplayValue] = useState<string>("");
 
   const handleChange = useCallback(() => {
-    const currentItemRef = currentItem ?? ((contact && resolveFrom(contact, propertyKey)) ?? {}) as Record<string, string>;
+    const currentItemRef = currentItem ?? ((contact && resolveFrom(contact, propertyKey)) ?? {});
     setCurrentItemId(currentItemRef["@id"]);
     const value = currentItemRef[subKey] ?? "";
     setCurrentValue(value);
@@ -96,7 +103,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
     if (!value && template) {
       const templateData = templateProperty && contact
-        ? resolveFrom(contact, templateProperty) as Record<string, string>
+        ? resolveFrom(contact, templateProperty)
         : currentItemRef;
       const rendered = renderTemplate(template, templateData);
       setDisplayValue(rendered);
@@ -115,7 +122,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     if (!contact || currentValue === localValue) return;
     setCurrentValue(localValue);
 
-    const editPropertyWithUserSource = (contactObj: Contact, addId?: boolean) => {
+    const editPropertyWithUserSource = (contactObj: SocialContact, addId?: boolean) => {
       const fieldSet = contactObj[propertyKey];
       if (!fieldSet) return;
 
@@ -140,7 +147,6 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       }
 
       if (existingUserEntry) {
-        // @ts-expect-error narrow later
         existingUserEntry[subKey] = localValue;
         if (!isMultipleField) {
           for (const item of fieldSet) {
@@ -155,6 +161,8 @@ export const PropertyWithSources = <K extends ResolvableKey>({
         }
 
         const newEntry = {
+          "@graph": "",
+          "@id": "",
           [subKey]: localValue,
           source: "user",
           selected: isMultipleField ? undefined : true
@@ -163,7 +171,6 @@ export const PropertyWithSources = <K extends ResolvableKey>({
           newEntry["@id"] = Math.random().toExponential(32);
         }
 
-        // @ts-expect-error TODO: we will need more field types handlers later: Date, number, boolean(?)
         fieldSet.add(newEntry);
       }
 
@@ -173,19 +180,13 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     }
 
     if (isNextgraph && !contact.isDraft) {
-      // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
-        const changedContactObj = changeData(contact, resource);
-
-        editPropertyWithUserSource(changedContactObj);
-
-        commitData(changedContactObj).then(() => updatePermissionsNode(propertyKey));
-      }
+        editPropertyWithUserSource(contact);
+        updatePermissionsNode(propertyKey);
     } else {
       editPropertyWithUserSource(contact, true);
       handleChange();
     }
-  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, resource, changeData, commitData, updatePermissionsNode, handleChange]);
+  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, updatePermissionsNode, handleChange]);
 
   // Handle page navigation/unload to persist any unsaved changes
   useEffect(() => {
@@ -217,14 +218,10 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     }
 
     if (isNextgraph) {
-      // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
-        const changedContactObj = changeData(contact, resource);
         if (!isMultipleField) {
-          updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");
+          updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
         }
-        commitData(changedContactObj).then(() => updatePermissionsNode(propertyKey, item["@id"]));
-      }
+      updatePermissionsNode(propertyKey, item["@id"]);
     } else {
       if (!isMultipleField) {
         updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
@@ -233,7 +230,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
     handleClose();
     handleChange();
-  }, [changeData, commitData, contact, handleChange, isMultipleField, isNextgraph, propertyKey, resource, updatePermissionsNode]);
+  }, [contact, handleChange, isMultipleField, isNextgraph, propertyKey, updatePermissionsNode]);
 
   const [isValid, setIsValid] = useState(true);
 
@@ -264,7 +261,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   }
 
   // Get all available sources for the menu
-  const allSources = contact[propertyKey]?.toArray().filter(el => el["@id"]) ?? [];
+  const allSources = [...contact[propertyKey] ?? []].filter(el => el["@id"]) ?? [];
 
   const getSourceSelectors = () => {
     //TODO: size is unreliable, use toArray().length

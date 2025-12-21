@@ -129,7 +129,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     const containerOverlay = contactsOverlay(session);
     // @ts-expect-error TODO output format of ng sparql query
     return contactIDsResult.results.bindings.map(
-      (binding) => binding.contactUri.value + containerOverlay
+      (binding) => binding.contactUri.value.substring(0,53) + containerOverlay
     );
   }, [session, filters, limit]);
 

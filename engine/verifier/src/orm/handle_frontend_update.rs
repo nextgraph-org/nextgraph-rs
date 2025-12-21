@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaPredicate, OrmSchemaShape};
+use ng_net::orm::{OrmPatchOp, OrmSchemaPredicate, OrmSchemaShape};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::VerifierError;
 
@@ -21,7 +21,7 @@ use ng_repo::log::*;
 
 use crate::orm::types::*;
 use crate::orm::utils::{
-    assess_and_rank_children, decode_json_pointer, json_to_sparql_val, nuri_to_string,
+    decode_json_pointer, escape_sparql_string, json_to_sparql_val, nuri_to_string,
 };
 use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
@@ -447,7 +447,7 @@ fn create_sparql_update_query_for_patches(
             let combined = format!(
                 "DELETE {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} INSERT {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} WHERE {{\n  OPTIONAL {{ GRAPH <{}> {{ <{}> <{}> {} }} }}\n}}",
                 graph, subj, pred, var,
-                graph, subj, pred, value,
+                graph, subj, pred, escape_sparql_string(value),
                 graph, subj, pred, var
             );
             self.queries.push(combined);
@@ -456,14 +456,20 @@ fn create_sparql_update_query_for_patches(
             // Use INSERT DATA to reliably add multi-valued literal/object without needing a WHERE pattern
             let insert = format!(
                 "INSERT DATA {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}}",
-                graph, subj, pred, value
+                graph,
+                subj,
+                pred,
+                escape_sparql_string(value)
             );
             self.queries.push(insert);
         }
         fn remove_value(&mut self, graph: &str, subj: &str, pred: &str, value: &str) {
             let del = format!(
                 "DELETE DATA {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}}",
-                graph, subj, pred, value
+                graph,
+                subj,
+                pred,
+                escape_sparql_string(value)
             );
             self.queries.push(del);
         }

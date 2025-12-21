@@ -15,7 +15,7 @@ import {
     addWithId,
     DeepPatch,
     DeepSignalOptions,
-} from "../../deepSignal";
+} from "../../";
 import { watch } from "../../watch";
 import { effect } from "../../effect";
 
@@ -106,7 +106,7 @@ describe("watch", () => {
         const state = deepSignal({ count: 0 });
         const versions: number[] = [];
         watch(state, ({ version }) => {
-            versions.push(version);
+            versions.push(version!);
         });
         state.count = 1;
         await Promise.resolve();

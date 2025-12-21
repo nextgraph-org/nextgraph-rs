@@ -9,9 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { watch } from "../../watch.js";
-import { useEffect, useRef, useState } from "react";
-import { deepSignal } from "../../deepSignal";
-import { DeepSignalOptions } from "../../types.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { deepSignal, DeepSignalOptions } from "../..";
 
 /**
  * Create or use an existing deepSignal object in your component.
@@ -20,22 +19,37 @@ import { DeepSignalOptions } from "../../types.js";
  * is rerendered as well.
  *
  * @param object The object that should become reactive
- * @param deepSignalObjects When the object is not a deepSignal already, options passed to `deepSignal`.
- * @returns The deepSignal object of the object param.
+ * @param deepSignalOptions When the object is not a deepSignal already, options passed to `deepSignal`.
+ * @returns The deepSignal object of the object param. On every change, the returned object will change (a new no-op proxy is created) around the deepSignal object.
  */
 const useSignal = <T extends object>(
     object: T,
-    deepSignalObjects?: DeepSignalOptions
+    deepSignalOptions?: DeepSignalOptions
 ) => {
-    const shapeSignalRef = useRef(deepSignal(object, deepSignalObjects));
-    const [, setTick] = useState(0);
+    // Create the actual deepSignal object from the raw object (if the object is a deepSignal object already, it returns itself).
+    const shapeSignal = useMemo(
+        () => deepSignal(object, deepSignalOptions),
+        [object, deepSignalOptions]
+    );
+
+    const isFirstRender = useRef(true);
+
+    // The signal object is proxied every time a value changes.
+    // This way, we make it a dependency in `useEffect` etc.
+    const [ret, setRet] = useState(new Proxy(shapeSignal, {}));
 
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+        } else {
+            setRet(new Proxy(shapeSignal, {}));
+        }
+
         const { stopListening } = watch(
-            shapeSignalRef.current,
+            shapeSignal,
             () => {
-                // trigger a React re-render when the deep signal updates
-                setTick((t) => t + 1);
+                // Trigger a re-render when the deep signal updates.
+                setRet(() => new Proxy(shapeSignal, {}));
             },
             { triggerInstantly: true }
         );
@@ -45,7 +59,7 @@ const useSignal = <T extends object>(
         };
     }, []);
 
-    return shapeSignalRef.current;
+    return ret;
 };
 
 export default useSignal;

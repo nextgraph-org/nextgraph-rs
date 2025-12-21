@@ -641,127 +641,6 @@ describe("deepsignal/core", () => {
             expect(data).to.equal("b");
         });
 
-        // it("should subscribe to changes", () => {
-        // 	const spy1 = sinon.spy(() => store.a);
-        // 	const spy2 = sinon.spy(() => store.nested);
-        // 	const spy3 = sinon.spy(() => store.nested.b);
-        // 	const spy4 = sinon.spy(() => store.array[0]);
-        // 	const spy5 = sinon.spy(
-        // 		() => typeof store.array[1] === "object" && store.array[1].b
-        // 	);
-
-        // 	effect(spy1);
-        // 	effect(spy2);
-        // 	effect(spy3);
-        // 	effect(spy4);
-        // 	effect(spy5);
-
-        // 	expect(spy1).callCount(1);
-        // 	expect(spy2).callCount(1);
-        // 	expect(spy3).callCount(1);
-        // 	expect(spy4).callCount(1);
-        // 	expect(spy5).callCount(1);
-
-        // 	store.a = 11;
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(1);
-        // 	expect(spy3).callCount(1);
-        // 	expect(spy4).callCount(1);
-        // 	expect(spy5).callCount(1);
-
-        // 	store.nested.b = 22;
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(1);
-        // 	expect(spy3).callCount(2);
-        // 	expect(spy4).callCount(1);
-        // 	expect(spy5).callCount(2); // nested also exists array[1]
-
-        // 	store.nested = { b: 222 };
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-        // 	expect(spy3).callCount(3);
-        // 	expect(spy4).callCount(1);
-        // 	expect(spy5).callCount(2); // now store.nested has a different reference
-
-        // 	store.array[0] = 33;
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-        // 	expect(spy3).callCount(3);
-        // 	expect(spy4).callCount(2);
-        // 	expect(spy5).callCount(2);
-
-        // 	if (typeof store.array[1] === "object") store.array[1].b = 2222;
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-        // 	expect(spy3).callCount(3);
-        // 	expect(spy4).callCount(2);
-        // 	expect(spy5).callCount(3);
-
-        // 	store.array[1] = { b: 22222 };
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-        // 	expect(spy3).callCount(3);
-        // 	expect(spy4).callCount(2);
-        // 	expect(spy5).callCount(4);
-
-        // 	store.array.push(4);
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-        // 	expect(spy3).callCount(3);
-        // 	expect(spy4).callCount(2);
-        // 	expect(spy5).callCount(4);
-
-        // 	store.array[3] = 5;
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-        // 	expect(spy3).callCount(3);
-        // 	expect(spy4).callCount(2);
-        // 	expect(spy5).callCount(4);
-
-        // 	store.array = [333, { b: 222222 }];
-
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-        // 	expect(spy3).callCount(3);
-        // 	expect(spy4).callCount(3);
-        // 	expect(spy5).callCount(5);
-        // });
-
-        // it("should subscribe to array length", () => {
-        // 	const array = [1];
-        // 	const store = deepSignal({ array });
-        // 	const spy1 = sinon.spy(() => store.array.length);
-        // 	const spy2 = sinon.spy(() => store.array.map((i: number) => i));
-
-        // 	effect(spy1);
-        // 	effect(spy2);
-        // 	expect(spy1).callCount(1);
-        // 	expect(spy2).callCount(1);
-
-        // 	store.array.push(2);
-        // 	expect(store.array.length).to.equal(2);
-        // 	expect(spy1).callCount(2);
-        // 	expect(spy2).callCount(2);
-
-        // 	store.array[2] = 3;
-        // 	expect(store.array.length).to.equal(3);
-        // 	expect(spy1).callCount(3);
-        // 	expect(spy2).callCount(3);
-
-        // 	store.array = store.array.filter((i: number) => i <= 2);
-        // 	expect(store.array.length).to.equal(2);
-        // 	expect(spy1).callCount(4);
-        // 	expect(spy2).callCount(4);
-        // });
-
         it("should be able to reset values with Object.assign and still react to changes", () => {
             const initialNested = { ...nested };
             const initialState = { ...state, nested: initialNested };
@@ -788,23 +667,99 @@ describe("deepsignal/core", () => {
     });
 
     describe("refs", () => {
-        it("should preserve object references", () => {
-            expect(store.nested).to.equal(store.array[1]);
-            store.nested.b = 22;
+        it("should change if children changed", async () => {
+            const signalObj = deepSignal({
+                primitive: 1,
+                nestedObject: { primitive: 2 },
+                nestedSetOfPrimitives: new Set([1, 2, "three"]),
+                nestedSetOfObjects: new Set([
+                    { "@id": "obj1", primitive: true },
+                    { "@id": "obj2", primitive: "false" },
+                ]),
+                nestedArrayOfPrimitives: [1, 2, "three"],
+                nestedArrayOfObjects: [
+                    { "@id": "obj1", primitive: true },
+                    { "@id": "obj2", primitive: "false" },
+                ],
+            });
 
-            expect(store.nested).to.equal(store.array[1]);
-            expect(store.nested.b).to.equal(22);
-            expect(
-                typeof store.array[1] === "object" && store.array[1].b
-            ).to.equal(22);
+            // Capture initial references
+            let no = signalObj.nestedObject;
+            let nop = signalObj.nestedObject.primitive;
+            let nsop = signalObj.nestedSetOfPrimitives;
+            let nsoo = signalObj.nestedSetOfObjects;
+            let [nsoo1, nsoo2] = [...signalObj.nestedSetOfObjects];
+            let naop = signalObj.nestedArrayOfPrimitives;
+            let naoo = signalObj.nestedArrayOfObjects;
+            let [naoo1, naoo2] = signalObj.nestedArrayOfObjects;
 
-            store.nested = { b: 222 };
+            // Mutate root primitive - should not affect nested proxies
+            signalObj.primitive = 2;
+            expect(signalObj.nestedObject).toBe(no);
+            expect(signalObj.nestedObject.primitive).toBe(nop);
+            expect(signalObj.nestedSetOfPrimitives).toBe(nsop);
+            expect(signalObj.nestedSetOfObjects).toBe(nsoo);
+            expect(signalObj.nestedArrayOfPrimitives).toBe(naop);
+            expect(signalObj.nestedArrayOfObjects).toBe(naoo);
 
-            expect(store.nested).to.not.equal(store.array[1]);
-            expect(store.nested.b).to.equal(222);
-            expect(
-                typeof store.array[1] === "object" && store.array[1].b
-            ).to.equal(22);
+            // Mutate nested object primitive - should replace nestedObject proxy
+            signalObj.nestedObject.primitive = 3;
+            expect(signalObj.nestedObject.primitive).toBe(3);
+            expect(signalObj.nestedObject).not.toBe(no);
+            no = signalObj.nestedObject;
+            // Unrelated proxies should remain the same
+            expect(signalObj.nestedSetOfPrimitives).toBe(nsop);
+            expect(signalObj.nestedSetOfObjects).toBe(nsoo);
+            expect(signalObj.nestedArrayOfPrimitives).toBe(naop);
+            expect(signalObj.nestedArrayOfObjects).toBe(naoo);
+
+            // Mutate Set of primitives - should replace the Set proxy
+            signalObj.nestedSetOfPrimitives.add(4);
+            expect(signalObj.nestedSetOfPrimitives).not.toBe(nsop);
+            nsop = signalObj.nestedSetOfPrimitives;
+            expect(signalObj.nestedSetOfPrimitives.has(4)).toBe(true);
+            // Unrelated proxies should remain the same
+            expect(signalObj.nestedObject).toBe(no);
+            expect(signalObj.nestedSetOfObjects).toBe(nsoo);
+            expect(signalObj.nestedArrayOfPrimitives).toBe(naop);
+            expect(signalObj.nestedArrayOfObjects).toBe(naoo);
+
+            // Mutate object inside Set - should replace Set proxy and the object proxy
+            nsoo1.primitive = false;
+            expect([...signalObj.nestedSetOfObjects][1]).toBe(nsoo2);
+            expect([...signalObj.nestedSetOfObjects][0]).not.toBe(nsoo1);
+            expect(signalObj.nestedSetOfObjects).not.toBe(nsoo);
+            nsoo = signalObj.nestedSetOfObjects;
+            [nsoo1, nsoo2] = [...signalObj.nestedSetOfObjects];
+            // Unrelated proxies should remain the same
+            expect(signalObj.nestedObject).toBe(no);
+            expect(signalObj.nestedSetOfPrimitives).toBe(nsop);
+            expect(signalObj.nestedArrayOfPrimitives).toBe(naop);
+            expect(signalObj.nestedArrayOfObjects).toBe(naoo);
+
+            // Mutate array of primitives - should replace the array proxy
+            signalObj.nestedArrayOfPrimitives.push(4);
+            expect(signalObj.nestedArrayOfPrimitives).not.toBe(naop);
+            naop = signalObj.nestedArrayOfPrimitives;
+            expect(signalObj.nestedArrayOfPrimitives.length).toBe(4);
+            // Unrelated proxies should remain the same
+            expect(signalObj.nestedObject).toBe(no);
+            expect(signalObj.nestedSetOfPrimitives).toBe(nsop);
+            expect(signalObj.nestedSetOfObjects).toBe(nsoo);
+            expect(signalObj.nestedArrayOfObjects).toBe(naoo);
+
+            // Mutate object inside array - should replace array proxy and the object proxy
+            naoo1.primitive = false;
+            expect(signalObj.nestedArrayOfObjects[0]).not.toBe(naoo1);
+            expect(signalObj.nestedArrayOfObjects[1]).toBe(naoo2);
+            expect(signalObj.nestedArrayOfObjects).not.toBe(naoo);
+            naoo = signalObj.nestedArrayOfObjects;
+            [naoo1, naoo2] = signalObj.nestedArrayOfObjects;
+            // Unrelated proxies should remain the same
+            expect(signalObj.nestedObject).toBe(no);
+            expect(signalObj.nestedSetOfPrimitives).toBe(nsop);
+            expect(signalObj.nestedSetOfObjects).toBe(nsoo);
+            expect(signalObj.nestedArrayOfPrimitives).toBe(naop);
         });
 
         it("should return the same proxy if initialized more than once", () => {
