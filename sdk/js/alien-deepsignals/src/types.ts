@@ -39,7 +39,7 @@ export type DeepSignalPropGenFn = (props: {
 
 export interface ProxyMeta {
     raw: object;
-    parent?: object;
+    parent?: ProxyMeta;
     key?: string | number | symbol;
     isSyntheticId?: boolean;
     root: symbol;

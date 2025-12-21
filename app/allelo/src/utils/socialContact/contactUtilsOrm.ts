@@ -1,23 +1,20 @@
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {defaultPolicy} from "@/config/sources.ts";
+import {geoApiService} from "@/services/geoApiService.ts";
+import {contactNonSetProperties, contactSetProperties} from "@/.orm/shapes/contact.utils.ts";
+import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 
-export const contactCommonProperties = [
-  "@id",
-  "@graph",
-  "@type",
-  "naoStatus",
-  "invitedAt",
-  "createdAt",
-  "updatedAt",
-  "joinedAt",
-  "centralityScore",
-  "mostRecentInteraction"
-] as const satisfies readonly (keyof SocialContact)[];
+type ContactSetProperties = {
+  [K in keyof SocialContact as NonNullable<SocialContact[K]> extends Set<any> ? K : never]: SocialContact[K]
+};
 
-export type ContactLdSetProperties = Omit<
-  SocialContact,
-  (typeof contactCommonProperties)[number]
->;
+export type ContactLdSetProperties = {
+  [K in keyof ContactSetProperties as NonNullable<ContactSetProperties[K]> extends Set<infer U>
+    ? U extends { "@id": any }
+      ? K
+      : never
+    : never]: ContactSetProperties[K]
+};
 
 type KeysWithSelected<T> = {
   [K in keyof T]-?: NonNullable<T[K]> extends Set<infer U>
@@ -87,7 +84,7 @@ export function resolveFrom<K extends ResolvableKey>(
   const set = socialContact[key];
   if (!set) return;
 
-  let selectedItem: ItemOf<K> | undefined;;
+  let selectedItem: ItemOf<K> | undefined;
   for (const item of set) {
     // @ts-expect-error for now
     if (hasSelected(item) && item.selected || hasProperty(item, "preferred") && item.preferred) {
@@ -114,4 +111,98 @@ export function resolveFrom<K extends ResolvableKey>(
     if (hit) return hit;
   }
   return fallback;
+}
+
+export function setUpdatedTime(contactObj: SocialContact) {
+  const currentDateTime = new Date(Date.now()).toISOString();
+  if (contactObj.updatedAt) {
+    contactObj.updatedAt.valueDateTime = currentDateTime;
+  } else {
+    contactObj.updatedAt = {
+      "@graph": "",
+      "@id": "",
+      valueDateTime: currentDateTime,
+      source: "user",
+    }
+  }
+}
+
+export function updatePropertyFlag<K extends ResolvableKey>(
+  contact: SocialContact,
+  key: K,
+  itemId: string,
+  flag: string,           // "preferred" | "selected" | "hidden"
+  mode: "single" | "toggle" = "single",
+): void {
+  const set = contact[key];
+  if (!set) return;
+
+  const items = [...set];
+
+  if (mode === "single") {
+    items.forEach(el => {
+      if (!el["@id"]) return;
+      (el as any)[flag] = el["@id"] === itemId;
+    });
+  } else {
+    const target = items.find(el => el["@id"] === itemId);
+    if (target) {
+      (target as any)[flag] = !((target as any)[flag] ?? false);
+    }
+  }
+}
+
+function handleDictionaries(el: any, key: string) {
+  if (!el[key]) return;
+
+  let normalized = el[key];
+  if ("@id" in normalized) {
+    normalized = normalized["@id"];
+  }
+
+  if (key === "type2") {
+    el["type"] = appendPrefixToDictValue(key, normalized);
+    delete el[key];
+  } else {
+    el[key] = appendPrefixToDictValue(key, normalized);
+  }
+}
+
+export async function processContactFromJSON(jsonContact: any): Promise<SocialContact> {
+  const contact = {
+    "@graph": "",
+    "@id": "",
+    "@type": new Set(["http://www.w3.org/2006/vcard/ns#Individual"])
+  } as SocialContact;
+  contactSetProperties.forEach(property => {
+    if (jsonContact[property] && Array.isArray(jsonContact[property])) {
+      const props = jsonContact[property].map((el: any) => {
+        handleDictionaries(el, "type2");
+        // handleDictionaries(el, "type");
+        handleDictionaries(el, "valueIRI");
+        handleDictionaries(el, "photoIRI");
+
+        return el;
+      });
+
+      contact[property] ??= new Set(props);
+    }
+  });
+
+  contactNonSetProperties.forEach(property => {
+    if (jsonContact[property]) {
+      contact[property] = jsonContact[property];
+    }
+  })
+
+  await geoApiService.initContactGeoCodes(contact);
+
+  //TODO: remove this when we would have real data
+  // Only generate the centralityScore once, so we can reliably test the network graph
+  if (contact.centralityScore === undefined) {
+    contact.centralityScore = Math.round(100 * Math.random());
+  }
+  //// TODO:
+
+  return contact;
 }

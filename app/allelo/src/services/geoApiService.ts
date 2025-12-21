@@ -1,6 +1,8 @@
 import type {Contact} from "@/types/contact.ts";
 import {Address} from "@/.ldo/contact.typings.ts";
 import {GEO_API_URL} from "@/config/importers.ts";
+import {mapBoxSearchService} from "@/services/mapBoxSearchService.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 interface GeoCode {
   "lat": number,
@@ -48,7 +50,7 @@ class GeoApiService {
     }
   }
 
-  public async initContactGeoCodes(contact: Contact) {
+  public async initContactGeoCodes(contact: Contact | SocialContact) {
     if (!contact.address)
       return;
 
@@ -56,9 +58,13 @@ class GeoApiService {
       if (address.coordLat && address.coordLng) {
         continue;
       }
-      const geoCode = await this.getGeoCode(address);
+      let geoCode = await this.getGeoCode(address);
       if (!geoCode) {
-        continue;
+        //TODO: this is fallback for coordinates via paid API
+        geoCode = await mapBoxSearchService.getGeoCode(address);
+        if (!geoCode) {
+          continue;
+        }
       }
 
       address.coordLat = geoCode?.lat;

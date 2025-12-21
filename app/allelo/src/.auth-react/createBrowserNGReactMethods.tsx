@@ -7,7 +7,7 @@ import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.j
 
 import { default as ng, init_api} from "./api";
 import {ng as ng3, init} from "@ng-org/web";
-import { initNg } from "@ng-org/signals";
+import { initNg } from "@ng-org/orm";
 
 import type { ConnectedLdoDataset, ConnectedPlugin } from "@ldo/connected";
 import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/connected-nextgraph";

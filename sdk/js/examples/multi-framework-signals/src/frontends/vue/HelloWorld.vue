@@ -11,7 +11,7 @@
 -->
 <script setup lang="ts">
 import { computed } from "vue";
-import { useShape } from "@ng-org/signals/vue";
+import { useShape } from "@ng-org/orm/vue";
 import flattenObject from "../utils/flattenObject";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";

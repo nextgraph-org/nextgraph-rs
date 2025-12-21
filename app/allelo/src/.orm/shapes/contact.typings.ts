@@ -10,7 +10,13 @@ export type IRI = string;
  * SocialContact Type
  */
 export interface SocialContact {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Defines the node as an Individual (from vcard)
@@ -167,7 +173,7 @@ export interface SocialContact {
   /**
    * Original IRI: did:ng:x:contact#naoStatus
    */
-  naoStatus?: string;
+  naoStatus?: NaoStatus;
   /**
    * Original IRI: did:ng:x:contact#invitedAt
    */
@@ -206,7 +212,13 @@ export interface SocialContact {
  * PhoneNumber Type
  */
 export interface PhoneNumber {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The canonicalized ITU-T E.164 form of the phone number
@@ -265,7 +277,13 @@ export interface PhoneNumber {
  * Name Type
  */
 export interface Name {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The display name
@@ -375,7 +393,13 @@ export interface Name {
  * Email Type
  */
 export interface Email {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The email address
@@ -424,7 +448,13 @@ export interface Email {
  * Address Type
  */
 export interface Address {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The unstructured value of the address
@@ -526,7 +556,13 @@ export interface Address {
  * Organization Type
  */
 export interface Organization {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The name of the organization
@@ -641,7 +677,13 @@ export interface Organization {
  * Photo Type
  */
 export interface Photo {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The URL of the photo
@@ -679,7 +721,13 @@ export interface Photo {
  * CoverPhoto Type
  */
 export interface CoverPhoto {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The URL of the cover photo
@@ -711,7 +759,13 @@ export interface CoverPhoto {
  * Url Type
  */
 export interface Url {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The URL
@@ -763,7 +817,13 @@ export interface Url {
  * Birthday Type
  */
 export interface Birthday {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The structured date of the birthday
@@ -789,7 +849,13 @@ export interface Birthday {
  * Biography Type
  */
 export interface Biography {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The short biography
@@ -821,7 +887,13 @@ export interface Biography {
  * Event Type
  */
 export interface Event {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The date of the event
@@ -858,7 +930,13 @@ export interface Event {
  * Gender Type
  */
 export interface Gender {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The gender for the person
@@ -895,7 +973,13 @@ export interface Gender {
  * Nickname Type
  */
 export interface Nickname {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The nickname
@@ -933,7 +1017,13 @@ export interface Nickname {
  * Occupation Type
  */
 export interface Occupation {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The occupation; for example, carpenter
@@ -959,7 +1049,13 @@ export interface Occupation {
  * Relation Type
  */
 export interface Relation {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The name of the other person this relation refers to
@@ -1008,7 +1104,13 @@ export interface Relation {
  * Interest Type
  */
 export interface Interest {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The interest; for example, stargazing
@@ -1034,7 +1136,13 @@ export interface Interest {
  * Skill Type
  */
 export interface Skill {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The skill; for example, underwater basket weaving
@@ -1060,7 +1168,13 @@ export interface Skill {
  * LocationDescriptor Type
  */
 export interface LocationDescriptor {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The free-form value of the location
@@ -1122,7 +1236,13 @@ export interface LocationDescriptor {
  * Locale Type
  */
 export interface Locale {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The well-formed IETF BCP 47 language tag representing the locale
@@ -1148,7 +1268,13 @@ export interface Locale {
  * Account Type
  */
 export interface Account {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The user name used in the IM client
@@ -1201,7 +1327,13 @@ export interface Account {
  * SipAddress Type
  */
 export interface SipAddress {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The SIP address in the RFC 3261 19.1 SIP URI format
@@ -1237,7 +1369,13 @@ export interface SipAddress {
  * ExternalId Type
  */
 export interface ExternalId {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The value of the external ID
@@ -1269,7 +1407,13 @@ export interface ExternalId {
  * FileAs Type
  */
 export interface FileAs {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The file-as value
@@ -1295,7 +1439,13 @@ export interface FileAs {
  * CalendarUrl Type
  */
 export interface CalendarUrl {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The calendar URL
@@ -1330,7 +1480,13 @@ export interface CalendarUrl {
  * ClientData Type
  */
 export interface ClientData {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The client specified key of the client data
@@ -1362,7 +1518,13 @@ export interface ClientData {
  * UserDefined Type
  */
 export interface UserDefined {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The end user specified key of the user defined data
@@ -1394,7 +1556,13 @@ export interface UserDefined {
  * Membership Type
  */
 export interface Membership {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Contact group resource name membership
@@ -1426,7 +1594,13 @@ export interface Membership {
  * Tag Type
  */
 export interface Tag {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * The value of the miscellaneous keyword/tag
@@ -1509,7 +1683,13 @@ export interface Tag {
  * ContactImportGroup Type
  */
 export interface ContactImportGroup {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * ID of the import group
@@ -1538,10 +1718,48 @@ export interface ContactImportGroup {
 }
 
 /**
+ * NaoStatus Type
+ */
+export interface NaoStatus {
+  /**
+   * The graph IRI.
+   */
+  readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
+  readonly "@id": IRI;
+  /**
+   * NAO status value
+   *
+   * Original IRI: did:ng:x:core#value
+   */
+  value: string;
+  /**
+   * Source of the status data
+   *
+   * Original IRI: did:ng:x:core#source
+   */
+  source?: string;
+  /**
+   * Whether this is main
+   *
+   * Original IRI: did:ng:x:core#selected
+   */
+  selected?: boolean;
+}
+
+/**
  * InvitedAt Type
  */
 export interface InvitedAt {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * When the contact was invited
@@ -1567,7 +1785,13 @@ export interface InvitedAt {
  * CreatedAt Type
  */
 export interface CreatedAt {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * When the contact was created
@@ -1593,7 +1817,13 @@ export interface CreatedAt {
  * UpdatedAt Type
  */
 export interface UpdatedAt {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * When the contact was last updated
@@ -1619,7 +1849,13 @@ export interface UpdatedAt {
  * JoinedAt Type
  */
 export interface JoinedAt {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * When the contact joined
@@ -1645,7 +1881,13 @@ export interface JoinedAt {
  * Headline Type
  */
 export interface Headline {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Headline(position at orgName) in Profile
@@ -1671,7 +1913,13 @@ export interface Headline {
  * Industry Type
  */
 export interface Industry {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Industry in which contact works
@@ -1697,7 +1945,13 @@ export interface Industry {
  * Education Type
  */
 export interface Education {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * School name
@@ -1753,7 +2007,13 @@ export interface Education {
  * Language Type
  */
 export interface Language {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Language name as IRI
@@ -1790,7 +2050,13 @@ export interface Language {
  * Project Type
  */
 export interface Project {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Title of project
@@ -1840,7 +2106,13 @@ export interface Project {
  * Publication Type
  */
 export interface Publication {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * Title of publication

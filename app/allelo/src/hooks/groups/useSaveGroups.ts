@@ -2,7 +2,7 @@ import {useCallback, useState} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
 import {GroupMembership, SocialGroup} from "@/.orm/shapes/group.typings";
-import {useShape} from "@ng-org/signals/react";
+import {useShape} from "@ng-org/orm/react";
 import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
 
 interface UseSaveGroupsReturn {
@@ -19,6 +19,7 @@ export function useSaveGroups(): UseSaveGroupsReturn {
   const {session} = nextGraphAuth || {} as NextGraphAuth;
 
   const groups = useShape(SocialGroupShapeType);
+
 
 
   function generateUri(base: string) {
@@ -60,16 +61,17 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         contactId: adminNuri,
         memberStatus: "did:ng:k:contact:memberStatus#joined",
         isAdmin: true,
+        joinDate: (new Date()).toISOString()
       })
 
       const groupObj: SocialGroup = {
         "@graph": docId,
         "@id": id,
-        "@type": "did:ng:x:social:group#Group",
+        "@type": new Set(["did:ng:x:social:group#Group"]),
         "title": group.title ?? "",
         "description": group.description,
-        "tag": group.tag,
         "hasMember": new Set(members),
+        "tag": group.tag,
       }
 
       groups?.add(groupObj);

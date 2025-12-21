@@ -35,9 +35,11 @@ import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {useNavigate} from "react-router-dom";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
+// import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface ContactViewHeaderProps {
   contact: Contact | null;
+  // ormContact: SocialContact | null | undefined;
   isLoading: boolean;
   isEditing?: boolean;
   showStatus?: boolean;
@@ -48,7 +50,7 @@ export interface ContactViewHeaderProps {
 }
 
 export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderProps>(
-  ({contact, isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent, resource}, ref) => {
+  ({contact, /*ormContact,*/ isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent, resource}, ref) => {
     const [showNameDetails, setShowNameDetails] = useState(false);
     const navigate = useNavigate();
 
