@@ -9,7 +9,7 @@
     "build-importer": "cd ../tauri-plugin-contacts-importer && bun run build",
     "check": "tsc -p tsconfig.json --noEmit && eslint .",
     "build:ldo": "ldo build --input src/.shapes --output src/.ldo && bun scripts/fix-ldo-types.js",
-    "build:orm": "npx rdf-orm build --input ./src/.orm/shex --output ./src/.orm/shapes",
+    "build:orm": "npx rdf-orm build --input ./src/.orm/shex --output ./src/.orm/shapes && pnpm scripts/generateContactUtils.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",
