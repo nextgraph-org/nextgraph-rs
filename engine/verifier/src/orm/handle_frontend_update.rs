@@ -447,7 +447,7 @@ fn create_sparql_update_query_for_patches(
             let combined = format!(
                 "DELETE {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} INSERT {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}} WHERE {{\n  OPTIONAL {{ GRAPH <{}> {{ <{}> <{}> {} }} }}\n}}",
                 graph, subj, pred, var,
-                graph, subj, pred, escape_sparql_string(value),
+                graph, subj, pred, value,
                 graph, subj, pred, var
             );
             self.queries.push(combined);
@@ -456,20 +456,14 @@ fn create_sparql_update_query_for_patches(
             // Use INSERT DATA to reliably add multi-valued literal/object without needing a WHERE pattern
             let insert = format!(
                 "INSERT DATA {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}}",
-                graph,
-                subj,
-                pred,
-                escape_sparql_string(value)
+                graph, subj, pred, value
             );
             self.queries.push(insert);
         }
         fn remove_value(&mut self, graph: &str, subj: &str, pred: &str, value: &str) {
             let del = format!(
                 "DELETE DATA {{\n  GRAPH <{}> {{ <{}> <{}> {} }}\n}}",
-                graph,
-                subj,
-                pred,
-                escape_sparql_string(value)
+                graph, subj, pred, value
             );
             self.queries.push(del);
         }
