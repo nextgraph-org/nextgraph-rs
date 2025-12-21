@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { watch } from "../../watch.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import { deepSignal, DeepSignalOptions } from "../..";
 
 /**
@@ -27,39 +27,40 @@ const useSignal = <T extends object>(
     deepSignalOptions?: DeepSignalOptions
 ) => {
     // Create the actual deepSignal object from the raw object (if the object is a deepSignal object already, it returns itself).
-    const shapeSignal = useMemo(
+    const signal = useMemo(
         () => deepSignal(object, deepSignalOptions),
         [object, deepSignalOptions]
     );
 
-    const isFirstRender = useRef(true);
+    // Create a shallow proxy of the original object which can be disposed and a new one
+    // recreated on rerenders so that react knows it changed on comparisons.
+    const proxyRef = useRef(new Proxy(signal, {}));
 
-    // The signal object is proxied every time a value changes.
-    // This way, we make it a dependency in `useEffect` etc.
-    const [ret, setRet] = useState(new Proxy(shapeSignal, {}));
+    // Update proxy ref when shapeSignal changes
+    useMemo(() => {
+        proxyRef.current = new Proxy(signal, {});
+    }, [signal]);
 
-    useEffect(() => {
-        if (isFirstRender.current) {
-            isFirstRender.current = false;
-        } else {
-            setRet(new Proxy(shapeSignal, {}));
-        }
+    const subscribe = useCallback(
+        (onStoreChange: () => void) => {
+            const { stopListening } = watch(
+                signal,
+                () => {
+                    // Create a new shallow proxy and notify react about the change.
+                    proxyRef.current = new Proxy(signal, {});
+                    onStoreChange();
+                },
+                { triggerInstantly: true }
+            );
 
-        const { stopListening } = watch(
-            shapeSignal,
-            () => {
-                // Trigger a re-render when the deep signal updates.
-                setRet(() => new Proxy(shapeSignal, {}));
-            },
-            { triggerInstantly: true }
-        );
+            return stopListening;
+        },
+        [signal]
+    );
 
-        return () => {
-            stopListening();
-        };
-    }, []);
+    const getSnapshot = useCallback(() => proxyRef.current, []);
 
-    return ret;
+    return useSyncExternalStore(subscribe, getSnapshot);
 };
 
 export default useSignal;
