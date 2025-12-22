@@ -35,11 +35,9 @@ export const useContactPhoto = (
         .finally(() => {
           setIsLoadingImage(false);
         });
-    } else if (photo?.photoUrl) {
-      setIsLoadingImage(false);
-      setDisplayUrl(photo?.photoUrl);
     } else {
       setIsLoadingImage(false);
+      setDisplayUrl(photo?.photoUrl);
     }
   }, [sessionId, contact, photo]);
 

@@ -18,7 +18,7 @@ nggroup:SocialGroup EXTRA a {
 
 ngpost:SocialPost EXTRA a {
   a [ ngpost:Post ] ;
-  ngpost:author        IRI * ;
+  ngpost:author        IRI ;
   ngpost:createdAt     xsd:dateTime ;
   ngpost:tag           IRI * ;
   ngpost:description   xsd:string ;

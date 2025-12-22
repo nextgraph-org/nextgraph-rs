@@ -1,6 +1,6 @@
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
-import {SocialContactShapeType as Shape} from "@/.orm/shapes/contact.shapeTypes";
+import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes";
 import {useShape} from "@ng-org/orm/react";
 
 export const useContactOrm = (nuri: string | null | undefined, isProfile = false) => {
@@ -11,7 +11,7 @@ export const useContactOrm = (nuri: string | null | undefined, isProfile = false
     nuri = "did:ng:" + session?.protectedStoreId;
   }
 
-  const ormContacts = useShape(Shape, nuri ? nuri : undefined);
+  const ormContacts = useShape(SocialContactShapeType, nuri ? nuri : undefined);
   const objects = [...(ormContacts || [])];
   const ormContact = objects[0];
 
