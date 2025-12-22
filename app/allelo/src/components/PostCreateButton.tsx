@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import {useState} from 'react';
 import {
   Fab,
   Dialog,
@@ -22,37 +22,42 @@ import {
   UilShoppingCart,
   UilTimes
 } from '@iconscout/react-unicons';
+import PostCreateForm, {PostCreateFormData} from "@/components/posts/PostCreateForm";
 
 interface PostCreateButtonProps {
-  groupId?: string;
-  onCreatePost?: (type: 'post' | 'offer' | 'want', groupId?: string) => void;
+  onCreatePost?: (type: 'post' | 'offer' | 'want', data: PostCreateFormData) => void;
+  allTags?: string[];
 }
 
-const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
-  const [open, setOpen] = useState(false);
+const PostCreateButton = ({onCreatePost, allTags}: PostCreateButtonProps) => {
+  const [showTypeDialog, setShowTypeDialog] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedType, setSelectedType] = useState<'post' | 'offer' | 'want'>('post');
   const theme = useTheme();
 
-  const handleOpen = () => {
-    setOpen(true);
+  const showPostType = () => {
+    setShowTypeDialog(true);
   };
 
-  const handleClose = () => {
-    setOpen(false);
+  const hidePostType = () => {
+    setShowTypeDialog(false);
   };
 
-  const handleCreatePost = (type: 'post' | 'offer' | 'want') => {
+  const handleSelectPostType = (type: 'post' | 'offer' | 'want') => {
+    setSelectedType(type);
+    setShowTypeDialog(false);
+    setShowCreateForm(true);
+  };
+
+  const handleFormSubmit = (data: PostCreateFormData) => {
     if (onCreatePost) {
-      onCreatePost(type, groupId);
-    } else {
-      // Default behavior - navigate to posts page with type parameter
-      const searchParams = new URLSearchParams();
-      searchParams.append('type', type);
-      if (groupId) {
-        searchParams.append('groupId', groupId);
-      }
-      window.location.href = `/posts?${searchParams.toString()}`;
+      onCreatePost(selectedType, data);
     }
-    handleClose();
+    setShowCreateForm(false);
+  };
+
+  const handleFormClose = () => {
+    setShowCreateForm(false);
   };
 
   const postTypes = [
@@ -60,22 +65,24 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
       type: 'post' as const,
       title: 'Post',
       description: 'Share an update, thought, or announcement',
-      icon: <UilFileEditAlt size="20" />,
-      color: theme.palette.primary.main
+      icon: <UilFileEditAlt size="20"/>,
+      color: theme.palette.primary.main,
     },
     {
       type: 'offer' as const,
       title: 'Offer',
       description: 'Offer your services, expertise, or resources',
-      icon: <UilTag size="20" />,
-      color: theme.palette.success.main
+      icon: <UilTag size="20"/>,
+      color: theme.palette.success.main,
+      disabled: true
     },
     {
       type: 'want' as const,
       title: 'Want',
       description: 'Request help, services, or connections',
-      icon: <UilShoppingCart size="20" />,
-      color: theme.palette.warning.main
+      icon: <UilShoppingCart size="20"/>,
+      color: theme.palette.warning.main,
+      disabled: true
     }
   ];
 
@@ -84,14 +91,14 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
       <Fab
         color="primary"
         aria-label="create post"
-        onClick={handleOpen}
+        onClick={showPostType}
       >
-        <UilPlus size="20" />
+        <UilPlus size="20"/>
       </Fab>
 
-      <Dialog 
-        open={open} 
-        onClose={handleClose}
+      <Dialog
+        open={showTypeDialog}
+        onClose={hidePostType}
         maxWidth="sm"
         fullWidth
         PaperProps={{
@@ -101,21 +108,22 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
           }
         }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+        <DialogTitle sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1}}>
           <Typography variant="h6" component="div">
             What would you like to create?
           </Typography>
-          <IconButton onClick={handleClose} size="small">
-            <UilTimes size="20" />
+          <IconButton onClick={hidePostType} size="small">
+            <UilTimes size="20"/>
           </IconButton>
         </DialogTitle>
-        
-        <DialogContent sx={{ p: 2, pt: 0 }}>
-          <List sx={{ p: 0 }}>
+
+        <DialogContent sx={{p: 2, pt: 0}}>
+          <List sx={{p: 0}}>
             {postTypes.map((postType, index) => (
-              <ListItem key={postType.type} disablePadding sx={{ mb: index < postTypes.length - 1 ? 1 : 0 }}>
+              <ListItem key={postType.type} disablePadding sx={{mb: index < postTypes.length - 1 ? 1 : 0}}>
                 <ListItemButton
-                  onClick={() => handleCreatePost(postType.type)}
+                  disabled={postType.disabled ?? false}
+                  onClick={() => handleSelectPostType(postType.type)}
                   sx={{
                     borderRadius: 2,
                     border: 1,
@@ -127,7 +135,7 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
                     }
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 48 }}>
+                  <ListItemIcon sx={{minWidth: 48}}>
                     <Box
                       sx={{
                         display: 'flex',
@@ -143,7 +151,7 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
                       {postType.icon}
                     </Box>
                   </ListItemIcon>
-                  <ListItemText 
+                  <ListItemText
                     primary={postType.title}
                     secondary={postType.description}
                     primaryTypographyProps={{
@@ -160,6 +168,15 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
           </List>
         </DialogContent>
       </Dialog>
+
+      {/* Create Form */}
+      <PostCreateForm
+        open={showCreateForm}
+        onClose={handleFormClose}
+        postType={selectedType}
+        onSubmit={handleFormSubmit}
+        allTags={allTags}
+      />
     </>
   );
 };
