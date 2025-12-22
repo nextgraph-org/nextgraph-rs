@@ -89,9 +89,7 @@ export const ContactListTab = ({
   };
 
   const handleSelectContact = (nuri: string) => {
-    if (mode === 'create-group') {
-      handleToggleContactSelection(nuri);
-    } else if (mode === 'invite' && returnTo === 'group-info' && groupId) {
+    if (mode === 'invite' && returnTo === 'group-info' && groupId) {
       const inviteParams = new URLSearchParams();
       inviteParams.set('groupId', groupId);
       inviteParams.set('inviteeNuri', nuri);
@@ -305,7 +303,7 @@ export const ContactListTab = ({
           isContactSelected={isContactSelected}
           selectedContacts={selectedContacts}
           onSetIconFilter={setIconFilter}
-          inManageMode={manageMode || mode === 'create-group'}
+          inManageMode={manageMode}
         />
       </Box>
     )}
@@ -322,7 +320,7 @@ export const ContactListTab = ({
       onSetUseAI={setUseAI}
     />
 
-    <DragOverlay dropAnimation={null}>
+    {!forGroup && <DragOverlay dropAnimation={null}>
       {activeDragId ? (
         <ContactCard
           nuri={activeDragId}
@@ -333,6 +331,6 @@ export const ContactListTab = ({
           }}
         />
       ) : null}
-    </DragOverlay>
+    </DragOverlay> }
   </>
 }
