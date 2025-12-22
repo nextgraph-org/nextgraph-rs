@@ -3,6 +3,7 @@ import {SocialContact} from "@/.orm/shapes/contact.typings";
 import { resolveFrom, ResolvableKey, ItemOf } from "@/utils/socialContact/contactUtilsOrm";
 import { renderTemplate, defaultTemplates } from "@/utils/templateRenderer";
 import { useContactOrm } from "@/hooks/contacts/useContactOrm";
+import {usePhotoOrm} from "@/hooks/usePhotoOrm.ts";
 
 interface ContactOrmState {
   // Resolver functions
@@ -114,6 +115,9 @@ export function useResolvedContact(nuri: string | null | undefined, isProfile = 
     // resolveGroupMemberData
   } = useContactOrmStore();
 
+  const photoIRI = resolvePhoto(ormContact)
+  const {displayUrl} = usePhotoOrm(ormContact, photoIRI);
+
   return {
     ormContact,
     name: resolveName(ormContact),
@@ -121,7 +125,8 @@ export function useResolvedContact(nuri: string | null | undefined, isProfile = 
     phone: resolvePhone(ormContact),
     address: resolveAddress(ormContact),
     organization: resolveOrganization(ormContact),
-    photo: resolvePhoto(ormContact),
+    photoIRI,
+    photoUrl: displayUrl
     // groupMemberData: resolveGroupMemberData(ormContact, groupId),
   };
 }
