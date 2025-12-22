@@ -72,7 +72,7 @@ function shouldProxy(value: any): value is object {
     return (
         !!value &&
         typeof value === "object" &&
-        supported.has(value.constructor) &&
+        (supported.has(value.constructor) || value instanceof Set) &&
         !ignored.has(value)
     );
 }
