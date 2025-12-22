@@ -15,24 +15,48 @@ import { useEffect, useMemo } from "react";
 import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
 import type { Scope } from "../../types.ts";
 
+/**
+ *
+ * @param shape The shape type
+ * @param scope The document scope (IRI of named graph)
+ * @returns A deep signal set with the orm objects, an empty set if still loading,
+ *          or an empty set which errors on modifications if scope is undefined.
+ */
 const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
-    scope: Scope = ""
+    scope: Scope | undefined = ""
 ) => {
     const signalHandler = useMemo(
-        () => createSignalObjectForShape(shape, scope),
+        () => (!scope ? undefined : createSignalObjectForShape(shape, scope)),
         [shape, scope]
     );
 
     useEffect(() => {
+        if (!signalHandler) return;
+
         return () => {
             signalHandler.stop();
         };
     }, [signalHandler]);
 
-    const state = useDeepSignal(signalHandler.signalObject);
+    const state = useDeepSignal(signalHandler?.signalObject ?? readOnlySet);
 
     return state;
 };
+
+const readOnlySet = new Proxy(new Set(), {
+    get(target, key, receiver) {
+        if (key === "add" || key === "delete" || key === "clear") {
+            return () => {
+                throw new Error("Set is readonly because scope is empty.");
+            };
+        }
+        const value = Reflect.get(target, key, receiver);
+        if (typeof value === "function") {
+            return value.bind(target);
+        }
+        return value;
+    },
+});
 
 export default useShape;
