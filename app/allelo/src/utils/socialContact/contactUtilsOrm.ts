@@ -113,6 +113,20 @@ export function resolveFrom<K extends ResolvableKey>(
   return fallback;
 }
 
+export function getVisibleItems<K extends ResolvableKey>(
+  socialContact: SocialContact | undefined,
+  key: K,
+): ItemOf<K>[] {
+  if (!socialContact) return [];
+
+  const set = socialContact[key];
+  if (!set) return [];
+
+  return [...set].filter(item =>
+    !(hasHidden(item) && item.hidden) && item["@id"]
+  ) as ItemOf<K>[];
+}
+
 export function setUpdatedTime(contactObj: SocialContact) {
   const currentDateTime = new Date(Date.now()).toISOString();
   if (contactObj.updatedAt) {

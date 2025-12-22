@@ -21,7 +21,6 @@ import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
 import {renderTemplate} from "@/utils/templateRenderer";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
@@ -57,7 +56,6 @@ interface PropertyWithSourcesProps<K extends ResolvableKey> {
   currentItem?: Record<string, string>;
   hideSources?: boolean;
   isMultipleField?: boolean;
-  resource?: NextGraphResource
 }
 
 export const PropertyWithSources = <K extends ResolvableKey>({
@@ -81,7 +79,6 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                                                                currentItem,
                                                                hideSources,
                                                                isMultipleField,
-                                                               resource
                                                              }: PropertyWithSourcesProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -95,12 +92,6 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   const [displayValue, setDisplayValue] = useState<string>("");
 
   const handleChange = useCallback(() => {
-
-
-    if (propertyKey === "name") {
-      console.log("[ContactViewSources]", contact);
-    }
-
     const currentItemRef = currentItem ?? ((contact && resolveFrom(contact, propertyKey)) ?? {});
     setCurrentItemId(currentItemRef["@id"]);
     const value = currentItemRef[subKey] ?? "";

@@ -7,12 +7,11 @@ import {
 } from '@iconscout/react-unicons';
 import {MultiPropertyItem} from "@/components/contacts/MultiPropertyWithVisibility/MultiPropertyItem.tsx";
 import {ValidationType} from "@/hooks/useFieldValidation";
-import {useState} from "react";
-import type {Contact} from "@/types/contact.ts";
+import {useCallback, useState} from "react";
 import {AddressDetails} from "./AddressDetails.tsx";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import React from 'react';
-import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 interface AddressVariantProps {
   visibleItems: any[];
@@ -31,8 +30,7 @@ interface AddressVariantProps {
   setIsAddingNew: (adding: boolean) => void;
   setNewItemValue: (value: string) => void;
   validateType?: ValidationType;
-  contact?: Contact;
-  resource?: NextGraphResource
+  contact?: SocialContact;
 }
 
 export const AddressVariant = ({
@@ -52,7 +50,6 @@ export const AddressVariant = ({
                                  setIsAddingNew,
                                  validateType = "text",
                                  contact,
-                                 resource
                                }: AddressVariantProps) => {
   const [isValid, setIsValid] = useState(true);
   const [showAddressDetails, setShowAddressDetails] = useState<Record<string, boolean>>({});
@@ -65,7 +62,7 @@ export const AddressVariant = ({
     }));
   };
 
-  const renderEditingItem = (item: any, index: number) => {
+  const renderEditingItem = useCallback((item: any, index: number) => {
     const itemId = item['@id'] || `${propertyKey}_${index}`;
     const currentValue = editingValues[itemId] !== undefined ? editingValues[itemId] : (item[subKey] || '');
     const isExpanded = showAddressDetails[itemId] || false;
@@ -99,9 +96,9 @@ export const AddressVariant = ({
         </IconButton>
       </Box>
     </>
-  };
+  }, [editingValues, onBlur, onInputChange, propertyKey, showAddressDetails, subKey, validateType]);
 
-  const renderDisplayItem = (item: Record<string, string>, index: number) => {
+  const renderDisplayItem = useCallback((item: Record<string, string>, index: number) => {
     let chipLabel = item[subKey];
     if (!chipLabel) {
       chipLabel = renderTemplate(defaultTemplates.address, item);
@@ -120,7 +117,7 @@ export const AddressVariant = ({
           color: 'primary.main',
         }
       }}
-      onClick={() => toggleAddressDetails(itemId)}
+           onClick={() => toggleAddressDetails(itemId)}
       >
         <Box key={item['@id'] || index} sx={{display: 'flex', alignItems: 'center', gap: 2}}>
           {
@@ -146,7 +143,7 @@ export const AddressVariant = ({
         </IconButton>
       </Box>
     );
-  };
+  }, [propertyKey, showAddressDetails, subKey]);
 
   const renderNewItemForm = () => {
     return <>
@@ -166,7 +163,6 @@ export const AddressVariant = ({
           contact={contact}
           isEditing={true}
           currentItem={newItem}
-          resource={resource}
       /></>}
       <Button
         disabled={isAddingNew && !isValid}
@@ -201,7 +197,6 @@ export const AddressVariant = ({
                   contact={contact}
                   isEditing={isEditing}
                   currentItem={item}
-                  resource={resource}
                 />
               </React.Fragment>
             );
@@ -221,7 +216,6 @@ export const AddressVariant = ({
                 contact={contact}
                 isEditing={false}
                 currentItem={item}
-                resource={resource}
               />
             </React.Fragment>
           );

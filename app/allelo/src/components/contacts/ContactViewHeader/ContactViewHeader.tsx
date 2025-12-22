@@ -18,15 +18,15 @@ import {
   UilAngleUp
 } from '@iconscout/react-unicons';
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
-import {resolveFrom} from '@/utils/socialContact/contactUtilsOrm.ts';
 import {PropertyWithSources} from '../PropertyWithSources';
 import {ContactTags} from '../ContactTags';
-import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {defaultTemplates} from "@/utils/templateRenderer.ts";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {useNavigate} from "react-router-dom";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {useContactOrmStore} from "@/stores/contactOrmStore.ts";
 
 export interface ContactViewHeaderProps {
   contact: SocialContact | null;
@@ -46,6 +46,10 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
     const theme = useTheme();
     const {getCategoryIcon, getCategoryById} = useRCardsConfigs();
     const {getRCardById} = useGetRCards();
+
+    const {
+      resolveName,
+    } = useContactOrmStore();
 
     const getNaoStatusIndicator = useCallback((contact: SocialContact) => {
       switch (contact.naoStatus) {
@@ -86,9 +90,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
 
     if (!contact) return null;
 
-    const name = resolveFrom(contact, 'name');
-    const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
-
+    const displayName = resolveName(contact);
     const naoStatus = getNaoStatusIndicator(contact);
 
     return (

@@ -85,7 +85,7 @@ const ContactViewPage = () => {
 
         <Grid container spacing={3}>
           <Grid size={{xs: 12, md: 6}}>
-            {/*TODO<ContactInfo contact={contact} isEditing={isEditing} resource={resource}/>*/}
+            <ContactInfo contact={contact} isEditing={isEditing}/>
             {/*<ContactGroups groupsNuris={contactGroupsNuris ?? []}/>*/}
           </Grid>
 
