@@ -71,7 +71,7 @@ export interface SocialPost {
   /**
    * Original IRI: did:ng:x:social:post#author
    */
-  author?: Set<IRI>;
+  author: IRI;
   /**
    * Original IRI: did:ng:x:social:post#createdAt
    */

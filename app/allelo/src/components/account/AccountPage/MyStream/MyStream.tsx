@@ -24,7 +24,7 @@ import {
   LocalOffer,
   ShoppingCart,
 } from '@mui/icons-material';
-import PostCreateForm, { PostCreateFormData } from '@/components/groups/PostCreateForm';
+import PostCreateForm, {PostCreateFormData} from "@/components/posts/PostCreateForm";
 
 export const MyStream = () => {
   const [showTypeDialog, setShowTypeDialog] = useState(false);

@@ -2,10 +2,24 @@ import {alpha, Box, Chip, Typography, useTheme} from "@mui/material";
 import {UilUsersAlt as People} from "@iconscout/react-unicons";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
+import {useMemo} from "react";
+import {SocialPost} from "@/.orm/shapes/group.typings.ts";
+import {usePostData} from "@/hooks/posts/usePostData.ts";
 
 export const GroupItem = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (id: string) => void }) => {
   const {group} = useGroupData(nuri);
   const theme = useTheme();
+
+  const latestPost = useMemo(() => {
+    return [...group?.post ?? []].reduce<SocialPost | undefined>((latest, post) => {
+      if (!latest) return post;
+      return new Date(post.createdAt) > new Date(latest.createdAt)
+        ? post
+        : latest;
+    }, undefined);
+  }, [group]);
+
+  const {authorName, postContent} = usePostData(latestPost);
 
   if (!group) return null;
 
@@ -68,7 +82,7 @@ export const GroupItem = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (i
       </Box>
     </Box>
 
-    {/*{group.latestPost && (
+    {latestPost && (
       <Typography
         variant="body2"
         color="text.secondary"
@@ -82,8 +96,8 @@ export const GroupItem = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (i
           mt: 1
         }}
       >
-        {group.latestPostAuthor && `${group.latestPostAuthor.split(' ')[0]}: `}{group.latestPost}
+        {authorName && `${authorName.split(' ')[0]}: `}{postContent}
       </Typography>
-    )}*/}
+    )}
   </Box>
 }

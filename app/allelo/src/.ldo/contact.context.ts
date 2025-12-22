@@ -198,7 +198,7 @@ export const contactContext: LdoJsonldContext = {
       },
       naoStatus: {
         "@id": "did:ng:x:contact#naoStatus",
-        "@type": "@id",
+        "@type": "http://www.w3.org/2001/XMLSchema#string",
       },
       invitedAt: {
         "@id": "did:ng:x:contact#invitedAt",
@@ -424,7 +424,7 @@ export const contactContext: LdoJsonldContext = {
       },
       naoStatus: {
         "@id": "did:ng:x:contact#naoStatus",
-        "@type": "@id",
+        "@type": "http://www.w3.org/2001/XMLSchema#string",
       },
       invitedAt: {
         "@id": "did:ng:x:contact#invitedAt",
@@ -650,7 +650,7 @@ export const contactContext: LdoJsonldContext = {
       },
       naoStatus: {
         "@id": "did:ng:x:contact#naoStatus",
-        "@type": "@id",
+        "@type": "http://www.w3.org/2001/XMLSchema#string",
       },
       invitedAt: {
         "@id": "did:ng:x:contact#invitedAt",
@@ -1278,7 +1278,7 @@ export const contactContext: LdoJsonldContext = {
   },
   naoStatus: {
     "@id": "did:ng:x:contact#naoStatus",
-    "@type": "@id",
+    "@type": "http://www.w3.org/2001/XMLSchema#string",
   },
   invitedAt: {
     "@id": "did:ng:x:contact#invitedAt",

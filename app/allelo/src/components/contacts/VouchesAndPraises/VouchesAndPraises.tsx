@@ -68,7 +68,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
               </Typography>
             </Box>
 
-            {contact.naoStatus?.value === 'member' ? (
+            {contact.naoStatus === 'member' ? (
               <Box sx={{display: 'flex', flexDirection: 'column', gap: 2}}>
                 {/* Vouch item */}
                 <Box sx={{
@@ -131,7 +131,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
 
             <Box sx={{mt: 3, pt: 2, borderTop: 1, borderColor: 'divider', textAlign: 'center'}}>
               <Typography variant="caption" color="text.secondary">
-                {contact.naoStatus?.value === 'member' ? '1 vouch • 2 praises sent' : 'No vouches sent yet'}
+                {contact.naoStatus === 'member' ? '1 vouch • 2 praises sent' : 'No vouches sent yet'}
               </Typography>
             </Box>
           </CardContent>
@@ -159,7 +159,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
               </Typography>
             </Box>
 
-            {contact.naoStatus?.value === 'member' ? (
+            {contact.naoStatus === 'member' ? (
               <Box sx={{display: 'flex', flexDirection: 'column', gap: 2}}>
                 {isLoading ? (
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
@@ -218,12 +218,12 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
               }}>
                 <PersonOutline sx={{fontSize: 48, opacity: 0.3, color: 'text.secondary'}}/>
                 <Typography variant="body2" color="text.secondary" textAlign="center" sx={{maxWidth: 250}}>
-                  {contact.naoStatus?.value === 'invited'
+                  {contact.naoStatus === 'invited'
                     ? `${resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'Contact'} hasn't joined NAO yet, so they can't send vouches or praises.`
                     : `${resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'Contact'} needs to join NAO before they can send vouches or praises.`
                   }
                 </Typography>
-                {contact.naoStatus?.value === 'not_invited' && (
+                {contact.naoStatus === 'not_invited' && (
                   <Button
                     variant="outlined"
                     startIcon={<Send/>}
@@ -239,7 +239,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
 
             <Box sx={{mt: 3, pt: 2, borderTop: 1, borderColor: 'divider', textAlign: 'center'}}>
               <Typography variant="caption" color="text.secondary">
-                {contact.naoStatus?.value === 'member' ? (
+                {contact.naoStatus === 'member' ? (
                   isLoading ? 'Loading...' : (
                     acceptedNotifications.length === 0 ? 'No vouches or praises received yet' : 
                     `${acceptedNotifications.filter(n => n.type === 'vouch').length} vouch${acceptedNotifications.filter(n => n.type === 'vouch').length !== 1 ? 'es' : ''} • ${acceptedNotifications.filter(n => n.type === 'praise').length} praise${acceptedNotifications.filter(n => n.type === 'praise').length !== 1 ? 's' : ''} received`

@@ -6,6 +6,7 @@ import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
 import {getContactDictValues} from "@/utils/socialContact/dictMapper.ts";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {Tags} from "@/components/ui/Tags";
+import {LdSet} from "@ldo/ldo";
 
 const allTags = getContactDictValues("tag").sort();
 
@@ -15,38 +16,29 @@ export interface ContactTagsProps {
 }
 
 export const ContactTags = ({contact, resource}: ContactTagsProps) => {
-  const [tags, setTags] = useState<Tag[]>();
+  const [existingTags, setExistingTags] = useState<string[]>([]);
   const {commitData, changeData} = useLdo();
 
-  const initTags = useCallback(() => {
-    const contactTags = contact?.tag?.toArray().filter(tag => tag["@id"]).map(tag => {
+  const initTags = useCallback((tags: LdSet<Tag> | undefined) => {
+    const contactTags = tags?.toArray().filter(tag => tag["@id"]).map(tag => {
       return {
         "@id": tag["@id"],
         source: "user",
-        //@ts-expect-error ldo is messing the structure
+        // @ts-expect-error ldo
         valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
       } as Tag;
     }) ?? [];
-    setTags(contactTags);
-  }, [contact]);
+    const uniqueTags = new Set(contactTags?.map(tag => tag.valueIRI["@id"] as string));
+    setExistingTags([...uniqueTags]);
+  }, []);
 
-  useEffect(initTags, [initTags]);
+  useEffect(() => initTags(contact?.tag), [initTags, contact]);
 
   const isNextgraph = useMemo(() => isNextGraphEnabled(), []);
 
-  const existingTags = useMemo(() => tags?.map(tag => tag.valueIRI["@id"] as string) || [], [tags]);
-  const availableTags = useMemo(() => allTags.filter(tag => !existingTags.includes(tag)), [existingTags]);
-
   const onTagsChange = useCallback((changedContactObj: SocialContact) => {
-    // Force state update after commit
-    const updatedTags = changedContactObj.tag?.toArray().filter(tag => tag["@id"]).map(tag => ({
-      "@id": tag["@id"],
-      source: tag.source || "user",
-      //@ts-expect-error ldo is messing the structure
-      valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
-    } as Tag)) ?? [];
-    setTags(updatedTags);
-  }, []);
+    initTags(changedContactObj.tag);
+  }, [initTags]);
 
   const handleTagAdd = useCallback((tag: string) => {
     if (!contact) return;
@@ -74,15 +66,9 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
     } else {
       contact.tag.add(newTag);
       // Force immediate state update
-      const updatedTags = contact.tag.toArray().filter(tag => tag["@id"]).map(tag => ({
-        "@id": tag["@id"],
-        source: "user",
-        //@ts-expect-error ldo is messing the structure
-        valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
-      } as Tag));
-      setTags(updatedTags);
+      initTags(contact.tag);
     }
-  }, [changeData, commitData, contact, isNextgraph, onTagsChange, resource]);
+  }, [changeData, commitData, contact, isNextgraph, onTagsChange, resource, initTags]);
 
   const handleTagRemove = useCallback((tagId: string) => {
     if (contact?.tag) {
@@ -101,23 +87,16 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
           }
         } else {
           contact.tag.delete(tagToRemove);
-          // Force immediate state update
-          const updatedTags = contact.tag.toArray().filter(tag => tag["@id"]).map(tag => ({
-            "@id": tag["@id"],
-            source: "user",
-            //@ts-expect-error ldo is messing the structure
-            valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
-          } as Tag));
-          setTags(updatedTags);
+          initTags(contact.tag);
         }
       }
     }
-  }, [changeData, commitData, contact, isNextgraph, onTagsChange, resource]);
+  }, [changeData, commitData, contact, isNextgraph, onTagsChange, resource, initTags]);
 
   return <Tags
     handleTagAdd={handleTagAdd}
     handleTagRemove={handleTagRemove}
     existingTags={existingTags}
-    availableTags={availableTags}
+    availableTags={allTags}
   />;
 }

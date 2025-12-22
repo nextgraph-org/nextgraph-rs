@@ -1,24 +1,42 @@
 import {UilPlus, UilTimes} from "@iconscout/react-unicons";
-import {Box, Chip, Autocomplete, TextField, Popper, useTheme, useMediaQuery} from "@mui/material";
+import {Box, Chip, Autocomplete, TextField, Popper, useTheme, useMediaQuery, SxProps, Theme} from "@mui/material";
 import {camelCaseToWords, wordsToCamelCase} from "@/utils/stringHelpers.ts";
 import {useCallback, useState} from "react";
 
 export interface TagsProps {
   existingTags: string[];
   availableTags?: string[];
+  allowNewTag?: boolean;
   disabled?: boolean;
   handleTagAdd?: (tag: string) => void;
   handleTagRemove?: (tag: string) => void;
   useCamelCase?: boolean;
+  sx?: SxProps<Theme>;
+  variant?: 'filled' | 'outlined';
 }
 
 export const Tags = (
-  {existingTags, availableTags = [], useCamelCase = true,disabled = false, handleTagAdd, handleTagRemove}: TagsProps) => {
+  {
+    existingTags,
+    availableTags = [],
+    useCamelCase = true,
+    disabled = false,
+    handleTagAdd,
+    handleTagRemove,
+    sx,
+    variant,
+    allowNewTag = false
+  }: TagsProps) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+
+  sx ??= {
+    height: {xs: 36, md: 32},
+    fontSize: {xs: '0.9375rem', md: '0.8125rem'}
+  };
 
   const availableOptions = availableTags.filter(tag => !existingTags.includes(tag));
 
@@ -31,11 +49,11 @@ export const Tags = (
   const addTag = useCallback((value: string) => {
     const tag = value.trim();
     const tagId = useCamelCase ? wordsToCamelCase(value) : tag;
-    if (handleTagAdd && tag && !existingTags.includes(tagId) && (!availableOptions.length || availableOptions.includes(tagId))) {
+    if (handleTagAdd && tag && !existingTags.includes(tagId) && (allowNewTag || !availableTags.length || availableOptions.includes(tagId))) {
       handleTagAdd(tagId);
       closeTagEditor();
     }
-  }, [availableOptions, closeTagEditor, existingTags, handleTagAdd, useCamelCase]);
+  }, [availableOptions, closeTagEditor, existingTags, handleTagAdd, useCamelCase, allowNewTag, availableTags]);
 
   handleTagRemove ??= () => {};
 
@@ -44,7 +62,6 @@ export const Tags = (
       display: 'flex',
       gap: 1,
       flexWrap: 'wrap',
-      mb: 2,
       justifyContent: 'flex-start'
     }}>
       {existingTags?.map((tag) => (
@@ -52,12 +69,10 @@ export const Tags = (
           key={tag}
           label={useCamelCase ? camelCaseToWords(tag) : tag}
           size="small"
+          variant={variant}
           onDelete={!disabled ? () => handleTagRemove!(tag) : undefined}
           deleteIcon={<UilTimes size="20"/>}
-          sx={{
-            height: {xs: 36, md: 32},
-            fontSize: {xs: '0.9375rem', md: '0.8125rem'}
-          }}
+          sx={sx}
         />
       ))}
 
@@ -122,27 +137,27 @@ export const Tags = (
         />
       )}
       {!disabled && <Chip
-        variant="outlined"
-        icon={<UilPlus size={isMobile ? "24" : "20"}/>}
-        label="Add tag"
-        size="small"
-        clickable
-        disabled={isAddingTag}
-        onClick={() => setIsAddingTag(true)}
-        sx={{
-          height: {xs: 36, md: 32},
-          fontSize: {xs: '0.9375rem', md: '0.8125rem'},
-          borderStyle: 'dashed',
-          color: 'text.secondary',
-          borderColor: 'text.secondary',
-          '&:hover': {
-            borderColor: 'primary.main',
-            color: 'primary.main',
-          },
-          '& .MuiChip-icon': {
-            fontSize: {xs: '1.25rem', md: '1rem'}
-          }
-        }}
+          variant="outlined"
+          icon={<UilPlus size={isMobile ? "24" : "20"}/>}
+          label="Add tag"
+          size="small"
+          clickable
+          disabled={isAddingTag}
+          onClick={() => setIsAddingTag(true)}
+          sx={{
+            height: {xs: 36, md: 32},
+            fontSize: {xs: '0.9375rem', md: '0.8125rem'},
+            borderStyle: 'dashed',
+            color: 'text.secondary',
+            borderColor: 'text.secondary',
+            '&:hover': {
+              borderColor: 'primary.main',
+              color: 'primary.main',
+            },
+            '& .MuiChip-icon': {
+              fontSize: {xs: '1.25rem', md: '1rem'}
+            }
+          }}
       />}
     </Box>
   );

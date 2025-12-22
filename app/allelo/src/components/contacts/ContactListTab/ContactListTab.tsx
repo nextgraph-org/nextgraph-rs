@@ -47,8 +47,7 @@ export const ContactListTab = ({
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
-
+  
   const mode = searchParams.get('mode');
   const isSelectionMode = mode === 'select' || mode === 'create-group';
 
@@ -60,6 +59,13 @@ export const ContactListTab = ({
   useEffect(() => {
     onSelectionChange?.(selectedContacts);
   }, [selectedContacts, onSelectionChange]);
+
+  //TODO: @mkslanc uncomment when invite works
+/*  useEffect(() => {
+    if (forGroup) {
+      addFilter("naoStatusFilter", "member");
+    }
+  }, [addFilter, forGroup]);*/
 
   // Clear selections when filters change
   useEffect(() => {
@@ -84,9 +90,7 @@ export const ContactListTab = ({
   };
 
   const handleSelectContact = (nuri: string) => {
-    if (mode === 'create-group') {
-      handleToggleContactSelection(nuri);
-    } else if (mode === 'invite' && returnTo === 'group-info' && groupId) {
+    if (mode === 'invite' && returnTo === 'group-info' && groupId) {
       const inviteParams = new URLSearchParams();
       inviteParams.set('groupId', groupId);
       inviteParams.set('inviteeNuri', nuri);
@@ -300,7 +304,7 @@ export const ContactListTab = ({
           isContactSelected={isContactSelected}
           selectedContacts={selectedContacts}
           onSetIconFilter={setIconFilter}
-          inManageMode={manageMode || mode === 'create-group'}
+          inManageMode={manageMode}
         />
       </Box>
     )}
@@ -317,7 +321,7 @@ export const ContactListTab = ({
       onSetUseAI={setUseAI}
     />
 
-    <DragOverlay dropAnimation={null}>
+    {!forGroup && <DragOverlay dropAnimation={null}>
       {activeDragId ? (
         <ContactCard
           nuri={activeDragId}
@@ -328,6 +332,6 @@ export const ContactListTab = ({
           }}
         />
       ) : null}
-    </DragOverlay>
+    </DragOverlay> }
   </>
 }

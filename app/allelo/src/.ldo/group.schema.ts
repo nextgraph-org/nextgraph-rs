@@ -114,8 +114,6 @@ export const groupSchema: Schema = {
                 type: "NodeConstraint",
                 nodeKind: "iri",
               },
-              min: 0,
-              max: -1,
             },
             {
               type: "TripleConstraint",

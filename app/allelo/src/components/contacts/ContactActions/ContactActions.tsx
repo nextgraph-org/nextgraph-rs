@@ -37,7 +37,7 @@ export const ContactActions = forwardRef<HTMLDivElement, ContactActionsProps>(
       <Box ref={ref}>
         {/* Main Action Buttons */}
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-          {contact.naoStatus?.value === 'not_invited' && (
+          {contact.naoStatus === 'not_invited' && (
             <Button
               variant="contained"
               color="primary"

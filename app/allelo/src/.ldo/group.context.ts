@@ -110,7 +110,6 @@ export const groupContext: LdoJsonldContext = {
       author: {
         "@id": "did:ng:x:social:post#author",
         "@type": "@id",
-        "@isCollection": true,
       },
       createdAt: {
         "@id": "did:ng:x:social:post#createdAt",
@@ -130,7 +129,6 @@ export const groupContext: LdoJsonldContext = {
   author: {
     "@id": "did:ng:x:social:post#author",
     "@type": "@id",
-    "@isCollection": true,
   },
   createdAt2: {
     "@id": "did:ng:x:social:post#createdAt",

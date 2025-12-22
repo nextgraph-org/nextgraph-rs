@@ -228,11 +228,11 @@ export const ContactCardDetailed = forwardRef<
         onClick={() =>
           onSetIconFilter(
             "naoStatusFilter",
-            contact?.naoStatus?.value || "not_invited",
+            contact?.naoStatus || "not_invited",
           )
         }
       >
-        {getNaoStatusIcon(contact?.naoStatus?.value)}
+        {getNaoStatusIcon(contact?.naoStatus)}
       </IconButton>
     );
 

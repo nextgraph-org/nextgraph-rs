@@ -2,10 +2,24 @@ import {alpha, Box, Card, CardContent, Chip, Grid, Typography, useTheme} from "@
 import {UilUsersAlt as People} from "@iconscout/react-unicons";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
+import {useMemo} from "react";
+import {SocialPost} from "@/.orm/shapes/group.typings.ts";
+import {usePostData} from "@/hooks/posts/usePostData.ts";
 
 export const GroupItemDesktop = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (id: string) => void }) => {
   const {group} = useGroupData(nuri);
   const theme = useTheme();
+
+  const latestPost = useMemo(() => {
+    return [...group?.post ?? []].reduce<SocialPost | undefined>((latest, post) => {
+      if (!latest) return post;
+      return new Date(post.createdAt) > new Date(latest.createdAt)
+        ? post
+        : latest;
+    }, undefined);
+  }, [group]);
+
+  const {authorName, postContent} = usePostData(latestPost);
 
   if (!group) return null;
 
@@ -81,28 +95,28 @@ export const GroupItemDesktop = ({nuri, onGroupClick}: { nuri: string, onGroupCl
           ))}
         </Box>
 
-        {/*{group.latestPost && (*/}
-        {/*  <Box>*/}
-        {/*    <Typography variant="caption" color="text.secondary"*/}
-        {/*                sx={{fontWeight: 500, display: 'block', mb: 0.5}}>*/}
-        {/*      Latest post:*/}
-        {/*    </Typography>*/}
-        {/*    <Typography*/}
-        {/*      variant="body2"*/}
-        {/*      color="text.secondary"*/}
-        {/*      sx={{*/}
-        {/*        fontStyle: 'italic',*/}
-        {/*        overflow: 'hidden',*/}
-        {/*        textOverflow: 'ellipsis',*/}
-        {/*        whiteSpace: 'nowrap',*/}
-        {/*        fontSize: '0.8rem',*/}
-        {/*        fontWeight: 600*/}
-        {/*      }}*/}
-        {/*    >*/}
-        {/*      {group.latestPostAuthor && `${group.latestPostAuthor.split(' ')[0]}: `}{group.latestPost}*/}
-        {/*    </Typography>*/}
-        {/*  </Box>*/}
-        {/*)}*/}
+        {latestPost && (
+          <Box>
+            <Typography variant="caption" color="text.secondary"
+                        sx={{fontWeight: 500, display: 'block', mb: 0.5}}>
+              Latest post:
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontStyle: 'italic',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: '0.8rem',
+                fontWeight: 600
+              }}
+            >
+              {authorName && `${authorName.split(' ')[0]}: `}{postContent}
+            </Typography>
+          </Box>
+        )}
       </CardContent>
     </Card>
   </Grid>

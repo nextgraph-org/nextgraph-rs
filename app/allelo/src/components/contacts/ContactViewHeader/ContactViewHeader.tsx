@@ -48,7 +48,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
     const {getRCardById} = useGetRCards();
 
     const getNaoStatusIndicator = useCallback((contact: SocialContact) => {
-      switch (contact.naoStatus?.value) {
+      switch (contact.naoStatus) {
         case 'member':
           return {
             icon: <UilShieldCheck size="20"/>,
@@ -273,7 +273,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               mt: 2
             }}>
               {/* Invite to NAO button for non-members */}
-              {contact.naoStatus?.value !== 'member' && contact.naoStatus?.value !== 'invited' && (
+              {contact.naoStatus !== 'member' && contact.naoStatus !== 'invited' && (
                 <Button
                   variant="contained"
                   startIcon={<UilMessage size="20"/>}

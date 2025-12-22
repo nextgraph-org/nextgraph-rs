@@ -37,9 +37,9 @@ export interface SocialPost {
   type: LdSet<{
     "@id": "Post";
   }>;
-  author?: LdSet<{
+  author: {
     "@id": string;
-  }>;
+  };
   createdAt: string;
   tag?: LdSet<{
     "@id": string;
