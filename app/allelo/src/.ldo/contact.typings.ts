@@ -64,7 +64,7 @@ export interface SocialContact {
   rcard?: {
     "@id": string;
   };
-  naoStatus?: NaoStatus;
+  naoStatus?: string;
   invitedAt?: InvitedAt;
   createdAt?: CreatedAt;
   updatedAt?: UpdatedAt;
@@ -1379,26 +1379,6 @@ export interface ContactImportGroup {
    * Whether this is hidden from list
    */
   hidden?: boolean;
-}
-
-/**
- * NaoStatus Type
- */
-export interface NaoStatus {
-  "@id"?: string;
-  "@context"?: LdoJsonldContext;
-  /**
-   * NAO status value
-   */
-  value: string;
-  /**
-   * Source of the status data
-   */
-  source?: string;
-  /**
-   * Whether this is main
-   */
-  selected?: boolean;
 }
 
 /**

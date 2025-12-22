@@ -41,7 +41,7 @@ export const ContactFilters = ({
     (filters.searchQuery || "").length > 0;
 
   return (
-    <Box sx={{px: 0, flexShrink: 0, position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'white'}}>
+    <Box sx={{px: 0,mt: 1, flexShrink: 0, position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'white'}}>
       {isMobile ? (
         <ContactFiltersMobile
           filters={filters}

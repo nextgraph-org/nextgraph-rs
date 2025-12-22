@@ -32,7 +32,6 @@ import {
   Membership,
   Tag,
   ContactImportGroup,
-  NaoStatus,
   InvitedAt,
   CreatedAt,
   UpdatedAt,
@@ -318,15 +317,6 @@ export const TagShapeType: ShapeType<Tag> = {
 export const ContactImportGroupShapeType: ShapeType<ContactImportGroup> = {
   schema: contactSchema,
   shape: "did:ng:x:contact:class#ContactImportGroup",
-  context: contactContext,
-};
-
-/**
- * NaoStatus ShapeType
- */
-export const NaoStatusShapeType: ShapeType<NaoStatus> = {
-  schema: contactSchema,
-  shape: "did:ng:x:contact:class#NaoStatus",
   context: contactContext,
 };
 

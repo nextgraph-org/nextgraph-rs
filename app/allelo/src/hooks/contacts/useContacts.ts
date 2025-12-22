@@ -99,7 +99,8 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
       accountFilter = 'all',
       relationshipFilter = 'all',
       searchQuery,
-      hasAddressFilter = false
+      hasAddressFilter = false,
+      naoStatusFilter = 'all'
     } = filters;
 
 
@@ -115,6 +116,9 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     }
     if (hasAddressFilter) {
       filterParams.set('hasAddress', 'true');
+    }
+    if (naoStatusFilter !== 'all') {
+      filterParams.set('naoStatus', naoStatusFilter);
     }
 
     const offset = page * limit;

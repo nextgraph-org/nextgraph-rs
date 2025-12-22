@@ -75,9 +75,7 @@ export function transformRawContact(rawContact: RawContact): Contact {
       source: 'contacts'
     }]) : undefined,
     // Transform naoStatus to proper structure
-    naoStatus: rawContact.naoStatus ? {
-      value: rawContact.naoStatus
-    } : undefined,
+    naoStatus: rawContact.naoStatus,
     // Keep Contact-specific properties
     humanityConfidenceScore: rawContact.humanityConfidenceScore || 0,
     vouchesSent: rawContact.vouchesSent || 0,

@@ -325,7 +325,10 @@ export const contactSchema: Schema = {
             {
               type: "TripleConstraint",
               predicate: "did:ng:x:contact#naoStatus",
-              valueExpr: "did:ng:x:contact:class#NaoStatus",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#string",
+              },
               min: 0,
               max: 1,
             },
@@ -3896,73 +3899,6 @@ export const contactSchema: Schema = {
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
                     value: "Whether this is hidden from list",
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      },
-    },
-    {
-      id: "did:ng:x:contact:class#NaoStatus",
-      type: "ShapeDecl",
-      shapeExpr: {
-        type: "Shape",
-        expression: {
-          type: "EachOf",
-          expressions: [
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:core#value",
-              valueExpr: {
-                type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#string",
-              },
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "NAO status value",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:core#source",
-              valueExpr: {
-                type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#string",
-              },
-              min: 0,
-              max: 1,
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Source of the status data",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "did:ng:x:core#selected",
-              valueExpr: {
-                type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#boolean",
-              },
-              min: 0,
-              max: 1,
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Whether this is main",
                   },
                 },
               ],

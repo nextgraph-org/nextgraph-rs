@@ -66,7 +66,6 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
       }
     };
 
-    //TODO: investigate why do we have empty contacts sometimes
     const name = resolveFrom(contact, 'name');
     if (!name) {
       return ;
