@@ -60,11 +60,12 @@ export const ContactListTab = ({
     onSelectionChange?.(selectedContacts);
   }, [selectedContacts, onSelectionChange]);
 
-  useEffect(() => {
+  //TODO: @mkslanc uncomment when invite works
+/*  useEffect(() => {
     if (forGroup) {
       addFilter("naoStatusFilter", "member");
     }
-  }, [addFilter, forGroup]);
+  }, [addFilter, forGroup]);*/
 
   // Clear selections when filters change
   useEffect(() => {
