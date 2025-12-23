@@ -1,4 +1,3 @@
-import type {Contact} from "@/types/contact.ts";
 import {Address} from "@/.ldo/contact.typings.ts";
 import {GEO_API_URL} from "@/config/importers.ts";
 import {mapBoxSearchService} from "@/services/mapBoxSearchService.ts";
@@ -50,7 +49,7 @@ class GeoApiService {
     }
   }
 
-  public async initContactGeoCodes(contact: Contact | SocialContact) {
+  public async initContactGeoCodes(contact: Partial<SocialContact>) {
     if (!contact.address)
       return;
 

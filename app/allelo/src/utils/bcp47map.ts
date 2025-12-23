@@ -515,7 +515,5 @@ export function codeIRIByLanguageName(name: string) {
 
 export function bcpCodeToIRI(code: string) {
   if (!code) return null;
-  return {
-    ["@id"]: "did:ng:k:language:" + code.toLowerCase(),
-  }
+  return "did:ng:k:language:" + code.toLowerCase();
 }

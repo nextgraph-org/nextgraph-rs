@@ -38,7 +38,7 @@ export function appendPrefixToDictValue<
 >(
   property: P,
   subProperty: SP,
-  value?: string
+  value?: string | null
 ): DictValue<P, SP> {
   if (!value) {
     return "" as DictValue<P, SP>;
