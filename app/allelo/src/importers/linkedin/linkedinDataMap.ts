@@ -1,9 +1,9 @@
 import {LinkedInContactData, LinkedInData, LinkedInProfileData} from "@/importers/linkedin/linkedInTypes";
 import {Contact} from "@/types/contact";
-import {getContactIriValue} from "@/utils/socialContact/dictMapper";
 import {codeIRIByLanguageName} from "@/utils/bcp47map";
 import {getProficiencyIRI} from "@/utils/proficiencyMap";
 import {processContactFromJSON} from "@/utils/socialContact/contactUtils";
+import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 
 const parseLinkedInDate = (dateStr: string): string | undefined => {
   if (!dateStr) return undefined;
@@ -57,7 +57,7 @@ export async function mapLinkedInPerson(
   if ("emailAddress" in linkedInData && linkedInData.emailAddress) {
     contactJson.email = [{
       value: linkedInData.emailAddress,
-      type2: getContactIriValue("email", "work"),
+      type2: appendPrefixToDictValue("email", "type", "work"),
       source: src,
     }];
   }
@@ -184,7 +184,7 @@ export async function mapLinkedInPerson(
           .filter((phone: any) => phone.number)
           .map((phone: any) => ({
             value: phone.number || "",
-            type2: getContactIriValue("phoneNumber", phone.type || ""), //TODO: check linkedidn phone types
+            type2: appendPrefixToDictValue("phoneNumber", "type", phone.type || ""), //TODO: check linkedidn phone types
             source: src,
           }));
       }
