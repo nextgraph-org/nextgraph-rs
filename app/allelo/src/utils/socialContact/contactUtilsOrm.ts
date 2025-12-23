@@ -1,7 +1,7 @@
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {defaultPolicy} from "@/config/sources.ts";
 import {geoApiService} from "@/services/geoApiService.ts";
-import {contactNonSetProperties, contactSetProperties} from "@/.orm/shapes/contact.utils.ts";
+import {socialContactNonSetProperties, socialContactSetProperties} from "@/.orm/utils/contact.utils.ts";
 import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 
 type ContactSetProperties = {
@@ -188,7 +188,7 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
     "@id": "",
     "@type": new Set(["http://www.w3.org/2006/vcard/ns#Individual"])
   } as SocialContact;
-  contactSetProperties.forEach(property => {
+  socialContactSetProperties.forEach(property => {
     if (jsonContact[property] && Array.isArray(jsonContact[property])) {
       const props = jsonContact[property].map((el: any) => {
         handleDictionaries(el, "type2");
@@ -203,7 +203,7 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
     }
   });
 
-  contactNonSetProperties.forEach(property => {
+  socialContactNonSetProperties.forEach(property => {
     if (jsonContact[property]) {
       contact[property] = jsonContact[property];
     }

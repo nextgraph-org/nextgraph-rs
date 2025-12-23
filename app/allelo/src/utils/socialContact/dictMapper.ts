@@ -1,68 +1,63 @@
-import {contactContext} from "@/.ldo/contact.context.ts";
+import { socialContactDictPrefixes, socialContactDictValues, SocialContactDictType } from "@/.orm/utils/contact.utils";
 
-export const dictPrefixes = {
-  "tag": "did:ng:k:contact:tag#",
-  "organization": "did:ng:k:org:type#",
-  "gender": "did:ng:k:gender#",
-  "email": "did:ng:k:contact:type#",
-  "address": "did:ng:k:contact:type#",
-  "phoneNumber": "did:ng:k:contact:phoneNumber#",
-  "url": "did:ng:k:link:type#",
-  "event": "did:ng:k:event#",
-  "relation": "did:ng:k:humanRelationship#",
-  "account": "did:ng:k:contact:type#",
-  "sipAddress": "did:ng:k:contact:sip#",
-  "calendarUrl": "did:ng:k:calendar:type#"
+export const dictPrefixes = socialContactDictPrefixes;
+export const dictValues = socialContactDictValues;
+
+type DictKey = SocialContactDictType;
+
+/**
+ * Get dictionary values for a specific property
+ * @param property - The parent property name (e.g., "phoneNumber", "email")
+ * @param subProperty - The nested property name (e.g., "type", "valueIRI")
+ */
+export function getContactDictValues(property: string, subProperty: string): readonly string[] {
+  const dictKey = `${property}.${subProperty}` as DictKey;
+  return dictValues[dictKey] || [];
 }
 
-type DictType = keyof typeof dictPrefixes;
-type PrefixType = (typeof dictPrefixes)[DictType];
-
-const loadedDictionaries: Record<PrefixType, string[]> = {}
-
-function loadDictionary(prefix: PrefixType) {
-  const values: string[] = [];
-
-  for (const value of Object.values(contactContext)) {
-    if (typeof value === 'string' && value.startsWith(prefix)) {
-      values.push(value.substring(prefix.length));
-    }
-  }
-
-  return values;
-}
-
-export function getContactDictValues(dictType: DictType) {
-  const prefix = dictPrefixes[dictType];
-  loadedDictionaries[prefix] ??= loadDictionary(prefix);
-  return loadedDictionaries[prefix];
-}
-
-export function getContactIriValue(dictType: DictType, value?: string) {
+/**
+ * Get IRI value for a dictionary property
+ * @param property - The parent property name (e.g., "phoneNumber", "email")
+ * @param subProperty - The nested property name (e.g., "type", "valueIRI")
+ * @param value - The value to validate and return
+ */
+export function getContactIriValue(property: string, subProperty: string, value?: string) {
   if (!value) {
     return;
   }
-  const dictionary = getContactDictValues(dictType);
+  const dictionary = getContactDictValues(property, subProperty);
+  const dictKey = `${property}.${subProperty}`;
+
   if (!dictionary || !dictionary.includes(value)) {
-    console.log("Unknown value: " + value, " dictionary: " + dictType);
+    console.log("Unknown value: " + value, " dictionary: " + dictKey);
     value = "other";
   }
   return [{"@id": value}];
 }
 
-export function appendPrefixToDictValue(dictType: string, value?: string) {
+/**
+ * Append prefix to dictionary value
+ * @param property - The parent property name (e.g., "phoneNumber", "email")
+ * @param subProperty - The nested property name (e.g., "type", "valueIRI")
+ * @param value - The value to append the prefix to
+ */
+export function appendPrefixToDictValue(property: string, subProperty: string, value?: string) {
   if (!value) {
     return "";
   }
-  if (!dictPrefixes[dictType]) {
+
+  const dictKey = `${property}.${subProperty}` as DictKey;
+  const prefix = dictPrefixes[dictKey];
+
+  if (!prefix) {
     return value;
   }
 
-  const dictionary = getContactDictValues(dictType);
+  const dictionary = getContactDictValues(property, subProperty);
   if (!dictionary || !dictionary.includes(value)) {
-    console.log("Unknown value: " + value, " dictionary: " + dictType);
+    console.log("Unknown value: " + value, " dictionary: " + dictKey);
     value = "other";
   }
 
-  return dictPrefixes[dictType] + value;
+  return prefix + value;
 }
