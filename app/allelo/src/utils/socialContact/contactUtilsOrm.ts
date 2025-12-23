@@ -175,11 +175,25 @@ function handleDictionaries(el: any, key: string) {
   }
 
   if (key === "type2") {
-    el["type"] = appendPrefixToDictValue(key, normalized);
+    el["type"] = appendPrefixToDictValue(key, "type", normalized);
     delete el[key];
   } else {
-    el[key] = appendPrefixToDictValue(key, normalized);
+    el[key] = appendPrefixToDictValue(key, "type", normalized);
   }
+}
+
+export async function prepareContact(contact: Partial<SocialContact>): Promise<SocialContact> {
+  contact["@type"] = new Set(["http://www.w3.org/2006/vcard/ns#Individual"]);
+
+  await geoApiService.initContactGeoCodes(contact);
+
+  //TODO: remove this when we would have real data
+  // Only generate the centralityScore once, so we can reliably test the network graph
+  if (contact.centralityScore === undefined) {
+    contact.centralityScore = Math.round(100 * Math.random());
+  }
+
+  return contact as SocialContact;
 }
 
 export async function processContactFromJSON(jsonContact: any): Promise<SocialContact> {
@@ -209,14 +223,5 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
     }
   })
 
-  await geoApiService.initContactGeoCodes(contact);
-
-  //TODO: remove this when we would have real data
-  // Only generate the centralityScore once, so we can reliably test the network graph
-  if (contact.centralityScore === undefined) {
-    contact.centralityScore = Math.round(100 * Math.random());
-  }
-  //// TODO:
-
-  return contact;
+  return prepareContact(contact);
 }
