@@ -41,4 +41,27 @@ export const rCardDictValues = {
   ] as const,
 } as const;
 
+/**
+ * Union type of all dictionary keys (dotted notation like "phoneNumber.type")
+ */
 export type RCardDictType = keyof typeof rCardDictPrefixes;
+
+/**
+ * Mapping of RCard properties to their enumerated subproperties
+ * Based on the ORM shape definition
+ */
+export type RCardDictMap = {
+  permission: "zone";
+};
+
+/**
+ * Properties from RCard that have dictionary enumerations
+ */
+export type RCardDictProperty = keyof RCardDictMap;
+
+/**
+ * Get the valid subproperty for a specific RCard property
+ * @example RCardSubPropertyFor<"phoneNumber"> = "type"
+ * @example RCardSubPropertyFor<"tag"> = "valueIRI"
+ */
+export type RCardSubPropertyFor<P extends RCardDictProperty> = RCardDictMap[P];

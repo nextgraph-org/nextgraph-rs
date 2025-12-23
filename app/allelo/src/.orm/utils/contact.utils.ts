@@ -268,4 +268,40 @@ export const socialContactDictValues = {
   ] as const,
 } as const;
 
+/**
+ * Union type of all dictionary keys (dotted notation like "phoneNumber.type")
+ */
 export type SocialContactDictType = keyof typeof socialContactDictPrefixes;
+
+/**
+ * Mapping of SocialContact properties to their enumerated subproperties
+ * Based on the ORM shape definition
+ */
+export type SocialContactDictMap = {
+  phoneNumber: "type";
+  email: "type";
+  address: "type";
+  organization: "type";
+  url: "type";
+  event: "type";
+  gender: "valueIRI";
+  nickname: "type";
+  relation: "type";
+  account: "type";
+  sipAddress: "type";
+  calendarUrl: "type";
+  tag: "valueIRI";
+  language: "proficiency";
+};
+
+/**
+ * Properties from SocialContact that have dictionary enumerations
+ */
+export type SocialContactDictProperty = keyof SocialContactDictMap;
+
+/**
+ * Get the valid subproperty for a specific SocialContact property
+ * @example SocialContactSubPropertyFor<"phoneNumber"> = "type"
+ * @example SocialContactSubPropertyFor<"tag"> = "valueIRI"
+ */
+export type SocialContactSubPropertyFor<P extends SocialContactDictProperty> = SocialContactDictMap[P];

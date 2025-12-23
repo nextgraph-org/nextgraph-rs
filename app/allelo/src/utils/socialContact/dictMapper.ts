@@ -1,4 +1,9 @@
-import { socialContactDictPrefixes, socialContactDictValues, SocialContactDictType } from "@/.orm/utils/contact.utils";
+import {
+  socialContactDictPrefixes,
+  socialContactDictValues,
+  SocialContactDictType,
+  SocialContactDictProperty, SocialContactSubPropertyFor
+} from "@/.orm/utils/contact.utils";
 
 export const dictPrefixes = socialContactDictPrefixes;
 export const dictValues = socialContactDictValues;
@@ -10,7 +15,10 @@ type DictKey = SocialContactDictType;
  * @param property - The parent property name (e.g., "phoneNumber", "email")
  * @param subProperty - The nested property name (e.g., "type", "valueIRI")
  */
-export function getContactDictValues(property: string, subProperty: string): readonly string[] {
+export function getContactDictValues<P extends SocialContactDictProperty>(
+  property: P,
+  subProperty: SocialContactSubPropertyFor<P>
+): readonly string[] {
   const dictKey = `${property}.${subProperty}` as DictKey;
   return dictValues[dictKey] || [];
 }
@@ -21,7 +29,11 @@ export function getContactDictValues(property: string, subProperty: string): rea
  * @param subProperty - The nested property name (e.g., "type", "valueIRI")
  * @param value - The value to validate and return
  */
-export function getContactIriValue(property: string, subProperty: string, value?: string) {
+export function getContactIriValue<P extends SocialContactDictProperty>(
+  property: P,
+  subProperty: SocialContactSubPropertyFor<P>,
+  value?: string
+) {
   if (!value) {
     return;
   }
@@ -41,7 +53,11 @@ export function getContactIriValue(property: string, subProperty: string, value?
  * @param subProperty - The nested property name (e.g., "type", "valueIRI")
  * @param value - The value to append the prefix to
  */
-export function appendPrefixToDictValue(property: string, subProperty: string, value?: string) {
+export function appendPrefixToDictValue<P extends SocialContactDictProperty>(
+  property: P,
+  subProperty: SocialContactSubPropertyFor<P>,
+  value?: string
+) {
   if (!value) {
     return "";
   }

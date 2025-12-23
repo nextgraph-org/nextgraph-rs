@@ -253,6 +253,13 @@ export type ${shapeName}NonSetPropertyName = (typeof ${camelCaseName}NonSetPrope
 
     // Add dictionary prefixes and values if they exist
     if (Object.keys(dictionaries).length > 0) {
+      // Create the mapping from property to subproperty
+      const dictMapping = {};
+      for (const [dottedKey] of Object.entries(dictionaries)) {
+        const [prop, subProp] = dottedKey.split('.');
+        dictMapping[prop] = subProp;
+      }
+
       section += `\n\n/**
  * Dictionary prefixes for ${shapeName} enumerated properties
  */
@@ -267,7 +274,30 @@ export const ${camelCaseName}DictValues = {
 ${Object.entries(dictionaries).map(([prop, data]) => `  "${prop}": [\n${data.values.map(v => `    "${v}",`).join("\n")}\n  ] as const,`).join("\n")}
 } as const;
 
-export type ${shapeName}DictType = keyof typeof ${camelCaseName}DictPrefixes;`;
+/**
+ * Union type of all dictionary keys (dotted notation like "phoneNumber.type")
+ */
+export type ${shapeName}DictType = keyof typeof ${camelCaseName}DictPrefixes;
+
+/**
+ * Mapping of ${shapeName} properties to their enumerated subproperties
+ * Based on the ORM shape definition
+ */
+export type ${shapeName}DictMap = {
+${Object.entries(dictMapping).map(([prop, subProp]) => `  ${prop}: "${subProp}";`).join("\n")}
+};
+
+/**
+ * Properties from ${shapeName} that have dictionary enumerations
+ */
+export type ${shapeName}DictProperty = keyof ${shapeName}DictMap;
+
+/**
+ * Get the valid subproperty for a specific ${shapeName} property
+ * @example ${shapeName}SubPropertyFor<"phoneNumber"> = "type"
+ * @example ${shapeName}SubPropertyFor<"tag"> = "valueIRI"
+ */
+export type ${shapeName}SubPropertyFor<P extends ${shapeName}DictProperty> = ${shapeName}DictMap[P];`;
     }
 
     return section;

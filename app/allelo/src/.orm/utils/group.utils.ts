@@ -45,7 +45,30 @@ export const socialGroupDictValues = {
   ] as const,
 } as const;
 
+/**
+ * Union type of all dictionary keys (dotted notation like "phoneNumber.type")
+ */
 export type SocialGroupDictType = keyof typeof socialGroupDictPrefixes;
+
+/**
+ * Mapping of SocialGroup properties to their enumerated subproperties
+ * Based on the ORM shape definition
+ */
+export type SocialGroupDictMap = {
+  hasMember: "memberStatus";
+};
+
+/**
+ * Properties from SocialGroup that have dictionary enumerations
+ */
+export type SocialGroupDictProperty = keyof SocialGroupDictMap;
+
+/**
+ * Get the valid subproperty for a specific SocialGroup property
+ * @example SocialGroupSubPropertyFor<"phoneNumber"> = "type"
+ * @example SocialGroupSubPropertyFor<"tag"> = "valueIRI"
+ */
+export type SocialGroupSubPropertyFor<P extends SocialGroupDictProperty> = SocialGroupDictMap[P];
 
 /**
  * All SocialPost properties that are Set<T> types (cardinality * or +)
