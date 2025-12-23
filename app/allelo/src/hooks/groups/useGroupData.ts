@@ -5,7 +5,7 @@ import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import {groupsOverlay} from "@/constants/overlays.ts";
-import {GroupMembership} from "@/.orm/shapes/group.typings.ts";
+import {GroupMembership, SocialGroup} from "@/.orm/shapes/group.typings.ts";
 
 export const useGroupData = (nuri: string | null | undefined) => {
   const nextGraphAuth = useNextGraphAuth();
@@ -18,7 +18,7 @@ export const useGroupData = (nuri: string | null | undefined) => {
 
   const ormGroups = useShape(SocialGroupShapeType, fullNuri ? fullNuri : undefined);
   const objects = [...(ormGroups || [])];
-  const group = objects[0];
+  const group = objects[0] as SocialGroup;
   const {ormContact} = useContactOrm(undefined, true);
 
 
