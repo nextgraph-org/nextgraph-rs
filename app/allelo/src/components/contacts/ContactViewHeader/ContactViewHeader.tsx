@@ -264,7 +264,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               )}
             </Box>}
 
-            {/*TODO: {showTags && <ContactTags contact={contact} resource={resource}/>}*/}
+            {showTags && <ContactTags contact={contact}/>}
 
             {/* Action Buttons */}
             {showActions && <Box sx={{

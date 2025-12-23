@@ -23,29 +23,8 @@ export function getContactDictValues<P extends SocialContactDictProperty>(
   return dictValues[dictKey] || [];
 }
 
-/**
- * Get IRI value for a dictionary property
- * @param property - The parent property name (e.g., "phoneNumber", "email")
- * @param subProperty - The nested property name (e.g., "type", "valueIRI")
- * @param value - The value to validate and return
- */
-export function getContactIriValue<P extends SocialContactDictProperty>(
-  property: P,
-  subProperty: SocialContactSubPropertyFor<P>,
-  value?: string
-) {
-  if (!value) {
-    return;
-  }
-  const dictionary = getContactDictValues(property, subProperty);
-  const dictKey = `${property}.${subProperty}`;
-
-  if (!dictionary || !dictionary.includes(value)) {
-    console.log("Unknown value: " + value, " dictionary: " + dictKey);
-    value = "other";
-  }
-  return [{"@id": value}];
-}
+type DictValue<P, SP extends PropertyKey> =
+  P extends Record<SP, infer V> ? (V & string) : never;
 
 /**
  * Append prefix to dictionary value
@@ -53,20 +32,23 @@ export function getContactIriValue<P extends SocialContactDictProperty>(
  * @param subProperty - The nested property name (e.g., "type", "valueIRI")
  * @param value - The value to append the prefix to
  */
-export function appendPrefixToDictValue<P extends SocialContactDictProperty>(
+export function appendPrefixToDictValue<
+  P extends SocialContactDictProperty,
+  SP extends SocialContactSubPropertyFor<P>
+>(
   property: P,
-  subProperty: SocialContactSubPropertyFor<P>,
+  subProperty: SP,
   value?: string
-) {
+): DictValue<P, SP> {
   if (!value) {
-    return "";
+    return "" as DictValue<P, SP>;
   }
 
   const dictKey = `${property}.${subProperty}` as DictKey;
   const prefix = dictPrefixes[dictKey];
 
   if (!prefix) {
-    return value;
+    return value as DictValue<P, SP>;
   }
 
   const dictionary = getContactDictValues(property, subProperty);
@@ -75,5 +57,12 @@ export function appendPrefixToDictValue<P extends SocialContactDictProperty>(
     value = "other";
   }
 
-  return prefix + value;
+  return prefix + value as DictValue<P, SP>;
+}
+
+export function removePrefix(value?: string): string {
+  if (!value) {
+    return "";
+  }
+  return value.split("#")[1] ?? "";
 }
