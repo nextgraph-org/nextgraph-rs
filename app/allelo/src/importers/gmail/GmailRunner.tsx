@@ -1,16 +1,43 @@
 import {SourceRunnerProps} from "@/types/importSource.ts";
-import {useCallback, useEffect, useMemo} from "react";
-import {Contact} from "@/types/contact.ts";
-import {getContactIriValue} from "@/utils/socialContact/dictMapper.ts";
-import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
-import {processContactFromJSON} from "@/utils/socialContact/contactUtils.ts";
+import {useCallback, useEffect} from "react";
 import {bcpCodeToIRI} from "@/utils/bcp47map.ts";
+import type { people_v1 } from "googleapis";
 
 import { 
   signIn, 
 } from '@choochmeque/tauri-plugin-google-auth-api';
 import { GOOGLE_CLIENTS } from "@/config/google";
-
+import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
+import {
+  PhoneNumber,
+  SocialContact,
+  Name,
+  Email,
+  Address,
+  Organization,
+  Photo,
+  CoverPhoto,
+  Url,
+  Birthday,
+  Biography,
+  Event,
+  Gender,
+  Nickname,
+  Occupation,
+  Relation,
+  Interest,
+  Skill,
+  LocationDescriptor,
+  Locale,
+  Account,
+  SipAddress,
+  ExternalId,
+  FileAs,
+  CalendarUrl,
+  ClientData,
+  UserDefined
+} from "@/.orm/shapes/contact.typings.ts";
+import {prepareContact} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 const googleFetch = (url: string, token: string, init: RequestInit = {}) =>
   fetch(url, {
@@ -24,229 +51,277 @@ const personFields = [
   "occupations", "skills", "interests", "locales", "locations", "nicknames", "ageRanges",
   "calendarUrls", "clientData", "coverPhotos", "miscKeywords", "metadata", "sipAddresses"].join(",");
 
-async function mapGmailPerson(googleResult: any, withIds = true): Promise<Contact> {
+async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<SocialContact> {
   const src = "Gmail";
 
-  const fmtDate = (d?: { year?: number; month?: number; day?: number }) =>
+  const fmtDate = (d?: people_v1.Schema$Date | null) =>
     d?.year && d?.month && d?.day
       ? `${String(d.year).padStart(4, "0")}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`
       : undefined;
 
-  const contactJson = {
-    type: [
-      {
-        "@id": "Individual"
-      }
-    ],
-    phoneNumber: googleResult?.phoneNumbers?.map((phoneNumber: any) => ({
+  const contact: Partial<SocialContact> = {
+    "@graph": "",
+    "@id": "",
+    phoneNumber: new Set(googleResult?.phoneNumbers?.map((phoneNumber): PhoneNumber => ({
+      "@graph": "",
+      "@id": "",
       value: phoneNumber?.canonicalForm ?? phoneNumber?.value ?? "",
-      type2: getContactIriValue("phoneNumber", phoneNumber?.type),
+      type: appendPrefixToDictValue("phoneNumber", "type", phoneNumber?.type),
       preferred: !!phoneNumber?.metadata?.primary,
-      source: src,
-    })) ?? [],
+      source: src
+    })) ?? []),
 
-    name: googleResult?.names?.map((name: any) => ({
+    name: new Set(googleResult?.names?.map((name): Name => ({
+      "@graph": "",
+      "@id": "",
       value: name?.displayName ?? "",
-      displayNameLastFirst: name?.displayNameLastFirst,
-      unstructuredName: name?.unstructuredName,
-      familyName: name?.familyName,
-      firstName: name?.givenName,
-      middleName: name?.middleName,
-      honorificPrefix: name?.honorificPrefix,
-      honorificSuffix: name?.honorificSuffix,
-      phoneticFullName: name?.phoneticFullName,
-      phoneticFamilyName: name?.phoneticFamilyName,
-      phoneticGivenName: name?.phoneticGivenName,
-      phoneticMiddleName: name?.phoneticMiddleName,
-      phoneticHonorificPrefix: name?.phoneticHonorificPrefix,
-      phoneticHonorificSuffix: name?.phoneticHonorificSuffix,
+      displayNameLastFirst: name?.displayNameLastFirst ?? undefined,
+      unstructuredName: name?.unstructuredName ?? undefined,
+      familyName: name?.familyName ?? undefined,
+      firstName: name?.givenName ?? undefined,
+      middleName: name?.middleName ?? undefined,
+      honorificPrefix: name?.honorificPrefix ?? undefined,
+      honorificSuffix: name?.honorificSuffix ?? undefined,
+      phoneticFullName: name?.phoneticFullName ?? undefined,
+      phoneticFamilyName: name?.phoneticFamilyName ?? undefined,
+      phoneticGivenName: name?.phoneticGivenName ?? undefined,
+      phoneticMiddleName: name?.phoneticMiddleName ?? undefined,
+      phoneticHonorificPrefix: name?.phoneticHonorificPrefix ?? undefined,
+      phoneticHonorificSuffix: name?.phoneticHonorificSuffix ?? undefined,
       source: src,
-    })) ?? [],
+    })) ?? []),
 
-    email: googleResult?.emailAddresses?.map((email: any) => ({
+    email: new Set(googleResult?.emailAddresses?.map((email): Email => ({
+      "@graph": "",
+      "@id": "",
       value: email?.value ?? "",
-      type2: getContactIriValue("email", email?.type),
-      displayName: email?.displayName,
+      type: appendPrefixToDictValue("email", "type", email?.type),
+      displayName: email?.displayName ?? undefined,
       preferred: !!email?.metadata?.primary,
       source: src,
-    })) ?? [],
+    })) ?? []),
 
-    address: googleResult?.addresses?.map((addr: any) => ({
+    address: new Set(googleResult?.addresses?.map((addr): Address => ({
+      "@graph": "",
+      "@id": "",
       value: addr?.formattedValue ?? "",
-      type2: getContactIriValue("address", addr?.type),
-      poBox: addr?.poBox,
-      streetAddress: addr?.streetAddress,
-      extendedAddress: addr?.extendedAddress,
-      city: addr?.city,
-      region: addr?.region,
-      postalCode: addr?.postalCode,
-      country: addr?.country,
-      countryCode: addr?.countryCode, //TODO: need to be changed when codes become IRI
+      type: appendPrefixToDictValue("address", "type", addr?.type),
+      poBox: addr?.poBox ?? undefined,
+      streetAddress: addr?.streetAddress ?? undefined,
+      extendedAddress: addr?.extendedAddress ?? undefined,
+      city: addr?.city ?? undefined,
+      region: addr?.region ?? undefined,
+      postalCode: addr?.postalCode ?? undefined,
+      country: addr?.country ?? undefined,
+      countryCode: addr?.countryCode ?? undefined, //TODO: need to be changed when codes become IRI
       preferred: !!addr?.metadata?.primary,
       source: src,
-    })) ?? [],
+    })) ?? []),
 
-    organization: googleResult?.organizations?.map((org: any) => ({
+    organization: new Set(googleResult?.organizations?.map((org): Organization => ({
+        "@graph": "",
+        "@id": "",
         value: org?.name ?? "",
-        department: org?.department,
-        position: org?.title,
-        jobDescription: org?.jobDescription,
-        phoneticName: org?.phoneticName,
+        department: org?.department ?? undefined,
+        position: org?.title ?? undefined,
+        jobDescription: org?.jobDescription ?? undefined,
+        phoneticName: org?.phoneticName ?? undefined,
         startDate: fmtDate(org?.startDate),
         endDate: fmtDate(org?.endDate),
         current: !!org?.current,
-        type2: getContactIriValue("organization", org?.type),
-        symbol: org?.symbol,
-        domain: org?.domain,
-        location: org?.location,
-        costCenter: org?.costCenter,
-        fullTimeEquivalentMillipercent: org?.fullTimeEquivalentMillipercent,
+        type: appendPrefixToDictValue("organization", "type", org?.type),
+        symbol: org?.symbol ?? undefined,
+        domain: org?.domain ?? undefined,
+        location: org?.location ?? undefined,
+        costCenter: org?.costCenter ?? undefined,
+        fullTimeEquivalentMillipercent: org?.fullTimeEquivalentMillipercent ?? undefined,
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    photo: googleResult?.photos?.map((p: any) => ({
+    photo: new Set(googleResult?.photos?.map((p): Photo => ({
+        "@graph": "",
+        "@id": "",
+        photoUrl: p?.url ?? "",
+        photoIRI: "",
+        preferred: p?.default ?? undefined,
+        source: src,
+      })) ?? []),
+
+    coverPhoto: new Set(googleResult?.coverPhotos?.map((p): CoverPhoto => ({
+        "@graph": "",
+        "@id": "",
         value: p?.url ?? "",
-        preferred: p?.default,
+        preferred: p?.default ?? undefined,
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    coverPhoto: googleResult?.coverPhotos?.map((p: any) => ({
-        value: p?.url ?? "",
-        preferred: p?.default,
-        source: src,
-      })) ?? [],
-
-    url: googleResult?.urls?.map((u: any) => ({
+    url: new Set(googleResult?.urls?.map((u): Url => ({
+        "@graph": "",
+        "@id": "",
         value: u?.value ?? "",
-        type2: getContactIriValue("url", u?.type),
+        type: appendPrefixToDictValue("url", "type", u?.type),
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    birthday: googleResult?.birthdays?.map((b: any) => ({
-        valueDate: fmtDate(b?.date),
+    birthday: new Set(googleResult?.birthdays?.map((b): Birthday => ({
+        "@graph": "",
+        "@id": "",
+        valueDate: fmtDate(b?.date) ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    biography: googleResult?.biographies?.map((bio: any) => ({
+    biography: new Set(googleResult?.biographies?.map((bio): Biography => ({
+        "@graph": "",
+        "@id": "",
         value: bio?.value ?? "",
-        contentType: bio?.contentType,
+        contentType: bio?.contentType ?? undefined,
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    event: googleResult?.events?.map((ev: any) => ({
-        startDate: fmtDate(ev?.date),
-        type2: getContactIriValue("event", ev?.type),
+    event: new Set(googleResult?.events?.map((ev): Event => ({
+        "@graph": "",
+        "@id": "",
+        startDate: fmtDate(ev?.date) ?? "",
+        type: appendPrefixToDictValue("event", "type", ev?.type),
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    gender: googleResult?.genders?.map((gender: any) => ({
-        valueIRI: getContactIriValue("gender", gender?.value),
-        addressMeAs: gender?.addressMeAs,
+    gender: new Set(googleResult?.genders?.map((gender): Gender => ({
+        "@graph": "",
+        "@id": "",
+        valueIRI: appendPrefixToDictValue("gender", "valueIRI", gender?.value),
+        addressMeAs: gender?.addressMeAs ?? undefined,
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    nickname: googleResult?.nicknames?.map((nickname: any) => ({
+    nickname: new Set(googleResult?.nicknames?.map((nickname): Nickname => ({
+        "@graph": "",
+        "@id": "",
         value: nickname?.value ?? "",
-        type2: nickname?.type,
+        type: appendPrefixToDictValue("nickname", "type", nickname?.type),
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    occupation: googleResult?.occupations?.map((occupation: any) => ({
+    occupation: new Set(googleResult?.occupations?.map((occupation): Occupation => ({
+        "@graph": "",
+        "@id": "",
         value: occupation?.value ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    relation: googleResult?.relations?.map((p: any) => ({
+    relation: new Set(googleResult?.relations?.map((p): Relation => ({
+        "@graph": "",
+        "@id": "",
         value: p?.person ?? "",
-        type2: getContactIriValue("relation", p?.type),
+        type: appendPrefixToDictValue("relation", "type", p?.type),
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    interest: googleResult?.interests?.map((interest: any) => ({
+    interest: new Set(googleResult?.interests?.map((interest): Interest => ({
+        "@graph": "",
+        "@id": "",
         value: interest?.value ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    skill: googleResult?.skills?.map((skill: any) => ({
+    skill: new Set(googleResult?.skills?.map((skill): Skill => ({
+        "@graph": "",
+        "@id": "",
         value: skill?.value ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    locationDescriptor: googleResult?.locations?.map((location: any) => ({
+    locationDescriptor: new Set(googleResult?.locations?.map((location): LocationDescriptor => ({
+        "@graph": "",
+        "@id": "",
         value: location?.value ?? "",
-        type2: location?.type,
-        current: location?.current,
-        buildingId: location?.buildingId,
-        floor: location?.floor,
-        floorSection: location?.floorSection,
-        deskCode: location?.deskCode,
+        type: location?.type ?? undefined,
+        current: location?.current ?? undefined,
+        buildingId: location?.buildingId ?? undefined,
+        floor: location?.floor ?? undefined,
+        floorSection: location?.floorSection ?? undefined,
+        deskCode: location?.deskCode ?? undefined,
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    locale: googleResult?.locales?.map((locale: any) => ({
-        value: bcpCodeToIRI(locale?.value),
+    locale: new Set(googleResult?.locales?.map((locale): Locale => ({
+        "@graph": "",
+        "@id": "",
+        value: bcpCodeToIRI(locale?.value ?? "") ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    account: googleResult?.imClients?.map((im: any) => ({
+    account: new Set(googleResult?.imClients?.map((im): Account => ({
+        "@graph": "",
+        "@id": "",
         value: im?.username ?? "",
-        protocol: im?.protocol,
-        type2: getContactIriValue("account", im?.type),
+        protocol: im?.protocol ?? undefined,
+        type: appendPrefixToDictValue("account", "type", im?.type),
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    sipAddress: googleResult?.sipAddresses?.map((sipAddress: any) => ({
-        value: sipAddress?.value,
-        type2: getContactIriValue("sipAddress", sipAddress?.type),
+    sipAddress: new Set(googleResult?.sipAddresses?.map((sipAddress): SipAddress => ({
+        "@graph": "",
+        "@id": "",
+        value: sipAddress?.value ?? "",
+        type: appendPrefixToDictValue("sipAddress", "type", sipAddress?.type),
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    extId: googleResult?.externalIds?.map((ex: any) => ({
+    extId: new Set(googleResult?.externalIds?.map((ex): ExternalId => ({
+        "@graph": "",
+        "@id": "",
         value: ex?.value ?? "",
-        type2: ex?.type,
+        type: ex?.type ?? undefined,
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    fileAs: googleResult?.fileAses?.map((fileAs: any) => ({
+    fileAs: new Set(googleResult?.fileAses?.map((fileAs): FileAs => ({
+        "@graph": "",
+        "@id": "",
         value: fileAs?.value ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    calendarUrl: googleResult?.calendarUrls?.map((calendarUrl: any) => ({
+    calendarUrl: new Set(googleResult?.calendarUrls?.map((calendarUrl): CalendarUrl => ({
+        "@graph": "",
+        "@id": "",
         value: calendarUrl?.url ?? "",
-        type2: getContactIriValue("calendarUrl", calendarUrl?.type === "freeBusy" ?
+        type: appendPrefixToDictValue("calendarUrl", "type", calendarUrl?.type === "freeBusy" ?
           "availability" : calendarUrl?.type),
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    clientData: googleResult?.clientData?.map((clientData: any) => ({
+    clientData: new Set(googleResult?.clientData?.map((clientData): ClientData => ({
+        "@graph": "",
+        "@id": "",
         key: clientData?.key ?? "",
         value: clientData?.value ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
-    userDefined: googleResult?.userDefined?.map((userDefined: any) => ({
+    userDefined: new Set(googleResult?.userDefined?.map((userDefined): UserDefined => ({
+        "@graph": "",
+        "@id": "",
         key: userDefined?.key ?? "",
         value: userDefined?.value ?? "",
         source: src,
-      })) ?? [],
+      })) ?? []),
 
     /*TODO membership:
-          googleResult?.memberships?.map((fileAs: any) => ({
+          googleResult?.memberships?.map((fileAs) => ({
             value: fileAs?.value ?? "",
             source: src,
           })) ?? [],*/
     /* TODO:tag: highly unlikely it would map to our IRI's*/
   };
 
-  return await processContactFromJSON(contactJson, withIds);
+  return await prepareContact(contact);
 }
 
-export function GmailRunner({open, onClose, onError, onGetResult}: SourceRunnerProps) {
-  const isNextGraph = useMemo(() => isNextGraphEnabled(), []);
-
+export function GmailRunner({open, onError, onGetResult}: SourceRunnerProps) {
   const getContacts = useCallback(async (accessToken: string) => {
-    const contacts: Contact[] = [];
+    const contacts: SocialContact[] = [];
     let pageToken;
     while (true) {
       const url = new URL("https://people.googleapis.com/v1/people/me/connections");
@@ -257,12 +332,10 @@ export function GmailRunner({open, onClose, onError, onGetResult}: SourceRunnerP
       const people = await (await googleFetch(
         url.toString(),
         accessToken
-      )).json();
-      console.log(people);
+      )).json() as people_v1.Schema$ListConnectionsResponse;
       if (people.connections) {
         for (const connection of people.connections) {
-          console.log(connection)
-          const contact = await mapGmailPerson(connection, !isNextGraph);
+          const contact = await mapGmailPerson(connection);
           contacts.push(contact);
         }
       }
@@ -274,7 +347,7 @@ export function GmailRunner({open, onClose, onError, onGetResult}: SourceRunnerP
     }
 
     onGetResult(contacts);
-  }, [onGetResult, isNextGraph]);
+  }, [onGetResult]);
 
   const login = useCallback(async () => {
     try {

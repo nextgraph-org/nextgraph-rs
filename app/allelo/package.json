@@ -57,6 +57,7 @@
     "dotenv": "^17.1.0",
     "flowbite": "^3.1.2",
     "flowbite-svelte": "^1.19.0",
+    "googleapis": "169.0.0",
     "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",
     "libphonenumber-js": "^1.12.17",
