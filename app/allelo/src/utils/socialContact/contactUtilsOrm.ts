@@ -3,6 +3,7 @@ import {defaultPolicy} from "@/config/sources.ts";
 import {geoApiService} from "@/services/geoApiService.ts";
 import {socialContactNonSetProperties, socialContactSetProperties} from "@/.orm/utils/contact.utils.ts";
 import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
+import {renderTemplate, defaultTemplates} from "@/utils/templateRenderer";
 
 type ContactSetProperties = {
   [K in keyof SocialContact as NonNullable<SocialContact[K]> extends Set<any> ? K : never]: SocialContact[K]
@@ -224,4 +225,71 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
   })
 
   return prepareContact(contact);
+}
+
+// ============================================================================
+// Contact Field Resolvers
+// ============================================================================
+// These functions resolve primary values from contact fields using the
+// resolveFrom utility and apply formatting/templates as needed.
+
+/**
+ * Resolves contact name using template renderer
+ * Uses the default contactName template
+ */
+export function resolveContactName(
+  contact: SocialContact | undefined,
+): string {
+  if (!contact) return '';
+
+  const name = resolveFrom(contact, 'name');
+  return name?.value || renderTemplate(defaultTemplates.contactName, name);
+}
+
+/**
+ * Resolves primary email address
+ */
+export function resolveContactEmail(contact: SocialContact | undefined): string | undefined {
+  if (!contact) return undefined;
+  const emailItem = resolveFrom(contact, 'email');
+  return emailItem?.value;
+}
+
+/**
+ * Resolves primary phone number
+ */
+export function resolveContactPhone(contact: SocialContact | undefined): string | undefined {
+  if (!contact) return undefined;
+  const phoneItem = resolveFrom(contact, 'phoneNumber');
+  return phoneItem?.value;
+}
+
+/**
+ * Resolves primary address using template renderer
+ */
+export function resolveContactAddress(contact: SocialContact | undefined): string | undefined {
+  if (!contact) return undefined;
+
+  const addressItem = resolveFrom(contact, 'address');
+  if (!addressItem) return undefined;
+
+  return renderTemplate(defaultTemplates.address, addressItem);
+}
+
+/**
+ * Resolves primary organization/affiliation
+ */
+export function resolveContactOrganization(contact: SocialContact | undefined): string | undefined {
+  if (!contact) return undefined;
+  const orgItem = resolveFrom(contact, 'organization');
+  return orgItem?.value;
+}
+
+/**
+ * Resolves primary photo IRI
+ */
+export function resolveContactPhoto(contact: SocialContact | undefined): string | undefined {
+  if (!contact) return undefined;
+  const photoItem = resolveFrom(contact, 'photo');
+  return photoItem?.photoIRI;
 }

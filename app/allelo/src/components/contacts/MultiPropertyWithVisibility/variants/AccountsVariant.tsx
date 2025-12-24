@@ -32,7 +32,7 @@ interface AccountsVariantProps<K extends ResolvableKey> {
   onNewItemValueChange: (value: string) => void;
   setIsAddingNew: (adding: boolean) => void;
   setNewItemValue: (value: string) => void;
-  contact?: Contact;
+  contact?: SocialContact;
 }
 
 export const AccountsVariant = <K extends ResolvableKey>({

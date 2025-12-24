@@ -1,6 +1,5 @@
 import {useMemo, useState, useEffect} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph.ts';
-import {isNextGraphEnabled} from '@/utils/featureFlags.ts';
 import {useNavigate} from 'react-router-dom';
 import {
   Typography,
@@ -15,11 +14,10 @@ import {
 import type {PersonhoodCredentials} from '@/types/personhood';
 import {NextGraphAuth} from "@/types/nextgraph";
 import {mockPersonhoodCredentials} from "@/mocks/profile";
-import {useContactData} from "@/hooks/contacts/useContactData.ts";
 import {NotificationsPage} from "@/components/notifications/NotificationsPage";
 import {AccountSettings} from "@/components/account/AccountPage/AccountSettings";
 import {TabItem, TabManager} from "@/components/ui/TabManager/TabManager.tsx";
-import {AccountPageProps, ProfileSection} from '@/components/account/AccountPage';
+import {ProfileSection} from '@/components/account/AccountPage';
 import {MyStream} from '@/components/account/AccountPage/MyStream';
 import {MyDocs} from '@/components/account/AccountPage/MyDocs';
 import {SocialQueries} from '@/components/account/AccountPage/SocialQueries';
@@ -27,19 +25,42 @@ import RCardList from "@/components/rcards/RCardList/RCardList.tsx";
 import {useSvelteComponent} from "svelte-in-react";
 import WalletInfo from "@/svelte/WalletInfo.svelte";
 import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
-export const AccountPageContent = ({
-                                     profileData,
-                                     resource,
-                                   }: AccountPageProps) => {
+
+
+export const AccountPage = () => {
+  const navigate = useNavigate();
+  const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
+  const {ormContact} = useContactOrm(null, true);
+
+  useEffect(() => {
+    if (!nextGraphAuth.session || !nextGraphAuth.session.sessionId) {
+      return;
+    }
+    nextgraphDataService.isProfileCreated(nextGraphAuth.session).then((isCreated) => {
+      if (!isCreated) {
+        navigate('/account/create', {replace: true});
+      }
+    })
+  }, [navigate, nextGraphAuth.session]);
+
+  const handleLogout = async () => {
+    try {
+      if (nextGraphAuth?.logout && typeof nextGraphAuth.logout === 'function') {
+        await nextGraphAuth.logout();
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   const [personhoodCredentials] = useState<PersonhoodCredentials>(mockPersonhoodCredentials);
   const ReactWalletInfo = useSvelteComponent(WalletInfo);
 
   const tabItems = useMemo<TabItem[]>(
     () => [
-      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={profileData} resource={resource}/>},
+      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={ormContact}/>},
       {label: "Alerts", icon: <UilBell size="20"/>, content: <NotificationsPage/>},
       {label: "My Stream", icon: <UilRss size="20"/>, content: <MyStream/>},
       {label: "My Docs", icon: <UilFileAlt size="20"/>, content: <MyDocs/>},
@@ -52,9 +73,13 @@ export const AccountPageContent = ({
       },
       {label: "Wallet", icon: <UilWallet size="20"/>, content:<ReactWalletInfo/>},
     ],
-    [profileData, resource, personhoodCredentials, ReactWalletInfo]
+    [ormContact, personhoodCredentials, ReactWalletInfo]
   );
-
+  
+  if (!ormContact) {
+    return null; // Or a loading spinner
+  }
+  
   return (
     <Box sx={{
       width: '100%',
@@ -111,74 +136,4 @@ export const AccountPageContent = ({
       )}*/}
     </Box>
   );
-};
-
-const NextGraphAccountPage = () => {
-  const navigate = useNavigate();
-  const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
-  const {contact, resource, isLoading} = useContactData(null, true);
-
-  useEffect(() => {
-    if (!nextGraphAuth.session || !nextGraphAuth.session.sessionId) {
-      return;
-    }
-    nextgraphDataService.isProfileCreated(nextGraphAuth.session).then((isCreated) => {
-      if (!isCreated) {
-        navigate('/account/create', {replace: true});
-      }
-    })
-  }, [navigate, nextGraphAuth.session]);
-
-  const handleLogout = async () => {
-    try {
-      if (nextGraphAuth?.logout && typeof nextGraphAuth.logout === 'function') {
-        await nextGraphAuth.logout();
-      }
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
-  if (isLoading || !contact) {
-    return null; // Or a loading spinner
-  }
-
-  if (!(resource instanceof NextGraphResource)) return null;
-
-  return <AccountPageContent profileData={contact} handleLogout={handleLogout} isNextGraph={true} resource={resource}/>;
-};
-
-const MockAccountPage = () => {
-  const navigate = useNavigate();
-  const {contact, resource, isLoading} = useContactData("myProfileId");
-
-  // Check if profile exists and has essential data
-  useEffect(() => {
-    if (!isLoading && contact) {
-      const hasName = (contact.name?.size ?? 0) > 0;
-      if (!hasName) {
-        // Profile is incomplete, redirect to create page
-        navigate('/account/create', {replace: true});
-      }
-    }
-  }, [contact, isLoading, navigate]);
-
-  if (isLoading || !contact) {
-    return null; // Or a loading spinner
-  }
-
-  if (!(resource instanceof NextGraphResource)) return null;
-
-  return <AccountPageContent profileData={contact} isNextGraph={false} resource={resource}/>;
-};
-
-
-export const AccountPage = () => {
-  const isNextGraph = isNextGraphEnabled();
-
-  if (isNextGraph) {
-    return <NextGraphAccountPage/>;
-  }
-
-  return <MockAccountPage/>;
 };

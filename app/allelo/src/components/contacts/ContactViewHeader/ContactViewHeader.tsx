@@ -26,7 +26,7 @@ import {useNavigate} from "react-router-dom";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
-import {useContactOrmStore} from "@/stores/contactOrmStore.ts";
+import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export interface ContactViewHeaderProps {
   contact: SocialContact | null;
@@ -46,10 +46,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
     const theme = useTheme();
     const {getCategoryIcon, getCategoryById} = useRCardsConfigs();
     const {getRCardById} = useGetRCards();
-
-    const {
-      resolveName,
-    } = useContactOrmStore();
 
     const getNaoStatusIndicator = useCallback((contact: SocialContact) => {
       switch (contact.naoStatus) {
@@ -90,7 +86,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
 
     if (!contact) return null;
 
-    const displayName = resolveName(contact);
+    const displayName = resolveContactName(contact);
     const naoStatus = getNaoStatusIndicator(contact);
 
     return (

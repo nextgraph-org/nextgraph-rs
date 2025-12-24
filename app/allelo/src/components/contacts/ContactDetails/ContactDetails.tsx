@@ -12,35 +12,18 @@ import {
   UilCheckCircle as CheckCircle,
   UilUser as PersonOutline
 } from '@iconscout/react-unicons';
-import type {Contact} from '@/types/contact';
 import {formatDate} from "@/utils/dateHelpers";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface ContactDetailsProps {
-  contact: Contact | null;
-  onHumanityToggle: () => void;
+  contact: SocialContact | null;
 }
 
 export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
   ({contact}, ref) => {
     const theme = useTheme();
 
-    // const getHumanityScoreInfo = (score?: number) => {
-    //   const scoreInfo = {
-    //     1: {label: 'Very Low', description: 'Unverified online presence', color: theme.palette.error.main},
-    //     2: {label: 'Low', description: 'Limited verification signals', color: theme.palette.warning.main},
-    //     3: {label: 'Moderate', description: 'Some verification indicators', color: theme.palette.warning.main},
-    //     4: {label: 'High', description: 'Multiple verification sources', color: theme.palette.primary.main},
-    //     5: {label: 'Verified Human', description: 'Confirmed human interaction', color: theme.palette.success.main},
-    //     6: {label: 'Trusted', description: 'Highly trusted individual', color: theme.palette.success.main},
-    //   };
-    //   return score ? scoreInfo[score as keyof typeof scoreInfo] : {
-    //     label: 'Unknown',
-    //     description: 'No humanity assessment',
-    //     color: theme.palette.text.disabled
-    //   };
-    // };
-
-    const getNaoStatusIndicator = (contact: Contact) => {
+    const getNaoStatusIndicator = (contact: SocialContact) => {
       switch (contact.naoStatus) {
         case 'member':
           return {
@@ -154,7 +137,7 @@ export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
           {/*  </Box>*/}
           {/*</Box>*/}
 
-          {contact.createdAt && <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
+          {contact.createdAt && <Box sx={{display: 'flex', alignItems: 'center', mb: 2, gap: 1}}>
             <Schedule sx={{mr: 2, color: 'text.secondary'}}/>
             <Box>
               <Typography variant="body2" color="text.secondary">
@@ -166,7 +149,7 @@ export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
             </Box>
           </Box>}
 
-          {contact.updatedAt && <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
+          {contact.updatedAt && <Box sx={{display: 'flex', alignItems: 'center', mb: 2, gap: 1}}>
             <Schedule sx={{mr: 2, color: 'text.secondary'}}/>
             <Box>
               <Typography variant="body2" color="text.secondary">

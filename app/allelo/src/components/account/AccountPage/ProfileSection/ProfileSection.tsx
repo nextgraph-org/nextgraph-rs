@@ -10,20 +10,28 @@ import {
   UilEdit,
   UilAngleUp, UilAngleDown,
 } from '@iconscout/react-unicons';
-import type {ProfileSectionProps} from '../types';
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
 import {MultiPropertyWithVisibility} from "@/components/contacts/MultiPropertyWithVisibility";
-import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {defaultTemplates} from "@/utils/templateRenderer.ts";
 import {ContactTags} from "@/components/contacts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
+import {PersonhoodCredentials} from "@/types/personhood.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
+
+export interface ProfileSectionProps {
+  personhoodCredentials?: PersonhoodCredentials;
+  onGenerateQR?: () => void;
+  onRefreshCredentials?: () => void;
+  initialProfileData: SocialContact;
+}
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
-  ({initialProfileData, resource}, ref) => {
+  ({initialProfileData}, ref) => {
     const [isEditing, setIsEditing] = useState(false);
     const [showNameDetails, setShowNameDetails] = useState(false);
-    const name = resolveFrom(initialProfileData, 'name');
-    const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+
+    const displayName = resolveContactName(initialProfileData);
 
     const handleEdit = useCallback(() => {
       setIsEditing(true);
@@ -44,8 +52,8 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
               display: 'flex',
               alignItems: "center"
             }}>
-                    <ContactAvatarUpload contactNuri={resource.uri} initial={displayName}
-                                         isEditing={isEditing} forProfile={true}/>
+              <ContactAvatarUpload contactNuri={initialProfileData["@graph"]} initial={displayName}
+                                   isEditing={isEditing} forProfile={true}/>
               <Box sx={{
                 display: "flex",
                 flexDirection: "row",
@@ -67,7 +75,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   label={"Full name"}
                   hideLabel={true}
                   template={defaultTemplates.contactName}
-                  resource={resource}
                 />
                 <IconButton
                   className="name-caret"
@@ -96,7 +103,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   isEditing={isEditing}
                   label={"First name"}
                   hideSources={true}
-                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -106,7 +112,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   isEditing={isEditing}
                   label={"Middle name"}
                   hideSources={true}
-                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -116,7 +121,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   isEditing={isEditing}
                   label={"Last name"}
                   hideSources={true}
-                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -126,7 +130,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   isEditing={isEditing}
                   label={"Honorific prefix"}
                   hideSources={true}
-                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -136,7 +139,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   isEditing={isEditing}
                   label={"Honorific suffix"}
                   hideSources={true}
-                  resource={resource}
                 />
               </Box>
             </Collapse>
@@ -153,11 +155,10 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 isEditing={isEditing}
                 template={defaultTemplates.headline}
                 templateProperty={"organization"}
-                resource={resource}
               />
             </Box>
             <Box sx={{pt: 1}}>
-              {/*<ContactTags contact={initialProfileData} resource={resource}/>*/}
+              <ContactTags contact={initialProfileData}/>
             </Box>
           </Grid>
 
@@ -174,7 +175,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                     contact={initialProfileData}
                     isEditing={isEditing}
                     validateType={"email"}
-                    resource={resource}
                   />
                 </Grid>
                 <Grid size={{xs: 12, sm: 6}}>
@@ -185,7 +185,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                     contact={initialProfileData}
                     isEditing={isEditing}
                     validateType={"phone"}
-                    resource={resource}
                     required={false}
                   />
                 </Grid>
@@ -198,7 +197,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                     isEditing={isEditing}
                     validateType={"text"}
                     variant={"addresses"}
-                    resource={resource}
                   />
                 </Grid>
                 <Grid size={{xs: 12, sm: 6}}>
@@ -210,7 +208,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                     isEditing={isEditing}
                     validateType={"url"}
                     variant={"url"}
-                    resource={resource}
                   />
                 </Grid>
               </Grid>
@@ -224,7 +221,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   contact={initialProfileData}
                   isEditing={isEditing}
                   isMultiline={true}
-                  resource={resource}
                 />
               </Box>
 
@@ -237,7 +233,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                   contact={initialProfileData}
                   isEditing={isEditing}
                   validateType={"text"}
-                  resource={resource}
                 />
               </Box>
             </Box>

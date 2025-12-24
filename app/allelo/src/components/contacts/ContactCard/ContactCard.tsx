@@ -7,9 +7,8 @@ import {
 } from '@iconscout/react-unicons';
 import {ContactCardDetailed} from './ContactCardDetailed';
 import {iconFilter} from "@/hooks/contacts/useContacts";
-import {useContactData} from "@/hooks/contacts/useContactData";
 import {useDraggable} from "@dnd-kit/core";
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {useResolvedContact} from "@/hooks/contacts/useResolvedContact.ts";
 
 export interface ContactCardProps {
   nuri: string;
@@ -30,7 +29,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
      inManageMode
    }, ref) => {
     const theme = useTheme();
-    const {contact, resource} = useContactData(nuri);
+    const {ormContact, name} = useResolvedContact(nuri);
     const draggedContactIds = useMemo(
       () => (getDragContactIds ? getDragContactIds(nuri) : [nuri]),
       [getDragContactIds, nuri]
@@ -66,7 +65,6 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
       }
     };
 
-    const name = resolveFrom(contact, 'name');
     if (!name) {
       return ;
     }
@@ -75,7 +73,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
       <Card
         ref={handleRef} {...(!isSelectionMode ? listeners : {})} {...(!isSelectionMode ? attributes : {})}
         onClick={() => {
-          onContactClick(resource ? resource.uri! : '');
+          onContactClick(ormContact["@graph"]);
         }}
         sx={{
           border: 1,
@@ -93,7 +91,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
           }
         }}>
           <ContactCardDetailed
-            contact={contact}
+            contact={ormContact}
             getNaoStatusIcon={getNaoStatusIcon}
             onSetIconFilter={onSetIconFilter}
           />

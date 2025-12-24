@@ -6,7 +6,6 @@ import {
   Divider,
   Grid,
   Alert,
-  Skeleton,
   Button
 } from '@mui/material';
 import {
@@ -21,7 +20,7 @@ import {
   RejectedVouchesAndPraises
 } from '@/components/contacts';
 import {VouchesAndPraises} from "@/components/contacts/VouchesAndPraises";
-import {useResolvedContact} from "@/stores/contactOrmStore";
+import {useResolvedContact} from "@/hooks/contacts/useResolvedContact.ts";
 
 const ContactViewPage = () => {
   const {id} = useParams<{ id: string }>();
@@ -90,19 +89,17 @@ const ContactViewPage = () => {
           </Grid>
 
           <Grid size={{xs: 12, md: 6}}>
-            {/*TODO: <ContactDetails
+            <ContactDetails
               contact={contact}
-              onHumanityToggle={toggleHumanityVerification}
-            />*/}
+            />
           </Grid>
         </Grid>
 
         <Divider sx={{my: 3}}/>
 
-        {/*TODO:<ContactActions
+        <ContactActions
           contact={contact}
           onInviteToNAO={handleInviteToNAO}
-          onConfirmHumanity={toggleHumanityVerification}
         />
 
         <VouchesAndPraises
@@ -114,7 +111,7 @@ const ContactViewPage = () => {
         <RejectedVouchesAndPraises
           contact={contact} 
           onAcceptanceChanged={handleRefreshVouches}
-        />*/}
+        />
       </Paper>
 
       <Box sx={{
