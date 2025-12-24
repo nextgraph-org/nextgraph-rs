@@ -29,9 +29,9 @@ import {ValidationType} from "@/hooks/useFieldValidation";
 import {AddressVariant} from "@/components/contacts/MultiPropertyWithVisibility/variants/AddressVariant.tsx";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
+import {profileService} from "@/services/profileService.ts";
 
 type ResolvableKey = ContactKeysWithHidden;
 
@@ -79,7 +79,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
   };
 
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
-  const isProfile: boolean = useMemo<boolean>(() => nextgraphDataService.isContactProfile(session, contact),
+  const isProfile: boolean = useMemo<boolean>(() => profileService.isContactProfile(session, contact),
     [session, contact]);
 
   const [allItems, setAllItems] = useState<any[]>([]);

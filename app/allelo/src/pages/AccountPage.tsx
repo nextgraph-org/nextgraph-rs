@@ -24,8 +24,8 @@ import {SocialQueries} from '@/components/account/AccountPage/SocialQueries';
 import RCardList from "@/components/rcards/RCardList/RCardList.tsx";
 import {useSvelteComponent} from "svelte-in-react";
 import WalletInfo from "@/svelte/WalletInfo.svelte";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {profileService} from "@/services/profileService.ts";
 
 
 
@@ -38,7 +38,7 @@ export const AccountPage = () => {
     if (!nextGraphAuth.session || !nextGraphAuth.session.sessionId) {
       return;
     }
-    nextgraphDataService.isProfileCreated(nextGraphAuth.session).then((isCreated) => {
+    profileService.isProfileCreated(nextGraphAuth.session).then((isCreated) => {
       if (!isCreated) {
         navigate('/account/create', {replace: true});
       }

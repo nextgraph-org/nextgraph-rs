@@ -1,14 +1,16 @@
 import {useCallback, useState, useEffect, useRef} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
-import {nextgraphDataService} from "@/services/nextgraphDataService";
 import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes.ts";
 import {useShape} from "@ng-org/orm/react";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {rCardService} from "@/services/rCardService.ts";
+import {contactService} from "@/services/contactService.ts";
 
 interface UseSaveContactsReturn {
   saveContacts: (contacts: SocialContact[], onProgress?: (current: number, total: number) => void) => Promise<void>;
   createContact: (contact: SocialContact) => Promise<SocialContact | undefined>;
+  updateContact: (contactId: string, updates: Partial<SocialContact>) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -42,7 +44,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
       const startTime = Date.now();
       console.log(`Starting to save ${contacts.length} contacts...`);
 
-      const rCardId = await nextgraphDataService.getRCardId(session);
+      const rCardId = await rCardService.getRCardId(session);
 
       for (let i = 0; i < contacts.length; i++) {
         const docId = await session.ng!.doc_create(
@@ -97,7 +99,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
     }
 
     try {
-      const rCardId = await nextgraphDataService.getRCardId(session);
+      const rCardId = await rCardService.getRCardId(session);
 
       const docId = await session.ng!.doc_create(
         session.sessionId,
@@ -121,10 +123,18 @@ export function useSaveContacts(): UseSaveContactsReturn {
     }
   }, [session, contactsSet]);
 
+  const updateContact = async (contactId: string, updates: Partial<Contact>) => {
+    try {
+      await contactService.updateContact(session, contactId.substring(0, 53), updates, commitData, changeData);
+    } catch (error) {
+      console.error(`❌ Failed to persist contact update for ${contactId}:`, error);
+    }
+  };
 
   return {
     saveContacts,
     createContact,
+    updateContact,
     isLoading,
     error
   };

@@ -1,9 +1,7 @@
 import {dataset, useLdo, useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {SocialContact} from "@/.ldo/contact.typings.ts";
 import {useCallback, useMemo} from "react";
 import {ContactLdSetProperties} from "@/utils/socialContact/contactUtils.ts";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 import {getPermissionConfig, getPermissionId, rCardPermissionConfig} from "@/constants/rPermissions.ts";
 import {RCard, RCardPermission} from "@/.ldo/rcard.typings.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
@@ -13,6 +11,9 @@ import {
   SPARQL_PREFIXES,
   sparqlUpdatePermissionEntry
 } from "@/utils/sparqlHelpers.ts";
+import {profileService} from "@/services/profileService.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {contactService} from "@/services/contactService.ts";
 
 interface UpdatePermissionReturn {
   updatePermissionsNode: (propertyKey: keyof ContactLdSetProperties, propertyNuri?: string) => void;
@@ -26,7 +27,7 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
   const {commitData, changeData} = useLdo();
   const {getRCards} = useGetRCards();
 
-  const isProfile: boolean = useMemo<boolean>(() => isNewProfile || nextgraphDataService.isContactProfile(session, profile),
+  const isProfile: boolean = useMemo<boolean>(() => isNewProfile || profileService.isContactProfile(session, profile),
     [profile, session, isNewProfile]);
 
   const addPermissionsWithNodes = useCallback(async (rCard: RCard, permission: RCardPermission, nuris: string[]) => {
@@ -102,10 +103,10 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
   }, [session]);
 
   const getContact = useCallback(async (property: string) => {
-    const nuri = nextgraphDataService.getProfileNuri(session);
+    const nuri = profileService.getProfileNuri(session);
     if (!session.sessionId || !nuri) return;
 
-    return await nextgraphDataService.getContactPropertiesList(session, nuri, property);
+    return await contactService.getContactPropertiesList(session, nuri, property);
   }, [session])
 
   const updatePermissionsNode = useCallback(async (

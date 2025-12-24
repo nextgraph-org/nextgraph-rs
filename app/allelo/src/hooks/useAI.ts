@@ -1,9 +1,9 @@
 import {useCallback, useEffect, useState} from 'react';
 import {WSClient, tools, ChatCompletionMessageParam} from '@/lib/ws-ai-client';
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import { WS_AI_URL, schemaStructure } from '@/config/aiApi.ts';
+import {contactService} from "@/services/contactService.ts";
 
 interface UseAIReturn {
   promptNonStream: (messages: ChatCompletionMessageParam[]) => Promise<string>;
@@ -34,7 +34,7 @@ export function useAI(isMock?: boolean): UseAIReturn {
     console.log("Executing tool: ", name, "with args: ", args);
 
     const getContactAllProperties = async (nuri: string) => {
-      const contactResult = await nextgraphDataService.getContactAllProperties(session!, nuri);
+      const contactResult = await contactService.getContactAllProperties(session!, nuri);
       const contact = contactResult?.results?.bindings?.map((binding) => `${binding.mainProperty.value}, ${binding.subProperty.value}, ${binding.value.value}`).join('\n');
       return `\n\nSubject, Predicate, Object\n${contact}\n\n`;
     }
@@ -53,7 +53,7 @@ export function useAI(isMock?: boolean): UseAIReturn {
           filterParams.set('fts', args.value);
 
           console.log("Searching contacts with params", args.value);
-          const contactIDsResult = await nextgraphDataService.getContactIDs(session, limit, offset,
+          const contactIDsResult = await contactService.getContactIDs(session, limit, offset,
               undefined, undefined, [{sortBy, sortDirection}], filterParams);
 
           console.log("Found contacts: ", contactIDsResult?.results?.bindings?.length);

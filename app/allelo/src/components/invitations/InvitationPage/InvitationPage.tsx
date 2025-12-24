@@ -113,9 +113,10 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
               label="Select RCard"
               onChange={(e) => {
                 setSelectedCategory(e.target.value);
-                if (contact)
-                  updateContact(contact["@id"]!, {rcard: {"@id": e.target.value}}).then(() => setSelectedCategory(e.target.value)
-                  )
+                if (contact) {
+                  updateContact(contact["@id"]!, {rcard: e.target.value}).then(
+                    () => setSelectedCategory(e.target.value))
+                }
               }}
               displayEmpty={false}
             >

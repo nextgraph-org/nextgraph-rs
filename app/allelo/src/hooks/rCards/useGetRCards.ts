@@ -1,9 +1,9 @@
 import {useCallback, useEffect, useState} from "react";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 import {RCard, RCardPermission} from "@/.ldo/rcard.typings.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
+import {rCardService} from "@/services/rCardService.ts";
 
 interface GetRCardsReturn {
   getRCardIDs: () => Promise<string[]>;
@@ -26,7 +26,7 @@ export const useGetRCards = (): GetRCardsReturn => {
   const {getCategoryDisplayName} = useRCardsConfigs();
 
   const getRCardIDs = useCallback(async () => {
-    return await nextgraphDataService.getRCardsIDs(session);
+    return await rCardService.getRCardsIDs(session);
   }, [session]);
 
   const rCardsExist = useCallback(async () => {

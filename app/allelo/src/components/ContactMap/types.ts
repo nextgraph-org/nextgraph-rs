@@ -1,8 +1,8 @@
-import type { Contact } from '@/types/contact';
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface ContactMapProps {
   contactNuris: string[];
-  onContactClick?: (contact: Contact) => void;
+  onContactClick?: (contact: SocialContact) => void;
 }
 
 export interface MapControllerProps {
