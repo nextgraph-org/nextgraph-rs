@@ -1,0 +1,32 @@
+# Platform ontologies
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+
+# Domain ontology for App Settings
+PREFIX ngset: <did:ng:x:settings#>
+
+ngset:AppSettings EXTRA a {
+  # Core type definition
+  a [ ngset:Settings ]
+    // rdfs:comment "Defines the node as App Settings" ;
+
+  # Onboarding state
+  ngset:onboardingStep xsd:integer ?
+    // rdfs:comment "Current onboarding step (0-based index)" ;
+
+  ngset:isOnboardingFinished xsd:boolean ?
+    // rdfs:comment "Whether the user has completed onboarding" ;
+
+  # Import requests
+  ngset:lnImportRequested xsd:boolean ?
+    // rdfs:comment "Whether LinkedIn import has been requested" ;
+
+  ngset:lnImportFinished xsd:boolean ?
+    // rdfs:comment "Whether LinkedIn import has been finished" ;
+
+  ngset:greencheckId xsd:string ?
+    // rdfs:comment "id from greencheck" ;
+
+  ngset:greencheckToken xsd:string ?
+    // rdfs:comment "temporary token from greencheck" ;
+}

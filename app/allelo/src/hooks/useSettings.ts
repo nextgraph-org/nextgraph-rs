@@ -1,106 +1,78 @@
-import {useCallback, useEffect, useState} from "react";
-import {isNextGraphEnabled} from "@/utils/featureFlags";
-import {useLdo, useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";
+import {useCallback, useEffect, useMemo} from "react";
 import {NextGraphAuth} from "@/types/nextgraph";
-import {AppSettings} from "@/.ldo/settings.typings.ts";
-import {AppSettingsShapeType} from "@/.ldo/settings.shapeTypes.ts";
 import type {OnboardingState} from "@/types/onboarding.ts";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
+import {settingsService} from "@/services/settingsService.ts";
+import {useShape} from "@ng-org/orm/react";
+import {useNextGraphAuth} from "@/.auth-react/NextGraphAuthContext";
+import {AppSettings} from "@/.orm/shapes/settings.typings.ts";
+import {AppSettingsShapeType} from "@/.orm/shapes/settings.shapeTypes.ts";
+import {getShortId, persistProperty} from "@/utils/orm/ormUtils.ts";
 
+export interface UseSettingsReturn {
+  settings: AppSettings | undefined;
+  saveToStorage: (state: OnboardingState) => Promise<void>;
+  updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
+}
 
-export const useSettings = () => {
-  const {commitData, changeData} = useLdo();
+type UpdatableSettings = Omit<AppSettings, "@graph" | "@id">;
 
-  const [settings, setSettings] = useState<AppSettings | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export const useSettings = (): UseSettingsReturn => {
+  console.log("useSettings");
 
-  const isNextGraph = isNextGraphEnabled();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
-  const sessionId = session?.sessionId;
 
-  let nuri;
-  if (session?.privateStoreId) {
-    nuri = "did:ng:" + session.privateStoreId;
-  }
+  const scope = useMemo(() => session?.privateStoreId ? "did:ng:" + session.privateStoreId : undefined, [session]);
 
-  // NextGraph subscription
-  const resource = useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
+  const appSettingsSet = useShape(AppSettingsShapeType, scope);
+  const appSettings = [...appSettingsSet][0] as AppSettings;
 
-  const appSettings: AppSettings | undefined = useSubject(
-    AppSettingsShapeType,
-    sessionId && nuri ? nuri.substring(0, 53) : undefined
-  );
-
-  const saveToStorage = useCallback(async (state: OnboardingState) => {
-    try {
-      const hasSettings = await nextgraphDataService.isSettingsCreated(session);
-      if (!hasSettings) {
-        await nextgraphDataService.createSettings(session);
-      }
-
-      const settings: Partial<AppSettings> = {}
-      if (state.currentStep) {
-        settings.onboardingStep = state.currentStep;
-      }
-      if (state.isComplete) {
-        settings.isOnboardingFinished = state.isComplete;
-      }
-      if (state.lnImportRequested) {
-        settings.lnImportRequested = state.lnImportRequested;
-      }
-
-      await nextgraphDataService.updateSettings(session, settings, changeData, commitData);
-    } catch (error) {
-      console.error('Failed to save onboarding state:', error);
-    }
-  }, [changeData, commitData, session]);
-
-
-  const refreshSettings = useCallback(async () => {
+  useEffect(() => {
     if (!session || !session.sessionId) {
       return;
     }
-    const hasSettings = await nextgraphDataService.isSettingsCreated(session);
-    if (!hasSettings) {
-      await nextgraphDataService.createSettings(session);
-      const settings: Partial<AppSettings> = {
-        isOnboardingFinished: false,
-        onboardingStep: 0,
-      }
-      await nextgraphDataService.updateSettings(session, settings, changeData, commitData);
-    }
-    if (appSettings?.onboardingStep !== undefined) {
-      setSettings(appSettings);
-      setIsLoading(false);
-      setError(null);
-    }
-  }, [appSettings, changeData, commitData, session]);
+    if (appSettings === undefined) {
+      settingsService.isSettingsCreated(session).then((hasSettings) => {
+        if (hasSettings) return;
 
-  const updateSettings = useCallback(async (settings: Partial<AppSettings>) => {
+        appSettingsSet.add({
+          "@graph": scope,
+          "@id": getShortId(scope!),
+          "@type": new Set(["did:ng:x:settings#Settings"]),
+          isOnboardingFinished: false,
+          onboardingStep: 0
+        } as AppSettings);
+      })
+    }
+  }, [appSettings, appSettingsSet, scope, session]);
+
+  const updateSettings = useCallback(async (updateData: Partial<UpdatableSettings>) => {
     try {
-      const hasSettings = await nextgraphDataService.isSettingsCreated(session);
-      if (!hasSettings) {
-        await nextgraphDataService.createSettings(session);
+      if (!appSettings) {
+        console.error('State is not initialized');
+        return;
       }
 
-      await nextgraphDataService.updateSettings(session, settings, changeData, commitData);
+      for (const key in updateData) {
+        const propertyKey = key as keyof UpdatableSettings;
+        persistProperty(propertyKey, appSettings, updateData);
+      }
     } catch (error) {
       console.error('Failed to update settings:', error);
     }
-  }, [changeData, commitData, session]);
+  }, [appSettings]);
 
+  const saveToStorage = useCallback(async (state: OnboardingState) => {
+    await updateSettings({
+      onboardingStep: state.currentStep,
+      isOnboardingFinished: state.isComplete,
+      lnImportRequested: state.lnImportRequested
+    });
+  }, [updateSettings]);
 
-  useEffect(() => {
-    if (!isNextGraph) {
-      setSettings(undefined);
-      setIsLoading(false);
-      setError(null);
-    } else {
-      refreshSettings();
-    }
-  }, [isNextGraph, refreshSettings, appSettings]);
-
-  return {settings, isLoading, error, setSettings, resource, saveToStorage, updateSettings};
+  return {
+    settings: appSettings,
+    updateSettings,
+    saveToStorage,
+  };
 };
