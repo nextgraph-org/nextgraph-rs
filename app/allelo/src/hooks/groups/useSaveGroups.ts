@@ -20,8 +20,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
   const groups = useShape(SocialGroupShapeType);
 
-
-
   function generateUri(base: string) {
     return base.substring(0, 9 + 44);
   }

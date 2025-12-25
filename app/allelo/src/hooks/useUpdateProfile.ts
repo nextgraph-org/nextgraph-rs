@@ -63,7 +63,7 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [session, updateProfilePermissionNodes]);
+  }, [contactSet, profile, scope, session, updateProfilePermissionNodes]);
 
   return {
     updateProfile,
