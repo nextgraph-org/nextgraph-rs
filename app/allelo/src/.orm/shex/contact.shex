@@ -146,6 +146,8 @@ ngc:SocialContact EXTRA a {
   ngcontact:mergedFrom IRI * ;
   ngcontact:centralityScore xsd:integer ?;
   ngcontact:mostRecentInteraction xsd:dateTime ?;
+
+  ngcontact:isDraft xsd:boolean ? ;
 }
 
 ngc:PhoneNumber {

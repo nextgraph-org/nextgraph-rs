@@ -60,6 +60,7 @@ export const socialContactNonSetProperties = [
   "joinedAt",
   "centralityScore",
   "mostRecentInteraction",
+  "isDraft",
 ] as const;
 
 export type SocialContactSetPropertyName = (typeof socialContactSetProperties)[number];

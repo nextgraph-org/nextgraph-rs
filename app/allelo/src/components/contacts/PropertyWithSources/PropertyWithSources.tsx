@@ -18,7 +18,6 @@ import {
   resolveFrom
 } from '@/utils/socialContact/contactUtilsOrm';
 import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper";
-import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
 import {renderTemplate} from "@/utils/templateRenderer";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
@@ -82,9 +81,9 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                                                              }: PropertyWithSourcesProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const isNextgraph = useMemo(() => isNextGraphEnabled(), []);
   //TODO: const {updatePermissionsNode} = useUpdatePermission(contact);
-  const updatePermissionsNode = (el: string) => {};
+  const updatePermissionsNode = (el: string) => {
+  };
 
   const [currentValue, setCurrentValue] = useState<string>();
   const [localValue, setLocalValue] = useState<string>("");
@@ -176,14 +175,9 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       return contactObj;
     }
 
-    if (isNextgraph && !contact.isDraft) {
-      editPropertyWithUserSource(contact);
-      updatePermissionsNode(propertyKey);
-    } else {
-      editPropertyWithUserSource(contact, true);
-      handleChange();
-    }
-  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, updatePermissionsNode, handleChange]);
+    editPropertyWithUserSource(contact);
+    updatePermissionsNode(propertyKey);
+  }, [contact, currentValue, localValue, propertyKey, currentItem, subKey, isMultipleField, updatePermissionsNode]);
 
   // Handle page navigation/unload to persist any unsaved changes
   useEffect(() => {
@@ -214,20 +208,14 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       return;
     }
 
-    if (isNextgraph) {
-      if (!isMultipleField) {
-        updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
-      }
-      updatePermissionsNode(propertyKey, item["@id"]);
-    } else {
-      if (!isMultipleField) {
-        updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
-      }
+    if (!isMultipleField) {
+      updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
     }
+    updatePermissionsNode(propertyKey, item["@id"]);
 
     handleClose();
     handleChange();
-  }, [contact, handleChange, isMultipleField, isNextgraph, propertyKey, updatePermissionsNode]);
+  }, [contact, handleChange, isMultipleField, propertyKey, updatePermissionsNode]);
 
   const [isValid, setIsValid] = useState(true);
 

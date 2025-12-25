@@ -4,6 +4,8 @@ import {geoApiService} from "@/services/geoApiService.ts";
 import {socialContactNonSetProperties, socialContactSetProperties} from "@/.orm/utils/contact.utils.ts";
 import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 import {renderTemplate, defaultTemplates} from "@/utils/templateRenderer";
+import {NextGraphSession} from "@/types/nextgraph.ts";
+import {contactsOverlay} from "@/constants/overlays.ts";
 
 type ContactSetProperties = {
   [K in keyof SocialContact as NonNullable<SocialContact[K]> extends Set<any> ? K : never]: SocialContact[K]
@@ -292,4 +294,8 @@ export function resolveContactPhoto(contact: SocialContact | undefined): string 
   if (!contact) return undefined;
   const photoItem = resolveFrom(contact, 'photo');
   return photoItem?.photoIRI;
+}
+
+export function getContactGraph(nuri: string, session: NextGraphSession): string {
+  return nuri.substring(0,53) + contactsOverlay(session);
 }

@@ -17,8 +17,6 @@ export interface UseSettingsReturn {
 type UpdatableSettings = Omit<AppSettings, "@graph" | "@id">;
 
 export const useSettings = (): UseSettingsReturn => {
-  console.log("useSettings");
-
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
 

@@ -30,6 +30,42 @@ export function useSaveContacts(): UseSaveContactsReturn {
     return base.substring(0, 9 + 44);
   }
 
+  const createContact = useCallback(async (contact: SocialContact, rCardId?: string): Promise<SocialContact | undefined> => {
+    if (!session || !session.ng) {
+      const errorMsg = 'No active session available';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    try {
+      rCardId ??= await rCardService.getRCardId(session);
+
+      const docId = await session.ng!.doc_create(
+        session.sessionId,
+        "Graph",
+        "data:graph",
+        "store"
+      );
+
+      // @ts-expect-error @graph shouldn't be readonly
+      contact["@graph"] = docId;
+      // @ts-expect-error @id shouldn't be readonly
+      contact["@id"] = generateUri(docId);
+
+      contact.rcard = rCardId;
+
+      await contactService.updateContactDocHeader(contact, session);
+
+      currentContactRef.current = contact;
+
+      setCurrentDocId(docId);
+      return contact;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save contacts';
+      setError(errorMsg);
+    }
+  }, [session]);
+
   const saveContacts = useCallback(async (contacts: SocialContact[], onProgress?: (current: number, total: number) => void) => {
     if (!session) {
       const errorMsg = 'No active session available';
@@ -47,22 +83,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
       const rCardId = await rCardService.getRCardId(session);
 
       for (let i = 0; i < contacts.length; i++) {
-        const docId = await session.ng!.doc_create(
-          session.sessionId,
-          "Graph",
-          "data:graph",
-          "store"
-        );
-
-        // @ts-expect-error @graph shouldn't be readonly
-        contacts[i]["@graph"] = docId;
-        // @ts-expect-error @id shouldn't be readonly
-        contacts[i]["@id"] = generateUri(docId);
-
-        contacts[i].rcard = rCardId;
-
-        currentContactRef.current = contacts[i];
-        setCurrentDocId(docId);
+        await createContact(contacts[i], rCardId);
 
         onProgress?.(i + 1, contacts.length);
 
@@ -83,45 +104,13 @@ export function useSaveContacts(): UseSaveContactsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [session]);
+  }, [createContact, session]);
 
   useEffect(() => {
     if (currentDocId && contactsSet && currentContactRef.current) {
       contactsSet.add(currentContactRef.current);
     }
   }, [currentDocId, contactsSet]);
-
-  const createContact = useCallback(async (contact: SocialContact): Promise<SocialContact | undefined> => {
-    if (!session || !session.ng) {
-      const errorMsg = 'No active session available';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    try {
-      const rCardId = await rCardService.getRCardId(session);
-
-      const docId = await session.ng!.doc_create(
-        session.sessionId,
-        "Graph",
-        "data:graph",
-        "store"
-      );
-
-      // @ts-expect-error @graph shouldn't be readonly
-      contact["@graph"] = docId;
-      // @ts-expect-error @id shouldn't be readonly
-      contact["@id"] = generateUri(docId);
-
-      contact.rcard = rCardId;
-      contactsSet.add(contact);
-
-      return contact;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to save contacts';
-      setError(errorMsg);
-    }
-  }, [session, contactsSet]);
 
   const updateContact = async (contactId: string, updates: Partial<Contact>) => {
     try {

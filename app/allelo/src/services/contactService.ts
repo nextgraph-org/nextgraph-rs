@@ -4,6 +4,7 @@ import {Photo, SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {imageService} from "@/services/imageService.ts";
 import {socialContactSetProperties, SocialContactSetPropertyName} from "@/.orm/utils/contact.utils.ts";
 import {persistProperty} from "@/utils/orm/ormUtils.ts";
+import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 class ContactService {
   private static instance: ContactService;
@@ -27,6 +28,8 @@ class ContactService {
   async getContactIDs(session: NextGraphSession, limit?: number, offset?: number, base?: string, nuri?: string,
                       orderBy?: SortParams[], filterParams?: Map<string, string>) {
     const sparql = this.getAllContactIdsQuery(session, "vcard:Individual", limit, offset, orderBy, filterParams);
+
+    console.log(sparql);
 
     return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
   }
@@ -251,6 +254,10 @@ WHERE {
   getFilter(filterParams?: Map<string, string>, session?: NextGraphSession) {
     filterParams ??= new Map();
     const filterData = [
+      `OPTIONAL {
+          ?contactUri ngcontact:isDraft ?isDraft .
+      }`,
+      `FILTER ( !BOUND(?isDraft) || ?isDraft = false )`,
       `FILTER NOT EXISTS { ?contactUri ngcontact:mergedInto ?mergedIntoNode }`
     ];
     for (const [key, value] of filterParams) {
@@ -313,6 +320,43 @@ WHERE {
         console.error("Couldn't upload file: ", e);
       }
       persistProperty(propertyKey, contact, updateData, socialContactSetProperties.includes(propertyKey as SocialContactSetPropertyName));
+    }
+  }
+
+  async updateContactDocHeader(contact: SocialContact, session: NextGraphSession) {
+    const contactName = resolveContactName(contact) || 'Unknown Contact';
+    await session!.ng!.update_header(session.sessionId, contact["@graph"], contactName);
+  }
+
+  async getDraftContactId(session: NextGraphSession): Promise<string | undefined> {
+    const sparql = `
+      ${this.prefixes}
+      SELECT DISTINCT ?contactUri
+      WHERE {
+        ?contactUri a vcard:Individual .
+        ?contactUri ngcontact:isDraft ?isDraft .
+        FILTER (?isDraft = true )
+      }
+    `;
+
+    const result = await session.ng!.sparql_query(session.sessionId, sparql);
+
+    return (result.results?.bindings ?? [])[0]?.contactUri.value;
+  }
+
+  resetDraftContact(draftContact: SocialContact) {
+    const excludeFields: (keyof SocialContact)[] = ["@graph", "@id", "@type", "isDraft", "rcard"];
+    for (const key in draftContact) {
+      const propertyKey = key as keyof SocialContact;
+
+      if (excludeFields.includes(propertyKey)) {
+        continue;
+      }
+      delete draftContact[propertyKey];
+      const isSetProperty = socialContactSetProperties.includes(propertyKey as SocialContactSetPropertyName);
+      if (isSetProperty) {
+        draftContact[propertyKey as SocialContactSetPropertyName] = new Set<any>();
+      }
     }
   }
 }
