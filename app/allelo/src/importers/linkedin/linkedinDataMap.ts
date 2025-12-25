@@ -1,9 +1,17 @@
 import {LinkedInContactData, LinkedInData, LinkedInProfileData} from "@/importers/linkedin/linkedInTypes";
-import {Contact} from "@/types/contact";
 import {codeIRIByLanguageName} from "@/utils/bcp47map";
 import {getProficiencyIRI} from "@/utils/proficiencyMap";
-import {processContactFromJSON} from "@/utils/socialContact/contactUtils";
 import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
+import {
+  Email,
+  Language,
+  Organization,
+  PhoneNumber,
+  Project, Publication,
+  Skill,
+  SocialContact
+} from "@/.orm/shapes/contact.typings.ts";
+import {prepareContact} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 const parseLinkedInDate = (dateStr: string): string | undefined => {
   if (!dateStr) return undefined;
@@ -29,92 +37,59 @@ export async function mapLinkedInPerson(
   linkedInUsername: string | undefined,
   isProfile = false,
   otherData?: LinkedInData["data"]["otherData"],
-  withIds = true
-): Promise<Contact> {
+): Promise<SocialContact> {
   const src = "LinkedIn";
 
-  const contactJson: any = {
-    type: [
-      {
-        "@id": "Individual"
-      }
-    ],
+  const contact: Partial<SocialContact> = {
+    "@graph": "",
+    "@id": ""
   };
 
   // Map common fields
-  if ("firstName" in linkedInData && linkedInData.firstName) {
-    contactJson.name = [{
+  if (linkedInData.firstName) {
+    contact.name = new Set([{
+      "@graph": "",
+      "@id": "",
       value: isProfile
         ? `${linkedInData.firstName} ${linkedInData.lastName}`.trim()
         : (linkedInData as LinkedInContactData).fullName || `${linkedInData.firstName} ${linkedInData.lastName}`.trim(),
       firstName: linkedInData.firstName,
       familyName: linkedInData.lastName,
       source: src,
-    }];
+    }]);
   }
 
-  // Map email
-  if ("emailAddress" in linkedInData && linkedInData.emailAddress) {
-    contactJson.email = [{
-      value: linkedInData.emailAddress,
-      type2: appendPrefixToDictValue("email", "type", "work"),
-      source: src,
-    }];
-  }
-
-  // Map URL (LinkedIn profile)
-  if ("username" in linkedInData && linkedInData.username) {
-    contactJson.account = [{
-      value: linkedInData.username,
-      protocol: "linkedin",
-      source: src,
-    }];
-  }
-
-  // Map organization
-  if ("company" in linkedInData && linkedInData.company) {
-    contactJson.organization = [{
-      value: linkedInData.company,
-      position: linkedInData.position || "",
-      source: src,
-    }];
-  }
-
-  // Map organization
-  if ("mostRecentInteraction" in linkedInData && linkedInData.mostRecentInteraction) {
-    contactJson.mostRecentInteraction =  new Date(linkedInData.mostRecentInteraction as string).toISOString();
-  }
-
-  // Map profile-specific fields
   if (isProfile) {
     const profile = linkedInData as LinkedInProfileData;
 
-    if(linkedInUsername) {
-      contactJson.account = [{
+    if (linkedInUsername) {
+      contact.account = new Set([{
+        "@graph": "",
+        "@id": "",
         value: linkedInUsername,
         protocol: "linkedin",
         source: src,
-      }]
+      }]);
     }
 
     // Map address
-    if (profile.address) {
-      contactJson.address = [{
-        value: profile.address,
-        source: src,
-      }];
-    }
-
-    // Map geo location
-    if (profile.geoLocation) {
-      contactJson.address = contactJson.address || [];
-      if (contactJson.address.length === 0) {
-        contactJson.address.push({
+    if (profile.address || profile.geoLocation) {
+      contact.address = new Set();
+      if (profile.address) {
+        contact.address.add({
+          "@graph": "",
+          "@id": "",
+          value: profile.address,
+          source: src,
+        });
+      }
+      if (profile.geoLocation) {
+        contact.address.add({
+          "@graph": "",
+          "@id": "",
           value: profile.geoLocation,
           source: src,
         });
-      } else {
-        contactJson.address[0].value = profile.geoLocation;
       }
     }
 
@@ -122,76 +97,91 @@ export async function mapLinkedInPerson(
     if (profile.birthDate) {
       const formattedDate = parseLinkedInDate(profile.birthDate);
       if (formattedDate) {
-        contactJson.birthday = [{
+        contact.birthday = new Set([{
+          "@graph": "",
+          "@id": "",
           valueDate: formattedDate,
           source: src,
-        }];
+        }]);
       }
     }
 
     if (profile.headline) {
-      contactJson.headline = [{
+      contact.headline = new Set([{
+        "@graph": "",
+        "@id": "",
         value: profile.headline,
         source: src,
-      }];
+      }]);
     }
 
     // Map biography (summary)
     if (profile.summary) {
-      contactJson.biography = [];
-
-      contactJson.biography.push({
+      contact.biography = new Set([{
+        "@graph": "",
+        "@id": "",
         value: profile.summary,
         source: src,
-      });
+      }]);
     }
 
     if (profile.industry) {
-      contactJson.industry = [{
+      contact.industry = new Set([{
+        "@graph": "",
+        "@id": "",
         value: profile.industry,
         source: src,
-      }];
+      }]);
     }
 
     // Map other data if available
     if (otherData) {
-      if (otherData.Education && Array.isArray(otherData.Education)) {
-        contactJson.education = otherData.Education.map((edu: any) => ({
-          value: edu.schoolName || "",
-          startDate: edu.startDate ? parseLinkedInDate(edu.startDate) : undefined,
-          endDate: edu.endDate ? parseLinkedInDate(edu.endDate) : undefined,
-          notes: edu.notes || "",
-          degreeName: edu.degreeName || "",
-          activities: edu.activities || "",
+      if (otherData.Education) {
+        const education = otherData.Education;
+        contact.education = new Set([{
+          "@graph": "",
+          "@id": "",
+          value: education.schoolName || "",
+          startDate: education.startDate ? parseLinkedInDate(education.startDate) : undefined,
+          endDate: education.endDate ? parseLinkedInDate(education.endDate) : undefined,
+          notes: education.notes || "",
+          degreeName: education.degreeName || "",
+          activities: education.activities || "",
           source: src,
-        }));
+        }]);
       }
 
       if (otherData.Projects && Array.isArray(otherData.Projects)) {
-        contactJson.project = otherData.Projects.map((el: any) => ({
+        contact.project = new Set(otherData.Projects.map((el): Project => ({
+          "@graph": "",
+          "@id": "",
           value: el.title || "",
           startDate: el.startedOn ? parseLinkedInDate(el.startedOn) : undefined,
           endDate: el.finishedOn ? parseLinkedInDate(el.finishedOn) : undefined,
           description: el.description || "",
-          url1: el.url || "",
+          url: el.url || "",
           source: src,
-        }));
+        })));
       }
 
       // Map phone numbers
       if (otherData.PhoneNumbers && Array.isArray(otherData.PhoneNumbers)) {
-        contactJson.phoneNumber = otherData.PhoneNumbers
-          .filter((phone: any) => phone.number)
-          .map((phone: any) => ({
+        contact.phoneNumber = new Set(otherData.PhoneNumbers
+          .filter((phone) => phone.number)
+          .map((phone): PhoneNumber => ({
+            "@graph": "",
+            "@id": "",
             value: phone.number || "",
-            type2: appendPrefixToDictValue("phoneNumber", "type", phone.type || ""), //TODO: check linkedidn phone types
+            type: appendPrefixToDictValue("phoneNumber", "type", phone.type || ""), //TODO: check linkedidn phone types
             source: src,
-          }));
+          })));
       }
 
       // Map positions
       if (otherData.Positions && Array.isArray(otherData.Positions)) {
-        contactJson.organization = otherData.Positions.map((pos: any) => ({
+        contact.organization = new Set(otherData.Positions.map((pos): Organization => ({
+          "@graph": "",
+          "@id": "",
           value: pos.companyName || "",
           position: pos.title || "",
           jobDescription: pos.description || "",
@@ -200,47 +190,94 @@ export async function mapLinkedInPerson(
           location: pos.location || "",
           current: !pos.finishedOn,
           source: src,
-        }));
+        })));
       }
 
       // Map languages
       if (otherData.Languages && Array.isArray(otherData.Languages)) {
-        contactJson.language = otherData.Languages.map((lang: any) => ({
-          valueIRI: lang.name ? codeIRIByLanguageName(lang.name || "") : undefined,
+        contact.language = new Set(otherData.Languages.map((lang): Language => ({
+          "@graph": "",
+          "@id": "",
+          valueIRI: codeIRIByLanguageName(lang.name || "") ?? "",
           proficiency: getProficiencyIRI(lang.proficiency || ""),
           source: src,
-        }));
+        })));
       }
 
       // Map email addresses
-      if (otherData["EmailAddresses"] && Array.isArray(otherData["EmailAddresses"])) {
-        contactJson.email = otherData["EmailAddresses"].map((email: any) => ({
+      if (otherData["EmailAddresses"] && Array.isArray(otherData.EmailAddresses)) {
+        contact.email = new Set(otherData.EmailAddresses.map((email): Email => ({
+          "@graph": "",
+          "@id": "",
           value: email.emailAddress || "",
           preferred: email.primary === "Yes",
           source: src,
-        }));
+        })));
       }
 
       // Map skills
       if (otherData.Skills && Array.isArray(otherData.Skills)) {
-        contactJson.skill = otherData.Skills.map((skill: any) => ({
+        contact.skill = new Set(otherData.Skills.map((skill): Skill => ({
+          "@graph": "",
+          "@id": "",
           value: skill.name || "",
           source: src,
-        }));
+        })));
       }
 
       if (otherData.Publications && Array.isArray(otherData.Publications)) {
-        contactJson.publication = otherData.Publications.map((el: any) => ({
+        contact.publication = new Set(otherData.Publications.map((el): Publication => ({
+          "@graph": "",
+          "@id": "",
           value: el.name || "",
           publishDate: el.publishedOn ? parseLinkedInDate(el.publishedOn) : undefined,
           description: el.description || "",
           publisher: el.publisher || "",
-          url1: el.url || "",
+          url: el.url || "",
           source: src,
-        }));
+        })));
       }
+    }
+  } else {
+    linkedInData = linkedInData as LinkedInContactData;
+
+    // Map email
+    if (linkedInData.emailAddress) {
+      contact.email = new Set([{
+        "@graph": "",
+        "@id": "",
+        value: linkedInData.emailAddress,
+        type2: appendPrefixToDictValue("email", "type", "work"),
+        source: src,
+      }]);
+    }
+
+    // Map URL (LinkedIn profile)
+    if (linkedInData.username) {
+      contact.account = new Set([{
+        "@graph": "",
+        "@id": "",
+        value: linkedInData.username,
+        protocol: "linkedin",
+        source: src,
+      }]);
+    }
+
+    // Map organization
+    if (linkedInData.company) {
+      contact.organization = new Set([{
+        "@graph": "",
+        "@id": "",
+        value: linkedInData.company,
+        position: linkedInData.position || "",
+        source: src,
+      }]);
+    }
+
+    if ("mostRecentInteraction" in linkedInData && linkedInData.mostRecentInteraction) {
+      contact.mostRecentInteraction = new Date(linkedInData.mostRecentInteraction as string).toISOString();
     }
   }
 
-  return await processContactFromJSON(contactJson, withIds);
+  return await prepareContact(contact);
 }
