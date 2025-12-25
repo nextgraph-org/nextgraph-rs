@@ -14,10 +14,10 @@ import {dataService} from "@/services/dataService.ts";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
 import {useLdo, useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
-import {nextgraphDataService} from "@/services/nextgraphDataService";
 import {useCallback, useEffect, useState} from "react";
-import {Contact} from "@/types/contact.ts";
 import {contactCommonProperties, contactLdSetProperties} from "@/utils/socialContact/contactUtils.ts";
+import {profileService} from "@/services/profileService.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 const CreateProfilePage = () => {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ const CreateProfilePage = () => {
   const {session} = nextGraphAuth || {} as NextGraphAuth;
   const {commitData, changeData} = useLdo();
   const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState<Contact>();
+  const [profile, setProfile] = useState<SocialContact>();
   const [isValid, setIsValid] = useState(true);
 
   const initProfile = useCallback(async () => {
@@ -68,7 +68,7 @@ const CreateProfilePage = () => {
         });
 
         // For NextGraph, use the dedicated updateProfile method
-        await nextgraphDataService.updateProfile(session, profile, changeData, commitData);
+        await profileService.updateProfile(session, profile, changeData, commitData);
       } else {
         // For mock data, update the profile
         await dataService.updateProfile(profile);
