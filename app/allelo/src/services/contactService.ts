@@ -29,8 +29,6 @@ class ContactService {
                       orderBy?: SortParams[], filterParams?: Map<string, string>) {
     const sparql = this.getAllContactIdsQuery(session, "vcard:Individual", limit, offset, orderBy, filterParams);
 
-    console.log(sparql);
-
     return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
   }
 

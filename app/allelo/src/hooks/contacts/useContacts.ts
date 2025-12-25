@@ -2,9 +2,9 @@ import {useState, useEffect, useCallback} from 'react';
 import type {SortParams} from '@/types/contact';
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
 import {contactService} from "@/services/contactService.ts";
 import {getContactGraph} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
 
 export interface ContactsFilters extends SortParams {
   searchQuery?: string;
@@ -64,7 +64,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     ...initialFilters
   }));
 
-  const {updateContact} = useSaveContacts();
+  const {updateContact} = useUpdateContact();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
   const hasMore = contactNuris.length < totalCount;

@@ -26,7 +26,7 @@ import {GreenCheckClaim, IGreenCheckClient, isAccountClaim} from "@/lib/greenche
 import {useUpdateProfile} from "@/hooks/useUpdateProfile";
 import {mapCentralityResponseToSocialContacts, mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper";
 import {useLinkedinAccountPerContact} from "@/hooks/contacts/useLinkedinAccountPerContact.ts";
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
+import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
 
 interface PhoneVerificationSuccessProps {
   phoneNumber: string;
@@ -45,7 +45,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
                                                                            }) => {
   const {updateProfile} = useUpdateProfile();
   const accounts = useLinkedinAccountPerContact();
-  const {updateContact} = useSaveContacts();
+  const {updateContact} = useUpdateContact();
 
   const [retrieveNetworkCentrality, setRetrieveNetworkCentrality] = useState(true);
   const [retrieveProfileDetails, setRetrieveProfileDetails] = useState(true);

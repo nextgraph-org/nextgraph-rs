@@ -21,7 +21,7 @@ import {InvitationActions} from './InvitationActions';
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
+import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
 
 export interface InvitationPageProps {
   className?: string;
@@ -39,7 +39,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
     const contactNuri = searchParams.get("contactNuri");
     const {contact} = useContactData(contactNuri);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
-    const {updateContact} = useSaveContacts();
+    const {updateContact} = useUpdateContact();
 
     useEffect(() => {
       const contactRCardId = contact?.rcard ? contact.rcard["@id"] : undefined;
@@ -114,8 +114,8 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
               onChange={(e) => {
                 setSelectedCategory(e.target.value);
                 if (contact) {
-                  updateContact(contact["@id"]!, {rcard: e.target.value}).then(
-                    () => setSelectedCategory(e.target.value))
+                  updateContact(contact["@id"]!, {rcard: e.target.value});
+                  setSelectedCategory(e.target.value);
                 }
               }}
               displayEmpty={false}

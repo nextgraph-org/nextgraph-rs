@@ -10,7 +10,6 @@ import {contactService} from "@/services/contactService.ts";
 interface UseSaveContactsReturn {
   saveContacts: (contacts: SocialContact[], onProgress?: (current: number, total: number) => void) => Promise<void>;
   createContact: (contact: SocialContact) => Promise<SocialContact | undefined>;
-  updateContact: (contactId: string, updates: Partial<SocialContact>) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -109,21 +108,13 @@ export function useSaveContacts(): UseSaveContactsReturn {
   useEffect(() => {
     if (currentDocId && contactsSet && currentContactRef.current) {
       contactsSet.add(currentContactRef.current);
+      currentContactRef.current = undefined;
     }
   }, [currentDocId, contactsSet]);
-
-  const updateContact = async (contactId: string, updates: Partial<Contact>) => {
-    try {
-      await contactService.updateContact(session, contactId.substring(0, 53), updates, commitData, changeData);
-    } catch (error) {
-      console.error(`❌ Failed to persist contact update for ${contactId}:`, error);
-    }
-  };
 
   return {
     saveContacts,
     createContact,
-    updateContact,
     isLoading,
     error
   };
