@@ -175,6 +175,11 @@ impl Verifier {
                 .iter()
                 .any(|dt| dt.valType == OrmSchemaValType::literal)
             {
+                // If the predicate is optional and has no values, skip literal validation
+                if p_schema.minCardinality == 0 && count == 0 {
+                    continue;
+                }
+
                 // If we have literals, check if all required literals are present.
                 // At least one datatype must match.
                 let some_valid = p_schema.dataTypes.iter().flat_map(|dt| &dt.literals).any(
