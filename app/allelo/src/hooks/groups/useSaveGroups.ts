@@ -18,6 +18,7 @@ export function useSaveGroups(): UseSaveGroupsReturn {
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
 
+  //TODO: not to forget to use scope
   const groups = useShape(SocialGroupShapeType);
 
   function generateUri(base: string) {

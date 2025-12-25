@@ -10,14 +10,14 @@ import {
   UilDownloadAlt,
 } from '@iconscout/react-unicons';
 import type { Group } from '@/types/group';
-import type {Contact} from "@/types/contact";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import { default as ng } from "../../../.auth-react/api";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface InvitationActionsProps {
   group: Group | null;
-  contact: Contact | undefined;
+  contact: SocialContact | undefined;
   isGroupInvite: boolean;
   onDownloadQR: () => void;
   onNewInvitation: () => void;

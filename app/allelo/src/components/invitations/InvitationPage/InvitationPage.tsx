@@ -18,10 +18,10 @@ import {UilArrowLeft} from '@iconscout/react-unicons';
 import type {Group} from '@/types/group';
 import {InvitationDetails} from './InvitationDetails';
 import {InvitationActions} from './InvitationActions';
-import {useContactData} from "@/hooks/contacts/useContactData.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 export interface InvitationPageProps {
   className?: string;
@@ -37,12 +37,12 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
     const {rCards} = useGetRCards();
     const [searchParams] = useSearchParams();
     const contactNuri = searchParams.get("contactNuri");
-    const {contact} = useContactData(contactNuri);
+    const {ormContact: contact} = useContactOrm(contactNuri);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
     const {updateContact} = useUpdateContact();
 
     useEffect(() => {
-      const contactRCardId = contact?.rcard ? contact.rcard["@id"] : undefined;
+      const contactRCardId = contact?.rcard ? contact.rcard : undefined;
       // Only set if rCards are loaded and the value exists in the list
       if (contactRCardId && rCards.some(rc => rc["@id"] === contactRCardId)) {
         setSelectedCategory(contactRCardId);
