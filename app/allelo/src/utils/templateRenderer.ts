@@ -1,5 +1,4 @@
 import Mustache from 'mustache';
-import {ldoToJson} from "@/services/nextgraphDataService.ts";
 
 export const defaultTemplates = {
   contactName: "{{honorificPrefix}} {{firstName}} {{middleName}} {{familyName}} {{honorificSuffix}}",
@@ -16,12 +15,11 @@ export const defaultTemplates = {
  * @example
  * renderTemplate("{{firstName}} {{familyName}}", {firstName: "John", familyName: "Doe"}) // "John Doe"
  */
-export function renderTemplate(template: string | undefined, data: Record<string, any> | undefined): string {
-  if (!template || !data) {
+export function renderTemplate(template: string | undefined, renderData: Record<string, any> | undefined): string {
+  if (!template || !renderData) {
     return '';
   }
 
-  const renderData = ldoToJson(data);
   Object.keys(renderData).forEach((key) => {
     if (Array.isArray(renderData[key])) {
       renderData[key] = renderData[key][0]["@id"];
