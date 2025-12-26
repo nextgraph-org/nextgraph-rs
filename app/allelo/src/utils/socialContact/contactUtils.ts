@@ -25,22 +25,6 @@ export type ContactLdSetProperties = Omit<
   (typeof contactCommonProperties)[number]
 >;
 
-type KeysWithSelected<T> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends LdSet<infer U>
-    ? "selected" extends keyof U
-      ? K
-      : never
-    : never
-}[keyof T];
-
-type KeysWithHidden<T> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends LdSet<infer U>
-    ? "hidden" extends keyof U
-      ? K
-      : never
-    : never
-}[keyof T];
-
 type KeysWithType<T> = {
   [K in keyof T]-?: NonNullable<T[K]> extends LdSet<infer U>
     ? "type2" extends keyof U
@@ -49,8 +33,6 @@ type KeysWithType<T> = {
     : never
 }[keyof T];
 
-export type ContactKeysWithSelected = KeysWithSelected<ContactLdSetProperties>
-export type ContactKeysWithHidden = KeysWithHidden<ContactLdSetProperties>
 export type ContactKeysWithType = KeysWithType<ContactLdSetProperties>
 
 export type ResolvableKey = keyof ContactLdSetProperties;
@@ -81,8 +63,6 @@ function hasHidden(item: any): item is WithHidden {
 function hasProperty(item: any, property: string): item is { [property]?: any } {
   return item && typeof item === 'object' && item[property] && item[property];
 }
-
-
 
 export function resolveFrom<K extends ResolvableKey>(
   socialContact: SocialContact | undefined,
@@ -157,83 +137,9 @@ export function getPropsByType<K extends ContactKeysWithType>(socialContact: Soc
   })
 }
 
-export function getPropByType<K extends ContactKeysWithType>(socialContact: SocialContact, key: K, type: string): ItemOf<K> | undefined {
-  return getPropsByType(socialContact, key, type)[0];
-}
-
 export function getPropByNuri<K extends ResolvableKey>(socialContact: SocialContact, key: K, nuri: string): ItemOf<K> | undefined {
   //@ts-expect-error this is crazy, but that how it works
   return (socialContact[key]?.toArray() ?? []).find(item => item["@id"] === nuri);
-}
-
-export function getVisibleItems<K extends ResolvableKey>(
-  socialContact: SocialContact | undefined,
-  key: K,
-): ItemOf<K>[] {
-  if (!socialContact) return [];
-
-  const set = socialContact[key];
-  if (!set) return [];
-
-  return set.toArray().filter(item =>
-    !(hasHidden(item) && item.hidden) && item["@id"]
-  ) as ItemOf<K>[];
-}
-
-export function setUpdatedTime(contactObj: Contact) {
-  const currentDateTime = new Date(Date.now()).toISOString();
-  if (contactObj.updatedAt) {
-    contactObj.updatedAt.valueDateTime = currentDateTime;
-  } else {
-    contactObj.updatedAt = {
-      valueDateTime: currentDateTime,
-      source: "user",
-    }
-  }
-}
-
-export function updatePropertyFlag<K extends ResolvableKey>(
-  contact: SocialContact,
-  key: K,
-  itemId: string,
-  flag: string,           // "preferred" | "selected" | "hidden"
-  mode: "single" | "toggle" = "single",
-): void {
-  const set = contact[key] as LdSet<any>;
-  if (!set) return;
-
-  const items = set.toArray();
-
-  if (mode === "single") {
-    items.forEach(el => {
-      if (!el["@id"]) return;
-      el[flag] = el["@id"] === itemId;
-    });
-  } else {
-    const target = items.find(el => el["@id"] === itemId);
-    if (target) {
-      target[flag] = !(target[flag] ?? false);
-    }
-  }
-}
-
-
-export function updateProperty<K extends ResolvableKey>(
-  contact: SocialContact,
-  key: K,
-  itemId: string,
-  property: string,
-  value: any
-): void {
-  const set = contact[key] as LdSet<any>;
-  if (!set) return;
-
-  const items = set.toArray();
-
-  const item = items.find(el => el["@id"] === itemId);
-  if (item) {
-    item[property] = value;
-  }
 }
 
 function handleLdoBug(el: any, key: string, toShow = true) {

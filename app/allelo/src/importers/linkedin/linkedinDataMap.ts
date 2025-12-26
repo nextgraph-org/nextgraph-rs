@@ -41,8 +41,6 @@ export async function mapLinkedInPerson(
   const src = "LinkedIn";
 
   const contact: Partial<SocialContact> = {
-    "@graph": "",
-    "@id": ""
   };
 
   // Map common fields

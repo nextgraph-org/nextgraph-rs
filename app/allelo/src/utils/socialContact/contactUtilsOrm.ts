@@ -7,62 +7,37 @@ import {renderTemplate, defaultTemplates} from "@/utils/templateRenderer";
 import {NextGraphSession} from "@/types/nextgraph.ts";
 import {contactsOverlay} from "@/constants/overlays.ts";
 
-type ContactSetProperties = {
-  [K in keyof SocialContact as NonNullable<SocialContact[K]> extends Set<any> ? K : never]: SocialContact[K]
-};
+export const excludedContactKeys = [
+  "@type", "mergedInto", "mergedFrom"
+] as const satisfies readonly (keyof SocialContact)[];
 
-export type ContactLdSetProperties = {
-  [K in keyof ContactSetProperties as NonNullable<ContactSetProperties[K]> extends Set<infer U>
-    ? U extends { "@id": any }
-      ? K
-      : never
-    : never]: ContactSetProperties[K]
-};
-
-type KeysWithSelected<T> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends Set<infer U>
-    ? "selected" extends keyof U
-      ? K
-      : never
-    : never
+type SetKeys<T> = {
+  [K in keyof T]-?: NonNullable<T[K]> extends Set<any> ? K : never
 }[keyof T];
+type SetItem<T> = T extends Set<infer U> ? U : never;
+type FilterFor<T> = Partial<T>;
+type ExcludeTypeKey<T> = Omit<T, (typeof excludedContactKeys)[number]>;
 
-type KeysWithHidden<T> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends Set<infer U>
-    ? "hidden" extends keyof U
-      ? K
-      : never
-    : never
-}[keyof T];
+export type ContactSetProperties =
+  SetKeys<ExcludeTypeKey<SocialContact>>;
+export type ContactSetItem<K extends ContactSetProperties> = SetItem<NonNullable<SocialContact[K]>>;
 
-type KeysWithType<T> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends Set<infer U>
-    ? "type2" extends keyof U
-      ? K
-      : never
-    : never
-}[keyof T];
+export type ContactKeysWithSelected = {
+  [K in ContactSetProperties]-?:
+  ContactSetItem<K> extends { selected?: boolean } ? K : never
+}[ContactSetProperties];
 
-export type ContactKeysWithSelected = KeysWithSelected<ContactLdSetProperties>
-export type ContactKeysWithHidden = KeysWithHidden<ContactLdSetProperties>
-export type ContactKeysWithType = KeysWithType<ContactLdSetProperties>
+export type ContactKeysWithHidden = {
+  [K in ContactSetProperties]-?:
+  ContactSetItem<K> extends { hidden?: boolean } ? K : never
+}[ContactSetProperties];
 
 type WithSource = { source?: string };
 type WithSelected = { selected?: boolean };
 type WithHidden = { hidden?: boolean };
 
-
-export type ResolvableKey = keyof ContactLdSetProperties;
-
-export type ItemOf<K extends ResolvableKey> =
-  NonNullable<ContactLdSetProperties[K]> extends Set<infer T> ? T : never;
-
 export function hasSource(item: any): item is WithSource {
   return item && typeof item === 'object' && item["source"];
-}
-
-export function hasType<K>(item: any): item is { type2?: Set<K> } {
-  return item && typeof item === 'object' && item["type2"];
 }
 
 function hasSelected(item: any): item is WithSelected {
@@ -73,40 +48,42 @@ function hasHidden(item: any): item is WithHidden {
   return item && typeof item === 'object' && item["hidden"];
 }
 
-function hasProperty(item: any, property: string): item is { [property]?: any } {
-  return item && typeof item === 'object' && item[property] && item[property];
+function hasProperty<T extends object, P extends PropertyKey>(
+  item: any,
+  property: P,
+): item is T & Record<P, unknown> {
+  return !!item && typeof item === "object" && property in item;
 }
 
-export function resolveFrom<K extends ResolvableKey>(
+export function resolveFrom<K extends ContactSetProperties>(
   socialContact: SocialContact | undefined,
   key: K,
   policy = defaultPolicy,
-): ItemOf<K> | undefined {
+): ContactSetItem<K> | undefined {
   if (!socialContact) return;
 
   const set = socialContact[key];
   if (!set) return;
 
-  let selectedItem: ItemOf<K> | undefined;
+  let selectedItem: ContactSetItem<K> | undefined;
   for (const item of set) {
-    // @ts-expect-error for now
     if (hasSelected(item) && item.selected || hasProperty(item, "preferred") && item.preferred) {
-      selectedItem = item as ItemOf<K>;
+      selectedItem = item as ContactSetItem<K>;
       break;
     }
   }
   if (selectedItem) return selectedItem;
 
-  const firstBySrc = new Map<string, ItemOf<K>>();
-  let fallback: ItemOf<K> | undefined;
+  const firstBySrc = new Map<string, ContactSetItem<K>>();
+  let fallback: ContactSetItem<K> | undefined;
 
   for (const item of set) {
     const src = hasSource(item) ? item.source : undefined;
     if (hasHidden(item) && item.hidden) {
       continue;
     }
-    if (src && !firstBySrc.has(src)) firstBySrc.set(src, item as ItemOf<K>);
-    if (!fallback) fallback = item as ItemOf<K>;
+    if (src && !firstBySrc.has(src)) firstBySrc.set(src, item as ContactSetItem<K>);
+    if (!fallback) fallback = item as ContactSetItem<K>;
   }
 
   for (const s of policy) {
@@ -116,10 +93,10 @@ export function resolveFrom<K extends ResolvableKey>(
   return fallback;
 }
 
-export function getVisibleItems<K extends ResolvableKey>(
+export function getVisibleItems<K extends ContactSetProperties>(
   socialContact: SocialContact | undefined,
   key: K,
-): ItemOf<K>[] {
+): ContactSetItem<K>[] {
   if (!socialContact) return [];
 
   const set = socialContact[key];
@@ -127,7 +104,7 @@ export function getVisibleItems<K extends ResolvableKey>(
 
   return [...set].filter(item =>
     !(hasHidden(item) && item.hidden) && item["@id"]
-  ) as ItemOf<K>[];
+  ) as ContactSetItem<K>[];
 }
 
 export function setUpdatedTime(contactObj: SocialContact) {
@@ -144,7 +121,7 @@ export function setUpdatedTime(contactObj: SocialContact) {
   }
 }
 
-export function updatePropertyFlag<K extends ResolvableKey>(
+export function updatePropertyFlag<K extends ContactSetProperties>(
   contact: SocialContact,
   key: K,
   itemId: string,
@@ -208,8 +185,8 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
   socialContactSetProperties.forEach(property => {
     if (jsonContact[property] && Array.isArray(jsonContact[property])) {
       const props = jsonContact[property].map((el: any) => {
+        handleDictionaries(el, "type");
         handleDictionaries(el, "type2");
-        // handleDictionaries(el, "type");
         handleDictionaries(el, "valueIRI");
         handleDictionaries(el, "photoIRI");
 
@@ -228,12 +205,6 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
 
   return prepareContact(contact);
 }
-
-// ============================================================================
-// Contact Field Resolvers
-// ============================================================================
-// These functions resolve primary values from contact fields using the
-// resolveFrom utility and apply formatting/templates as needed.
 
 /**
  * Resolves contact name using template renderer
@@ -297,5 +268,44 @@ export function resolveContactPhoto(contact: SocialContact | undefined): string 
 }
 
 export function getContactGraph(nuri: string, session: NextGraphSession): string {
-  return nuri.substring(0,53) + contactsOverlay(session);
+  return nuri.substring(0, 53) + contactsOverlay(session);
+}
+
+export function getSubProperty<K extends ContactSetProperties, P extends keyof ContactSetItem<K>
+>(item: ContactSetItem<K>, property: P): string | undefined {
+  if (!item || typeof item !== "object") return;
+
+  const v = item[property];
+
+  if (typeof v === "string") return v;
+
+  if (v instanceof Set) {
+    for (const el of v) {
+      if (typeof el === "string") return el;
+      break;
+    }
+  }
+
+  return;
+}
+
+export function getPropsByFilter<K extends ContactSetProperties>(
+  socialContact: SocialContact | undefined,
+  key: K,
+  filterParams: FilterFor<ContactSetItem<K>>
+): ContactSetItem<K>[] {
+  if (!socialContact) return [];
+  const set = socialContact?.[key];
+  if (!(set instanceof Set)) return [];
+
+  const entries = Object.entries(filterParams) as [keyof ContactSetItem<K>, string][];
+
+  if (entries.length === 0) return [...set] as ContactSetItem<K>[];
+
+  return ([...set] as ContactSetItem<K>[]).filter((item) => {
+    for (const [prop, expected] of entries) {
+      if (getSubProperty(item, prop) !== expected) return false;
+    }
+    return true;
+  });
 }
