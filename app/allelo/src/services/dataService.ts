@@ -10,6 +10,7 @@ import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {
   processContactFromJSON as processContactFromJSONOrm,
 } from '@/utils/socialContact/contactUtilsOrm.ts';
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 // Get the base URL for assets based on the environment
 const getAssetUrl = (path: string) => {
@@ -215,7 +216,7 @@ export const dataService = {
     return contacts.filter(contact => (contact.mergedInto?.size ?? 0) === 0);
   },
 
-  async getContactsOrm(withIds = true): Promise<Contact[]> {
+  async getContactsOrm(withIds = true): Promise<SocialContact[]> {
     const contacts = await this.loadContactsOrm(withIds);
     return contacts.filter(contact => (contact.mergedInto?.size ?? 0) === 0);
   },
@@ -243,14 +244,14 @@ export const dataService = {
     });
   },
 
-  async loadContactsOrm(withIds = true): Promise<Contact[]> {
+  async loadContactsOrm(withIds = true): Promise<SocialContact[]> {
     return new Promise((resolve) => {
       setTimeout(async () => {
         try {
           const response = await fetch(getAssetUrl("contacts.json"));
           const contactsData = await response.json() as any[];
           const contacts = await Promise.all(
-            contactsData.map(jsonContact => processContactFromJSONOrm(jsonContact, withIds))
+            contactsData.map(jsonContact => processContactFromJSONOrm(jsonContact))
           );
 
           isLoaded = true;

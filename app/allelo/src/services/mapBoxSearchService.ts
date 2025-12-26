@@ -1,5 +1,5 @@
-import type {Contact} from "@/types/contact.ts";
-import {Address} from "@/.ldo/contact.typings.ts";
+import {Address} from "@/.orm/shapes/contact.typings.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 interface GeoCode {
   "lat": number,
@@ -70,7 +70,7 @@ class MapBoxSearchService {
     }
   }
 
-  public async initContactGeoCodes(contact: Partial<Contact>) {
+  public async initContactGeoCodes(contact: Partial<SocialContact>) {
     if (!contact.address || !this.apiKey)
       return;
 
