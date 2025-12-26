@@ -1,4 +1,4 @@
-import {useCallback, useState} from 'react';
+import {useCallback, useState, useEffect, useRef} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
 import {GroupMembership, SocialGroup} from "@/.orm/shapes/group.typings";
@@ -14,12 +14,13 @@ interface UseSaveGroupsReturn {
 export function useSaveGroups(): UseSaveGroupsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentDocId, setCurrentDocId] = useState<string | undefined>(undefined);
+  const currentGroupRef = useRef<SocialGroup | undefined>(undefined);
 
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
 
-  //TODO: not to forget to use scope
-  const groups = useShape(SocialGroupShapeType);
+  const groupsSet = useShape(SocialGroupShapeType, currentDocId);
 
   function generateUri(base: string) {
     return base.substring(0, 9 + 44);
@@ -73,7 +74,8 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         "tag": group.tag,
       }
 
-      groups?.add(groupObj);
+      currentGroupRef.current = groupObj;
+      setCurrentDocId(docId);
 
       return docId;
     } catch (err) {
@@ -83,7 +85,14 @@ export function useSaveGroups(): UseSaveGroupsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [groups, session]);
+  }, [session]);
+
+  useEffect(() => {
+    if (currentDocId && groupsSet && currentGroupRef.current) {
+      groupsSet.add(currentGroupRef.current);
+      currentGroupRef.current = undefined;
+    }
+  }, [currentDocId, groupsSet]);
 
   return {
     createGroup,
