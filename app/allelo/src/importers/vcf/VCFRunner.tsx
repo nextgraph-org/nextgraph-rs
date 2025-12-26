@@ -24,8 +24,8 @@ import {
 } from '@iconscout/react-unicons';
 import { SourceRunnerProps } from '@/types/importSource';
 import { parseVCF } from '@/utils/vcfParser';
-import { processContactFromJSON } from '@/utils/socialContact/contactUtils';
-import { Contact } from '@/types/contact';
+import { processContactFromJSON } from '@/utils/socialContact/contactUtilsOrm';
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export function VCFRunner({ open, onGetResult, onClose, onError }: SourceRunnerProps) {
   const theme = useTheme();
@@ -88,14 +88,14 @@ export function VCFRunner({ open, onGetResult, onClose, onError }: SourceRunnerP
           }
 
           // Process contacts in batches
-          const contacts: Contact[] = [];
+          const contacts: SocialContact[] = [];
           const batchSize = 10;
 
           for (let i = 0; i < contactsData.length; i += batchSize) {
             const batch = contactsData.slice(i, i + batchSize);
             const batchPromises = batch.map(async (contactData) => {
               try {
-                return await processContactFromJSON(contactData, false);
+                return await processContactFromJSON(contactData);
               } catch (err) {
                 console.error('Error processing contact:', err);
                 return null;
@@ -103,7 +103,7 @@ export function VCFRunner({ open, onGetResult, onClose, onError }: SourceRunnerP
             });
 
             const batchResults = await Promise.all(batchPromises);
-            contacts.push(...batchResults.filter((c): c is Contact => c !== null));
+            contacts.push(...batchResults.filter((c): c is SocialContact => c !== null));
 
             setProgress(Math.round(((i + batch.length) / contactsData.length) * 100));
             setProcessedCount(contacts.length);
