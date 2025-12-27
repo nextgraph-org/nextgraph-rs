@@ -20,9 +20,7 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 
 use crate::orm::types::*;
-use crate::orm::utils::{
-    decode_json_pointer, escape_sparql_string, json_to_sparql_val, nuri_to_string,
-};
+use crate::orm::utils::{decode_json_pointer, json_to_sparql_val, nuri_to_string};
 use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
 
