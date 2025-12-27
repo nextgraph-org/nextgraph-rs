@@ -2,10 +2,10 @@ import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {defaultPolicy} from "@/config/sources.ts";
 import {geoApiService} from "@/services/geoApiService.ts";
 import {socialContactNonSetProperties, socialContactSetProperties} from "@/.orm/utils/contact.utils.ts";
-import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 import {renderTemplate, defaultTemplates} from "@/utils/templateRenderer";
 import {NextGraphSession} from "@/types/nextgraph.ts";
 import {contactsOverlay} from "@/constants/overlays.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 export const excludedContactKeys = [
   "@type", "mergedInto", "mergedFrom"
@@ -42,6 +42,10 @@ export function hasSource(item: any): item is WithSource {
 
 function hasSelected(item: any): item is WithSelected {
   return item && typeof item === 'object' && item["selected"] && item["@id"];
+}
+
+export function hasType(item: any): item is { type: string } {
+  return item && typeof item === 'object' && item["type"];
 }
 
 function hasHidden(item: any): item is WithHidden {
@@ -146,19 +150,19 @@ export function updatePropertyFlag<K extends ContactSetProperties>(
   }
 }
 
-function handleDictionaries(el: any, key: string) {
-  if (!el[key]) return;
+function handleDictionaries(el: any, property: string, subProperty: string) {
+  if (!el[subProperty]) return;
 
-  let normalized = el[key];
+  let normalized = el[subProperty];
   if ("@id" in normalized) {
     normalized = normalized["@id"];
   }
 
-  if (key === "type2") {
-    el["type"] = appendPrefixToDictValue(key, "type", normalized);
-    delete el[key];
+  if (subProperty === "type2") {
+    el["type"] = contactDictMapper.appendPrefixToDictValue(property, subProperty, normalized);
+    delete el[subProperty];
   } else {
-    el[key] = appendPrefixToDictValue(key, "type", normalized);
+    el[subProperty] = contactDictMapper.appendPrefixToDictValue(property, subProperty, normalized);
   }
 }
 
@@ -185,10 +189,11 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
   socialContactSetProperties.forEach(property => {
     if (jsonContact[property] && Array.isArray(jsonContact[property])) {
       const props = jsonContact[property].map((el: any) => {
-        handleDictionaries(el, "type");
-        handleDictionaries(el, "type2");
-        handleDictionaries(el, "valueIRI");
-        handleDictionaries(el, "photoIRI");
+        //TODO: check this
+        handleDictionaries(el, property, "type");
+        handleDictionaries(el, property, "type2");
+        handleDictionaries(el, property, "valueIRI");
+        handleDictionaries(el, property, "photoIRI");
 
         return el;
       });
@@ -308,4 +313,14 @@ export function getPropsByFilter<K extends ContactSetProperties>(
     }
     return true;
   });
+}
+
+export function getPropsByType<K extends ContactSetProperties>(socialContact: SocialContact, key: K, type: string): ContactSetItem<K>[] {
+  return ([...socialContact[key] ?? []]).filter((el) => {
+    return hasType(el) && el.type === type;
+  }) as ContactSetItem<K>[]
+}
+
+export function getPropByNuri<K extends ContactSetProperties>(socialContact: SocialContact, key: K, nuri: string): ContactSetItem<K> | undefined {
+  return ([...socialContact[key] ?? []]).find(item => item["@id"] === nuri) as ContactSetItem<K>;
 }

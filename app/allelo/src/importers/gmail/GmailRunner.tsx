@@ -7,7 +7,6 @@ import {
   signIn, 
 } from '@choochmeque/tauri-plugin-google-auth-api';
 import { GOOGLE_CLIENTS } from "@/config/google";
-import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 import {
   PhoneNumber,
   SocialContact,
@@ -38,6 +37,7 @@ import {
   UserDefined
 } from "@/.orm/shapes/contact.typings.ts";
 import {prepareContact} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 const googleFetch = (url: string, token: string, init: RequestInit = {}) =>
   fetch(url, {
@@ -66,7 +66,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
       "@graph": "",
       "@id": "",
       value: phoneNumber?.canonicalForm ?? phoneNumber?.value ?? "",
-      type: appendPrefixToDictValue("phoneNumber", "type", phoneNumber?.type),
+      type: contactDictMapper.appendPrefixToDictValue("phoneNumber", "type", phoneNumber?.type),
       preferred: !!phoneNumber?.metadata?.primary,
       source: src
     })) ?? []),
@@ -95,7 +95,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
       "@graph": "",
       "@id": "",
       value: email?.value ?? "",
-      type: appendPrefixToDictValue("email", "type", email?.type),
+      type: contactDictMapper.appendPrefixToDictValue("email", "type", email?.type),
       displayName: email?.displayName ?? undefined,
       preferred: !!email?.metadata?.primary,
       source: src,
@@ -105,7 +105,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
       "@graph": "",
       "@id": "",
       value: addr?.formattedValue ?? "",
-      type: appendPrefixToDictValue("address", "type", addr?.type),
+      type: contactDictMapper.appendPrefixToDictValue("address", "type", addr?.type),
       poBox: addr?.poBox ?? undefined,
       streetAddress: addr?.streetAddress ?? undefined,
       extendedAddress: addr?.extendedAddress ?? undefined,
@@ -129,7 +129,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         startDate: fmtDate(org?.startDate),
         endDate: fmtDate(org?.endDate),
         current: !!org?.current,
-        type: appendPrefixToDictValue("organization", "type", org?.type),
+        type: contactDictMapper.appendPrefixToDictValue("organization", "type", org?.type),
         symbol: org?.symbol ?? undefined,
         domain: org?.domain ?? undefined,
         location: org?.location ?? undefined,
@@ -159,7 +159,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         "@graph": "",
         "@id": "",
         value: u?.value ?? "",
-        type: appendPrefixToDictValue("url", "type", u?.type),
+        type: contactDictMapper.appendPrefixToDictValue("url", "type", u?.type),
         source: src,
       })) ?? []),
 
@@ -182,14 +182,14 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         "@graph": "",
         "@id": "",
         startDate: fmtDate(ev?.date) ?? "",
-        type: appendPrefixToDictValue("event", "type", ev?.type),
+        type: contactDictMapper.appendPrefixToDictValue("event", "type", ev?.type),
         source: src,
       })) ?? []),
 
     gender: new Set(googleResult?.genders?.map((gender): Gender => ({
         "@graph": "",
         "@id": "",
-        valueIRI: appendPrefixToDictValue("gender", "valueIRI", gender?.value),
+        valueIRI: contactDictMapper.appendPrefixToDictValue("gender", "valueIRI", gender?.value),
         addressMeAs: gender?.addressMeAs ?? undefined,
         source: src,
       })) ?? []),
@@ -198,7 +198,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         "@graph": "",
         "@id": "",
         value: nickname?.value ?? "",
-        type: appendPrefixToDictValue("nickname", "type", nickname?.type),
+        type: contactDictMapper.appendPrefixToDictValue("nickname", "type", nickname?.type),
         source: src,
       })) ?? []),
 
@@ -213,7 +213,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         "@graph": "",
         "@id": "",
         value: p?.person ?? "",
-        type: appendPrefixToDictValue("relation", "type", p?.type),
+        type: contactDictMapper.appendPrefixToDictValue("relation", "type", p?.type),
         source: src,
       })) ?? []),
 
@@ -256,7 +256,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         "@id": "",
         value: im?.username ?? "",
         protocol: im?.protocol ?? undefined,
-        type: appendPrefixToDictValue("account", "type", im?.type),
+        type: contactDictMapper.appendPrefixToDictValue("account", "type", im?.type),
         source: src,
       })) ?? []),
 
@@ -264,7 +264,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         "@graph": "",
         "@id": "",
         value: sipAddress?.value ?? "",
-        type: appendPrefixToDictValue("sipAddress", "type", sipAddress?.type),
+        type: contactDictMapper.appendPrefixToDictValue("sipAddress", "type", sipAddress?.type),
         source: src,
       })) ?? []),
 
@@ -287,7 +287,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         "@graph": "",
         "@id": "",
         value: calendarUrl?.url ?? "",
-        type: appendPrefixToDictValue("calendarUrl", "type", calendarUrl?.type === "freeBusy" ?
+        type: contactDictMapper.appendPrefixToDictValue("calendarUrl", "type", calendarUrl?.type === "freeBusy" ?
           "availability" : calendarUrl?.type),
         source: src,
       })) ?? []),
@@ -384,7 +384,7 @@ export function GmailRunner({open, onError, onGetResult}: SourceRunnerProps) {
         console.log('Network error occurred');
       }
     }
-  }, []);
+  }, [getContacts, onError]);
 
   useEffect(() => {
     if (open) {

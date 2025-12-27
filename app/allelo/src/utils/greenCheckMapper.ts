@@ -7,7 +7,7 @@ import {
 } from '@/lib/greencheck-api-client/types';
 import {SocialContact, Photo} from '@/.orm/shapes/contact.typings';
 import {mapBoxSearchService} from "@/services/mapBoxSearchService.ts";
-import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Partial<SocialContact> {
   const contact: Partial<SocialContact> = {
@@ -65,7 +65,7 @@ export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Parti
         "@graph": "",
         "@id": "",
         value: claim.claimData.url,
-        type: appendPrefixToDictValue('account', 'type', accountType),
+        type: contactDictMapper.appendPrefixToDictValue('account', 'type', accountType),
         source: source
       }]);
     }

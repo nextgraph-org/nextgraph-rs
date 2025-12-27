@@ -1,4 +1,4 @@
-import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 export const PROFICIENCY_STR_TO_IRI: Record<string, string> = {
   "Elementary proficiency": "elementary",
@@ -15,7 +15,7 @@ export const PROFICIENCY_IRI_TO_STR: Record<string, string> = Object.fromEntries
 
 export const getProficiencyIRI = (str: string) => {
   const iri = PROFICIENCY_STR_TO_IRI[str];
-  return appendPrefixToDictValue("language", "proficiency", iri);
+  return contactDictMapper.appendPrefixToDictValue("language", "proficiency", iri);
 };
 
 export const getProficiencyString = (iri: string): string | undefined => {

@@ -1,7 +1,6 @@
 import {LinkedInContactData, LinkedInData, LinkedInProfileData} from "@/importers/linkedin/linkedInTypes";
 import {codeIRIByLanguageName} from "@/utils/bcp47map";
 import {getProficiencyIRI} from "@/utils/proficiencyMap";
-import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
 import {
   Email,
   Language,
@@ -12,6 +11,7 @@ import {
   SocialContact
 } from "@/.orm/shapes/contact.typings.ts";
 import {prepareContact} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 const parseLinkedInDate = (dateStr: string): string | undefined => {
   if (!dateStr) return undefined;
@@ -170,7 +170,8 @@ export async function mapLinkedInPerson(
             "@graph": "",
             "@id": "",
             value: phone.number || "",
-            type: appendPrefixToDictValue("phoneNumber", "type", phone.type || ""), //TODO: check linkedidn phone types
+            type: contactDictMapper.appendPrefixToDictValue("phoneNumber", "type", phone.type || ""),
+            //TODO: check linkedidn phone types
             source: src,
           })));
       }
@@ -245,7 +246,7 @@ export async function mapLinkedInPerson(
         "@graph": "",
         "@id": "",
         value: linkedInData.emailAddress,
-        type2: appendPrefixToDictValue("email", "type", "work"),
+        type2: contactDictMapper.appendPrefixToDictValue("email", "type", "work"),
         source: src,
       }]);
     }

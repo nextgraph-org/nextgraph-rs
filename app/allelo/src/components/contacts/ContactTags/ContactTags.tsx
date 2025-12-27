@@ -1,23 +1,23 @@
 import {useCallback, useEffect, useState} from "react";
 import {Tags} from "@/components/ui/Tags";
-import {appendPrefixToDictValue, getContactDictValues, removePrefix} from "@/utils/socialContact/dictMapper.ts";
 import {SocialContact, Tag} from "@/.orm/shapes/contact.typings.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
-const allTags = [...getContactDictValues("tag", "valueIRI")].sort();
+const allTags = [...contactDictMapper.getDictValues("tag", "valueIRI")].sort();
 
 export interface ContactTagsProps {
   contact?: SocialContact;
 }
 
 function getTagValueIri(tag: string) {
-  return appendPrefixToDictValue("tag", "valueIRI", tag);
+  return contactDictMapper.appendPrefixToDictValue("tag", "valueIRI", tag);
 }
 
 export const ContactTags = ({contact}: ContactTagsProps) => {
   const [existingTags, setExistingTags] = useState<string[]>([]);
 
   const initTags = useCallback((tags: Set<Tag> | undefined) => {
-    const tagValues = [...tags ?? []].map(tag => removePrefix(tag.valueIRI));
+    const tagValues = [...tags ?? []].map(tag => contactDictMapper.removePrefix(tag.valueIRI));
     setExistingTags(tagValues);
   }, []);
 

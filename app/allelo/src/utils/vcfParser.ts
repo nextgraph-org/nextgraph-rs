@@ -2,7 +2,7 @@
  * VCF (vCard) Parser Utility
  * Parses VCF/vCard files and converts them to contact JSON format
  */
-import {appendPrefixToDictValue} from "@/utils/socialContact/dictMapper.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 interface VCardProperty {
   name: string;
@@ -318,10 +318,10 @@ function hasParam(params: Record<string, string>, key: string): boolean {
  */
 function normalizeEmailType(type: string): string {
   const typeMap: Record<string, string> = {
-    'HOME': appendPrefixToDictValue('email', 'type', 'home'),
-    'WORK': appendPrefixToDictValue('email', 'type', 'work'),
+    'HOME': contactDictMapper.appendPrefixToDictValue('email', 'type', 'home'),
+    'WORK': contactDictMapper.appendPrefixToDictValue('email', 'type', 'work'),
   };
-  return typeMap[type.toUpperCase()] || appendPrefixToDictValue('email', 'type', 'other');
+  return typeMap[type.toUpperCase()] || contactDictMapper.appendPrefixToDictValue('email', 'type', 'other');
 }
 
 /**
@@ -329,15 +329,15 @@ function normalizeEmailType(type: string): string {
  */
 function normalizePhoneType(type: string): string {
   const typeMap: Record<string, string> = {
-    'HOME': appendPrefixToDictValue('phoneNumber', 'type', 'home'),
-    'WORK': appendPrefixToDictValue('phoneNumber', 'type', 'work'),
-    'CELL': appendPrefixToDictValue('phoneNumber', 'type', 'mobile'),
-    'MOBILE': appendPrefixToDictValue('phoneNumber', 'type', 'mobile'),
-    'FAX': appendPrefixToDictValue('phoneNumber', 'type', 'homeFax'),
-    'PAGER': appendPrefixToDictValue('phoneNumber', 'type', 'pager'),
-    'CAR': appendPrefixToDictValue('phoneNumber', 'type', 'car'),
+    'HOME': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'home'),
+    'WORK': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'work'),
+    'CELL': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'mobile'),
+    'MOBILE': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'mobile'),
+    'FAX': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'homeFax'),
+    'PAGER': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'pager'),
+    'CAR': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'car'),
   };
-  return typeMap[type.toUpperCase()] || appendPrefixToDictValue('phoneNumber', 'type', 'other');
+  return typeMap[type.toUpperCase()] || contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'other');
 }
 
 /**
@@ -345,8 +345,8 @@ function normalizePhoneType(type: string): string {
  */
 function normalizeAddressType(type: string): string {
   const typeMap: Record<string, string> = {
-    'HOME': appendPrefixToDictValue('address', 'type', 'home'),
-    'WORK': appendPrefixToDictValue('address', 'type', 'work')
+    'HOME': contactDictMapper.appendPrefixToDictValue('address', 'type', 'home'),
+    'WORK': contactDictMapper.appendPrefixToDictValue('address', 'type', 'work')
   };
   return typeMap[type.toUpperCase()] || 'other2';
 }
