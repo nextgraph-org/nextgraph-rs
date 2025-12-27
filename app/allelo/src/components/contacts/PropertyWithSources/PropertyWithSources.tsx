@@ -1,4 +1,4 @@
-import {useState, useCallback, useEffect, useMemo} from 'react';
+import {useState, useCallback, useEffect} from 'react';
 import {
   Typography,
   Box,
@@ -81,9 +81,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                                                              }: PropertyWithSourcesProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  //TODO: const {updatePermissionsNode} = useUpdatePermission(contact);
-  const updatePermissionsNode = (el: string) => {
-  };
+  const {updatePermissionsNode} = useUpdatePermission(contact);
 
   const [currentValue, setCurrentValue] = useState<string>();
   const [localValue, setLocalValue] = useState<string>("");

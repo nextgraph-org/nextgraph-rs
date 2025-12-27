@@ -1,4 +1,4 @@
-import {useState, useCallback, useEffect, useMemo} from 'react';
+import {useState, useCallback, useEffect} from 'react';
 import {
   Typography,
   Box,
@@ -29,9 +29,6 @@ import {ValidationType} from "@/hooks/useFieldValidation";
 import {AddressVariant} from "@/components/contacts/MultiPropertyWithVisibility/variants/AddressVariant.tsx";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
-import {useNextGraphAuth} from "@/lib/nextgraph.ts";
-import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {profileService} from "@/services/profileService.ts";
 
 type ResolvableKey = ContactKeysWithHidden;
 
@@ -74,13 +71,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
   const [newItemValue, setNewItemValue] = useState('');
   const open = Boolean(anchorEl);
 
-  //TODO: const {isProfile, updatePermissionsNode} = useUpdatePermission(contact);
-  const updatePermissionsNode = (el: string) => {
-  };
-
-  const {session} = useNextGraphAuth() || {} as NextGraphAuth;
-  const isProfile: boolean = useMemo<boolean>(() => profileService.isContactProfile(session, contact),
-    [session, contact]);
+  const {isProfile, updatePermissionsNode} = useUpdatePermission(contact);
 
   const [allItems, setAllItems] = useState<any[]>([]);
 
@@ -188,7 +179,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     setIsAddingNew(false);
     loadAllItems();
     return newItem;
-  }, [contact, newItemValue, isProfile, propertyKey, loadAllItems, subKey]);
+  }, [contact, newItemValue, isProfile, updatePermissionsNode, propertyKey, loadAllItems, subKey]);
 
   const handleInputChange = useCallback((itemId: string, newValue: string) => {
     setEditingValues(prev => ({...prev, [itemId]: newValue}));

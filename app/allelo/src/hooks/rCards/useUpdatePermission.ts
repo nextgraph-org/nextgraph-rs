@@ -1,9 +1,9 @@
-import {dataset, useLdo, useNextGraphAuth} from "@/lib/nextgraph.ts";
+import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {useCallback, useMemo} from "react";
-import {ContactLdSetProperties} from "@/utils/socialContact/contactUtils.ts";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {ContactSetProperties} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {getPermissionConfig, getPermissionId, rCardPermissionConfig} from "@/constants/rPermissions.ts";
-import {RCard, RCardPermission} from "@/.ldo/rcard.typings.ts";
+import {RCard, RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {
   sparqlCreatePermissionEntry,
@@ -14,18 +14,23 @@ import {
 import {profileService} from "@/services/profileService.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {contactService} from "@/services/contactService.ts";
+import {useShape} from "@ng-org/orm/react";
+import {RCardPermissionShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
 
 interface UpdatePermissionReturn {
-  updatePermissionsNode: (propertyKey: keyof ContactLdSetProperties, propertyNuri?: string) => void;
-  updatePermission: (permission: RCardPermission, propertyKey: keyof RCardPermission, value: any) => void;
+  updatePermissionsNode: (propertyKey: ContactSetProperties, propertyNuri?: string) => void;
+  updatePermission: (permission: RCardPermission, propertyKey: keyof RCardPermission, value: string) => void;
   isProfile: boolean;
   updateProfilePermissionNodes: () => void
 }
 
 export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boolean = false): UpdatePermissionReturn => {
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
-  const {commitData, changeData} = useLdo();
   const {getRCards} = useGetRCards();
+  const [rCardPermissionId, setRCardPermissionId] = useState<string>();
+  const currentChangesRef = useRef<Record<any, any> | undefined>(undefined);
+  const rCardPermissionSet = useShape(RCardPermissionShapeType, rCardPermissionId);
+  const rCardPermission = [...rCardPermissionSet][0] as RCardPermission;
 
   const isProfile: boolean = useMemo<boolean>(() => isNewProfile || profileService.isContactProfile(session, profile),
     [profile, session, isNewProfile]);
@@ -43,7 +48,7 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
           secondLevel: permission.secondLevel,
           selector: permission.selector,
           isPermissionGiven: false,
-          zone: permission.zone["@id"],
+          zone: permission.zone,
           order: permission.order,
           isMultiple: permission.isMultiple,
         }
@@ -60,22 +65,23 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
     }
   }, [session]);
 
+  useEffect(() => {
+    if (rCardPermissionId && rCardPermission && currentChangesRef.current) {
+      Object.entries(currentChangesRef.current).forEach(([propertyKey, value]) => {
+        rCardPermission[propertyKey] = value;
+      })
+
+      currentChangesRef.current = undefined;
+      setRCardPermissionId(undefined);
+    }
+  }, [rCardPermissionId, rCardPermission, session]);
+
 
   const updatePermission = useCallback(<K extends keyof RCardPermission>(
     permission: RCardPermission, propertyKey: K, value: any) => {
-    const resource = dataset.getResource(permission["@id"]!.substring(0, 53));
-    // @ts-expect-error InvalidIdentifierResouce
-    if (resource.isError || resource.type === "InvalidIdentifierResouce" || resource.type === "InvalidIdentifierResource") {
-      throw new Error(`Failed to create resource`);
-    }
-    const changePermissionObj = changeData(permission, resource);
-    changePermissionObj[propertyKey] = value;
-    commitData(changePermissionObj).then(result => {
-      if (result.isError) {
-        throw new Error(`Failed to commit: ${result.message}`);
-      }
-    })
-  }, [changeData, commitData]);
+    currentChangesRef.current = {[propertyKey]: value};
+    setRCardPermissionId(permission["@id"]);
+  }, []);
 
   const updatePermissionByID = useCallback(async <K extends keyof RCardPermission>(
     permissionId: string, propertyKey: K, value: any) => {
@@ -110,7 +116,7 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
   }, [session])
 
   const updatePermissionsNode = useCallback(async (
-    propertyKey: keyof ContactLdSetProperties,
+    propertyKey: ContactSetProperties,
     propertyNuri?: string
   ) => {
     if (!isProfile) return;
@@ -126,7 +132,7 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
 
     rCards.forEach(rCard => {
       if (!rCard.permission) return;
-      const permissions = rCard.permission.filter(permission =>
+      const permissions = [...rCard.permission ?? []].filter(permission =>
         permission.firstLevel === propertyKey && permission["@id"]);
 
       const foundPermissions: string[] = [];
@@ -139,7 +145,7 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
         if (permissionConfig.isMultiple) {
           if (permission.node) {
             const allNodes = permissions
-              .map(p => getPermissionId(p) === permissionId && p.node ? p.node["@id"] : undefined)
+              .map(p => getPermissionId(p) === permissionId && p.node)
               .filter(Boolean);
             const missingNuris = allNuris.filter(nuri => !allNodes.includes(nuri)) as string[];
             addPermissionsWithNodes(rCard, permission, missingNuris);
@@ -154,7 +160,7 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
   }, [addPermissionsWithNodes, getContact, getRCards, isProfile, updatePermissionByID]);
 
   const updateProfilePermissionNodes = useCallback(async () => {
-    const propertyKeys = Object.keys(rCardPermissionConfig) as Array<keyof ContactLdSetProperties>;
+    const propertyKeys = Object.keys(rCardPermissionConfig) as ContactSetProperties[];
     propertyKeys.forEach(propertyKey => {
       updatePermissionsNode(propertyKey);
     });

@@ -1,15 +1,15 @@
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {rCardZones} from "@/constants/rPermissions.ts";
-import {useContactData} from "../contacts/useContactData.ts";
-import {RCard, RCardPermission} from "@/.ldo/rcard.typings.ts";
-import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph.ts";
+import {RCard, RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
+import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {ContentItem} from "@/models/rcards";
-import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {RCardShapeType} from "@/.ldo/rcard.shapeTypes.ts";
+import {RCardShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
-import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {useShape} from "@ng-org/orm/react";
+import {rCardDictMapper} from "@/utils/dictMappers.ts";
 
 export type ZoneContent = Record<rCardZones, Array<ContentItem>>;
 
@@ -37,24 +37,23 @@ interface RCardsReturn {
 }
 
 export const useRCards = (nuri: string, isEditing: boolean = false): RCardsReturn => {
-  const {contact} = useContactData(null, true);
+  const {ormContact: contact} = useContactOrm(null, true);
 
-  const [rCard,  setRCard] = useState<RCard>();
+  const [rCard, setRCard] = useState<RCard>();
   const {getCategoryById} = useRCardsConfigs();
 
-  const isNextGraph = isNextGraphEnabled();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
   const sessionId = session?.sessionId;
 
   const {updatePermission} = useUpdatePermission();
 
-  useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
-
-  const rCardSubject: RCard | undefined = useSubject(
+  const rCardsSet = useShape(
     RCardShapeType,
     sessionId && nuri ? nuri.substring(0, 53) : undefined
   );
+
+  const rCardSubject = [...rCardsSet][0] as RCard;
 
   useEffect(() => {
     if (!nuri) {
@@ -62,23 +61,10 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
       return;
     }
 
-    if (!isNextGraph) {
-      const category = getCategoryById(nuri);
-      if (category) {
-        const mockRCard: RCard = {
-          cardId: category.id,
-          permission: new BasicLdSet(category.permissions),
-          // @ts-expect-error ldo
-          type: {"@id": "Card"}
-        };
-        setRCard(mockRCard);
-      }
-    } else {
-      if (rCardSubject) {
-        setRCard(rCardSubject as RCard);
-      }
+    if (rCardSubject) {
+      setRCard(rCardSubject);
     }
-  }, [getCategoryById, isNextGraph, nuri, rCardSubject]);
+  }, [getCategoryById, nuri, rCardSubject]);
 
   const addContentItem = useCallback((
     permission: RCardPermission,
@@ -90,8 +76,7 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
       return;
     }
 
-    // @ts-expect-error ldo issue
-    const zone = permission.zone.toArray()[0]["@id"] as rCardZones;
+    const zone = rCardDictMapper.removePrefix(permission.zone) as rCardZones;
     if (!isEditing && contentItem.propertyConfig.resolveTo) {
       const existingContentItem = content[zone]
         .find(item => item.label === permission.firstLevel && item.propertyConfig.resolveTo === contentItem.propertyConfig.resolveTo);
@@ -106,9 +91,9 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
   // Group content by zone
   const zoneContent = useMemo(() => {
 
-    const content: ZoneContent = {top: [], middle: [], bottom: [] };
+    const content: ZoneContent = {top: [], middle: [], bottom: []};
     if (!contact) return content;
-    const permissions = rCard?.permission?.toArray() ?? [];
+    const permissions = [...rCard?.permission ?? []] ;
 
     permissions.forEach((permission) => {
       if (!permission["@id"]) return;
@@ -132,12 +117,11 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
   }, [zoneContent, updatePermission]);
 
   const changeLocation = useCallback(async (item: ContentItem, targetZone: keyof ZoneContent, index: number) => {
-    // @ts-expect-error ldo issue
-    const sourceZone = item.permission.zone.toArray()[0]["@id"] as rCardZones;
+    const sourceZone = item.permission.zone as rCardZones;
     zoneContent[sourceZone].splice(zoneContent[sourceZone].indexOf(item), 1);
     zoneContent[targetZone].splice(index, 0, item);
     if (sourceZone !== targetZone) {
-      updatePermission(item.permission, "zone", {"@id": targetZone});
+      updatePermission(item.permission, "zone", targetZone);
     }
 
     recalculateOrder(targetZone);

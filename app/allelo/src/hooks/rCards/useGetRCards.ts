@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useState} from "react";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {RCard, RCardPermission} from "@/.ldo/rcard.typings.ts";
+import {RCard, RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {rCardService} from "@/services/rCardService.ts";
 
@@ -80,12 +80,13 @@ WHERE {
       for (const binding of result.results.bindings) {
         if (binding.permId?.value) {
           const permission: RCardPermission = {
+            "@graph": "",
             "@id": binding.permId.value,
             firstLevel: binding.firstLevel.value,
             zone: {["@id"]: binding.zone.value.split('#').pop()} as any
           };
 
-          if (binding.node?.value) permission.node = {["@id"]: binding.node.value};
+          if (binding.node?.value) permission.node = binding.node.value;
           if (binding.secondLevel?.value) permission.secondLevel = binding.secondLevel.value;
           if (binding.permOrder?.value) permission.order = parseInt(binding.permOrder.value);
           if (binding.isPermissionGiven?.value) permission.isPermissionGiven = binding.isPermissionGiven.value === "true";
