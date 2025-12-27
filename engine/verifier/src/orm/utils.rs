@@ -118,7 +118,7 @@ pub fn json_to_sparql_val(json: &serde_json::Value) -> String {
         serde_json::Value::Number(num) => num.to_string(),
         serde_json::Value::String(str) => match is_iri(str) {
             true => format!("<{}>", str),
-            false => format!("\"{}\"", str),
+            false => format!("\"{}\"", escape_sparql_string(str)),
         },
         _ => panic!(),
     }
