@@ -1,4 +1,3 @@
-import {ContactViewHeader} from "@/components/contacts";
 import {
   UilBell,
   UilFileAlt,
@@ -9,101 +8,44 @@ import {
   UilShield, UilUser
 } from "@iconscout/react-unicons";
 import {Box, Button, Divider, Paper, Tab, Tabs, Typography} from "@mui/material";
-import {useNavigate} from "react-router-dom";
-import {dataService} from "@/services/dataService.ts";
-import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
-import {useLdo, useNextGraphAuth} from "@/lib/nextgraph";
-import {NextGraphAuth} from "@/types/nextgraph";
 import {useCallback, useEffect, useState} from "react";
-import {contactCommonProperties, contactLdSetProperties} from "@/utils/socialContact/contactUtils.ts";
-import {profileService} from "@/services/profileService.ts";
-import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {ProfileSection} from "@/components/account/AccountPage";
+import {useAddProfile} from "@/hooks/profile/useAddProfile";
+import {useNavigate} from "react-router-dom";
 
 const CreateProfilePage = () => {
   const navigate = useNavigate();
-  const isNextgraph = isNextGraphEnabled();
-  const nextGraphAuth = useNextGraphAuth();
-  const {session} = nextGraphAuth || {} as NextGraphAuth;
-  const {commitData, changeData} = useLdo();
-  const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState<SocialContact>();
   const [isValid, setIsValid] = useState(true);
 
-  const initProfile = useCallback(async () => {
-    const draftProfile = await dataService.getDraftProfile();
-    setIsValid((draftProfile?.name?.size ?? 0) > 0); // For now just checking name
-    setProfile(draftProfile);
-  }, []);
+  const {profile, saveProfile, resetProfile} = useAddProfile();
 
   useEffect(() => {
-    let cancelled = false;
+    setIsValid((profile?.name?.size ?? 0) > 0);
+  }, [profile]);
 
-    (async () => {
-      if (cancelled) return;
-
-      await initProfile();
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [initProfile]);
-
-  const saveProfile = useCallback(async () => {
-    if (!profile) // TODO validation
+  const save = useCallback(async () => {
+    if (!profile || !isValid)//TODO validation
       return;
-    setLoading(true);
-    delete profile.isDraft;
-
-    try {
-      // ldo issue
-      if (isNextgraph) {
-        contactLdSetProperties.forEach(propertyKey => {
-          (profile[propertyKey]?.toArray() as any[]).forEach(el => delete el["@id"]);
-        });
-        contactCommonProperties.forEach(propertyKey => {
-          if (profile[propertyKey]) {
-            delete (profile[propertyKey] as any)["@id"];
-          }
-        });
-
-        // For NextGraph, use the dedicated updateProfile method
-        await profileService.updateProfile(session, profile, changeData, commitData);
-      } else {
-        // For mock data, update the profile
-        await dataService.updateProfile(profile);
-      }
-
-      dataService.removeDraftProfile();
-      navigate(`/account`);
-    } catch (error) {
-      console.error('Failed to save profile:', error);
-      setLoading(false);
-    }
-  }, [profile, isNextgraph, navigate, session, changeData, commitData]);
-
-  const resetProfile = useCallback(() => {
-    dataService.removeDraftProfile();
-    initProfile();
-  }, [initProfile])
+    saveProfile();
+    navigate(`/account`);
+  }, [isValid, navigate, profile, saveProfile]);
 
   // Create tabs similar to AccountPage but with only Profile tab enabled
   const tabItems = [
-      {
-        label: "Profile",
-        icon: <UilUser size="20"/>,
-        content: (
-          <Box/>
-        )
-      },
-      {label: "Alerts", icon: <UilBell size="20"/>, content: <Box />, disabled: true},
-      {label: "My Stream", icon: <UilRss size="20"/>, content: <Box />, disabled: true},
-      {label: "My Docs", icon: <UilFileAlt size="20"/>, content: <Box />, disabled: true},
-      {label: "Queries", icon: <UilSearch size="20"/>, content: <Box />, disabled: true},
-      {label: "My Cards", icon: <UilShield size="20"/>, content: <Box />, disabled: true},
-      {label: "Settings", icon: <UilSetting size="20"/>, content: <Box />, disabled: true},
-    ];
-
+    {
+      label: "Profile",
+      icon: <UilUser size="20"/>,
+      content: (
+        <Box/>
+      )
+    },
+    {label: "Alerts", icon: <UilBell size="20"/>, content: <Box/>, disabled: true},
+    {label: "My Stream", icon: <UilRss size="20"/>, content: <Box/>, disabled: true},
+    {label: "My Docs", icon: <UilFileAlt size="20"/>, content: <Box/>, disabled: true},
+    {label: "Queries", icon: <UilSearch size="20"/>, content: <Box/>, disabled: true},
+    {label: "My Cards", icon: <UilShield size="20"/>, content: <Box/>, disabled: true},
+    {label: "Settings", icon: <UilSetting size="20"/>, content: <Box/>, disabled: true},
+  ];
 
 
   return (
@@ -173,15 +115,13 @@ const CreateProfilePage = () => {
               variant={"text"}
               startIcon={<UilRedo size="20"/>}
               onClick={resetProfile}
-              disabled={loading}
             >
               Reset
             </Button>
             <Button
               variant={"text"}
               startIcon={<UilSave size="20"/>}
-              onClick={saveProfile}
-              loading={loading}
+              onClick={save}
               disabled={!isValid}
             >
               Save
@@ -189,17 +129,7 @@ const CreateProfilePage = () => {
           </Box>
         </Box>
 
-        <ContactViewHeader
-          contact={profile!}
-          isLoading={false}
-          isEditing={!loading}
-          showStatus={false}
-          showTags={false}
-          showActions={false}
-          validateParent={setIsValid}
-        />
-
-
+        <ProfileSection initialProfileData={profile} isAddProfile={true}/>
         <Divider sx={{my: 3}}/>
       </Paper>
     </Box>

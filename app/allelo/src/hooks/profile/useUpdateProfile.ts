@@ -1,10 +1,10 @@
 import {useCallback, useMemo, useState} from 'react';
-import {useNextGraphAuth} from '@/lib/nextgraph';
-import {NextGraphAuth} from "@/types/nextgraph";
+import {useNextGraphAuth} from '@/lib/nextgraph.ts';
+import {NextGraphAuth} from "@/types/nextgraph.ts";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {profileService} from "@/services/profileService.ts";
-import {useShape} from "../../../../sdk/js/orm/src/frontendAdapters/react";
+import {useShape} from "@ng-org/orm/react";
 import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes.ts";
 import {getShortId} from "@/utils/orm/ormUtils.ts";
 import {contactService} from "@/services/contactService.ts";
@@ -42,6 +42,8 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
     try {
       if (profile) {
         await contactService.persistSocialContact(session, profileData, profile);
+        //in case user hasn't finished creating profile, but imported it from linkedin for example
+        delete profile.isDraft;
       } else {
         const isProfileCreated = await profileService.isProfileCreated(session);
         if (!isProfileCreated) {

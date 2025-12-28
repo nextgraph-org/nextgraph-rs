@@ -7,7 +7,7 @@ import {
   DialogTitle,
   Button
 } from "@mui/material";
-import {useUpdateProfile} from "@/hooks/useUpdateProfile";
+import {useUpdateProfile} from "@/hooks/profile/useUpdateProfile";
 import {LinkedInData} from "./linkedInTypes";
 import {LinkedInLoginForm} from "./LinkedInLoginForm";
 import {LinkedInVerification} from "./LinkedInVerification";

@@ -23,12 +23,13 @@ export interface ProfileSectionProps {
   personhoodCredentials?: PersonhoodCredentials;
   onGenerateQR?: () => void;
   onRefreshCredentials?: () => void;
-  initialProfileData: SocialContact;
+  initialProfileData: SocialContact | undefined;
+  isAddProfile?: boolean;
 }
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
-  ({initialProfileData}, ref) => {
-    const [isEditing, setIsEditing] = useState(false);
+  ({initialProfileData, isAddProfile}, ref) => {
+    const [isEditing, setIsEditing] = useState(isAddProfile ?? false);
     const [showNameDetails, setShowNameDetails] = useState(false);
 
     const displayName = resolveContactName(initialProfileData);
@@ -52,7 +53,8 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
               display: 'flex',
               alignItems: "center"
             }}>
-              <ContactAvatarUpload contactNuri={initialProfileData["@graph"]} initial={displayName}
+              <ContactAvatarUpload contactNuri={initialProfileData ? initialProfileData["@graph"] : ""}
+                                   initial={displayName}
                                    isEditing={isEditing} forProfile={true}/>
               <Box sx={{
                 display: "flex",
@@ -245,24 +247,23 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
           top: 10,
           right: 16,
           zIndex: 1000,
-        }}>
-          {!isEditing ? (
-            <Button
-              variant="contained"
-              startIcon={<UilEdit size="20"/>}
-              onClick={handleEdit}
-            >
-              Edit
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              startIcon={<UilEdit size="20"/>}
-              onClick={handleSave}
-            >
-              Done editing
-            </Button>
-          )}
+        }}>{isAddProfile ? <></> : !isEditing ? (
+          <Button
+            variant="contained"
+            startIcon={<UilEdit size="20"/>}
+            onClick={handleEdit}
+          >
+            Edit
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            startIcon={<UilEdit size="20"/>}
+            onClick={handleSave}
+          >
+            Done editing
+          </Button>
+        )}
         </Box>
 
 

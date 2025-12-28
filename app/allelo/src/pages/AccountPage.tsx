@@ -39,11 +39,11 @@ export const AccountPage = () => {
       return;
     }
     profileService.isProfileCreated(nextGraphAuth.session).then((isCreated) => {
-      if (!isCreated) {
+      if (!isCreated || ormContact && ormContact.isDraft) {
         navigate('/account/create', {replace: true});
       }
     })
-  }, [navigate, nextGraphAuth.session]);
+  }, [navigate, nextGraphAuth.session, ormContact]);
 
   const handleLogout = async () => {
     try {

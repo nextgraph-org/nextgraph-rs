@@ -27,7 +27,7 @@ import {ImportSourceRegistry} from "@/importers/importSourceRegistry.tsx";
 import {ImportingOverlay} from "@/components/contacts/ImportContacts/ImportingOverlay.tsx";
 import {useImportContacts} from "@/hooks/contacts/useImportContacts.ts";
 import {useSettings} from "@/hooks/useSettings.ts";
-import {useUpdateProfile} from "@/hooks/useUpdateProfile.ts";
+import {useUpdateProfile} from "@/hooks/profile/useUpdateProfile";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export const ClaimIdentityPage = () => {

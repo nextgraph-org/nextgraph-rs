@@ -23,7 +23,7 @@ import {
   CheckCircle,
 } from "@mui/icons-material";
 import {GreenCheckClaim, IGreenCheckClient, isAccountClaim} from "@/lib/greencheck-api-client/types";
-import {useUpdateProfile} from "@/hooks/useUpdateProfile";
+import {useUpdateProfile} from "@/hooks/profile/useUpdateProfile";
 import {mapCentralityResponseToSocialContacts, mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper";
 import {useLinkedinAccountPerContact} from "@/hooks/contacts/useLinkedinAccountPerContact.ts";
 import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
