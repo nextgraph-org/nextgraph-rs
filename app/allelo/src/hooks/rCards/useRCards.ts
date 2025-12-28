@@ -50,7 +50,7 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
 
   const rCardsSet = useShape(
     RCardShapeType,
-    sessionId && nuri ? nuri.substring(0, 53) : undefined
+    sessionId && nuri
   );
 
   const rCardSubject = [...rCardsSet][0] as RCard;

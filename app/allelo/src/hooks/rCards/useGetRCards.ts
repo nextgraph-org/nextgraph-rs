@@ -4,10 +4,11 @@ import {NextGraphAuth} from "@/types/nextgraph.ts";
 import {RCard, RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {rCardService} from "@/services/rCardService.ts";
+import {getRCardsGraph} from "@/utils/rCardsUtils.ts";
 
 interface GetRCardsReturn {
   getRCardIDs: () => Promise<string[]>;
-  rCardsExist:  () => Promise<boolean>;
+  rCardsExist: () => Promise<boolean>;
   getRCards: () => Promise<RCard[]>;
   rCards: RCard[];
   loading: boolean;
@@ -22,11 +23,11 @@ export const useGetRCards = (): GetRCardsReturn => {
   const [rCards, setRCards] = useState<RCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
-  
+
   const {getCategoryDisplayName} = useRCardsConfigs();
 
   const getRCardIDs = useCallback(async () => {
-    return await rCardService.getRCardsIDs(session);
+    return rCardService.getRCardsIDs(session).then((rCards) => rCards.map((rCard) => getRCardsGraph(rCard, session)));
   }, [session]);
 
   const rCardsExist = useCallback(async () => {

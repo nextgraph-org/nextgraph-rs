@@ -11,10 +11,11 @@ import {Avatar} from "@/components/ui";
 import {typeIconMapper} from "@/utils/typeIconMapper.ts";
 import {AccountRegistry} from "@/utils/accountRegistry.tsx";
 import {renderTemplate} from "@/utils/templateRenderer.ts";
-import {useLdo, useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {RCardPermission} from "@/.ldo/rcard.typings.ts";
-import {RCardPermissionShapeType} from "@/.ldo/rcard.shapeTypes.ts";
+import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
+import {RCardPermissionShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
+import {useNextGraphAuth} from "@/lib/nextgraph.ts";
+import {useShape} from "@ng-org/orm/react";
 
 interface RCardPropertyProps {
   item: ContentItem;
@@ -27,31 +28,24 @@ export const RCardProperty = ({
                                 zone,
                                 isEditing = false
                               }: RCardPropertyProps) => {
-  const nuri = item.permission["@id"];
+  const nuri = item.permission["@graph"];
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
-  const {commitData, changeData} = useLdo();
   const sessionId = session?.sessionId;
 
-  // NextGraph subscription
-  const resource = useResource(sessionId && nuri ? nuri?.substring(0, 53) : undefined, {subscribe: true});
-  const permission: RCardPermission | undefined = useSubject(
+  const permissionsSet = useShape(
     RCardPermissionShapeType,
     sessionId && nuri ? nuri : undefined
   );
+  const permission = [...permissionsSet ?? []][0] as RCardPermission;
 
   const isPermissionGiven = useMemo(() => permission?.isPermissionGiven ?? false, [permission?.isPermissionGiven]);
 
   const togglePermission = useCallback(() => {
     if (!permission) return;
-    // @ts-expect-error this is expected
-    if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce" && resource.type !== "InvalidIdentifierResource") {
-      const permissionObj = changeData(permission, resource);
-      permissionObj.isPermissionGiven = !permissionObj.isPermissionGiven;
+    permission.isPermissionGiven = !permission.isPermissionGiven;
 
-      commitData(permissionObj);
-    }
-  }, [changeData, commitData, permission, resource]);
+  }, [permission]);
 
   const variant = useMemo(() => {
     switch (zone) {
@@ -231,22 +225,22 @@ export const RCardProperty = ({
       value = renderTemplate(item.template, item.templateData);
     }
     return <Box
-        sx={{
-          display: "flex",
-          flexDirection: "row",
+      sx={{
+        display: "flex",
+        flexDirection: "row",
         gap: 2,
-          width: "100%",
-          px: 2,
+        width: "100%",
+        px: 2,
         flex: 1,
         maxWidth: "100%",
         minWidth: 0,
         flexWrap: "wrap",
         justifyContent: "center",
         alignItems: "start",
-          minHeight: "40px",
-        }}
-        key={item.id + value}
-      >
+        minHeight: "40px",
+      }}
+      key={item.id + value}
+    >
       <Box sx={{
         display: "flex",
         overflow: 'hidden',
@@ -258,10 +252,10 @@ export const RCardProperty = ({
 
       }}>
         {getIcon()}
-          {getProperty(value)}
-        </Box>
-      {isEditing && getLabel()}
+        {getProperty(value)}
       </Box>
+      {isEditing && getLabel()}
+    </Box>
 
   }, [getIcon, getProperty, item, isEditing, getLabel]);
 

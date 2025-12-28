@@ -1,60 +1,61 @@
-import {useCallback} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {relationshipCategories} from "@/constants/relationshipCategories.ts";
-import {dataset, useLdo, useNextGraphAuth} from "@/lib/nextgraph.ts";
+import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {
   NextGraphAuth,
 } from "@/types/nextgraph.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
-import {RCardShapeType} from "@/.ldo/rcard.shapeTypes.ts";
-import {RCardPermission} from "@/.ldo/rcard.typings.ts";
+import {RCardShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
+import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
+import {RCard} from "@/.orm/shapes/rcard.typings.ts";
+import {getShortId} from "@/utils/orm/ormUtils.ts";
+import {useShape} from "@ng-org/orm/react";
 
 interface SaveRCardsReturn {
-  saveDefaultRCards: () => void;
+  saveDefaultRCards: () => Promise<void>;
 }
 
 export const useSaveRCards = (): SaveRCardsReturn => {
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
-  const {commitData, createData, changeData} = useLdo();
   const {rCardsExist} = useGetRCards();
+  const [currentDocId, setCurrentDocId] = useState<string | undefined>(undefined);
+  const currentRcardRef = useRef<RCard | undefined>(undefined);
+
+  const rCardsSet = useShape(RCardShapeType, currentDocId);
 
   const createRCard = useCallback(async (
-    id: string,
+    rCardName: string,
     order: number,
     permissions: RCardPermission[],
   ) => {
-    const resource = await dataset.createResource("nextgraph");
-    if (resource.isError) {
-      throw new Error(`Failed to create resource`);
-    }
-    // @ts-expect-error InvalidIdentifierResouce
-    if (resource.isError || resource.type === "InvalidIdentifierResouce" || resource.type === "InvalidIdentifierResource") {
-      throw new Error(`Failed to create resource`);
-    }
-
-    await session!.ng!.update_header(session.sessionId, resource.uri.substring(0, 53), id);
-
-    let rCardObj = createData(
-      RCardShapeType,
-      resource.uri.substring(0, 53),
-      resource
+    const docId = await session.ng!.doc_create(
+      session.sessionId,
+      "Graph",
+      "data:graph",
+      "store"
     );
-    await commitData(rCardObj);
 
-    rCardObj = changeData(rCardObj, resource);
-    // @ts-expect-error ldo
-    rCardObj.type = {"@id": "Card"};
-    rCardObj.order = order;
-    rCardObj.cardId = id;
+    await session!.ng!.update_header(session.sessionId, docId, rCardName);
+
+    const rCardObj: RCard = {
+      "@graph": docId,
+      "@id": getShortId(docId),
+      "@type": new Set(["did:ng:x:social:rcard#Card"]),
+      "cardId": rCardName,
+      order,
+      permission: new Set()
+    }
+
     permissions.forEach((el: any, index) => {
       el.order = index;
       rCardObj.permission?.add(el);
     });
 
-    await commitData(rCardObj);
+    currentRcardRef.current = rCardObj;
 
-    return resource.uri;
-  }, [changeData, commitData, createData, session]);
+    setCurrentDocId(docId);
+  }, [session]);
 
   const saveDefaultRCards = useCallback(async () => {
     if (!session) return;
@@ -74,6 +75,13 @@ export const useSaveRCards = (): SaveRCardsReturn => {
       }
     }
   }, [createRCard, rCardsExist, session]);
+
+  useEffect(() => {
+    if (currentDocId && rCardsSet && currentRcardRef.current) {
+      rCardsSet.add(currentRcardRef.current);
+      currentRcardRef.current = undefined;
+    }
+  }, [currentDocId, rCardsSet]);
 
   return {
     saveDefaultRCards
