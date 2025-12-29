@@ -35,8 +35,6 @@ export async function init() {
 
 export interface NextGraphSession {
     ng: typeof NG;
-    privateStoreId?: string;
-    protectedStoreId?: string;
     session_id: string;
     protected_store_id: string;
     private_store_id: string;

@@ -16,15 +16,9 @@
 
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
-    const docId = await session.ng.doc_create(
-      session.session_id,
-      "Graph",
-      "data:graph",
-      "store",
-      undefined
-    );
+
     $expenses.add({
-      "@graph": docId,
+      "@graph": `did:ng:${session.private_store_id}`,
       "@type": "http://example.org/Expense",
       "@id": "",
       amount: obj.amount ?? 1,
