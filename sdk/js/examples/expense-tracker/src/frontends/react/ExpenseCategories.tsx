@@ -19,16 +19,9 @@ export function ExpenseCategories() {
 
     const createCategory = useCallback(async () => {
         const session = await sessionPromise;
-        const docId = await session.ng.doc_create(
-            session.session_id,
-            "Graph",
-            "data:graph",
-            "store",
-            undefined
-        );
 
         expenseCategories.add({
-            "@graph": docId,
+            "@graph": `did:ng:${session.private_store_id}`,
             "@type": new Set(["http://example.org/ExpenseCategory"]),
             "@id": "",
             categoryName: "New category",
