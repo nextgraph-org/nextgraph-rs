@@ -27,7 +27,10 @@ const useShape = <T extends BaseType>(
     scope: Scope | undefined = ""
 ) => {
     const signalHandler = useMemo(
-        () => (!scope ? undefined : createSignalObjectForShape(shape, scope)),
+        () =>
+            scope === undefined
+                ? undefined
+                : createSignalObjectForShape(shape, scope),
         [shape, scope]
     );
 
@@ -51,7 +54,7 @@ const readOnlySet = new Proxy(new Set(), {
                 throw new Error("Set is readonly because scope is empty.");
             };
         }
-        const value = Reflect.get(target, key, receiver);
+        const value = (target as any)[key];
         if (typeof value === "function") {
             return value.bind(target);
         }
