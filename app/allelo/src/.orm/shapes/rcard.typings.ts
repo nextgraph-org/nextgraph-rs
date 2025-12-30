@@ -69,15 +69,6 @@ export interface RCardPermission {
    */
   triple?: Set<RCardPermissionTriple>;
   /**
-   * Display zone for the property
-   *
-   * Original IRI: did:ng:x:social:rcard:permission#zone
-   */
-  zone:
-    | "did:ng:k:social:rcard:permission:zone#top"
-    | "did:ng:k:social:rcard:permission:zone#bottom"
-    | "did:ng:k:social:rcard:permission:zone#middle";
-  /**
    * Display order within a zone
    *
    * Original IRI: did:ng:x:social:rcard#order
@@ -89,6 +80,15 @@ export interface RCardPermission {
    * Original IRI: did:ng:x:social:rcard:permission#isPermissionGiven
    */
   isPermissionGiven?: boolean;
+  /**
+   * Display zone for the property
+   *
+   * Original IRI: did:ng:x:social:rcard:permission#zone
+   */
+  zone:
+    | "did:ng:k:social:rcard:permission:zone#top"
+    | "did:ng:k:social:rcard:permission:zone#bottom"
+    | "did:ng:k:social:rcard:permission:zone#middle";
   /**
    * Whether multiple values are allowed
    *

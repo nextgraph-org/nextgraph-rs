@@ -117,11 +117,11 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
   }, [zoneContent, updatePermission]);
 
   const changeLocation = useCallback(async (item: ContentItem, targetZone: keyof ZoneContent, index: number) => {
-    const sourceZone = item.permission.zone as rCardZones;
+    const sourceZone = rCardDictMapper.removePrefix(item.permission.zone) as rCardZones;
     zoneContent[sourceZone].splice(zoneContent[sourceZone].indexOf(item), 1);
     zoneContent[targetZone].splice(index, 0, item);
     if (sourceZone !== targetZone) {
-      updatePermission(item.permission, "zone", targetZone);
+      updatePermission(item.permission, "zone", rCardDictMapper.appendPrefixToDictValue("permission",  "zone", targetZone));
     }
 
     recalculateOrder(targetZone);

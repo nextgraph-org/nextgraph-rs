@@ -174,7 +174,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     };
     const newItem = addNewPropertyWithUserSource(contact);
     
-    if (isProfile && newItem) updatePermissionsNode(propertyKey, newItem["@id"]);
+    if (isProfile && newItem) updatePermissionsNode(propertyKey);
 
     setNewItemValue('');
     setIsAddingNew(false);

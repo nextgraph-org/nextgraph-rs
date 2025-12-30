@@ -21,7 +21,6 @@ import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {PropertyWithSources} from '../PropertyWithSources';
 import {ContactTags} from '../ContactTags';
 import {defaultTemplates} from "@/utils/templateRenderer.ts";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {useNavigate} from "react-router-dom";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
@@ -35,7 +34,6 @@ export interface ContactViewHeaderProps {
   showTags?: boolean;
   showActions?: boolean;
   validateParent?: (valid: boolean) => void;
-  resource?: NextGraphResource
 }
 
 export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderProps>(

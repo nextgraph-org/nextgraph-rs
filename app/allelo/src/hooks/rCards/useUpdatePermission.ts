@@ -1,19 +1,17 @@
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useMemo} from "react";
 import {ContactSetProperties} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {getPermissionConfig, getPermissionId, rCardPermissionConfig} from "@/constants/rPermissions.ts";
 import {RCard, RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {profileService} from "@/services/profileService.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
-import {useShape} from "@ng-org/orm/react";
-import {RCardPermissionShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 interface UpdatePermissionReturn {
   updatePermissionsNode: (propertyKey: ContactSetProperties, propertyNuri?: string) => void;
-  updatePermission: (permission: RCardPermission, propertyKey: keyof RCardPermission, value: string) => void;
+  updatePermission: <K extends keyof RCardPermission>(permission: RCardPermission, propertyKey: K, value: RCardPermission[K]) => void;
   isProfile: boolean;
   updateProfilePermissionNodes: () => void
 }
@@ -21,10 +19,6 @@ interface UpdatePermissionReturn {
 export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boolean = false): UpdatePermissionReturn => {
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
   const {rCards} = useGetRCards();
-  const [rCardPermissionId, setRCardPermissionId] = useState<string>();
-  const currentChangesRef = useRef<Record<any, any> | undefined>(undefined);
-  const rCardPermissionSet = useShape(RCardPermissionShapeType, rCardPermissionId);
-  const rCardPermission = [...rCardPermissionSet][0] as RCardPermission;
 
   const {ormContact: contact} = useContactOrm(null, true);
 
@@ -50,22 +44,10 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
     })
   }, []);
 
-  useEffect(() => {
-    if (rCardPermissionId && rCardPermission && currentChangesRef.current) {
-      Object.entries(currentChangesRef.current).forEach(([propertyKey, value]) => {
-        rCardPermission[propertyKey] = value;
-      })
-
-      currentChangesRef.current = undefined;
-      setRCardPermissionId(undefined);
-    }
-  }, [rCardPermissionId, rCardPermission, session]);
-
 
   const updatePermission = useCallback(<K extends keyof RCardPermission>(
-    permission: RCardPermission, propertyKey: K, value: any) => {
-    currentChangesRef.current = {[propertyKey]: value};
-    setRCardPermissionId(permission["@id"]);
+    permission: RCardPermission, propertyKey: K, value: RCardPermission[K]) => {
+    permission[propertyKey] = value;
   }, []);
 
   const updatePermissionsNode = useCallback(async (
@@ -76,13 +58,14 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
     let allNuris: string[] = [];
     if (!propertyNuri) {
       if (!contact) return;
-      allNuris = Object.values(contact[propertyKey] ?? {}).map(r => r.id);
+      allNuris = [...contact[propertyKey] ?? []].map(r => r["@id"]);
       if (!allNuris.length) return;
     }
 
     [...rCards].forEach(rCard => {
       if (!rCard.permission) return;
-      const permissions = [...rCard.permission ?? []];
+      const permissions = [...rCard.permission ?? []]
+        .filter(permission => permission.firstLevel === propertyKey);
 
       const foundPermissions: string[] = [];
 

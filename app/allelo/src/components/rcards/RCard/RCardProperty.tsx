@@ -11,11 +11,6 @@ import {Avatar} from "@/components/ui";
 import {typeIconMapper} from "@/utils/typeIconMapper.ts";
 import {AccountRegistry} from "@/utils/accountRegistry.tsx";
 import {renderTemplate} from "@/utils/templateRenderer.ts";
-import {NextGraphAuth} from "@/types/nextgraph.ts";
-import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
-import {RCardPermissionShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
-import {useNextGraphAuth} from "@/lib/nextgraph.ts";
-import {useShape} from "@ng-org/orm/react";
 
 interface RCardPropertyProps {
   item: ContentItem;
@@ -28,16 +23,7 @@ export const RCardProperty = ({
                                 zone,
                                 isEditing = false
                               }: RCardPropertyProps) => {
-  const nuri = item.permission["@graph"];
-  const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
-  const {session} = nextGraphAuth;
-  const sessionId = session?.sessionId;
-
-  const permissionsSet = useShape(
-    RCardPermissionShapeType,
-    sessionId && nuri ? nuri : undefined
-  );
-  const permission = [...permissionsSet ?? []][0] as RCardPermission;
+  const permission = item.permission;
 
   const isPermissionGiven = useMemo(() => permission?.isPermissionGiven ?? false, [permission?.isPermissionGiven]);
 
