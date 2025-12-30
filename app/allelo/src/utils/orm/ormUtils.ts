@@ -4,10 +4,11 @@ type SetKeys<T> = {
 
 function mergeSetProperty<T, K extends SetKeys<T>>(
   propertyKey: K,
-  object: T,
+  obj: T,
   updateData: Partial<T>,
 ) {
-  const target = object[propertyKey];
+  obj[propertyKey] ??= new Set<K>() as T[K];
+  const target = obj[propertyKey] ?? new Set();
   const src = updateData[propertyKey];
   if (!(target instanceof Set) || !(src instanceof Set)) return;
   for (const el of src) target.add(el);
@@ -15,7 +16,7 @@ function mergeSetProperty<T, K extends SetKeys<T>>(
 
 export function persistProperty<T, K extends keyof T>(
   propertyKey: K,
-  object: T,
+  obj: T,
   updateData: Partial<T>,
   isSetProperty?: boolean
 ) {
@@ -23,14 +24,14 @@ export function persistProperty<T, K extends keyof T>(
   if (isSetProperty) {
     mergeSetProperty(
       propertyKey as unknown as SetKeys<T>,
-      object,
+      obj,
       updateData
     );
   } else {
     const importValue = updateData[propertyKey];
 
     if (importValue == undefined) return;
-    object[propertyKey] = importValue;
+    obj[propertyKey] = importValue;
   }
 }
 
