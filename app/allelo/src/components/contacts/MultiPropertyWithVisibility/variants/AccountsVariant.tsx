@@ -9,14 +9,11 @@ import {
 import {UilPlus as Add} from '@iconscout/react-unicons';
 import {AccountRegistry} from "@/utils/accountRegistry";
 import React, {useCallback, useState} from 'react';
-import {ContactKeysWithHidden, setUpdatedTime} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {setUpdatedTime} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {MultiPropertyItem} from "@/components/contacts/MultiPropertyWithVisibility/MultiPropertyItem.tsx";
-import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {Account, SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
-
-type ResolvableKey = ContactKeysWithHidden;
-
-interface AccountsVariantProps<K extends ResolvableKey> {
+interface AccountsVariantProps {
   visibleItems: any[];
   isEditing: boolean;
   editingValues: Record<string, string>;
@@ -24,8 +21,7 @@ interface AccountsVariantProps<K extends ResolvableKey> {
   newItemValue: string;
   placeholder?: string;
   label?: string;
-  subKey: string;
-  propertyKey: K;
+  propertyKey: "account";
   onInputChange: (itemId: string, value: string) => void;
   onBlur: (itemId: string) => void;
   onAddNewItem: (updates?: Record<any, any>) => void;
@@ -35,7 +31,7 @@ interface AccountsVariantProps<K extends ResolvableKey> {
   contact?: SocialContact;
 }
 
-export const AccountsVariant = <K extends ResolvableKey>({
+export const AccountsVariant = ({
                                                            visibleItems,
                                                            isEditing,
                                                            editingValues,
@@ -43,7 +39,6 @@ export const AccountsVariant = <K extends ResolvableKey>({
                                                            newItemValue,
                                                            placeholder,
                                                            label,
-                                                           subKey,
                                                            propertyKey,
                                                            onInputChange,
                                                            onBlur,
@@ -52,7 +47,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
                                                            setIsAddingNew,
                                                            setNewItemValue,
                                                            contact,
-                                                         }: AccountsVariantProps<K>) => {
+                                                         }: AccountsVariantProps) => {
   const [newItemProtocol, setNewItemProtocol] = useState('linkedin');
   const availableAccountTypes = AccountRegistry.getAllAccountTypes();
 
@@ -63,7 +58,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
       const fieldSet = contactObj[propertyKey];
       if (!fieldSet) return;
 
-      let targetItem = null;
+      let targetItem: Account | null = null;
       for (const item of fieldSet) {
         if (item["@id"] === itemId) {
           targetItem = item;
@@ -79,7 +74,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
           const newEntry = {
             "@graph": "",
             "@id": "",
-            [subKey]: targetItem[subKey] || '',
+            value: targetItem["value"] || '',
             protocol: protocol,
             source: "user",
             hidden: false,
@@ -93,11 +88,11 @@ export const AccountsVariant = <K extends ResolvableKey>({
     };
 
     updateProtocolWithUserSource(contact);
-  }, [contact, propertyKey, subKey]);
+  }, [contact, propertyKey]);
 
   const renderEditingItem = (item: any, index: number) => {
     const itemId = item['@id'] || `${propertyKey}_${index}`;
-    const currentValue = editingValues[itemId] !== undefined ? editingValues[itemId] : (item[subKey] || '');
+    const currentValue = editingValues[itemId] !== undefined ? editingValues[itemId] : (item["value"] || '');
 
     return (
       <Box key={itemId} sx={{display: 'flex', alignItems: 'start', gap: 1, width: '100%', mb: 1}}>

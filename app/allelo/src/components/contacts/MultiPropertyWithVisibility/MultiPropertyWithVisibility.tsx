@@ -126,6 +126,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
 
       if (targetItem) {
         if (targetItem.source === "user") {
+          // @ts-expect-error strict type later
           targetItem[subKey] = newValue;
         } else {
           // Create copy with user source for non-user sources
@@ -173,7 +174,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     };
     const newItem = addNewPropertyWithUserSource(contact);
     
-    if (isProfile) updatePermissionsNode(propertyKey);
+    if (isProfile && newItem) updatePermissionsNode(propertyKey, newItem["@id"]);
 
     setNewItemValue('');
     setIsAddingNew(false);
@@ -383,6 +384,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
       case "url":
         return <ChipsVariant {...commonProps} variant={variant}/>;
       case "accounts":
+        // @ts-expect-error expected error
         return <AccountsVariant {...commonProps} />;
       case "addresses":
         return <AddressVariant {...commonProps} />;

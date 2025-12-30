@@ -44,7 +44,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
     useEffect(() => {
       const contactRCardId = contact?.rcard ? contact.rcard : undefined;
       // Only set if rCards are loaded and the value exists in the list
-      if (contactRCardId && rCards.some(rc => rc["@id"] === contactRCardId)) {
+      if (contactRCardId && [...rCards ?? []].some(rc => rc["@id"] === contactRCardId)) {
         setSelectedCategory(contactRCardId);
       }
     }, [contact, rCards]);
@@ -120,7 +120,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
               }}
               displayEmpty={false}
             >
-              {rCards.map((rCard) => (
+              {[...rCards ?? []].map((rCard) => (
                 <MenuItem key={rCard["@id"]} value={rCard["@id"]}>
                   <ListItemText primary={getCategoryDisplayName(rCard.cardId)}/>
                 </MenuItem>

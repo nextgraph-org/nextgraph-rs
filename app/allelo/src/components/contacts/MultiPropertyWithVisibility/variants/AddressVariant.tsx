@@ -12,6 +12,7 @@ import {AddressDetails} from "./AddressDetails.tsx";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import React from 'react';
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {ContactSetItem} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 interface AddressVariantProps {
   visibleItems: any[];
@@ -25,7 +26,7 @@ interface AddressVariantProps {
   propertyKey: string;
   onInputChange: (itemId: string, value: string) => void;
   onBlur: (itemId: string) => void;
-  onAddNewItem: (updates?: any, force?: boolean) => Record<string, any> | undefined;
+  onAddNewItem: (updates?: any, force?: boolean) => ContactSetItem<"address"> | undefined;
   onNewItemValueChange: (value: string) => void;
   setIsAddingNew: (adding: boolean) => void;
   setNewItemValue: (value: string) => void;
@@ -53,7 +54,7 @@ export const AddressVariant = ({
                                }: AddressVariantProps) => {
   const [isValid, setIsValid] = useState(true);
   const [showAddressDetails, setShowAddressDetails] = useState<Record<string, boolean>>({});
-  const [newItem, setNewItem] = useState<Record<string, string> | undefined>(undefined);
+  const [newItem, setNewItem] = useState<ContactSetItem<"address"> | undefined>(undefined);
 
   const toggleAddressDetails = (itemId: string) => {
     setShowAddressDetails(prev => ({

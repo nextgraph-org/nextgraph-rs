@@ -5,17 +5,11 @@ import {ContactSetProperties} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {getPermissionConfig, getPermissionId, rCardPermissionConfig} from "@/constants/rPermissions.ts";
 import {RCard, RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
-import {
-  sparqlCreatePermissionEntry,
-  chainSparqlOperations,
-  SPARQL_PREFIXES,
-  sparqlUpdatePermissionEntry
-} from "@/utils/sparqlHelpers.ts";
 import {profileService} from "@/services/profileService.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
-import {contactService} from "@/services/contactService.ts";
 import {useShape} from "@ng-org/orm/react";
 import {RCardPermissionShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 interface UpdatePermissionReturn {
   updatePermissionsNode: (propertyKey: ContactSetProperties, propertyNuri?: string) => void;
@@ -26,11 +20,13 @@ interface UpdatePermissionReturn {
 
 export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boolean = false): UpdatePermissionReturn => {
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
-  const {getRCards} = useGetRCards();
+  const {rCards} = useGetRCards();
   const [rCardPermissionId, setRCardPermissionId] = useState<string>();
   const currentChangesRef = useRef<Record<any, any> | undefined>(undefined);
   const rCardPermissionSet = useShape(RCardPermissionShapeType, rCardPermissionId);
   const rCardPermission = [...rCardPermissionSet][0] as RCardPermission;
+
+  const {ormContact: contact} = useContactOrm(null, true);
 
   const isProfile: boolean = useMemo<boolean>(() => isNewProfile || profileService.isContactProfile(session, profile),
     [profile, session, isNewProfile]);
@@ -38,32 +34,21 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
   const addPermissionsWithNodes = useCallback(async (rCard: RCard, permission: RCardPermission, nuris: string[]) => {
     if (!nuris.length) return;
 
-    // Create all permission entries using SPARQL
-    const sparqlOperations = nuris.map(propertyNuri => {
-      return sparqlCreatePermissionEntry(
-        rCard["@id"]!,
-        {
-          node: propertyNuri,
-          firstLevel: permission.firstLevel,
-          secondLevel: permission.secondLevel,
-          selector: permission.selector,
-          isPermissionGiven: false,
-          zone: permission.zone,
-          order: permission.order,
-          isMultiple: permission.isMultiple,
-        }
-      );
-    });
-
-    // Combine all operations and execute
-    const combinedSparql = chainSparqlOperations(...sparqlOperations);
-    try {
-      await session.ng!.sparql_update(session.sessionId, combinedSparql, rCard["@id"]!);
-    } catch (error) {
-      console.error('Failed to add permissions with nodes:', error);
-      throw new Error(`Failed to add permissions: ${error}`);
-    }
-  }, [session]);
+    nuris.forEach(propertyNuri => {
+      rCard.permission!.add({
+        "@graph": "",
+        "@id": "",
+        node: propertyNuri,
+        firstLevel: permission.firstLevel,
+        secondLevel: permission.secondLevel,
+        selector: permission.selector,
+        isPermissionGiven: false,
+        zone: permission.zone,
+        order: permission.order,
+        isMultiple: permission.isMultiple,
+      })
+    })
+  }, []);
 
   useEffect(() => {
     if (rCardPermissionId && rCardPermission && currentChangesRef.current) {
@@ -83,38 +68,6 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
     setRCardPermissionId(permission["@id"]);
   }, []);
 
-  const updatePermissionByID = useCallback(async <K extends keyof RCardPermission>(
-    permissionId: string, propertyKey: K, value: any) => {
-    if (!session || !permissionId) {
-      throw new Error('Invalid session or permission ID');
-    }
-
-    const permissionData: any = {};
-    permissionData[propertyKey] = value;
-
-    const [deleteQuery, insertQuery] = sparqlUpdatePermissionEntry(
-      permissionId,
-      permissionData,
-    )
-
-    const resourceNuri = permissionId.substring(0, 53);
-
-    try {
-      await session.ng!.sparql_update(session.sessionId, SPARQL_PREFIXES + '\n' + deleteQuery, resourceNuri);
-      await session.ng!.sparql_update(session.sessionId, SPARQL_PREFIXES + '\n' + insertQuery, resourceNuri);
-    } catch (error) {
-      console.error('Failed to update permission:', error);
-      throw new Error(`Failed to update permission: ${error}`);
-    }
-  }, [session]);
-
-  const getContact = useCallback(async (property: string) => {
-    const nuri = profileService.getProfileNuri(session);
-    if (!session.sessionId || !nuri) return;
-
-    return await contactService.getContactPropertiesList(session, nuri, property);
-  }, [session])
-
   const updatePermissionsNode = useCallback(async (
     propertyKey: ContactSetProperties,
     propertyNuri?: string
@@ -122,18 +75,14 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
     if (!isProfile) return;
     let allNuris: string[] = [];
     if (!propertyNuri) {
-      const contact = await getContact(propertyKey);
       if (!contact) return;
       allNuris = Object.values(contact[propertyKey] ?? {}).map(r => r.id);
       if (!allNuris.length) return;
     }
 
-    const rCards = await getRCards();
-
-    rCards.forEach(rCard => {
+    [...rCards].forEach(rCard => {
       if (!rCard.permission) return;
-      const permissions = [...rCard.permission ?? []].filter(permission =>
-        permission.firstLevel === propertyKey && permission["@id"]);
+      const permissions = [...rCard.permission ?? []];
 
       const foundPermissions: string[] = [];
 
@@ -150,14 +99,14 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
             const missingNuris = allNuris.filter(nuri => !allNodes.includes(nuri)) as string[];
             addPermissionsWithNodes(rCard, permission, missingNuris);
           } else {
-            updatePermissionByID(permission["@id"]!, "node", allNuris[0]);
+            permission.node = propertyNuri ?? allNuris[0];
           }
         } else {
-          updatePermissionByID(permission["@id"]!, "node", propertyNuri ?? allNuris[0]);
+          permission.node = propertyNuri ?? allNuris[0];
         }
       });
     })
-  }, [addPermissionsWithNodes, getContact, getRCards, isProfile, updatePermissionByID]);
+  }, [isProfile, rCards, contact, addPermissionsWithNodes]);
 
   const updateProfilePermissionNodes = useCallback(async () => {
     const propertyKeys = Object.keys(rCardPermissionConfig) as ContactSetProperties[];

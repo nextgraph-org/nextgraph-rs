@@ -1,7 +1,11 @@
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {defaultPolicy} from "@/config/sources.ts";
 import {geoApiService} from "@/services/geoApiService.ts";
-import {socialContactNonSetProperties, socialContactSetProperties} from "@/.orm/utils/contact.utils.ts";
+import {
+  SocialContactDictMap,
+  socialContactNonSetProperties,
+  socialContactSetProperties
+} from "@/.orm/utils/contact.utils.ts";
 import {renderTemplate, defaultTemplates} from "@/utils/templateRenderer";
 import {NextGraphSession} from "@/types/nextgraph.ts";
 import {contactsOverlay} from "@/constants/overlays.ts";
@@ -150,7 +154,7 @@ export function updatePropertyFlag<K extends ContactSetProperties>(
   }
 }
 
-function handleDictionaries(el: any, property: string, subProperty: string) {
+function handleDictionaries(el: any, property: keyof SocialContactDictMap, subProperty: string) {
   if (!el[subProperty]) return;
 
   let normalized = el[subProperty];

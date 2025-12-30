@@ -11,11 +11,10 @@ import {
   UilEllipsisV as MoreVert,
 } from '@iconscout/react-unicons';
 import {
-  ContactKeysWithSelected,
-  ContactLdSetProperties,
+  ContactSetProperties,
   setUpdatedTime,
   updatePropertyFlag,
-  resolveFrom
+  resolveFrom, ContactSetItem
 } from '@/utils/socialContact/contactUtilsOrm';
 import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper";
 import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
@@ -23,21 +22,14 @@ import {renderTemplate} from "@/utils/templateRenderer";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
-type ResolvableKey = ContactKeysWithSelected;
-
-// Extract keys of the Set element type for a given property key
-type SubKeyOf<K extends ResolvableKey> = K extends keyof ContactLdSetProperties
-  ? NonNullable<ContactLdSetProperties[K]> extends Set<infer U>
-    ? keyof U & string
-    : never
-  : never;
+type ResolvableKey = ContactSetProperties;
 
 interface PropertyWithSourcesProps<K extends ResolvableKey> {
   label?: string;
   icon?: React.ReactNode;
   contact: SocialContact | undefined;
   propertyKey: K;
-  subKey?: SubKeyOf<K>;
+  subKey?: keyof ContactSetItem<K>;
   // Display customization
   variant?: 'default' | 'header' | 'inline';
   textVariant?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body1' | 'body2';
@@ -52,7 +44,7 @@ interface PropertyWithSourcesProps<K extends ResolvableKey> {
   template?: string;
   templateProperty?: ResolvableKey;
   isMultiline?: boolean;
-  currentItem?: Record<string, string>;
+  currentItem?: ContactSetItem<K>;
   hideSources?: boolean;
   isMultipleField?: boolean;
 }
@@ -89,9 +81,15 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   const [displayValue, setDisplayValue] = useState<string>("");
 
   const handleChange = useCallback(() => {
-    const currentItemRef = currentItem ?? ((contact && resolveFrom(contact, propertyKey)) ?? {});
+    if (!contact) {
+      return;
+    }
+    const currentItemRef = currentItem ?? resolveFrom(contact, propertyKey);
+    if (!currentItemRef) {
+      return;
+    }
     setCurrentItemId(currentItemRef["@id"]);
-    const value = currentItemRef[subKey] ?? "";
+    const value = currentItemRef[subKey] as string; //TODO: support more types later
     setCurrentValue(value);
     setLocalValue(value);
 
