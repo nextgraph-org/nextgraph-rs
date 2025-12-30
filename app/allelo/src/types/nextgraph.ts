@@ -29,17 +29,3 @@ export interface NextGraphAuth {
   logout?: () => void;
   [key: string]: unknown;
 }
-
-export type CreateDataFunction = <Type extends import("@ldo/ldo").LdoBase>(
-  shapeType: import("@ldo/ldo").ShapeType<Type>,
-  subject: string | import("@ldo/rdf-utils").SubjectNode,
-  resource: import("@ldo/connected-nextgraph").NextGraphResource
-) => Type;
-
-export type ChangeDataFunction = <Type extends import("@ldo/ldo").LdoBase>(
-  input: Type,
-  resource: import("@ldo/connected-nextgraph").NextGraphResource,
-  ...additionalResources: import("@ldo/connected-nextgraph").NextGraphResource[]
-) => Type;
-
-export type CommitDataFunction = (input: import("@ldo/ldo").LdoBase) => ReturnType<import("@ldo/connected").ConnectedLdoTransactionDataset<import("@ldo/connected-nextgraph").NextGraphConnectedPlugin[]>["commitToRemote"]>;

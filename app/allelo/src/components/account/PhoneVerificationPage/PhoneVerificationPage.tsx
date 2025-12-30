@@ -8,8 +8,6 @@ import {
   StepLabel, FormControlLabel, Typography, Paper, Switch
 } from "@mui/material";
 import {GreenCheckClaim} from "@/lib/greencheck-api-client/types";
-import {isNextGraphEnabled} from "@/utils/featureFlags";
-import {mockGreenCheckAPI} from "@/mocks/greencheck";
 import PhoneInput from "./PhoneInput";
 import CodeInput from "./CodeInput";
 import PhoneVerificationSuccess from "./PhoneVerificationSuccess";
@@ -42,9 +40,7 @@ export const PhoneVerificationPage = ({
     import.meta.env.VITE_GREENCHECK_TOKEN
     ?? (typeof process !== 'undefined' ? process.env.GREENCHECK_TOKEN : 'temp-token');
 
-  const client = useMemo(() => isNextGraphEnabled()
-    ? new GreenCheck({authToken: token})
-    : mockGreenCheckAPI, [token]);
+  const client = useMemo(() => new GreenCheck({authToken: token}), [token]);
 
   const steps = ['Enter Phone', 'Verify Code'];
   const activeStep = state === 'phone-input' ? 0 : 1;

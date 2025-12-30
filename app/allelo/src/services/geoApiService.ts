@@ -1,4 +1,4 @@
-import {Address} from "@/.ldo/contact.typings.ts";
+import {Address} from "@/.orm/shapes/contact.typings.ts";
 import {GEO_API_URL} from "@/config/importers.ts";
 import {mapBoxSearchService} from "@/services/mapBoxSearchService.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
