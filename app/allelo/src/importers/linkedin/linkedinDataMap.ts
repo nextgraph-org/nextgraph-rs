@@ -246,7 +246,7 @@ export async function mapLinkedInPerson(
         "@graph": "",
         "@id": "",
         value: linkedInData.emailAddress,
-        type2: contactDictMapper.appendPrefixToDictValue("email", "type", "work"),
+        type: contactDictMapper.appendPrefixToDictValue("email", "type", "work"),
         source: src,
       }]);
     }

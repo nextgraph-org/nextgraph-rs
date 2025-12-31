@@ -348,5 +348,5 @@ function normalizeAddressType(type: string): string {
     'HOME': contactDictMapper.appendPrefixToDictValue('address', 'type', 'home'),
     'WORK': contactDictMapper.appendPrefixToDictValue('address', 'type', 'work')
   };
-  return typeMap[type.toUpperCase()] || 'other2';
+  return typeMap[type.toUpperCase()] || 'other';
 }
