@@ -245,7 +245,6 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   const allSources = [...contact[propertyKey] ?? []].filter(el => el["@id"]) ?? [];
 
   const getSourceSelectors = () => {
-    //TODO: size is unreliable, use toArray().length
     const showSourceSelector = allSources.length > 1 && !hideSources;
     if (showSourceSelector) {
       return (

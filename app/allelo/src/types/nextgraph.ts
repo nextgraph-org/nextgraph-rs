@@ -4,11 +4,12 @@ export interface NextGraphSession {
     update_header: (sessionId: string, nuri: string, title?: string | null, about?: string | null) => Promise<unknown>,
     sparql_update: (sessionId: string, sparql: string, storeId?: string) => Promise<string[] | { isError: boolean; message: string }>
     doc_create: (session_id: string, crdt: string, class_name: string, destination: string, store_repo?: any) => Promise<string>,
-  };
+  } | undefined;
   privateStoreId?: string;
   protectedStoreId?: string
+  sessionId?: string;
+  publicStoreId?: string;
   [key: string]: unknown;
-  sessionId: string;
 }
 
 type SparqlQueryResult = {

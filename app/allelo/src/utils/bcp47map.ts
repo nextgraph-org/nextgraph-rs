@@ -494,16 +494,15 @@ export function codeByLanguageName(name: string) {
   return NAME_TO_CODE.get(norm(name)) ?? null;
 }
 
-export function languageNameByCode(code: string | { "@id": string }) {
+export function languageNameByCode(code: string) {
   if (!code) return null;
   try {
-    //TODO: check if code is array, sometimes happens with IRI ldo
-    const codeWithoutPrefix = typeof code === "string" ? code : code["@id"].replace("did:ng:k:language:", "");
+    const codeWithoutPrefix = code.replace("did:ng:k:language:", "");
     const canon = Intl.getCanonicalLocales(codeWithoutPrefix)[0];
     return dnLang.of(canon) || CODE_TO_NAME[canon] || canon; // fallback to our map, then echo
   } catch (e) {
     console.error(e);
-    return typeof code === "string" ? code : null;
+    return code;
   }
 }
 

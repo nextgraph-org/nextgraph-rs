@@ -80,7 +80,7 @@ export class ContentItem {
       })
     }
     if (this.label === "language" && data.valueIRI) {
-      data.valueIRI = languageNameByCode(data.valueIRI.toArray()[0]);
+      data.valueIRI = languageNameByCode(data.valueIRI);
     }
     if (this.propertyConfig.displayProp && data && data[this.propertyConfig.displayProp]) {
       return data[this.propertyConfig.displayProp];
