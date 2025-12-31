@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback} from "react";
 import {relationshipCategories} from "@/constants/relationshipCategories.ts";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {
@@ -19,10 +19,8 @@ export const useSaveRCards = (): SaveRCardsReturn => {
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
   const {rCardsExist} = useGetRCards();
-  const [currentDocId, setCurrentDocId] = useState<string | undefined>(undefined);
-  const currentRcardRef = useRef<RCard | undefined>(undefined);
 
-  const rCardsSet = useShape(RCardShapeType, currentDocId);
+  const rCardsSet = useShape(RCardShapeType, "did:ng:i") as Set<RCard>;
 
   const createRCard = useCallback(async (
     rCardName: string,
@@ -52,10 +50,8 @@ export const useSaveRCards = (): SaveRCardsReturn => {
       rCardObj.permission?.add(el);
     });
 
-    currentRcardRef.current = rCardObj;
-
-    setCurrentDocId(docId);
-  }, [session]);
+    rCardsSet.add(rCardObj);
+  }, [rCardsSet, session]);
 
   const saveDefaultRCards = useCallback(async () => {
     if (!session) return;
@@ -75,13 +71,6 @@ export const useSaveRCards = (): SaveRCardsReturn => {
       }
     }
   }, [createRCard, rCardsExist, session]);
-
-  useEffect(() => {
-    if (currentDocId && rCardsSet && currentRcardRef.current) {
-      rCardsSet.add(currentRcardRef.current);
-      currentRcardRef.current = undefined;
-    }
-  }, [currentDocId, rCardsSet]);
 
   return {
     saveDefaultRCards
