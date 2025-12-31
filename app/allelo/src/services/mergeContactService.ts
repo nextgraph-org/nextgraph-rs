@@ -1,5 +1,7 @@
 import {NextGraphSession} from "@/types/nextgraph.ts";
 import {contactService} from "@/services/contactService.ts";
+import {getContactGraph} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {getShortId} from "@/utils/orm/ormUtils.ts";
 
 class MergeContactService {
   private static instance: MergeContactService;
@@ -48,9 +50,8 @@ class MergeContactService {
     const sparql = this.getDuplicatedContactsSparql();
 
     const data = await session.ng!.sparql_query(session.sessionId, sparql);
-    // @ts-expect-error TODO output format of ng sparql query
-    const duplicatesList: string[][] = data.results.bindings.map(binding =>
-      binding.duplicateContacts.value.split(",").map(contactId => "did:ng:o:" + contactId));
+    const duplicatesList: string[][] = data.results?.bindings?.map(binding =>
+      binding.duplicateContacts.value.split(",").map(contactId => getContactGraph("did:ng:o:" + contactId, session))) ?? [];
 
     return this.mergeGroups(duplicatesList);
   }
@@ -102,6 +103,27 @@ class MergeContactService {
       }
       GROUP BY ?duplicateContacts
     `;
+  }
+
+  async markContactsAsMerged(session: NextGraphSession, contactIds: string[], mergedIntoId: string): Promise<void> {
+    if (!session || !session.ng) {
+      throw new Error('No active session available');
+    }
+
+    if (contactIds.length === 0) {
+      return;
+    }
+
+    for (const contactId of contactIds) {
+      const sparql = `
+        ${contactService.prefixes}
+        INSERT DATA {
+          <${getShortId(contactId)}> ngcontact:mergedInto <${mergedIntoId}> .
+        }
+      `;
+
+      await session.ng.sparql_update(session.sessionId, sparql, contactId);
+    }
   }
 }
 

@@ -51,7 +51,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
       // @ts-expect-error @id shouldn't be readonly
       contact["@id"] = generateUri(docId);
 
-      contact.rcard = rCardId;
+      contact.rcard ??= rCardId;
 
       await contactService.updateContactDocHeader(contact, session);
 
