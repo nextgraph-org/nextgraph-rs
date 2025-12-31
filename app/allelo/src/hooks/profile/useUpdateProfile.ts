@@ -44,6 +44,7 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
         await contactService.persistSocialContact(session, profileData, profile);
         //in case user hasn't finished creating profile, but imported it from linkedin for example
         delete profile.isDraft;
+        updateProfilePermissionNodes();
       } else {
         const isProfileCreated = await profileService.isProfileCreated(session);
         if (!isProfileCreated) {
@@ -54,10 +55,10 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
           }
           await contactService.persistSocialContact(session, profileData, newProfile as SocialContact);
           contactSet.add(newProfile);
+
+          updateProfilePermissionNodes(newProfile as SocialContact);
         }
       }
-
-      updateProfilePermissionNodes();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to update profile';
       setError(errorMsg);

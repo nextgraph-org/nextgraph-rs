@@ -13,12 +13,14 @@ interface UpdatePermissionReturn {
   updatePermissionsNode: (propertyKey: ContactSetProperties, propertyNuri?: string) => void;
   updatePermission: <K extends keyof RCardPermission>(permission: RCardPermission, propertyKey: K, value: RCardPermission[K]) => void;
   isProfile: boolean;
-  updateProfilePermissionNodes: () => void
+  updateProfilePermissionNodes: (newProfile?: SocialContact) => void
 }
 
 export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boolean = false): UpdatePermissionReturn => {
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
   const {rCards} = useGetRCards();
+
+  console.log(rCards);
 
   const {ormContact: contact} = useContactOrm(null, true);
 
@@ -52,13 +54,15 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
 
   const updatePermissionsNode = useCallback(async (
     propertyKey: ContactSetProperties,
-    propertyNuri?: string
+    propertyNuri?: string,
+    newProfile?: SocialContact
   ) => {
     if (!isProfile) return;
     let allNuris: string[] = [];
     if (!propertyNuri) {
-      if (!contact) return;
-      allNuris = [...contact[propertyKey] ?? []].map(r => r["@id"]);
+      if (!contact && (!isNewProfile || !newProfile)) return;
+      const properties = (contact ?? newProfile)[propertyKey];
+      allNuris = [...properties ?? []].map(r => r["@id"]);
       if (!allNuris.length) return;
     }
 
@@ -89,12 +93,12 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
         }
       });
     })
-  }, [isProfile, rCards, contact, addPermissionsWithNodes]);
+  }, [isProfile, rCards, contact, isNewProfile, addPermissionsWithNodes]);
 
-  const updateProfilePermissionNodes = useCallback(async () => {
+  const updateProfilePermissionNodes = useCallback(async (newProfile?: SocialContact) => {
     const propertyKeys = Object.keys(rCardPermissionConfig) as ContactSetProperties[];
     propertyKeys.forEach(propertyKey => {
-      updatePermissionsNode(propertyKey);
+      updatePermissionsNode(propertyKey, undefined, newProfile);
     });
   }, [updatePermissionsNode]);
 
