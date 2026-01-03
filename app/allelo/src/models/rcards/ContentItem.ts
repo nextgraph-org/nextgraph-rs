@@ -1,39 +1,38 @@
 import {
-  ContactKeysWithType,
-  ContactLdSetProperties, getPropByNuri,
-  getPropsByFilter, getPropsByType, ItemOf,
+  ContactSetProperties, getPropByNuri,
+  getPropsByFilter, getPropsByType, ContactSetItem,
   resolveFrom
-} from "@/utils/socialContact/contactUtils.ts";
+} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {getPermissionConfig, getPermissionId, PropertyConfig} from "@/constants/rPermissions.ts";
 import {extractTemplateProps, renderTemplate} from "@/utils/templateRenderer.ts";
 import {camelCaseToWords} from "@/utils/stringHelpers.ts";
-import {Contact} from "@/types/contact.ts";
 import {languageNameByCode} from "@/utils/bcp47map.ts";
-import {RCardPermission} from "@/.ldo/rcard.typings.ts";
+import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export class ContentItem {
-  label: keyof ContactLdSetProperties;
+  label: ContactSetProperties;
   permission: RCardPermission;
   propertyConfig: PropertyConfig;
   value: string = "";
   valueList: string[] = [];
   isValueMissing: boolean = false;
-  profile: Contact;
+  profile: SocialContact;
   isEditing: boolean = false;
   template?: string;
   templateData?: Record<string, any>;
   labelToShow?: string;
 
   get id(): string {
-    return `${this.permission.zone}-${getPermissionId(this.permission)}-${this.permission.node ? this.permission.node["@id"] : ""}`;
+    return `${this.permission.zone}-${getPermissionId(this.permission)}-${this.permission.node ?? ""}`;
   };
 
   get isEmptyValue(): boolean {
     return !this.value?.length && !this.valueList.length && !this.templateData;
   }
 
-  constructor(permission: RCardPermission, profile: Contact, isEditing: boolean) {
-    this.label = permission.firstLevel as keyof ContactLdSetProperties;
+  constructor(permission: RCardPermission, profile: SocialContact, isEditing: boolean) {
+    this.label = permission.firstLevel as ContactSetProperties;
     this.permission = permission;
     this.isEditing = isEditing;
     this.profile = profile;
@@ -81,7 +80,7 @@ export class ContentItem {
       })
     }
     if (this.label === "language" && data.valueIRI) {
-      data.valueIRI = languageNameByCode(data.valueIRI.toArray()[0]);
+      data.valueIRI = languageNameByCode(data.valueIRI);
     }
     if (this.propertyConfig.displayProp && data && data[this.propertyConfig.displayProp]) {
       return data[this.propertyConfig.displayProp];
@@ -113,30 +112,27 @@ export class ContentItem {
     }
   }
 
-  getProperties(): ItemOf<keyof ContactLdSetProperties>[] {
+  getProperties(): ContactSetItem<ContactSetProperties>[] {
     if (this.propertyConfig.type) {
-      return getPropsByType(this.profile, this.label as ContactKeysWithType, this.propertyConfig.type);
+      return getPropsByType(this.profile, this.label, this.propertyConfig.type);
     } else if (this.propertyConfig.filterParams) {
       return getPropsByFilter(this.profile, this.label, this.propertyConfig.filterParams);
     } else {
-      const properties: ItemOf<keyof ContactLdSetProperties>[] = this.profile[this.label]?.toArray()
+      return [...this.profile[this.label] ?? []]
         .filter(prop => prop["@id"]) ?? [];
-      if (!properties.length) {
-        properties.push({});
-      }
-      return properties;
     }
   }
 
-  getProperty(): ItemOf<keyof ContactLdSetProperties> | undefined {
+  //TODO: this seems to be wrong method?
+  getProperty(): ContactSetItem<ContactSetProperties> | undefined {
     if (this.permission.node) {
-      return getPropByNuri(this.profile, this.label, this.permission.node["@id"]);
-    // } else if (this.propertyConfig.type) {
-    //   return getPropByType(this.profile, this.label as ContactKeysWithType, this.propertyConfig.type);
-    // } else if (this.propertyConfig.filterParams) {
-    //   return getPropsByFilter(this.profile, this.label, this.propertyConfig.filterParams)[0];
-    // } else {
-    //   return resolveFrom(this.profile, this.label);
+      return getPropByNuri(this.profile, this.label, this.permission.node);
+      // } else if (this.propertyConfig.type) {
+      //   return getPropByType(this.profile, this.label as ContactKeysWithType, this.propertyConfig.type);
+      // } else if (this.propertyConfig.filterParams) {
+      //   return getPropsByFilter(this.profile, this.label, this.propertyConfig.filterParams)[0];
+      // } else {
+      //   return resolveFrom(this.profile, this.label);
     }
   }
 

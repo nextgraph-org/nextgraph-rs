@@ -1,14 +1,14 @@
 import {Favorite, PersonOutline, Send, VerifiedUser} from "@mui/icons-material"
 import {alpha, Box, Button, Card, CardContent, Grid, Typography, useTheme} from "@mui/material"
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {forwardRef, useState, useEffect, useCallback} from "react";
-import type {Contact} from "@/types/contact";
 import type {Notification} from "@/types/notification";
 import {notificationService} from "@/services/notificationService";
 import {formatDateDiff} from "@/utils/dateHelpers";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export interface VouchesAndPraisesProps {
-  contact?: Contact;
+  contact?: SocialContact;
   onInviteToNAO?: () => void;
   refreshTrigger?: number; // Add refresh trigger
 }
@@ -17,6 +17,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
   const theme = useTheme();
   const [acceptedNotifications, setAcceptedNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const name = resolveContactName(contact);
 
   const loadAcceptedNotifications = useCallback(async () => {
     if (!contact) return;
@@ -64,7 +65,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
             <Box sx={{display: 'flex', alignItems: 'center', mb: 3}}>
               <Send sx={{mr: 1, color: 'success.main', fontSize: 20}}/>
               <Typography variant="h6" sx={{fontWeight: 600, color: 'success.main'}}>
-                Sent to {resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'Contact'}
+                Sent to {name?.split(' ')[0] || 'Contact'}
               </Typography>
             </Box>
 
@@ -123,7 +124,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
                   No vouches or praises sent yet
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Invite {resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'them'} to NAO to start vouching for
+                  Invite {name?.split(' ')[0] || 'them'} to NAO to start vouching for
                   them!
                 </Typography>
               </Box>
@@ -155,7 +156,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
                 <Box sx={{width: 6, height: 6, borderRadius: '50%', bgcolor: 'info.main'}}/>
               </Box>
               <Typography variant="h6" sx={{fontWeight: 600, color: 'info.main'}}>
-                Received from {resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'Contact'}
+                Received from {name?.split(' ')[0] || 'Contact'}
               </Typography>
             </Box>
 
@@ -219,8 +220,8 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
                 <PersonOutline sx={{fontSize: 48, opacity: 0.3, color: 'text.secondary'}}/>
                 <Typography variant="body2" color="text.secondary" textAlign="center" sx={{maxWidth: 250}}>
                   {contact.naoStatus === 'invited'
-                    ? `${resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'Contact'} hasn't joined NAO yet, so they can't send vouches or praises.`
-                    : `${resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'Contact'} needs to join NAO before they can send vouches or praises.`
+                    ? `${name?.split(' ')[0] || 'Contact'} hasn't joined NAO yet, so they can't send vouches or praises.`
+                    : `${name?.split(' ')[0] || 'Contact'} needs to join NAO before they can send vouches or praises.`
                   }
                 </Typography>
                 {contact.naoStatus === 'not_invited' && (

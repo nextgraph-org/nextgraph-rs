@@ -7,11 +7,11 @@ import {
   ListItemText, Chip,
 } from '@mui/material';
 import {UilUserMinus} from '@iconscout/react-unicons';
-import {useResolvedContact} from "@/stores/contactOrmStore.ts";
 import {ContactCardAvatarOrm} from "@/components/contacts/ContactCardAvatar";
-import {formatDate} from "@/utils/dateHelpers.ts";
+import {formatDate} from "@/utils/dateHelpers";
 import {useCallback} from "react";
-import {GroupMembership} from "@/.orm/shapes/group.typings.ts";
+import {GroupMembership} from "@/.orm/shapes/group.typings";
+import {useResolvedContact} from "@/hooks/contacts/useResolvedContact";
 
 export interface MemberListItemProps {
   member: GroupMembership;

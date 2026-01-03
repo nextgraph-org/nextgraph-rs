@@ -39,7 +39,7 @@ export const SocialContractAgreementPage = () => {
     setIsSubmitting(true);
 
     try {
-      saveDefaultRCards();
+      await saveDefaultRCards();
       nextStep();
       navigate('/onboarding/claim-identity');
     } catch (error) {

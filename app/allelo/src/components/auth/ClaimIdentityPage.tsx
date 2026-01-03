@@ -26,13 +26,12 @@ import {
 import {ImportSourceRegistry} from "@/importers/importSourceRegistry.tsx";
 import {ImportingOverlay} from "@/components/contacts/ImportContacts/ImportingOverlay.tsx";
 import {useImportContacts} from "@/hooks/contacts/useImportContacts.ts";
-import {Contact} from "@/types/contact.ts";
 import {useSettings} from "@/hooks/useSettings.ts";
-import {useUpdateProfile} from "@/hooks/useUpdateProfile.ts";
-import {processContactFromJSON} from "@/utils/socialContact/contactUtils.ts";
+import {useUpdateProfile} from "@/hooks/profile/useUpdateProfile";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export const ClaimIdentityPage = () => {
-  const {saveToStorage} = useSettings();
+  const {updateSettings} = useSettings();
   const {updateProfile} = useUpdateProfile();
 
   const linkedIn = ImportSourceRegistry.getConfig('linkedin');
@@ -59,14 +58,14 @@ export const ClaimIdentityPage = () => {
 
   const {importProgress, isImporting, importContacts} = useImportContacts(onComplete);
 
-  const handleRunnerComplete = useCallback(async (contacts?: Contact[], callback?: () => void) => {
+  const handleRunnerComplete = useCallback(async (contacts?: SocialContact[], callback?: () => void) => {
     if (contacts)
       await importContacts(contacts);
-    await saveToStorage({lnImportRequested: true});
+    await updateSettings({lnImportRequested: true});
     if (callback)
       callback();
     console.log('Import completed:', contacts);
-  }, [importContacts, saveToStorage]);
+  }, [importContacts, updateSettings]);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -99,57 +98,64 @@ export const ClaimIdentityPage = () => {
 
     try {
       // Transform form data to SocialContact JSON schema
-      const profileJson: any = {};
+      const profile: Partial<SocialContact> = {};
 
       // Add name if provided
       if (profileData.firstName || profileData.lastName) {
-        profileJson.name = [{
+        profile.name = new Set([{
+          "@graph": "",
+          "@id": "",
           firstName: profileData.firstName,
           familyName: profileData.lastName,
           source: 'user',
-        }];
+        }]);
       }
 
       // Add email if provided
       if (profileData.email) {
-        profileJson.email = [{
+        profile.email = new Set([{
+          "@graph": "",
+          "@id": "",
           value: profileData.email,
           source: 'user',
           preferred: true,
-        }];
+        }]);
       }
 
       // Add organization if company or jobTitle provided
       if (profileData.company || profileData.jobTitle || profileData.location) {
-        profileJson.organization = [{
+        profile.organization = new Set([{
+          "@graph": "",
+          "@id": "",
           value: profileData.company,
           position: profileData.jobTitle,
           source: 'user',
           current: true,
-        }];
+        }]);
       }
 
       if (profileData.location) {
-        profileJson.address = [{
+        profile.address = new Set([{
+          "@graph": "",
+          "@id": "",
           value: profileData.location,
           source: 'user',
           preferred: true,
-        }];
+        }]);
       }
 
       // Add biography if provided
       if (profileData.bio) {
-        profileJson.biography = [{
+        profile.biography = new Set([{
+          "@graph": "",
+          "@id": "",
           value: profileData.bio,
           source: 'user',
-        }];
+        }]);
       }
 
-      // Convert JSON to Contact object with proper LdSets
-      const contact = await processContactFromJSON(profileJson, false);
-
       // Save to NextGraph
-      await updateProfile(contact);
+      await updateProfile(profile);
 
       onComplete();
     } catch (error) {

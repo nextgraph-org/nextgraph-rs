@@ -12,7 +12,7 @@ import {PostList} from "@/components/posts/PostList";
 import {SocialGroup, SocialPost} from "@/.orm/shapes/group.typings.ts";
 import {PostCreateFormData} from "@/components/posts/PostCreateForm";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
-import {useResolvedContact} from "@/stores/contactOrmStore.ts";
+import {useResolvedContact} from "@/hooks/contacts/useResolvedContact.ts";
 
 interface ActivityFeedProps {
   posts: SocialPost[];

@@ -450,6 +450,8 @@ impl Verifier {
         // Track which (shape, graph, subject) have had quads applied already in this run.
         let mut already_applied: HashSet<(String, String, String)> = HashSet::new();
 
+        log_info!("[process_changes_for_subscription] Called and starting while loop with {} elements on stack", shape_validation_stack.len());
+
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
         while let Some((shape, graph_subject_to_validate)) = shape_validation_stack.pop() {
@@ -730,6 +732,7 @@ impl Verifier {
                             .map(|((g, s), _)| (g.clone(), s.clone()))
                             .collect();
                         if pairs_not_to_fetch.len() > 0 {
+                            log_info!("[process_changes_for_subscription] pushing to stack {shape_iri},\n{:?}", pairs_not_to_fetch);
                             shape_validation_stack.push((shape_arc, pairs_not_to_fetch));
                         } else {
                             //  No objects to queue for shape  (all needed fetching)
@@ -753,6 +756,7 @@ impl Verifier {
             }
             loop_counter += 1;
 
+            log_info!("[process_changes_for_subscription] Increasing counter to {loop_counter}");
             // Assertion: Prevent infinite loop.
             if loop_counter > 100 {
                 for (is_validated, validity, subject_iri, shape_iri, graph_iri) in

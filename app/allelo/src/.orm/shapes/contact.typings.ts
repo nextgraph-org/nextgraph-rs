@@ -206,6 +206,10 @@ export interface SocialContact {
    * Original IRI: did:ng:x:contact#mostRecentInteraction
    */
   mostRecentInteraction?: string;
+  /**
+   * Original IRI: did:ng:x:contact#isDraft
+   */
+  isDraft?: boolean;
 }
 
 /**

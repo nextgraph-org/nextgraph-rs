@@ -1,5 +1,5 @@
 import {Box, Typography} from "@mui/material";
-import {RCard} from "@/.ldo/rcard.typings.ts";
+import {RCard} from "@/.orm/shapes/rcard.typings.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {useMemo} from "react";
 

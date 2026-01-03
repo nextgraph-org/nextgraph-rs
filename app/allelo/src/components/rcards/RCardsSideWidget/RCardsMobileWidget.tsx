@@ -36,7 +36,7 @@ export const RCardsMobileWidget = ({
           gap: 1,
           pb: 1
         }}>
-        {rCards.map((rCard) => (
+        {[...rCards ?? []].map((rCard) => (
           <RCardsCategoryTile
             rCard={rCard}
             isMobile={true}
