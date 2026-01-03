@@ -1,4 +1,4 @@
-import {RCard} from "@/.ldo/rcard.typings.ts";
+import {RCard} from "@/.orm/shapes/rcard.typings.ts";
 import {useDroppable} from "@dnd-kit/core";
 import {RCardsMobileWidgetTile} from "@/components/rcards/RCardsCategoryTile/RCardsMobileWidgetTile.tsx";
 import {RCardsSideWidgetTile} from "@/components/rcards/RCardsCategoryTile/RCardsSideWidgetTile.tsx";

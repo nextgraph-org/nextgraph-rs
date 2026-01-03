@@ -4,3 +4,5 @@ import {NextGraphSession} from "@/types/nextgraph.ts";
 export const groupsOverlay = (session: NextGraphSession) => {return session?.privateStoreId!.substring(46);};
 
 export const contactsOverlay = (session: NextGraphSession) => {return session?.privateStoreId!.substring(46);};
+
+export const rCardsOverlay = (session: NextGraphSession) => {return session?.privateStoreId!.substring(46);};

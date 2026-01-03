@@ -3,14 +3,13 @@ import { useNetworkGraphStore } from '@/stores/networkGraphStore';
 import { useNetworkViewStore } from '@/stores/networkViewStore';
 import { mapContactsToNodes, addUserNode } from '@/utils/networkMapper';
 import { GraphNode, GraphEdge } from '@/types/network';
-import { resolveFrom } from '@/utils/socialContact/contactUtils';
-import { Contact } from '@/types/contact';
-import { defaultTemplates, renderTemplate } from '@/utils/templateRenderer';
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveContactName, resolveContactPhoto} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 interface UseNetworkGraphOptions {
   userId?: string;
   userName?: string;
-  contacts: Contact[]; // Accept contacts as input instead of fetching
+  contacts: SocialContact[]; // Accept contacts as input instead of fetching
 }
 
 const getInitials = (name: string): string => {
@@ -23,13 +22,13 @@ const getInitials = (name: string): string => {
 };
 
 const buildUserNetwork = (
-  contacts: Contact[],
+  contacts: SocialContact[],
   centeredNodeId: string | null,
   userId: string,
   userName: string
 ) => {
   const sortedContacts = [...contacts]
-    .sort((a, b) => {
+    /*TODO: .sort((a, b) => {
       const aCentrality = a.centralityScore || 0;
       const bCentrality = b.centralityScore || 0;
 
@@ -42,7 +41,7 @@ const buildUserNetwork = (
         (b.interactionCount || 0) * 10 +
         ((b.vouchesSent || 0) + (b.vouchesReceived || 0)) * 5;
       return bScore - aScore;
-    });
+    });*/
 
   const contactNodes = mapContactsToNodes(sortedContacts, centeredNodeId || undefined);
   const userNode = addUserNode(userId, userName);
@@ -60,7 +59,7 @@ const buildUserNetwork = (
       };
       relationship = categoryMap[contact.relationshipCategory] || contact.relationshipCategory;
     } else */
-    if (contact.organization && contact.organization.size > 0) {
+/*TODO    if (contact.organization && contact.organization.size > 0) {
       const orgArray = Array.from(contact.organization);
       const currentOrg = orgArray.find((o) => o.current);
       relationship = currentOrg ? 'colleague' : 'former colleague';
@@ -68,7 +67,7 @@ const buildUserNetwork = (
       const relArray = Array.from(contact.relation);
       const firstRel = relArray[0];
       relationship = firstRel.type2?.['@id'] || 'relation';
-    }
+    }*/
 
     return {
       id: `${userId}-${contact['@id']}`,
@@ -92,7 +91,7 @@ const buildEntityNetwork = (
   entityId: string,
   entityName: string,
   entityType: 'org' | 'proj' | 'edu',
-  allContacts: Contact[],
+  allContacts: SocialContact[],
   userId: string,
   userName: string
 ) => {
@@ -114,7 +113,7 @@ const buildEntityNetwork = (
   meNode.priority = 'high';
   let isMeConnected = false;
 
-  const connectedContacts: Contact[] = [];
+  const connectedContacts: SocialContact[] = [];
 
   allContacts.forEach((contact) => {
     let isConnected = false;
@@ -148,20 +147,8 @@ const buildEntityNetwork = (
     if (isConnected) {
       connectedContacts.push(contact);
 
-      let contactName = resolveFrom(contact, 'name');
-      // Handle Set-like object or array when resolveFrom returns undefined
-      if (!contactName && contact.name) {
-        const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
-          ? (contact.name as any).toArray()
-          : Array.isArray(contact.name)
-          ? contact.name
-          : [contact.name];
-        if (nameArray.length > 0) {
-          contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
-        }
-      }
       // const contactPhoto = resolveFrom(contact, 'photo');
-      const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+      const contactNameValue = resolveContactName(contact) || 'Unknown';
 
       nodes.push({
         id: contact['@id'] || contactNameValue,
@@ -206,8 +193,8 @@ const buildEntityNetwork = (
 };
 
 const buildContactNetwork = (
-  centeredContact: Contact,
-  allContacts: Contact[],
+  centeredContact: SocialContact,
+  allContacts: SocialContact[],
   userId: string,
   userName: string,
   currentView: 'work-history' | 'orgs-in-common' | 'people-in-common' | 'all-connections' | null
@@ -215,26 +202,14 @@ const buildContactNetwork = (
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
 
-  let centeredName = resolveFrom(centeredContact, 'name');
-  // Handle Set-like object or array when resolveFrom returns undefined
-  if (!centeredName && centeredContact.name) {
-    const nameArray = typeof centeredContact.name === 'object' && 'toArray' in centeredContact.name
-      ? (centeredContact.name as any).toArray()
-      : Array.isArray(centeredContact.name)
-      ? centeredContact.name
-      : [centeredContact.name];
-    if (nameArray.length > 0) {
-      centeredName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
-    }
-  }
-  //TODO: const centeredPhoto = resolveFrom(centeredContact, 'photo');
-  const centeredNameValue = centeredName?.value || renderTemplate(defaultTemplates.contactName, centeredName) || 'Unknown';
+  const centeredPhoto = resolveContactPhoto(centeredContact);
+  const centeredNameValue = resolveContactName(centeredContact) || 'Unknown';
 
   const centeredNode: GraphNode = {
     id: centeredContact['@id'] || centeredNameValue,
     type: 'person',
     name: centeredNameValue,
-    //TODO: avatar: centeredPhoto?.value,
+    avatar: centeredPhoto,
     initials: getInitials(centeredNameValue),
     isCentered: true,
     priority: 'high',
@@ -297,26 +272,15 @@ const buildContactNetwork = (
       });
 
       orgContacts.forEach((contact) => {
-        let contactName = resolveFrom(contact, 'name');
-        if (!contactName && contact.name) {
-          const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
-            ? (contact.name as any).toArray()
-            : Array.isArray(contact.name)
-            ? contact.name
-            : [contact.name];
-          if (nameArray.length > 0) {
-            contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
-          }
-        }
-        const contactPhoto = resolveFrom(contact, 'photo');
-        const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+        const contactPhoto = resolveContactPhoto(contact);
+        const contactNameValue = resolveContactName(contact) || 'Unknown';
 
         if (!nodes.find((n) => n.id === contact['@id'])) {
           nodes.push({
             id: contact['@id'] || contactNameValue,
             type: 'person',
             name: contactNameValue,
-            avatar: contactPhoto?.photoIRI["@id"],
+            avatar: contactPhoto,
             initials: getInitials(contactNameValue),
             isCentered: false,
             priority: 'medium',
@@ -375,26 +339,15 @@ const buildContactNetwork = (
       });
 
       projContacts.forEach((contact) => {
-        let contactName = resolveFrom(contact, 'name');
-        if (!contactName && contact.name) {
-          const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
-            ? (contact.name as any).toArray()
-            : Array.isArray(contact.name)
-            ? contact.name
-            : [contact.name];
-          if (nameArray.length > 0) {
-            contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
-          }
-        }
-        const contactPhoto = resolveFrom(contact, 'photo');
-        const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+        const contactPhoto = resolveContactPhoto(contact);
+        const contactNameValue = resolveContactName((contact)) || 'Unknown';
 
         if (!nodes.find((n) => n.id === contact['@id'])) {
           nodes.push({
             id: contact['@id'] || contactNameValue,
             type: 'person',
             name: contactNameValue,
-            avatar: contactPhoto?.photoIRI["@id"],
+            avatar: contactPhoto,
             initials: getInitials(contactNameValue),
             isCentered: false,
             priority: 'medium',
@@ -452,26 +405,15 @@ const buildContactNetwork = (
       });
 
       eduContacts.forEach((contact) => {
-        let contactName = resolveFrom(contact, 'name');
-        if (!contactName && contact.name) {
-          const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
-            ? (contact.name as any).toArray()
-            : Array.isArray(contact.name)
-            ? contact.name
-            : [contact.name];
-          if (nameArray.length > 0) {
-            contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
-          }
-        }
-        const contactPhoto = resolveFrom(contact, 'photo');
-        const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+        const contactPhoto = resolveContactPhoto(contact);
+        const contactNameValue = resolveContactName(contact) || 'Unknown';
 
         if (!nodes.find((n) => n.id === contact['@id'])) {
           nodes.push({
             id: contact['@id'] || contactNameValue,
             type: 'person',
             name: contactNameValue,
-            avatar: contactPhoto?.photoIRI["@id"],
+            avatar: contactPhoto,
             initials: getInitials(contactNameValue),
             isCentered: false,
             priority: 'medium',
@@ -495,37 +437,25 @@ const buildContactNetwork = (
   if (showPeopleInCommon) {
     const sortedContacts = [...allContacts]
       .filter((c) => c['@id'] !== centeredContact['@id'] && c['@id'] !== userId)
-      .sort((a, b) => {
+/*TODO      .sort((a, b) => {
         const aScore =
           (a.interactionCount || 0) * 10 + ((a.vouchesSent || 0) + (a.vouchesReceived || 0)) * 5;
         const bScore =
           (b.interactionCount || 0) * 10 + ((b.vouchesSent || 0) + (b.vouchesReceived || 0)) * 5;
         return bScore - aScore;
-      })
+      })*/
       .slice(0, 5);
 
     sortedContacts.forEach((contact) => {
-      let contactName = resolveFrom(contact, 'name');
-      // Handle Set-like object or array when resolveFrom returns undefined
-      if (!contactName && contact.name) {
-        const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
-          ? (contact.name as any).toArray()
-          : Array.isArray(contact.name)
-          ? contact.name
-          : [contact.name];
-        if (nameArray.length > 0) {
-          contactName = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
-        }
-      }
-      //TODO: const contactPhoto = resolveFrom(contact, 'photo');
-      const contactNameValue = contactName?.value || renderTemplate(defaultTemplates.contactName, contactName) || 'Unknown';
+      const contactPhoto = resolveContactPhoto(contact);
+      const contactNameValue = resolveContactName(contact) || 'Unknown';
 
       if (!nodes.find((n) => n.id === contact['@id'])) {
         nodes.push({
           id: contact['@id'] || contactNameValue,
           type: 'person',
           name: contactNameValue,
-          //TODO: avatar: contactPhoto?.value,
+          avatar: contactPhoto,
           initials: getInitials(contactNameValue),
           isCentered: false,
           priority: 'medium',

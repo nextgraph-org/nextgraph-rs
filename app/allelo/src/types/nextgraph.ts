@@ -2,13 +2,14 @@ export interface NextGraphSession {
   ng?: {
     sparql_query: (sessionId: string, sparql: string , base?: string | null, nuri?: string | null) => Promise<SparqlQueryResult>,
     update_header: (sessionId: string, nuri: string, title?: string | null, about?: string | null) => Promise<unknown>,
-    sparql_update: (sessionId: string, sparql: string, storeId: string) => Promise<string[] | { isError: boolean; message: string }>
+    sparql_update: (sessionId: string, sparql: string, storeId?: string) => Promise<string[] | { isError: boolean; message: string }>
     doc_create: (session_id: string, crdt: string, class_name: string, destination: string, store_repo?: any) => Promise<string>,
-  };
+  } | undefined;
   privateStoreId?: string;
   protectedStoreId?: string
+  sessionId?: string;
+  publicStoreId?: string;
   [key: string]: unknown;
-  sessionId: string;
 }
 
 type SparqlQueryResult = {
@@ -29,17 +30,3 @@ export interface NextGraphAuth {
   logout?: () => void;
   [key: string]: unknown;
 }
-
-export type CreateDataFunction = <Type extends import("@ldo/ldo").LdoBase>(
-  shapeType: import("@ldo/ldo").ShapeType<Type>,
-  subject: string | import("@ldo/rdf-utils").SubjectNode,
-  resource: import("@ldo/connected-nextgraph").NextGraphResource
-) => Type;
-
-export type ChangeDataFunction = <Type extends import("@ldo/ldo").LdoBase>(
-  input: Type,
-  resource: import("@ldo/connected-nextgraph").NextGraphResource,
-  ...additionalResources: import("@ldo/connected-nextgraph").NextGraphResource[]
-) => Type;
-
-export type CommitDataFunction = (input: import("@ldo/ldo").LdoBase) => ReturnType<import("@ldo/connected").ConnectedLdoTransactionDataset<import("@ldo/connected-nextgraph").NextGraphConnectedPlugin[]>["commitToRemote"]>;

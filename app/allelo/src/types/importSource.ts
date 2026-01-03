@@ -1,10 +1,10 @@
 import React from "react";
 import {SvgIconOwnProps} from "@mui/material";
-import {Contact} from "@/types/contact.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export type SourceRunnerProps = {
   open: boolean;
-  onGetResult: (contacts?: Contact[], callback?: () => void) => void;
+  onGetResult: (contacts?: SocialContact[], callback?: () => void) => void;
   onClose: () => void;
   onError: (e: unknown) => void;
 };

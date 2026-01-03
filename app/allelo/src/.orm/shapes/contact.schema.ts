@@ -597,6 +597,17 @@ export const contactSchema: Schema = {
         iri: "did:ng:x:contact#mostRecentInteraction",
         readablePredicate: "mostRecentInteraction",
       },
+      {
+        dataTypes: [
+          {
+            valType: "boolean",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#isDraft",
+        readablePredicate: "isDraft",
+      },
     ],
   },
   "did:ng:x:contact:class#SocialContact||did:ng:x:contact#phoneNumber": {

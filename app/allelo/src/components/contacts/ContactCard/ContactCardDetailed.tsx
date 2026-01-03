@@ -1,41 +1,23 @@
-import React, {forwardRef} from "react";
-import {Box, Typography, Chip, Skeleton} from "@mui/material";
+import React, {forwardRef, useCallback} from "react";
+import {Box, Typography, Chip} from "@mui/material";
 import {alpha, useTheme} from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import {UilHeart, UilShieldCheck} from "@iconscout/react-unicons";
 import {IconButton} from "@/components/ui";
-import type {Contact} from "@/types/contact";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {Theme} from "@mui/material/styles";
-import {Email, Name, Organization, PhoneNumber} from "@/.ldo/contact.typings";
 import {iconFilter} from "@/hooks/contacts/useContacts";
 import {AccountRegistry} from "@/utils/accountRegistry";
 import {formatPhone} from "@/utils/phoneHelper";
-import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
-import {ContactCardAvatar} from "@/components/contacts/ContactCardAvatar";
-
-const renderContactName = (name?: Name, isLoading?: boolean) => (
-  <Typography
-    variant="h6"
-    sx={{
-      fontWeight: 600,
-      fontSize: {xs: "0.85rem", md: "0.95rem"},
-      color: "text.primary",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
-      flex: 1,
-    }}
-  >
-    {isLoading ? (
-      <Skeleton variant="text" width="60%"/>
-    ) : (
-      name?.value || renderTemplate(defaultTemplates.contactName, name)
-    )}
-  </Typography>
-);
+import {ContactCardAvatarOrm} from "@/components/contacts/ContactCardAvatar";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {
+  resolveContactEmail,
+  resolveContactName,
+  resolveContactOrganization,
+  resolveContactPhone
+} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 const renderIsMerged = (isMerged: boolean, theme: Theme) => (
   isMerged ? <Chip
@@ -56,23 +38,7 @@ const renderIsMerged = (isMerged: boolean, theme: Theme) => (
   /> : null
 );
 
-const renderJobTitleAndCompany = (organization?: Organization) => (
-  <Typography
-    variant="body2"
-    color="text.secondary"
-    sx={{
-      fontSize: {xs: "0.7rem", md: "0.75rem"},
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
-    }}
-  >
-    {organization?.position || ''}
-    {organization?.value && ` at ${organization.value}`}
-  </Typography>
-);
-
-const renderEmail = (email?: Email) => (
+const renderEmail = (email?: string) => (
   <Typography
     variant="body2"
     color="text.secondary"
@@ -84,12 +50,12 @@ const renderEmail = (email?: Email) => (
       lineHeight: {md: "1.25rem"},
     }}
   >
-    {email?.value || ''}
+    {email}
   </Typography>
 );
 
-const renderPhoneNumber = (phoneNumber?: PhoneNumber) => (
-  phoneNumber?.value && (
+const renderPhoneNumber = (phoneNumber?: string) => (
+  phoneNumber && (
     <Typography
       variant="body2"
       color="text.secondary"
@@ -101,12 +67,12 @@ const renderPhoneNumber = (phoneNumber?: PhoneNumber) => (
         lineHeight: "1.1rem",
       }}
     >
-      {formatPhone(phoneNumber?.value)}
+      {formatPhone(phoneNumber)}
     </Typography>
   )
 );
 
-const renderEmailAndPhone = (email?: Email, phoneNumber?: PhoneNumber) => (
+const renderEmailAndPhone = (email?: string, phoneNumber?: string) => (
   <Box
     sx={{
       display: "flex",
@@ -128,7 +94,7 @@ const renderEmailAndPhone = (email?: Email, phoneNumber?: PhoneNumber) => (
 );
 
 export interface ContactCardDetailedProps {
-  contact: Contact | undefined;
+  contact: SocialContact | undefined;
   getNaoStatusIcon: (naoStatus?: string) => React.ReactNode;
   onSetIconFilter: (key: iconFilter, value: string) => void;
 }
@@ -150,17 +116,17 @@ export const ContactCardDetailed = forwardRef<
     const {getCategoryIcon, getCategoryColor} = useRCardsConfigs();
     const {getRCardById} = useGetRCards();
 
-    const name = resolveFrom(contact, 'name');
-    const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+    const displayName = resolveContactName(contact);
 
-    const email = resolveFrom(contact, 'email');
-    const phoneNumber = resolveFrom(contact, 'phoneNumber');
-    const organization = resolveFrom(contact, 'organization');
+    const email = resolveContactEmail(contact);
+    const phoneNumber = resolveContactPhone(contact);
+    const organization = resolveContactOrganization(contact);
 
-    const vouches = (contact?.vouchesSent || 0) + (contact?.vouchesReceived || 0);
-    const praises = (contact?.praisesSent || 0) + (contact?.praisesReceived || 0);
+    //TODO: change when there are actual data
+    const vouches = 0;
+    const praises = 0;
 
-    const renderVouchesButton = () => (
+    const renderVouchesButton = useCallback(() => (
       vouches > 0 ?
         <IconButton
           variant="vouches"
@@ -170,9 +136,9 @@ export const ContactCardDetailed = forwardRef<
         >
           <UilShieldCheck/>
         </IconButton> : null
-    );
+    ), [isMobile, onSetIconFilter]);
 
-    const renderPraisesButton = () => (
+    const renderPraisesButton = useCallback(() => (
       praises > 0 ?
         <IconButton
           variant="praise"
@@ -182,10 +148,10 @@ export const ContactCardDetailed = forwardRef<
         >
           <UilHeart/>
         </IconButton> : null
-    );
+    ), [isMobile, onSetIconFilter]);
 
-    const renderAccountButtons = () => {
-      let accountProtocols = contact?.account?.map(account => account.protocol!).filter(p => p!==undefined) ?? [];
+    const renderAccountButtons = useCallback(() => {
+      let accountProtocols = [...contact?.account ?? []]?.map(account => account.protocol!).filter(p => p !== undefined) ?? [];
       accountProtocols = [...new Set(accountProtocols)];
       return accountProtocols.map((protocol) => <IconButton
           key={protocol}
@@ -197,14 +163,14 @@ export const ContactCardDetailed = forwardRef<
           {AccountRegistry.getIcon(protocol ?? "", {fontSize: 16, color: '#0077b5'})}
         </IconButton>
       )
-    }
+    }, [contact?.account, isMobile, onSetIconFilter]);
 
-    const rCardId = contact?.rcard ? contact.rcard["@id"] : undefined;
+    const rCardId = contact?.rcard;
     const rCard = getRCardById(rCardId ?? "");
 
     const categoryId = rCard?.cardId;
 
-    const renderCategoryButton = () => (
+    const renderCategoryButton = useCallback(() => (
       <IconButton
         variant="category"
         size={isMobile ? "medium" : "large"}
@@ -219,9 +185,9 @@ export const ContactCardDetailed = forwardRef<
       >
         {getCategoryIcon(categoryId, 16)}
       </IconButton>
-    );
+    ), [categoryId, getCategoryColor, getCategoryIcon, isMobile, onSetIconFilter, rCardId]);
 
-    const renderNaoStatusButton = () => (
+    const renderNaoStatusButton = useCallback(() => (
       <IconButton
         variant="nao-status"
         size={isMobile ? "medium" : "large"}
@@ -234,9 +200,9 @@ export const ContactCardDetailed = forwardRef<
       >
         {getNaoStatusIcon(contact?.naoStatus)}
       </IconButton>
-    );
+    ), [contact?.naoStatus, getNaoStatusIcon, isMobile, onSetIconFilter]);
 
-    const renderAccountFilers = () => (
+    const renderAccountFilers = useCallback(() => (
       <Box sx={{display: "flex", alignItems: "center", gap: 1}}>
         {renderVouchesButton()}
         {renderPraisesButton()}
@@ -244,7 +210,7 @@ export const ContactCardDetailed = forwardRef<
         {renderCategoryButton()}
         {renderNaoStatusButton()}
       </Box>
-    );
+    ), [renderAccountButtons, renderCategoryButton, renderNaoStatusButton, renderPraisesButton, renderVouchesButton]);
 
     return (
       <Box
@@ -257,7 +223,7 @@ export const ContactCardDetailed = forwardRef<
         }}
       >
         {/* Avatar */}
-        <ContactCardAvatar initial={displayName} size={{xs: 74, sm: 74}} contact={contact}/>
+        <ContactCardAvatarOrm initial={displayName} size={{xs: 74, sm: 74}} contact={contact}/>
         {/* First Column - Name & Company */}
         <Box
           sx={{
@@ -270,11 +236,35 @@ export const ContactCardDetailed = forwardRef<
           }}
         >
           <Box sx={{display: "flex", alignItems: "center", gap: {xs: 0.5, md: 1}, mb: 0.5}}>
-            {renderContactName(name)}
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 600,
+                fontSize: {xs: "0.85rem", md: "0.95rem"},
+                color: "text.primary",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flex: 1,
+              }}
+            >
+              {displayName}
+            </Typography>
             {renderIsMerged((contact?.mergedFrom?.size ?? 0) > 0, theme)}
           </Box>
 
-          {renderJobTitleAndCompany(organization)}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              fontSize: {xs: "0.7rem", md: "0.75rem"},
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {organization}
+          </Typography>
           {isMobile && renderEmail(email)}
           {isMobile && renderAccountFilers()}
         </Box>

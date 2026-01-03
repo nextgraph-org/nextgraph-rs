@@ -18,10 +18,10 @@ import {UilArrowLeft} from '@iconscout/react-unicons';
 import type {Group} from '@/types/group';
 import {InvitationDetails} from './InvitationDetails';
 import {InvitationActions} from './InvitationActions';
-import {useContactData} from "@/hooks/contacts/useContactData.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
+import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 export interface InvitationPageProps {
   className?: string;
@@ -37,14 +37,14 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
     const {rCards} = useGetRCards();
     const [searchParams] = useSearchParams();
     const contactNuri = searchParams.get("contactNuri");
-    const {contact} = useContactData(contactNuri);
+    const {ormContact: contact} = useContactOrm(contactNuri);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
-    const {updateContact} = useSaveContacts();
+    const {updateContact} = useUpdateContact();
 
     useEffect(() => {
-      const contactRCardId = contact?.rcard ? contact.rcard["@id"] : undefined;
+      const contactRCardId = contact?.rcard ? contact.rcard : undefined;
       // Only set if rCards are loaded and the value exists in the list
-      if (contactRCardId && rCards.some(rc => rc["@id"] === contactRCardId)) {
+      if (contactRCardId && [...rCards ?? []].some(rc => rc["@id"] === contactRCardId)) {
         setSelectedCategory(contactRCardId);
       }
     }, [contact, rCards]);
@@ -113,13 +113,14 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
               label="Select RCard"
               onChange={(e) => {
                 setSelectedCategory(e.target.value);
-                if (contact)
-                  updateContact(contact["@id"]!, {rcard: {"@id": e.target.value}}).then(() => setSelectedCategory(e.target.value)
-                  )
+                if (contact) {
+                  updateContact(contact["@id"]!, {rcard: e.target.value});
+                  setSelectedCategory(e.target.value);
+                }
               }}
               displayEmpty={false}
             >
-              {rCards.map((rCard) => (
+              {[...rCards ?? []].map((rCard) => (
                 <MenuItem key={rCard["@id"]} value={rCard["@id"]}>
                   <ListItemText primary={getCategoryDisplayName(rCard.cardId)}/>
                 </MenuItem>

@@ -2,9 +2,9 @@ import React, {useState} from 'react';
 import {Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions} from '@mui/material';
 import {Button} from '@/components/ui';
 import {checkPermissions, requestPermissions, importContacts} from '../../../../tauri-plugin-contacts-importer/guest-js';
-import {processContactFromJSON} from '@/utils/socialContact/contactUtils';
-import type {Contact} from '@/types/contact';
 import {SourceRunnerProps} from "@/types/importSource";
+import {processContactFromJSON} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, onClose, onError}) => {
   const [status, setStatus] = useState<string>('');
@@ -40,10 +40,10 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
 
       // Step 5: Process imported JSON using processContactFromJSON
       setStatus('Processing contacts...');
-      const processedContacts: Contact[] = [];
+      const processedContacts: SocialContact[] = [];
       for (const contactJson of importedContactsJson) {
         try {
-          const contact = await processContactFromJSON(contactJson, true);
+          const contact = await processContactFromJSON(contactJson);
           processedContacts.push(contact);
         } catch (err) {
           console.warn('Failed to process contact:', contactJson, err);

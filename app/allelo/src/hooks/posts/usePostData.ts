@@ -1,5 +1,5 @@
 import {SocialPost} from "@/.orm/shapes/group.typings.ts";
-import {useResolvedContact} from "@/stores/contactOrmStore.ts";
+import {useResolvedContact} from "@/hooks/contacts/useResolvedContact.ts";
 
 interface postData {
   authorName: string;

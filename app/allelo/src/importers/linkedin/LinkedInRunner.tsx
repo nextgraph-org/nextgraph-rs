@@ -1,7 +1,5 @@
 import {SourceRunnerProps} from "@/types/importSource";
-import {useCallback, useMemo, useState} from "react";
-import {Contact} from "@/types/contact";
-import {isNextGraphEnabled} from "@/utils/featureFlags";
+import {useCallback, useState} from "react";
 import {
   Dialog,
   DialogActions,
@@ -9,7 +7,7 @@ import {
   DialogTitle,
   Button
 } from "@mui/material";
-import {useUpdateProfile} from "@/hooks/useUpdateProfile";
+import {useUpdateProfile} from "@/hooks/profile/useUpdateProfile";
 import {LinkedInData} from "./linkedInTypes";
 import {LinkedInLoginForm} from "./LinkedInLoginForm";
 import {LinkedInVerification} from "./LinkedInVerification";
@@ -18,11 +16,11 @@ import {LinkedInArchiveStatus} from "./LinkedInArchiveStatus";
 import {LinkedInDragDropFallback} from "./LinkedInDragDropFallback";
 import {mapLinkedInPerson} from "@/importers/linkedin/linkedinDataMap";
 import {useSettings} from "@/hooks/useSettings.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 type FlowStep = 'LOGIN' | 'VERIFICATION' | 'ARCHIVE_STATUS' | 'DRAG_DROP' | 'CHALLENGE';
 
 export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunnerProps) {
-  const isNextGraph = useMemo(() => isNextGraphEnabled(), []);
   const {updateProfile} = useUpdateProfile();
 
   // Flow state management
@@ -35,7 +33,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
 
   const processLinkedInData = useCallback(async (data: LinkedInData) => {
     try {
-      const contacts: Contact[] = [];
+      const contacts: SocialContact[] = [];
 
       // Process user's own profile
       if (data.data.profileData) {
@@ -44,7 +42,6 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
           linkedInUsername,
           true,
           data.data.otherData,
-          !isNextGraph
         );
         await updateProfile(profileContact);
       }
@@ -57,8 +54,8 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
             continue;
           }
 
-          const contact = await mapLinkedInPerson(connection, linkedInUsername, false, undefined, !isNextGraph);
-          contacts.push(contact);
+          const contact = await mapLinkedInPerson(connection, linkedInUsername, false, undefined);
+          contacts.push(contact as SocialContact);
         }
       }
 
@@ -70,7 +67,7 @@ export function LinkedInRunner({open, onClose, onError, onGetResult}: SourceRunn
       const errorMessage = error instanceof Error ? error.message : String(error);
       onError(error instanceof Error ? error : new Error(errorMessage));
     }
-  }, [onGetResult, updateSettings, onClose, linkedInUsername, isNextGraph, updateProfile, onError]);
+  }, [onGetResult, updateSettings, onClose, linkedInUsername, updateProfile, onError]);
 
   // Step 1: Login handlers
   const handleLoginSuccess = useCallback((username?: string) => {

@@ -2,6 +2,7 @@
  * VCF (vCard) Parser Utility
  * Parses VCF/vCard files and converts them to contact JSON format
  */
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 interface VCardProperty {
   name: string;
@@ -48,6 +49,7 @@ function parseVCard(vCardText: string): any | null {
 
       case 'N':
         // Structured name: Family;Given;Middle;Prefix;Suffix
+      {
         const nameParts = prop.value.split(';');
         if (!contact.name) contact.name = [];
         const nameObj: any = {
@@ -73,37 +75,41 @@ function parseVCard(vCardText: string): any | null {
 
         contact.name.push(nameObj);
         break;
+      }
 
-      case 'EMAIL':
+      case 'EMAIL': {
         if (!contact.email) contact.email = [];
         const emailType = getParamValue(prop.params, 'TYPE');
         contact.email.push({
           value: prop.value,
-          type2: emailType ? { '@id': normalizeEmailType(emailType) } : undefined,
+          type2: emailType ? {'@id': normalizeEmailType(emailType)} : undefined,
           source: 'vcf',
           preferred: hasParam(prop.params, 'PREF')
         });
         break;
+      }
 
-      case 'TEL':
+      case 'TEL': {
         if (!contact.phoneNumber) contact.phoneNumber = [];
         const phoneType = getParamValue(prop.params, 'TYPE');
         contact.phoneNumber.push({
           value: prop.value.replace(/[^+\d]/g, ''), // Clean phone number
-          type2: phoneType ? { '@id': normalizePhoneType(phoneType) } : undefined,
+          type2: phoneType ? {'@id': normalizePhoneType(phoneType)} : undefined,
           source: 'vcf',
           preferred: hasParam(prop.params, 'PREF')
         });
         break;
+      }
 
       case 'ADR':
         // Address: POBox;Extended;Street;City;Region;PostalCode;Country
+      {
         if (!contact.address) contact.address = [];
         const adrParts = prop.value.split(';');
         const addressType = getParamValue(prop.params, 'TYPE');
         const addressObj: any = {
           source: 'vcf',
-          type2: addressType ? { '@id': normalizeAddressType(addressType) } : undefined
+          type2: addressType ? {'@id': normalizeAddressType(addressType)} : undefined
         };
         if (adrParts[0]) addressObj.poBox = adrParts[0];
         if (adrParts[1]) addressObj.extendedAddress = adrParts[1];
@@ -121,8 +127,9 @@ function parseVCard(vCardText: string): any | null {
 
         contact.address.push(addressObj);
         break;
+      }
 
-      case 'ORG':
+      case 'ORG': {
         if (!contact.organization) contact.organization = [];
         const orgParts = prop.value.split(';');
         contact.organization.push({
@@ -132,6 +139,7 @@ function parseVCard(vCardText: string): any | null {
           current: true
         });
         break;
+      }
 
       case 'TITLE':
         if (!contact.organization) contact.organization = [];
@@ -146,15 +154,16 @@ function parseVCard(vCardText: string): any | null {
         }
         break;
 
-      case 'URL':
+      case 'URL': {
         if (!contact.url) contact.url = [];
         const urlType = getParamValue(prop.params, 'TYPE');
         contact.url.push({
           value: prop.value,
-          type2: urlType ? { '@id': urlType.toLowerCase() } : undefined,
+          type2: urlType ? {'@id': urlType.toLowerCase()} : undefined,
           source: 'vcf'
         });
         break;
+      }
 
       case 'NOTE':
         if (!contact.biography) contact.biography = [];
@@ -180,7 +189,7 @@ function parseVCard(vCardText: string): any | null {
         });
         break;
 
-      case 'PHOTO':
+      case 'PHOTO': {
         if (!contact.photo) contact.photo = [];
         // Handle base64 encoded photos or URLs
         const photoValue = prop.value.includes('http') ? prop.value : `data:image/jpeg;base64,${prop.value}`;
@@ -189,8 +198,9 @@ function parseVCard(vCardText: string): any | null {
           source: 'vcf'
         });
         break;
+      }
 
-      case 'CATEGORIES':
+      case 'CATEGORIES': {
         if (!contact.tag) contact.tag = [];
         const categories = prop.value.split(',').map(c => c.trim());
         categories.forEach(cat => {
@@ -200,8 +210,9 @@ function parseVCard(vCardText: string): any | null {
           });
         });
         break;
+      }
 
-      case 'X-SOCIALPROFILE':
+      case 'X-SOCIALPROFILE': {
         if (!contact.account) contact.account = [];
         const accountType = getParamValue(prop.params, 'TYPE');
         contact.account.push({
@@ -210,6 +221,7 @@ function parseVCard(vCardText: string): any | null {
           source: 'vcf'
         });
         break;
+      }
     }
   }
 
@@ -220,7 +232,7 @@ function parseVCard(vCardText: string): any | null {
 
   // Add metadata
   contact.createdAt = new Date().toISOString();
-  contact.type = [{ '@id': 'Individual' }];
+  contact.type = [{'@id': 'Individual'}];
 
   return contact;
 }
@@ -272,7 +284,7 @@ function parseProperty(line: string): VCardProperty | null {
     }
   }
 
-  return { name, params, value: decodeValue(value) };
+  return {name, params, value: decodeValue(value)};
 }
 
 /**
@@ -306,12 +318,10 @@ function hasParam(params: Record<string, string>, key: string): boolean {
  */
 function normalizeEmailType(type: string): string {
   const typeMap: Record<string, string> = {
-    'HOME': 'home2',
-    'WORK': 'work2',
-    'INTERNET': 'other2',
-    'PREF': 'other2'
+    'HOME': contactDictMapper.appendPrefixToDictValue('email', 'type', 'home'),
+    'WORK': contactDictMapper.appendPrefixToDictValue('email', 'type', 'work'),
   };
-  return typeMap[type.toUpperCase()] || 'other2';
+  return typeMap[type.toUpperCase()] || contactDictMapper.appendPrefixToDictValue('email', 'type', 'other');
 }
 
 /**
@@ -319,16 +329,15 @@ function normalizeEmailType(type: string): string {
  */
 function normalizePhoneType(type: string): string {
   const typeMap: Record<string, string> = {
-    'HOME': 'home',
-    'WORK': 'work',
-    'CELL': 'mobile',
-    'MOBILE': 'mobile',
-    'FAX': 'homeFax',
-    'VOICE': 'other',
-    'PAGER': 'pager',
-    'CAR': 'car'
+    'HOME': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'home'),
+    'WORK': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'work'),
+    'CELL': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'mobile'),
+    'MOBILE': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'mobile'),
+    'FAX': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'homeFax'),
+    'PAGER': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'pager'),
+    'CAR': contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'car'),
   };
-  return typeMap[type.toUpperCase()] || 'other';
+  return typeMap[type.toUpperCase()] || contactDictMapper.appendPrefixToDictValue('phoneNumber', 'type', 'other');
 }
 
 /**
@@ -336,8 +345,8 @@ function normalizePhoneType(type: string): string {
  */
 function normalizeAddressType(type: string): string {
   const typeMap: Record<string, string> = {
-    'HOME': 'home2',
-    'WORK': 'work2'
+    'HOME': contactDictMapper.appendPrefixToDictValue('address', 'type', 'home'),
+    'WORK': contactDictMapper.appendPrefixToDictValue('address', 'type', 'work')
   };
-  return typeMap[type.toUpperCase()] || 'other2';
+  return typeMap[type.toUpperCase()] || 'other';
 }

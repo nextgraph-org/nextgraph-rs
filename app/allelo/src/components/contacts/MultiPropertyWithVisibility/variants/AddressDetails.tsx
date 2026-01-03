@@ -1,14 +1,13 @@
 import {Box, Collapse} from '@mui/material';
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
-import type {Contact} from "@/types/contact.ts";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {ContactSetItem} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 interface AddressDetailsProps {
   showAddressDetails: boolean;
-  contact?: Contact;
+  contact?: SocialContact;
   isEditing: boolean;
-  currentItem: Record<string, string>;
-  resource?: NextGraphResource;
+  currentItem: ContactSetItem<"address">;
 }
 
 export const AddressDetails = ({
@@ -16,13 +15,11 @@ export const AddressDetails = ({
                                  contact,
                                  isEditing,
                                  currentItem,
-                                 resource
                                }: AddressDetailsProps) => {
   return (
     <Collapse in={showAddressDetails}>
       <Box sx={{mt: 1, ml: 3}}>
         <PropertyWithSources
-          // @ts-expect-error this is expected
           propertyKey={"address"}
           subKey={"country"}
           textVariant={"body1"}
@@ -32,10 +29,8 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
-          resource={resource}
         />
         <PropertyWithSources
-          // @ts-expect-error this is expected
           propertyKey={"address"}
           subKey={"region"}
           textVariant={"body1"}
@@ -45,10 +40,8 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
-          resource={resource}
         />
         <PropertyWithSources
-          // @ts-expect-error this is expected
           propertyKey={"address"}
           subKey={"city"}
           textVariant={"body1"}
@@ -58,10 +51,8 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
-          resource={resource}
         />
         <PropertyWithSources
-          // @ts-expect-error this is expected
           propertyKey={"address"}
           subKey={"streetAddress"}
           textVariant={"body1"}
@@ -71,10 +62,8 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
-          resource={resource}
         />
         <PropertyWithSources
-          // @ts-expect-error this is expected
           propertyKey={"address"}
           subKey={"extendedAddress"}
           textVariant={"body1"}
@@ -84,10 +73,8 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
-          resource={resource}
         />
         <PropertyWithSources
-          // @ts-expect-error this is expected
           propertyKey={"address"}
           subKey={"postalCode"}
           textVariant={"body1"}
@@ -97,7 +84,6 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
-          resource={resource}
         />
       </Box>
     </Collapse>

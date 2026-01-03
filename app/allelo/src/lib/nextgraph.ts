@@ -1,23 +1,6 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-//@ts-nocheck deal with it later
-import { nextGraphConnectedPlugin } from "@ldo/connected-nextgraph";
-import { createLdoReactMethods } from "@ldo/react";
 import { createBrowserNGReactMethods } from "../.auth-react";
-// import {NextGraphAuth} from "@/types/nextgraph";
-// import type { ConnectedLdoDataset, ConnectedPlugin } from "@ldo/connected";
-// import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/connected-nextgraph";
 
-export const {
-  dataset,
-  useLdo,
-  useMatchObject,
-  useMatchSubject,
-  useResource,
-  useSubject,
-  useSubscribeToResource,
-} = createLdoReactMethods([nextGraphConnectedPlugin]);
-
-const methods = createBrowserNGReactMethods(dataset);
+const methods = createBrowserNGReactMethods();
 
 export const { BrowserNGLdoProvider, useNextGraphAuth } = methods;
 

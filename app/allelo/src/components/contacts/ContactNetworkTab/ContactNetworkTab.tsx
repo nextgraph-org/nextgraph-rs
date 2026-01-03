@@ -4,15 +4,15 @@ import { NetworkGraph } from '@/components/network/NetworkGraph';
 import { NetworkContactProbe } from '@/components/network/NetworkContactProbe';
 import { useContacts } from '@/hooks/contacts/useContacts';
 import { useNetworkGraph } from '@/hooks/network/useNetworkGraph';
-import { Contact } from '@/types/contact';
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export const ContactNetworkTab = () => {
   const { contactNuris } = useContacts({ limit: 0 });
-  const [contactsByNuri, setContactsByNuri] = useState<Record<string, Contact>>({});
-  const [debouncedContacts, setDebouncedContacts] = useState<Contact[]>([]);
+  const [contactsByNuri, setContactsByNuri] = useState<Record<string, SocialContact>>({});
+  const [debouncedContacts, setDebouncedContacts] = useState<SocialContact[]>([]);
 
   // Callback for when each contact loads
-  const handleContactLoaded = useCallback((nuri: string, contact: Contact | undefined) => {
+  const handleContactLoaded = useCallback((nuri: string, contact: SocialContact | undefined) => {
     if (!contact) {
       // Contact failed to load - don't add it to the graph
       return;

@@ -1,34 +1,36 @@
 import {Marker, Popup} from 'react-leaflet';
 import {createCustomIcon} from './mapUtils';
 import {ContactPopup} from './ContactPopup';
-import type {ContactMarkerProps} from './types';
-import {resolveFrom} from '@/utils/socialContact/contactUtils';
-import {useContactData} from "@/hooks/contacts/useContactData";
-import {useContactPhoto} from "@/hooks/contacts/useContactPhoto.ts";
+import {useResolvedContact} from "@/hooks/contacts/useResolvedContact.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+
+export interface ContactMarkerProps {
+  nuri: string;
+  onContactClick?: (contact: SocialContact) => void;
+}
 
 export const ContactMarker = ({nuri, onContactClick}: ContactMarkerProps) => {
-  const {contact} = useContactData(nuri);
-  const photo = resolveFrom(contact, 'photo');
-  const {displayUrl} = useContactPhoto(contact, photo);
+  const {ormContact, photoUrl} = useResolvedContact(nuri);
 
-  if (!contact) {
+  if (!ormContact) {
     return null;
   }
 
-  const address = resolveFrom(contact, 'address');
+  const address = resolveFrom(ormContact, "address");
   if (!address?.coordLat || !address?.coordLng) return null;
 
   return (
     <Marker
-      key={contact['@id']}
+      key={ormContact["@id"]}
       position={[
         address.coordLat,
         address.coordLng,
       ]}
-      icon={createCustomIcon(contact, displayUrl)}
+      icon={createCustomIcon(ormContact, photoUrl)}
     >
       <Popup>
-        <ContactPopup contact={contact} onContactClick={onContactClick}/>
+        <ContactPopup contact={ormContact} onContactClick={onContactClick}/>
       </Popup>
     </Marker>
   );
