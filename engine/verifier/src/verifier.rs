@@ -112,7 +112,7 @@ pub struct Verifier {
     in_memory_outbox: Vec<EventOutboxStorage>,
     uploads: BTreeMap<u32, RandomAccessFile>,
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
-    pub(crate) orm_subscriptions: HashMap<String, Vec<OrmSubscription>>,
+    pub(crate) orm_subscriptions: HashMap<u64, OrmSubscription>, // subscription id > subscription
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
 }
 
@@ -2831,7 +2831,7 @@ impl Verifier {
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match req {
             AppRequest::V0(v0) => {
-                self.process_stream(&v0.command, &v0.nuri, &v0.payload, v0.session_id)
+                self.process_stream(v0.command, v0.nuri, v0.payload, v0.session_id)
                     .await
             }
         }

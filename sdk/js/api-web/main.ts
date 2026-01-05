@@ -99,7 +99,7 @@ myWorker.onmessage = async (msg) => {
 //TODO: add all the streamed functions
 const streamed_api: Record<string,number> = {
   "doc_subscribe": 2,
-  "orm_start": 3,
+  "orm_start": 4,
   "file_get": 3,
   "app_request_stream": 1,
   "disconnections_subscribe": 0,

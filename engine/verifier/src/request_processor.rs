@@ -44,15 +44,20 @@ use crate::verifier::*;
 impl Verifier {
     pub(crate) async fn process_stream(
         &mut self,
-        command: &AppRequestCommandV0,
-        nuri: &NuriV0,
-        _payload: &Option<AppRequestPayload>,
+        command: AppRequestCommandV0,
+        nuri: NuriV0,
+        payload: Option<AppRequestPayload>,
         session_id: u64,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match command {
-            AppRequestCommandV0::OrmStart => match _payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(shape_type))) => {
-                    self.start_orm(nuri, &shape_type, session_id).await
+            AppRequestCommandV0::OrmStart => match payload {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(
+                    shape_type,
+                    graph_scope,
+                    subject_scope,
+                ))) => {
+                    self.start_orm(graph_scope, subject_scope, shape_type, session_id)
+                        .await
                 }
                 _ => return Err(NgError::InvalidArgument),
             },
@@ -901,9 +906,12 @@ impl Verifier {
     ) -> Result<AppResponse, NgError> {
         match command {
             AppRequestCommandV0::OrmUpdate => match payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((diff, shape_id)))) => {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
+                    diff,
+                    subscription_id,
+                )))) => {
                     return match self
-                        .orm_frontend_update(session_id, &nuri, shape_id, diff)
+                        .orm_frontend_update(session_id, subscription_id, diff)
                         .await
                     {
                         Err(e) => Ok(AppResponse::error(e)),

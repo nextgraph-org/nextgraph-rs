@@ -38,6 +38,7 @@ export class OrmConnection<T extends BaseType> {
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
     readonly signalObject: DeepSignalSet<T>;
+    private subscriptionId: number | undefined;
     private refCount: number;
     /** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
@@ -60,7 +61,6 @@ export class OrmConnection<T extends BaseType> {
             : null;
 
     private constructor(shapeType: ShapeType<T>, scope: Scope) {
-
         // @ts-expect-error
         window.ormSignalConnections = OrmConnection.idToEntry;
 
@@ -96,7 +96,8 @@ export class OrmConnection<T extends BaseType> {
             try {
                 //await new Promise((resolve) => setTimeout(resolve, 4_000));
                 this.cancel = await ng.orm_start(
-                    scope.length == 0 ? "" : scope,
+                    scope.length == 0 ? [""] : [scope],
+                    [],
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
@@ -160,15 +161,11 @@ export class OrmConnection<T extends BaseType> {
         const { ng, session } = await ngSession;
         await this.readyPromise;
 
-        ng.orm_update(
-            this.scope.length == 0 ? "" : this.scope,
-            this.shapeType.shape,
-            ormPatches,
-            session.session_id
-        );
+        ng.orm_update(this.subscriptionId, ormPatches, session.session_id);
     };
 
     private onBackendMessage = (message: any) => {
+        console.debug("backend message received", message);
         const data = message?.V0;
         if (data?.OrmInitial) {
             this.handleInitialResponse(data.OrmInitial);
@@ -179,7 +176,11 @@ export class OrmConnection<T extends BaseType> {
         }
     };
 
-    private handleInitialResponse = (initialData: any) => {
+    private handleInitialResponse = ([initialData, subscriptionId]: [
+        any,
+        number,
+    ]) => {
+        this.subscriptionId = subscriptionId;
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
         batch(() => {

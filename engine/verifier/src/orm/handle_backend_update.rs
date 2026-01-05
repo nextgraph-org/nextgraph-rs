@@ -92,61 +92,67 @@ impl Verifier {
     ) {
         let overlaylink: OverlayLink = overlay_id.into();
 
-        // Collect scope strings to process (to avoid borrow conflicts)
-        let scope_strs: Vec<String> = self.orm_subscriptions.keys().cloned().collect();
+        // First: Clean up and remove old subscriptions
+        self.orm_subscriptions
+            .retain(|_k, sub| !sub.sender.is_closed());
 
-        for scope_str in scope_strs {
-            // TODO: This could be hacky if two threads want to read the subscriptions in parallel
-            // Temporarily take the subscriptions out to avoid borrow conflicts
-            let mut subs = self.orm_subscriptions.remove(&scope_str).unwrap();
+        // Collect keys first to avoid holding a borrow on the map while mutating it
+        let subscription_ids: Vec<_> = self.orm_subscriptions.keys().cloned().collect();
 
-            // First: Clean up and remove old subscriptions
-            subs.retain(|sub| !sub.sender.is_closed());
+        for subscription_id in subscription_ids {
+            // Temporarily take ownership of the subscription at this index to allow re-borrowing self
+            let mut subscription = self.orm_subscriptions.remove(&subscription_id).unwrap();
 
-            // Process changes for each subscription.
-            for orm_subscription in subs.iter_mut() {
-                // Check if this scope is affected by this backend update
-                if !Self::is_scope_affected(&scope_str, repo_id, &overlaylink) {
-                    continue;
-                }
-
-                // Process changes for this shape
-                let mut orm_changes: OrmChanges = HashMap::new();
-                let _ = self.process_changes_for_subscription(
-                    orm_subscription,
-                    inserts,
-                    removes,
-                    &mut orm_changes,
-                    false,
-                );
-                // log_info!("[apply_changes_to_all_scopes] got the following changes from process_changes_for_subscription: {:?}", orm_changes);
-
-                // Send patches if the subscription's session is different to the origin's session.
-                // TODO: Is this the session_id the correct way to check this?
-                if origin_session_id != orm_subscription.session_id {
-                    // Create and send patches from changes
-                    Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
-                }
-
-                //log_info!("[apply_changes_to_all_scopes]: Create and send patches for orm_subscription.session_id {} and origin_session_id {}", orm_subscription.session_id, origin_session_id);
-                //Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
+            // Check if this scope is affected by this backend update
+            if !Self::is_scope_affected(&subscription, repo_id, &overlaylink) {
+                self.orm_subscriptions.insert(subscription_id, subscription);
+                continue;
             }
 
-            // Put the subscriptions back
-            self.orm_subscriptions.insert(scope_str, subs);
+            // Process changes for this shape
+            let mut orm_changes: OrmChanges = HashMap::new();
+            let _ = self.process_changes_for_subscription(
+                &mut subscription,
+                inserts,
+                removes,
+                &mut orm_changes,
+                false,
+            );
+
+            // Send patches if the subscription's session is different to the origin's session.
+            // TODO: This must be by subscription not by session_id
+            // if origin_session_id != subscription.session_id {
+            // Create and send patches from changes
+            Verifier::send_orm_patches_from_changes(&subscription, &orm_changes).await;
+            // }
+
+            // Put the subscription back to preserve order
+            self.orm_subscriptions.insert(subscription_id, subscription);
         }
     }
 
     /// Checks if a scope is affected by this backend update.
-    fn is_scope_affected(scope_str: &String, repo_id: RepoId, overlaylink: &OverlayLink) -> bool {
-        let scope_nuri = NuriV0::new_from(scope_str).unwrap_or_else(|_| NuriV0::new_empty());
-        scope_nuri.target == NuriTargetV0::UserSite
-            || scope_nuri
-                .overlay
-                .as_ref()
-                .map_or(false, |ol| overlaylink == ol)
-            || scope_nuri.target == NuriTargetV0::Repo(repo_id)
-            || scope_str == "did:ng:i" // Listens to all (entire user site).
+    fn is_scope_affected(
+        orm_subscription: &OrmSubscription,
+        repo_id: RepoId,
+        overlaylink: &OverlayLink,
+    ) -> bool {
+        // For each scope in graph...
+        for scope in orm_subscription.graph_scope.iter() {
+            let scope_nuri = NuriV0::new_from(scope).unwrap_or_else(|_| NuriV0::new_empty());
+            if scope_nuri.target == NuriTargetV0::UserSite
+                || scope_nuri
+                    .overlay
+                    .as_ref()
+                    .map_or(false, |ol| overlaylink == ol)
+                || scope_nuri.target == NuriTargetV0::Repo(repo_id)
+                || scope == "did:ng:i"
+            // Listens to all (entire user site).
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// Creates and sends patches to clients from orm changes.
@@ -259,7 +265,6 @@ impl Verifier {
                         }
                         continue;
                     }
-
                     // == Subject is valid or has become valid ==
 
                     // Process predicate changes for this valid subject

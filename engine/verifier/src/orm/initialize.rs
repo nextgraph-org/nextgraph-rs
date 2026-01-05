@@ -25,20 +25,22 @@ use crate::verifier::Verifier;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::OrmSchemaShape;
 use ng_repo::errors::NgError;
-use ng_repo::log::*;
 use std::u64;
 
 use futures::channel::mpsc;
 
 use crate::orm::{types::TrackedOrmObjectChange, OrmChanges};
 
+static mut ORM_SUBSCRIPTION_COUNTER: u64 = 0;
+
 impl Verifier {
     /// Entry point to create a new orm subscription.
     /// Triggers the creation of an orm object which is sent back to the receiver.
     pub(crate) async fn start_orm(
         &mut self,
-        nuri: &NuriV0,
-        shape_type: &OrmShapeType,
+        graph_scope: Vec<NuriV0>,
+        subject_scope: Vec<String>,
+        shape_type: OrmShapeType,
         session_id: u64,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
@@ -48,28 +50,33 @@ impl Verifier {
         // All referenced shapes must be available.
         // All shapes must have predicate
 
+        let subscription_id = unsafe {
+            ORM_SUBSCRIPTION_COUNTER += 1;
+            ORM_SUBSCRIPTION_COUNTER
+        };
         // Create new subscription and add to self.orm_subscriptions
         let orm_subscription = OrmSubscription::new(
             shape_type.clone(),
-            session_id,
-            nuri_to_string(nuri),
+            subscription_id,
+            graph_scope
+                .iter()
+                .map(|nuri| nuri_to_string(nuri))
+                .collect(),
+            subject_scope,
             tx.clone(),
         );
 
-        let orm_objects = self.create_orm_object_for_shape(orm_subscription)?;
+        let orm_objects =
+            self.create_orm_object_for_shape_and_insert_subscription(orm_subscription)?;
 
         let _ = tx
-            .send(AppResponse::V0(AppResponseV0::OrmInitial(orm_objects)))
+            .send(AppResponse::V0(AppResponseV0::OrmInitial(
+                orm_objects,
+                subscription_id,
+            )))
             .await;
 
-        let nuri_string = nuri_to_string(nuri);
-        let shape_string = shape_type.shape.clone();
         let close = Box::new(move || {
-            log_info!(
-                "closing ORM subscription for {session_id} {} {}",
-                nuri_string,
-                shape_string
-            );
             if !tx.is_closed() {
                 tx.close_channel();
             }
@@ -78,13 +85,13 @@ impl Verifier {
     }
 
     /// For a nuri, session, and shape, create an ORM JSON object.
-    fn create_orm_object_for_shape(
+    fn create_orm_object_for_shape_and_insert_subscription(
         &mut self,
         mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
         let shape_quads = self.query_quads_for_shape(
-            Some(orm_subscription.nuri.clone()),
+            &orm_subscription.graph_scope,
             &orm_subscription.shape_type.schema,
             &orm_subscription.shape_type.shape,
             None,
@@ -129,9 +136,7 @@ impl Verifier {
         }
 
         self.orm_subscriptions
-            .entry(orm_subscription.nuri.clone())
-            .or_insert(vec![])
-            .push(orm_subscription);
+            .insert(orm_subscription.subscription_id, orm_subscription);
         Ok(return_val)
     }
 }

@@ -9,8 +9,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_net::orm::{OrmPatchOp, OrmSchemaPredicate, OrmSchemaShape};
-use ng_oxigraph::oxrdf::Quad;
-use ng_repo::errors::VerifierError;
 
 use std::sync::Arc;
 use std::u64;
@@ -20,60 +18,22 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 
 use crate::orm::types::*;
-use crate::orm::utils::{decode_json_pointer, json_to_sparql_val, nuri_to_string};
-use crate::types::GraphQuadsPatch;
+use crate::orm::utils::{decode_json_pointer, json_to_sparql_val};
 use crate::verifier::*;
 
 impl Verifier {
-    ///
-    pub(crate) async fn orm_update_self(
-        &mut self,
-        scope: &String,
-        shape_iri: ShapeIri,
-        session_id: u64,
-        _skolemnized_blank_nodes: Vec<Quad>,
-        revert_inserts: Vec<Quad>,
-        revert_removes: Vec<Quad>,
-    ) -> Result<(), VerifierError> {
-        let (_sender, _orm_subscription) =
-            self.get_first_orm_subscription_sender_for(scope, Some(&shape_iri), Some(&session_id))?;
-
-        log_debug!("[orm_update_self] got subscription");
-
-        // Revert changes, if there.
-        if revert_inserts.len() > 0 || revert_removes.len() > 0 {
-            let _revert_changes = GraphQuadsPatch {
-                inserts: revert_removes,
-                removes: revert_inserts,
-            };
-            log_debug!("[orm_update_self] Reverting triples, calling orm_backend_update. TODO");
-            // TODO
-            // self.orm_backend_update(session_id, scope, "", revert_changes);
-            log_debug!("[orm_update_self] Triples reverted.");
-        }
-
-        Ok(())
-    }
-
     /// Handles updates coming from JS-land (JSON patches).
     pub(crate) async fn orm_frontend_update(
         &mut self,
         session_id: u64,
-        scope: &NuriV0,
-        shape_iri: ShapeIri,
+        subscription_id: u64,
         patches: OrmPatches,
     ) -> Result<(), String> {
-        log_debug!(
-            "[orm_frontend_update] session={} shape={} patches={:?}",
-            session_id,
-            shape_iri,
-            patches
-        );
-
-        let nuri_str = nuri_to_string(scope);
         let (doc_nuri, sparql_update) = {
-            let orm_subscription =
-                self.get_first_orm_subscription_for(&nuri_str, Some(&shape_iri), Some(&session_id));
+            let orm_subscription = self
+                .orm_subscriptions
+                .get(&subscription_id)
+                .ok_or_else(|| format!("Subscription {subscription_id} not found"))?;
 
             // Hack to get any graph used in the patch. We don't need one because all statements are tied to a graph
             // but the subscription.nuri might be a scope, whereas `process_sparql_update` requires a default graph.
@@ -83,8 +43,6 @@ impl Verifier {
             let doc_nuri = graph_subj[0].clone();
 
             let sparql_update = create_sparql_update_query_for_patches(orm_subscription, patches);
-
-            log_debug!("[orm_frontend_update] SPARQL update:\n{}", sparql_update);
 
             (doc_nuri, sparql_update)
         };
@@ -113,16 +71,7 @@ impl Verifier {
                     || !revert_removes.is_empty()
                     || !skolemnized_blank_nodes.is_empty()
                 {
-                    self.orm_update_self(
-                        &nuri_str,
-                        shape_iri,
-                        session_id,
-                        skolemnized_blank_nodes,
-                        revert_inserts,
-                        revert_removes,
-                    )
-                    .await
-                    .map_err(|e| e.to_string())?;
+                    // TODO: Reverts
                 }
                 Ok(())
             }

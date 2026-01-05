@@ -2875,22 +2875,23 @@ pub async fn upload_done(
 }
 
 pub async fn orm_start(
-    scope: NuriV0,
+    graph_scope: Vec<NuriV0>,
+    subject_scope: Vec<String>,
     shape_type: OrmShapeType,
     session_id: u64,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-    let mut request = AppRequest::new_orm_start(scope, shape_type);
+    let mut request = AppRequest::new_orm_start(graph_scope, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream(request).await
 }
 
 pub async fn orm_update(
     scope: NuriV0,
-    shape_type_name: String,
+    subscription_id: u64,
     diff: OrmPatches,
     session_id: u64,
 ) -> Result<(), NgError> {
-    let mut request = AppRequest::new_orm_update(scope, shape_type_name, diff);
+    let mut request = AppRequest::new_orm_update(scope, subscription_id, diff);
     request.set_session_id(session_id);
     app_request(request).await?;
     Ok(())
@@ -2926,9 +2927,13 @@ pub async fn doc_query_quads_for_shape_type(
 ) -> Result<Vec<Quad>, NgError> {
     let broker = get_broker().await?;
     let session = broker.get_session(session_id)?;
+    let nuris = match nuri {
+        Some(nuri) => vec![nuri],
+        _ => vec![],
+    };
     session
         .verifier
-        .query_quads_for_shape(nuri, schema, shape, filter_subjects)
+        .query_quads_for_shape(&nuris, schema, shape, filter_subjects)
 }
 
 pub async fn doc_create(
