@@ -1896,29 +1896,12 @@ pub async fn orm_start(
 }
 
 #[wasm_bindgen]
-pub async fn orm_update(
-    subscription_id: u64,
-    diff: JsValue,
-    session_id: JsValue,
-) -> Result<(), String> {
+pub async fn orm_update(subscription_id: u64, diff: JsValue) -> Result<(), String> {
     let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
 
-    // let scope = if scope.is_empty() || scope == "did:ng:i" {
-    //     NuriV0::new_entire_user_site()
-    // } else {
-    //     NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
-    // };
     let mut request = AppRequest::new_orm_update(subscription_id, diff);
-    let session_id: u64 =
-        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
-            format!(
-                "Deserialization error of session_id {:?} orm_update",
-                session_id
-            )
-        })?;
 
-    request.set_session_id(session_id);
     log_info!("[orm_update] calling orm_update");
     let response = nextgraph::local_broker::app_request(request)
         .await

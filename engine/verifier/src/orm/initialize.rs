@@ -12,6 +12,7 @@ use futures::SinkExt;
 use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
+use ng_repo::log_err;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -39,7 +40,6 @@ impl Verifier {
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,
-        session_id: u64,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
 
@@ -51,7 +51,7 @@ impl Verifier {
         self.orm_subscription_counter += 1;
         // Create new subscription and add to self.orm_subscriptions
         let orm_subscription = OrmSubscription::new(
-            shape_type.clone(),
+            shape_type,
             self.orm_subscription_counter,
             graph_scope
                 .iter()
@@ -62,7 +62,16 @@ impl Verifier {
         );
 
         let orm_objects =
-            self.create_orm_object_for_shape_and_insert_subscription(orm_subscription)?;
+            match self.create_orm_object_for_shape_and_insert_subscription(orm_subscription) {
+                Err(error) => {
+                    log_err!(
+                        "Error occurred while creating orm subscription: {:?}",
+                        error
+                    );
+                    return Err(error);
+                }
+                Ok(res) => res,
+            };
 
         let _ = tx
             .send(AppResponse::V0(AppResponseV0::OrmInitial(
@@ -85,12 +94,16 @@ impl Verifier {
         mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
-        let shape_quads = self.query_quads_for_shape(
-            &orm_subscription.graph_scope,
-            &orm_subscription.shape_type.schema,
-            &orm_subscription.shape_type.shape,
-            None,
-        )?;
+        let shape_quads = if orm_subscription.graph_scope.is_empty() {
+            vec![]
+        } else {
+            self.query_quads_for_shape(
+                &orm_subscription.graph_scope,
+                &orm_subscription.shape_type.schema,
+                &orm_subscription.shape_type.shape,
+                None,
+            )?
+        };
 
         let mut changes: OrmChanges = HashMap::new();
 

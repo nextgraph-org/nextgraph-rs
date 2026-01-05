@@ -8,14 +8,18 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { Diff, Scope } from "../types.ts";
+import type { Scope } from "../types.ts";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 import { OrmConnection } from "./ormConnectionHandler.ts";
 
 /**
+ * Create a proxied orm object for a given shape type and scope.
  *
- * @param shapeType
- * @param scope
+ * @param shapeType The shape type
+ * @param scope An array of nuris which should be subscribed to.
+ *      Leave it empty or set to `[""]` for scoping to the whole store.
+ *      Setting it to `[]` will not result in any orm objects.
+ *      You can still use it for adding new objects to the db.
  * @returns
  */
 export function createSignalObjectForShape<T extends BaseType>(
@@ -24,12 +28,16 @@ export function createSignalObjectForShape<T extends BaseType>(
 ) {
     const connection: OrmConnection<T> = OrmConnection.getConnection(
         shapeType,
-        scope || ""
+        scope || [""]
     );
 
     return {
+        /** The set containing all orm objects. */
         signalObject: connection.signalObject,
         stop: connection.release,
+        /** Resolves when the connection is ready. */
         readyPromise: connection.readyPromise,
+        beginTransaction: connection.beginTransaction,
+        commitTransaction: connection.commitTransaction,
     };
 }

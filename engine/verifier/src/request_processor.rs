@@ -55,10 +55,7 @@ impl Verifier {
                     shape_type,
                     graph_scope,
                     subject_scope,
-                ))) => {
-                    self.start_orm(graph_scope, subject_scope, shape_type, session_id)
-                        .await
-                }
+                ))) => self.start_orm(graph_scope, subject_scope, shape_type).await,
                 _ => return Err(NgError::InvalidArgument),
             },
             AppRequestCommandV0::Fetch(fetch) => match fetch {

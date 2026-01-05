@@ -111,13 +111,16 @@ impl Verifier {
 
             // Process changes for this shape
             let mut orm_changes: OrmChanges = HashMap::new();
-            let _ = self.process_changes_for_subscription(
+            let res = self.process_changes_for_subscription(
                 &mut subscription,
                 inserts,
                 removes,
                 &mut orm_changes,
                 false,
             );
+            if let Err(error) = res {
+                log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
+            }
 
             // Send patches if the subscription's session is different to the origin's session.
             if origin_subscription_id != subscription_id {
