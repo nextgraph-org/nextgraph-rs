@@ -17,18 +17,6 @@
   "main": "./dist/ngweb.umd.cjs",
   "module": "./dist/ngweb.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/ngweb.js"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/ngweb.umd.cjs"
-      }
-    }
-  },
   "scripts": {
     "build": "tsc && vite build",
     "builddevlocal": "tsc && cross-env NG_DEV=1 vite build",
@@ -46,6 +34,26 @@
     "vite": "^6.2.0",
     "vite-plugin-dts": "^4.5.3",
     "cross-env": "^7.0.3"
+  },
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "import": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/ngweb.js"
+        },
+        "require": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/ngweb.umd.cjs"
+        }
+      }
+    },
+    "access": "public"
   },
   "keywords": [
     "crdt",
@@ -74,8 +82,5 @@
     "database",
     "triplestore"
   ],
-  "homepage": "https://nextgraph.org",
-  "publishConfig": {
-    "access": "public"
-  }
+  "homepage": "https://nextgraph.org"
 }
