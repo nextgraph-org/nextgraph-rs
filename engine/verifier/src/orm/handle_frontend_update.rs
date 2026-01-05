@@ -25,7 +25,6 @@ impl Verifier {
     /// Handles updates coming from JS-land (JSON patches).
     pub(crate) async fn orm_frontend_update(
         &mut self,
-        session_id: u64,
         subscription_id: u64,
         patches: OrmPatches,
     ) -> Result<(), String> {
@@ -53,7 +52,7 @@ impl Verifier {
                 &sparql_update,
                 &None,
                 self.get_peer_id_for_skolem(),
-                session_id,
+                subscription_id,
             )
             .await
         {

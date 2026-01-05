@@ -48,7 +48,7 @@ impl Verifier {
     /// TODO: How to prevent duplicate application of change data?
     pub(crate) async fn orm_backend_update(
         &mut self,
-        session_id: u64,
+        subscription_id: u64,
         repo_id: RepoId,
         overlay_id: OverlayId,
         patch: GraphQuadsPatch,
@@ -75,7 +75,7 @@ impl Verifier {
         // TODO: Omit sending patches back to the subscription where they came from.
 
         // Apply changes to all affected scopes and send patches to clients
-        self.apply_changes_to_all_scopes(repo_id, overlay_id, &inserts, &removes, session_id)
+        self.apply_changes_to_all_scopes(repo_id, overlay_id, &inserts, &removes, subscription_id)
             .await;
     }
 
@@ -88,7 +88,7 @@ impl Verifier {
         overlay_id: OverlayId,
         inserts: &[Quad],
         removes: &[Quad],
-        origin_session_id: u64,
+        origin_subscription_id: u64,
     ) {
         let overlaylink: OverlayLink = overlay_id.into();
 
@@ -120,11 +120,10 @@ impl Verifier {
             );
 
             // Send patches if the subscription's session is different to the origin's session.
-            // TODO: This must be by subscription not by session_id
-            // if origin_session_id != subscription.session_id {
-            // Create and send patches from changes
-            Verifier::send_orm_patches_from_changes(&subscription, &orm_changes).await;
-            // }
+            if origin_subscription_id != subscription_id {
+                // send patches from changes
+                Verifier::send_orm_patches_from_changes(&subscription, &orm_changes).await;
+            }
 
             // Put the subscription back to preserve order
             self.orm_subscriptions.insert(subscription_id, subscription);

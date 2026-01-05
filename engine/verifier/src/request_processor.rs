@@ -910,10 +910,7 @@ impl Verifier {
                     diff,
                     subscription_id,
                 )))) => {
-                    return match self
-                        .orm_frontend_update(session_id, subscription_id, diff)
-                        .await
-                    {
+                    return match self.orm_frontend_update(subscription_id, diff).await {
                         Err(e) => Ok(AppResponse::error(e)),
                         Ok(()) => Ok(AppResponse::ok()),
                     }
@@ -1236,7 +1233,7 @@ impl Verifier {
                                     &sparql,
                                     &base,
                                     self.get_peer_id_for_skolem(),
-                                    session_id,
+                                    0,
                                 )
                                 .await
                             {

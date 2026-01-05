@@ -31,8 +31,6 @@ use futures::channel::mpsc;
 
 use crate::orm::{types::TrackedOrmObjectChange, OrmChanges};
 
-static mut ORM_SUBSCRIPTION_COUNTER: u64 = 0;
-
 impl Verifier {
     /// Entry point to create a new orm subscription.
     /// Triggers the creation of an orm object which is sent back to the receiver.
@@ -50,14 +48,11 @@ impl Verifier {
         // All referenced shapes must be available.
         // All shapes must have predicate
 
-        let subscription_id = unsafe {
-            ORM_SUBSCRIPTION_COUNTER += 1;
-            ORM_SUBSCRIPTION_COUNTER
-        };
+        self.orm_subscription_counter += 1;
         // Create new subscription and add to self.orm_subscriptions
         let orm_subscription = OrmSubscription::new(
             shape_type.clone(),
-            subscription_id,
+            self.orm_subscription_counter,
             graph_scope
                 .iter()
                 .map(|nuri| nuri_to_string(nuri))
@@ -72,7 +67,7 @@ impl Verifier {
         let _ = tx
             .send(AppResponse::V0(AppResponseV0::OrmInitial(
                 orm_objects,
-                subscription_id,
+                self.orm_subscription_counter,
             )))
             .await;
 

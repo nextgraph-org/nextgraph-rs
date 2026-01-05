@@ -2886,12 +2886,11 @@ pub async fn orm_start(
 }
 
 pub async fn orm_update(
-    scope: NuriV0,
     subscription_id: u64,
     diff: OrmPatches,
     session_id: u64,
 ) -> Result<(), NgError> {
-    let mut request = AppRequest::new_orm_update(scope, subscription_id, diff);
+    let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
     app_request(request).await?;
     Ok(())

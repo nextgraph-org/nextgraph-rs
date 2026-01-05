@@ -114,6 +114,7 @@ pub struct Verifier {
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
     pub(crate) orm_subscriptions: HashMap<u64, OrmSubscription>, // subscription id > subscription
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
+    pub(crate) orm_subscription_counter: u64,
 }
 
 impl fmt::Debug for Verifier {
@@ -520,6 +521,7 @@ impl Verifier {
             branch_subscriptions: HashMap::new(),
             orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
+            orm_subscription_counter: 1,
         }
     }
 
@@ -2815,6 +2817,7 @@ impl Verifier {
             branch_subscriptions: HashMap::new(),
             orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
+            orm_subscription_counter: 1,
         };
         // this is important as it will load the last seq from storage
         if verif.config.config_type.should_load_last_seq_num() {
