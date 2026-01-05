@@ -1878,7 +1878,7 @@ pub async fn orm_start(
     } else {
         let mut graph_nuris = vec![];
         for gs in graph_scope {
-            if gs.is_empty() {
+            if gs.is_empty() || gs == "did:ng:i" {
                 graph_nuris = vec![NuriV0::new_entire_user_site()];
                 break;
             }
