@@ -128,7 +128,7 @@ impl Verifier {
                     //log_debug!("FileGet cancelled");
                     tx.close_channel();
                 });
-                Ok((rx, fnonce))
+                Ok((rx, fnonce as CancelFn))
             }
             _ => unimplemented!(),
         }
