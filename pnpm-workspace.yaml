@@ -3,9 +3,10 @@ packages:
     - sdk/js/api-web
     - sdk/js/web
     - sdk/js/auth-ldo-react
-    - sdk/js/signals
+    - sdk/js/orm
     - sdk/js/alien-deepsignals
     - sdk/js/shex-orm
+    - sdk/js/examples/expense-tracker
     - sdk/js/examples/multi-framework-signals
     - sdk/js/examples/react-ldo
     - app/ui-common

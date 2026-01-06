@@ -130,6 +130,7 @@ export const RCardEdit = ({nuri}: RCardEditProps) => {
         }}
       >
         <RCardProperty
+          key={item.id}
           item={item}
           zone={zone}
           isEditing

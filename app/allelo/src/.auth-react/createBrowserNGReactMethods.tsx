@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-//@ts-nocheck deal with it later
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 //import { useNavigate, useLocation } from "react-router-dom";
 import type { FunctionComponent, PropsWithChildren } from "react";
@@ -7,26 +5,22 @@ import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.j
 
 import { default as ng, init_api} from "./api";
 import {ng as ng3, init} from "@ng-org/web";
-import { initNg } from "@ng-org/signals";
+import { initNg } from "@ng-org/orm";
 
-import type { ConnectedLdoDataset, ConnectedPlugin } from "@ldo/connected";
-import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/connected-nextgraph";
+import {NextGraphSession} from "@/types/nextgraph.ts";
 
 /**
  * Creates special react methods specific to the NextGraph Auth
- * @param dataset the connectedLdoDataset with a nextGraphConnectedPlugin
  * @returns { BrowserNGLdoProvider, useNextGraphAuth }
  */
-export function createBrowserNGReactMethods(
-  dataset: ConnectedLdoDataset<(NextGraphConnectedPlugin | ConnectedPlugin)[]>,
-) : {BrowserNGLdoProvider: React.FunctionComponent<{children?: React.ReactNode | undefined}>, useNextGraphAuth: typeof useNextGraphAuth} {
+export function createBrowserNGReactMethods() : {BrowserNGLdoProvider: React.FunctionComponent<{children?: React.ReactNode | undefined}>, useNextGraphAuth: typeof useNextGraphAuth} {
   
   const BrowserNGLdoProvider: FunctionComponent<PropsWithChildren> = ({
     children,
   }) => {
     //const navigate = useNavigate();
     //const location = useLocation();
-    const [session, setSession] = useState<NextGraphConnectedContext>(
+    const [session, setSession] = useState<NextGraphSession>(
       {
         ng: undefined,
       }
@@ -64,19 +58,19 @@ export function createBrowserNGReactMethods(
               publicStoreId: event.session.public_store_id as string
             }); // TODO: add event.session.user too
 
-            dataset.setContext("nextgraph", {
+            /*dataset.setContext("nextgraph", {
               ng: ng3,
               sessionId: event.session.session_id as string
-            });
+            });*/
 
             initNg(ng, event.session);
             window.location.hash = "#/";
           }
           else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
             setSession({ ng: undefined });
-            dataset.setContext("nextgraph", {
+           /* dataset.setContext("nextgraph", {
               ng: undefined,
-            });
+            });*/
           }
         }
         , true // singleton: boolean (will your app create many docs in the system, or should it be launched as a unique instance)
@@ -106,18 +100,18 @@ export function createBrowserNGReactMethods(
                 publicStoreId: event.session.public_store_id as string
               }); // TODO: add event.session.user too
 
-              dataset.setContext("nextgraph", {
+              /*dataset.setContext("nextgraph", {
                 ng,
                 sessionId: event.session.session_id as string
-              });
+              });*/
 
               initNg(ng, event.session);
             }
             else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
               setSession({ ng: undefined });
-              dataset.setContext("nextgraph", {
+              /*dataset.setContext("nextgraph", {
                 ng: undefined,
-              });
+              });*/
             }
           };
         //console.log("login_callback set");

@@ -69,7 +69,7 @@ In `src/app/pages/index.astro`, the NextGraph client is initialized and connecte
 
 ```ts
 import { ng, init } from "@ng-org/web";
-import { initNg } from "@ng-org/signals";
+import { initNg } from "@ng-org/orm";
 
 await init(
     async (event) => {
@@ -88,7 +88,7 @@ Each framework component imports the generated shape type and uses it with the f
 **React:**
 
 ```tsx
-import { useShape } from "@ng-org/signals/react";
+import { useShape } from "@ng-org/orm/react";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
 const state = useShape(TestObjectShapeType);
@@ -97,7 +97,7 @@ const state = useShape(TestObjectShapeType);
 **Vue:**
 
 ```ts
-import { useShape } from "@ng-org/signals/vue";
+import { useShape } from "@ng-org/orm/vue";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
 const shapeObjects = useShape(TestObjectShapeType);
@@ -106,7 +106,7 @@ const shapeObjects = useShape(TestObjectShapeType);
 **Svelte:**
 
 ```ts
-import { useShape } from "@ng-org/signals/svelte";
+import { useShape } from "@ng-org/orm/svelte";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
 const shapeObjects = useShape(TestObjectShapeType);

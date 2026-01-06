@@ -159,6 +159,51 @@ function recordOf(key: dom.Type, value: dom.Type): dom.NamedTypeReference {
     } as any;
 }
 
+type ValueSetLiteralCandidate = {
+    value?: string;
+    id?: string;
+    languageTag?: string;
+    stem?: string;
+};
+
+function literalFromValueSetValue(value: unknown): string | undefined {
+    if (typeof value === "string") return value;
+    if (value && typeof value === "object") {
+        const candidate = value as ValueSetLiteralCandidate;
+        if (typeof candidate.value === "string") return candidate.value;
+        if (typeof candidate.id === "string") return candidate.id;
+        if (typeof candidate.languageTag === "string")
+            return candidate.languageTag;
+        if (typeof candidate.stem === "string") return candidate.stem;
+    }
+    return undefined;
+}
+
+const extraTripleConstraints = new WeakSet<object>();
+
+function tagExtraPredicatesFromExpression(
+    expression: any,
+    extras: Set<string>
+): void {
+    if (!expression || typeof expression !== "object") return;
+    const exprType = expression.type;
+    if (exprType === "TripleConstraint") {
+        if (extras.has(expression.predicate)) {
+            extraTripleConstraints.add(expression);
+        }
+        return;
+    }
+    if (exprType === "EachOf" || exprType === "OneOf") {
+        (expression.expressions || []).forEach((child: any) =>
+            tagExtraPredicatesFromExpression(child, extras)
+        );
+        return;
+    }
+    if (exprType === "Shape") {
+        tagExtraPredicatesFromExpression(expression.expression, extras);
+    }
+}
+
 // Note: aliasing helpers previously used in earlier versions were removed.
 
 // Property name collision resolution using predicate IRI mapping
@@ -345,22 +390,22 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 if (!hasId || !hasGraph) {
                     const propsToAdd: dom.PropertyDeclaration[] = [];
                     if (!hasGraph) {
-                        propsToAdd.push(
-                            dom.create.property(
-                                "@graph",
-                                dom.create.namedTypeReference("IRI"),
-                                dom.DeclarationFlags.ReadOnly
-                            )
+                        const graphProp = dom.create.property(
+                            "@graph",
+                            dom.create.namedTypeReference("IRI"),
+                            dom.DeclarationFlags.ReadOnly
                         );
+                        graphProp.jsDocComment = "The graph IRI.";
+                        propsToAdd.push(graphProp);
                     }
                     if (!hasId) {
-                        propsToAdd.push(
-                            dom.create.property(
-                                "@id",
-                                dom.create.namedTypeReference("IRI"),
-                                dom.DeclarationFlags.ReadOnly
-                            )
+                        const idProp = dom.create.property(
+                            "@id",
+                            dom.create.namedTypeReference("IRI"),
+                            dom.DeclarationFlags.ReadOnly
                         );
+                        idProp.jsDocComment = "The subject IRI.";
+                        propsToAdd.push(idProp);
                     }
                     shapeInterface.members.unshift(...propsToAdd);
                 }
@@ -382,6 +427,12 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
             const newInterface: ShapeInterfaceDeclaration =
                 dom.create.interface("");
             setReturnPointer(newInterface);
+            if (_shape.extra?.length ?? 0 > 0) {
+                tagExtraPredicatesFromExpression(
+                    _shape.expression,
+                    new Set(_shape.extra)
+                );
+            }
             const transformedChildren = await getTransformedChildren();
             if (
                 typeof transformedChildren.expression !== "string" &&
@@ -498,14 +549,16 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
             tripleConstraint,
             getTransformedChildren,
             _setReturnPointer,
-            node
+            _node
         ) => {
             const transformedChildren = await getTransformedChildren();
             const baseName = (tripleConstraint as any)
                 .readablePredicate as string;
 
             const max = tripleConstraint.max;
-            const isPlural = max === -1 || (max !== undefined && max !== 1);
+            const isExtra = extraTripleConstraints.has(tripleConstraint);
+            const isPlural =
+                isExtra || max === -1 || (max !== undefined && max !== 1);
             const isOptional = tripleConstraint.min === 0;
 
             let valueType: dom.Type = dom.type.any;
@@ -525,24 +578,21 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
             ) {
                 const aliasRefs: dom.Type[] = [];
                 for (const v of originalValueExpr.values) {
-                    // valueSetValue can be string IRIREF or ObjectLiteral or other stems; handle IRIREF and ObjectLiteral
-                    if (typeof v === "string") {
-                        // For concrete IRIREF values, use a string literal of the IRI
-                        aliasRefs.push(dom.type.stringLiteral(v));
-                    } else if (v && typeof v === "object") {
-                        // ObjectLiteral has `value`; use that literal as alias base
-                        const literalVal = (v as any).value as
-                            | string
-                            | undefined;
-                        if (literalVal) {
-                            // For explicit literal values, use a string literal type
-                            aliasRefs.push(dom.type.stringLiteral(literalVal));
-                        }
-                        // For other union members (IriStem, ranges, Language, etc.), skip here; fall back covered below if none collected
+                    const literalVal = literalFromValueSetValue(v);
+                    if (literalVal !== undefined) {
+                        aliasRefs.push(dom.type.stringLiteral(literalVal));
                     }
                 }
                 if (aliasRefs.length > 0) {
-                    const union = unionOf(aliasRefs);
+                    let union = unionOf(aliasRefs);
+                    if (isExtra) {
+                        // Type like (string & {}), to preserve literal values.
+                        const intersectedString = dom.create.intersection([
+                            dom.create.namedTypeReference("IRI"),
+                            dom.create.objectType([]),
+                        ]);
+                        union = unionOf([union, intersectedString]);
+                    }
                     const final = isPlural ? setOf(union) : union;
                     return createProperty(
                         baseName,
@@ -704,14 +754,16 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 }
             }
             if (nodeConstraint.values) {
-                const u = dom.create.union([]);
+                const union = dom.create.union([]);
                 nodeConstraint.values.forEach((v) => {
-                    if (typeof v === "string")
-                        u.members.push(dom.type.stringLiteral(v));
+                    const literalVal = literalFromValueSetValue(v);
+                    if (literalVal !== undefined) {
+                        union.members.push(dom.type.stringLiteral(literalVal));
+                    }
                 });
-                if (!u.members.length) return dom.type.string;
-                if (u.members.length === 1) return u.members[0];
-                return u;
+                if (!union.members.length) return dom.type.string;
+                if (union.members.length === 1) return union.members[0];
+                return union;
             }
             return dom.type.any;
         },

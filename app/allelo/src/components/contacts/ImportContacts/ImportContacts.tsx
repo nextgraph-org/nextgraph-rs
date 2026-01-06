@@ -13,9 +13,9 @@ import {UilArrowLeft, UilCloudDownload} from '@iconscout/react-unicons';
 import {useImportContacts} from '@/hooks/contacts/useImportContacts';
 import {ImportSourceConfig} from "@/types/importSource";
 import {ImportSourceRegistry} from "@/importers/importSourceRegistry";
-import {Contact} from "@/types/contact";
 import {useNavigate} from "react-router-dom";
 import {ImportingOverlay} from "@/components/contacts/ImportContacts/ImportingOverlay.tsx";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export const ImportContacts = () => {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export const ImportContacts = () => {
     setSelectedSource(null);
   }, []);
 
-  const handleRunnerComplete = useCallback(async (contacts?: Contact[], callback?: () => void) => {
+  const handleRunnerComplete = useCallback(async (contacts?: SocialContact[], callback?: () => void) => {
     if (contacts)
       await importContacts(contacts);
     if (callback)

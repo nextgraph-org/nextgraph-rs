@@ -1,54 +1,43 @@
 import {forwardRef, useCallback, useState} from 'react';
 import {
-  Typography,
   Box,
   Chip,
   useTheme,
   alpha,
-  Card,
-  CardContent,
   Button,
   Collapse, IconButton,
 } from '@mui/material';
 import {
-  UilLinkedin,
-} from '@iconscout/react-unicons';
-import {
-  UilUser,
   UilShieldCheck,
   UilCheckCircle,
   UilUserCircle,
   UilSearchAlt,
   UilMessage,
   UilHeart,
-  UilEnvelope,
   UilAngleDown,
   UilAngleUp
 } from '@iconscout/react-unicons';
-import type {Contact} from '@/types/contact';
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
-import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {PropertyWithSources} from '../PropertyWithSources';
 import {ContactTags} from '../ContactTags';
-import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {defaultTemplates} from "@/utils/templateRenderer.ts";
 import {useNavigate} from "react-router-dom";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {ContactAvatarUpload} from "@/components/contacts/ContactAvatarUpload";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export interface ContactViewHeaderProps {
-  contact: Contact | null;
-  isLoading: boolean;
+  contact: SocialContact | null;
   isEditing?: boolean;
   showStatus?: boolean;
   showTags?: boolean;
   showActions?: boolean;
   validateParent?: (valid: boolean) => void;
-  resource?: NextGraphResource
 }
 
 export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderProps>(
-  ({contact, isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent, resource}, ref) => {
+  ({contact, isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent}, ref) => {
     const [showNameDetails, setShowNameDetails] = useState(false);
     const navigate = useNavigate();
 
@@ -56,8 +45,8 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
     const {getCategoryIcon, getCategoryById} = useRCardsConfigs();
     const {getRCardById} = useGetRCards();
 
-    const getNaoStatusIndicator = useCallback((contact: Contact) => {
-      switch (contact.naoStatus?.value) {
+    const getNaoStatusIndicator = useCallback((contact: SocialContact) => {
+      switch (contact.naoStatus) {
         case 'member':
           return {
             icon: <UilShieldCheck size="20"/>,
@@ -86,16 +75,16 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
     },[theme.palette.divider, theme.palette.success.light, theme.palette.success.main, theme.palette.text.secondary, theme.palette.warning.light, theme.palette.warning.main]);
 
     const navigateToQR = useCallback(() => {
-      const params = new URLSearchParams();
-      params.set('contactNuri', resource?.uri ?? "");
-      navigate(`/invite?${params.toString()}`);
-    }, [resource, navigate]);
+      if (contact) {
+        const params = new URLSearchParams();
+        params.set('contactNuri', contact["@graph"] ?? "");
+        navigate(`/invite?${params.toString()}`);
+      }
+    }, [contact, navigate]);
 
     if (!contact) return null;
 
-    const name = resolveFrom(contact, 'name');
-    const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
-
+    const displayName = resolveContactName(contact);
     const naoStatus = getNaoStatusIndicator(contact);
 
     return (
@@ -113,7 +102,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
             gap: 2,
             alignItems: "center"
           }}>
-            <ContactAvatarUpload contactNuri={resource?.uri} initial={displayName} useAvatar={false}
+            <ContactAvatarUpload contactNuri={contact["@graph"]} initial={displayName} useAvatar={false}
                                  isEditing={isEditing}/>
             <Box sx={{
               display: "flex",
@@ -138,7 +127,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 placeholder="Contact Name"
                 validateParent={validateParent}
                 template={defaultTemplates.contactName}
-                resource={resource}
               />
               <IconButton
                 className="name-caret"
@@ -166,7 +154,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 isEditing={isEditing}
                 label={"First name"}
                 hideSources={true}
-                resource={resource}
               />
               <PropertyWithSources
                 propertyKey={"name"}
@@ -176,7 +163,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 isEditing={isEditing}
                 label={"Middle name"}
                 hideSources={true}
-                resource={resource}
               />
               <PropertyWithSources
                 propertyKey={"name"}
@@ -186,7 +172,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 isEditing={isEditing}
                 label={"Last name"}
                 hideSources={true}
-                resource={resource}
               />
               <PropertyWithSources
                 propertyKey={"name"}
@@ -196,7 +181,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 isEditing={isEditing}
                 label={"Honorific prefix"}
                 hideSources={true}
-                resource={resource}
               />
               <PropertyWithSources
                 propertyKey={"name"}
@@ -206,7 +190,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 isEditing={isEditing}
                 label={"Honorific suffix"}
                 hideSources={true}
-                resource={resource}
               />
             </Box>
           </Collapse>
@@ -223,7 +206,6 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               placeholder="Job Title / Position"
               template={defaultTemplates.headline}
               templateProperty={"organization"}
-              resource={resource}
             />
 
             {showStatus && <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap'}}>
@@ -241,7 +223,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
 
               {/* Relationship Category Indicator */}
               {contact.rcard && (() => {
-                const contactRCardId = contact.rcard ? contact.rcard["@id"] : undefined;
+                const contactRCardId = contact.rcard;
                 const rcard = getRCardById(contactRCardId ?? "");
 
                 const categoryInfo = getCategoryById(rcard?.cardId ?? "default");
@@ -276,30 +258,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               )}
             </Box>}
 
-            {/* Merged Contact Details */}
-            {(contact['@id'] === '1' || contact['@id'] === '3' || contact['@id'] === '5') && (
-              <Card variant="outlined" sx={{mb: 2, backgroundColor: alpha('#4caf50', 0.04)}}>
-                <CardContent sx={{p: 2}}>
-                  <Typography variant="h6" sx={{mb: 1, display: 'flex', alignItems: 'center', gap: 1}}>
-                    <UilSearchAlt size="20" color="#4caf50"/>
-                    Merged Contact Information
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
-                    This contact was created by merging multiple duplicate entries to give you a cleaner contact list.
-                  </Typography>
-                  <Typography variant="body2" sx={{fontWeight: 500, mb: 1}}>
-                    Original sources merged:
-                  </Typography>
-                  <Box sx={{display: 'flex', gap: 1, flexWrap: 'wrap'}}>
-                    <Chip size="small" label="LinkedIn Import" icon={<UilLinkedin size="20"/>}/>
-                    <Chip size="small" label="Gmail Contacts" icon={<UilEnvelope size="20"/>}/>
-                    {contact['@id'] === '3' && <Chip size="small" label="Manual Entry" icon={<UilUser size="20"/>}/>}
-                  </Box>
-                </CardContent>
-              </Card>
-            )}
-
-            {showTags && <ContactTags contact={contact} resource={resource}/>}
+            {showTags && <ContactTags contact={contact}/>}
 
             {/* Action Buttons */}
             {showActions && <Box sx={{
@@ -310,7 +269,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               mt: 2
             }}>
               {/* Invite to NAO button for non-members */}
-              {contact.naoStatus?.value !== 'member' && contact.naoStatus?.value !== 'invited' && (
+              {contact.naoStatus !== 'member' && contact.naoStatus !== 'invited' && (
                 <Button
                   variant="contained"
                   startIcon={<UilMessage size="20"/>}

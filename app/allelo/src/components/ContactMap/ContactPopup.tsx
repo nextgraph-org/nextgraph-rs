@@ -4,24 +4,30 @@ import {
   UilPhone as Phone,
   UilEnvelope as Message
 } from '@iconscout/react-unicons';
-import type {ContactPopupProps} from './types';
-import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
-import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
-import {ContactCardAvatar} from "@/components/contacts/ContactCardAvatar";
+import {ContactCardAvatarOrm} from "@/components/contacts/ContactCardAvatar";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {
+  resolveContactName,
+  resolveContactPhone, resolveFrom
+} from "@/utils/socialContact/contactUtilsOrm.ts";
+
+export interface ContactPopupProps {
+  contact: SocialContact;
+  onContactClick?: (contact: SocialContact) => void;
+}
 
 export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const phoneNumber = resolveFrom(contact, 'phoneNumber');
-  const name = resolveFrom(contact, 'name');
+  const phoneNumber = resolveContactPhone(contact);
   const organization = resolveFrom(contact, 'organization');
 
-  const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+  const displayName = resolveContactName(contact);
 
   const handleCall = () => {
-    if (phoneNumber?.value) {
-      window.location.href = `tel:${phoneNumber.value}`;
+    if (phoneNumber) {
+      window.location.href = `tel:${phoneNumber}`;
     }
   };
 
@@ -40,12 +46,12 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
     }}>
       {/* Header with photo and info */}
       <Box sx={{display: 'flex', alignItems: 'flex-start', gap: isMobile ? 1 : 2, mb: 2}}>
-        <ContactCardAvatar
+        <ContactCardAvatarOrm
           contact={contact}
           initial={displayName}
           size={{xs: 60, sm: 100}}
         >
-        </ContactCardAvatar>
+        </ContactCardAvatarOrm>
 
         <Box sx={{flex: 1, minWidth: 0}}>
           <Typography variant={isMobile ? "body1" : "h6"} sx={{
@@ -120,12 +126,12 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
             width: isMobile ? 36 : 44,
             height: isMobile ? 36 : 44,
             '&:hover': {bgcolor: '#1b5e20'},
-            ...((!phoneNumber?.value) && {
+            ...((!phoneNumber) && {
               opacity: 0.5,
               cursor: 'not-allowed'
             })
           }}
-          disabled={!phoneNumber?.value}
+          disabled={!phoneNumber}
         >
           <Phone fontSize="small"/>
         </IconButton>

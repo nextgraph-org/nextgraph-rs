@@ -7,9 +7,8 @@ import {
 } from '@mui/material';
 import {UilUsersAlt} from '@iconscout/react-unicons';
 import type {Group} from '@/types/group';
-import {SocialContact} from "@/.ldo/contact.typings.ts";
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
-import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export interface InvitationDetailsProps {
   group: Group | null;
@@ -20,8 +19,7 @@ export interface InvitationDetailsProps {
 export const InvitationDetails = forwardRef<HTMLDivElement, InvitationDetailsProps>(
   ({group, isGroupInvite, contact}, ref) => {
 
-    const name = resolveFrom(contact, "name");
-    const resolvedName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+    const resolvedName = resolveContactName(contact)
 
     return (
 

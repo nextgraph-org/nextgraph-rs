@@ -1,20 +1,11 @@
-import type { Contact } from '@/types/contact';
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface ContactMapProps {
   contactNuris: string[];
-  onContactClick?: (contact: Contact) => void;
+  onContactClick?: (contact: SocialContact) => void;
 }
 
 export interface MapControllerProps {
   contactNuris: string[];
 }
 
-export interface ContactMarkerProps {
-  nuri: string;
-  onContactClick?: (contact: Contact) => void;
-}
-
-export interface ContactPopupProps {
-  contact: Contact;
-  onContactClick?: (contact: Contact) => void;
-}

@@ -16,8 +16,8 @@ import {
   // UilSetting, UilApps, UilEstate
 } from '@iconscout/react-unicons';
 import { useAI } from '@/hooks/useAI';
-import {useContactData} from "@/hooks/contacts/useContactData.ts";
-import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 const HomePage = () => {
   const theme = useTheme();
@@ -46,11 +46,11 @@ const HomePage = () => {
   const { promptStream } = useAI(false);
   const streamingMessageIdRef = useRef<string | null>(null);
 
-  const {contact} = useContactData(null, true);
+  const {ormContact} = useContactOrm(null, true);
 
 
   // Constants
-  const name = resolveFrom(contact, "name");
+  const name = resolveFrom(ormContact, "name");
   const firstName = name?.firstName;
   const exampleQueries = [
     'Who in my network can help me with ...',

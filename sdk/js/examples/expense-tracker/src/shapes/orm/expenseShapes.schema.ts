@@ -1,0 +1,178 @@
+import type { Schema } from "@ng-org/shex-orm";
+
+/**
+ * =============================================================================
+ * expenseShapesSchema: Schema for expenseShapes
+ * =============================================================================
+ */
+export const expenseShapesSchema: Schema = {
+  "http://example.org/Expense": {
+    iri: "http://example.org/Expense",
+    predicates: [
+      {
+        dataTypes: [
+          {
+            valType: "literal",
+            literals: ["http://example.org/Expense"],
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        readablePredicate: "@type",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/title",
+        readablePredicate: "title",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "http://example.org/description",
+        readablePredicate: "description",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "number",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/totalPrice",
+        readablePredicate: "totalPrice",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "number",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/amount",
+        readablePredicate: "amount",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/dateOfPurchase",
+        readablePredicate: "dateOfPurchase",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "iri",
+          },
+        ],
+        maxCardinality: -1,
+        minCardinality: 0,
+        iri: "http://example.org/expenseCategory",
+        readablePredicate: "expenseCategory",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "boolean",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/isRecurring",
+        readablePredicate: "isRecurring",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "http://example.org/recurrenceInterval",
+        readablePredicate: "recurrenceInterval",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "literal",
+            literals: ["http://example.org/Paid"],
+          },
+          {
+            valType: "literal",
+            literals: ["http://example.org/Pending"],
+          },
+          {
+            valType: "literal",
+            literals: ["http://example.org/Overdue"],
+          },
+          {
+            valType: "literal",
+            literals: ["http://example.org/Refunded"],
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/paymentStatus",
+        readablePredicate: "paymentStatus",
+      },
+    ],
+  },
+  "http://example.org/ExpenseCategory": {
+    iri: "http://example.org/ExpenseCategory",
+    predicates: [
+      {
+        dataTypes: [
+          {
+            valType: "literal",
+            literals: ["http://example.org/ExpenseCategory"],
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        readablePredicate: "@type",
+        extra: true,
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/categoryName",
+        readablePredicate: "categoryName",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "http://example.org/description",
+        readablePredicate: "description",
+      },
+    ],
+  },
+};

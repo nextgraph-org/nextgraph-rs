@@ -1,13 +1,10 @@
 import {useState, useEffect, useCallback} from 'react';
-import {isNextGraphEnabled} from '@/utils/featureFlags';
-import {dataService} from '@/services/dataService';
-import type {Contact, SortParams} from '@/types/contact';
-import {nextgraphDataService} from "@/services/nextgraphDataService";
+import type {SortParams} from '@/types/contact';
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
-import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
-import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {contactService} from "@/services/contactService.ts";
+import {getContactGraph} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
 
 export interface ContactsFilters extends SortParams {
   searchQuery?: string;
@@ -22,7 +19,6 @@ export interface ContactsFilters extends SortParams {
 export type iconFilter = 'relationshipFilter' | 'naoStatusFilter' | 'accountFilter' | 'vouchFilter' | 'praiseFilter';
 
 export interface ContactsReturn {
-  /**@deprecated*/contacts: Contact[];
   contactNuris: string[]; // NURI list or IDs for mock data
   isLoading: boolean;
   isLoadingMore: boolean;
@@ -57,7 +53,6 @@ export interface UseContactsParams {
 }
 
 export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}): ContactsReturn => {
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactNuris, setContactNuris] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -69,8 +64,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     ...initialFilters
   }));
 
-  const {updateContact} = useSaveContacts();
-  const isNextGraph = isNextGraphEnabled();
+  const {updateContact} = useUpdateContact();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
   const hasMore = contactNuris.length < totalCount;
@@ -94,197 +88,6 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     }));
   }, []);
 
-  const loadMockContacts = useCallback(async (page: number): Promise<string[]> => {
-    const allContacts = await dataService.getContacts();
-
-    const {
-      searchQuery = '',
-      relationshipFilter = 'all',
-      naoStatusFilter = 'all',
-      accountFilter = 'all',
-      groupFilter = 'all',
-      sortBy = 'name',
-      sortDirection = 'asc',
-      currentUserGroupIds = [],
-      hasAddressFilter = false
-    } = filters;
-
-    const filtered = allContacts.filter(contact => {
-      // Search filter
-      const name = resolveFrom(contact, 'name');
-      const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
-
-      const email = resolveFrom(contact, 'email');
-      const organization = resolveFrom(contact, 'organization');
-      const address = resolveFrom(contact, 'address');
-
-      const matchesSearch = searchQuery === '' ||
-        displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        email?.value?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        organization?.value?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        organization?.position?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        address?.region?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        address?.country?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Relationship filter
-      const contactRCard = contact.rcard ? contact.rcard["@id"] : undefined;
-      const matchesRelationship = relationshipFilter === 'all' ||
-        (relationshipFilter === 'undefined' && !contactRCard) ||
-        (relationshipFilter === 'default' && !contactRCard) ||
-        contactRCard === relationshipFilter;
-
-      // NAO Status filter
-      const matchesNaoStatus = naoStatusFilter === 'all' ||
-        (naoStatusFilter === 'undefined' && !contact.naoStatus?.value) ||
-        contact.naoStatus?.value === naoStatusFilter;
-
-      // Account filter
-      const matchesSource = accountFilter === 'all'
-        || contact.account?.some(account => account.protocol === accountFilter);
-
-      const inGroup = currentUserGroupIds.length === 0 || currentUserGroupIds.length > 0 && contact.internalGroup && contact.internalGroup.some(groupId => currentUserGroupIds.includes(groupId.value))
-
-      // Group filter
-      const matchesGroup = groupFilter === 'all' ||
-        (groupFilter === 'has_groups' && contact.internalGroup && contact.internalGroup.size > 0) ||
-        (groupFilter === 'no_groups' && (!contact.internalGroup || contact.internalGroup.size === 0)) ||
-        (groupFilter === 'groups_in_common' && inGroup);
-
-
-
-      // Vouch filter - when sortBy is 'vouchTotal', only show contacts with vouches > 0
-      const matchesVouches = sortBy !== 'vouchTotal' ||
-        ((contact.vouchesSent || 0) + (contact.vouchesReceived || 0)) > 0;
-
-      // Praise filter - when sortBy is 'praiseTotal', only show contacts with praises > 0
-      const matchesPraises = sortBy !== 'praiseTotal' ||
-        ((contact.praisesSent || 0) + (contact.praisesReceived || 0)) > 0;
-
-      // Address filter - only show contacts with at least one address
-      const matchesHasAddress = !hasAddressFilter || (contact.address && contact.address.size > 0);
-
-      return matchesSearch && matchesRelationship && matchesNaoStatus && matchesSource && matchesGroup && matchesVouches && matchesPraises && matchesHasAddress && inGroup;
-    });
-
-    // Sort the filtered results
-    filtered.sort((a, b) => {
-      let compareValue = 0;
-
-      switch (sortBy) {
-        case 'name': {
-          const aName = resolveFrom(a, 'name')?.value || '';
-          const bName = resolveFrom(b, 'name')?.value || '';
-          compareValue = aName.localeCompare(bName);
-          break;
-        }
-        case 'organization': {
-          const aOrganization = resolveFrom(a, 'organization')?.value || '';
-          const bOrganization = resolveFrom(b, 'organization')?.value || '';
-          compareValue = aOrganization.localeCompare(bOrganization);
-          break;
-        }
-        case 'naoStatus': {
-          const statusOrder = {'member': 0, 'invited': 1, 'not_invited': 2};
-          const aStatus = a.naoStatus?.value as keyof typeof statusOrder;
-          const bStatus = b.naoStatus?.value as keyof typeof statusOrder;
-          compareValue = (statusOrder[aStatus] || 3) - (statusOrder[bStatus] || 3);
-          break;
-        }
-        case 'groupCount': {
-          const aGroups = a.internalGroup?.size || 0;
-          const bGroups = b.internalGroup?.size || 0;
-          compareValue = aGroups - bGroups;
-          break;
-        }
-        case 'mostRecentInteraction': {
-          const aDate = a.mostRecentInteraction ? new Date(a.mostRecentInteraction).getTime() : 0;
-          const bDate = b.mostRecentInteraction ? new Date(b.mostRecentInteraction).getTime() : 0;
-          compareValue = aDate - bDate;
-          break;
-        }
-        /*case 'mostActive': {
-          const now = Date.now();
-          const dayInMs = 24 * 60 * 60 * 1000;
-          const weekInMs = 7 * dayInMs;
-          const monthInMs = 30 * dayInMs;
-
-          const calculateActivityScore = (contact: typeof a) => {
-            const lastInteraction = contact.lastInteractionAt?.getTime() || 0;
-            const timeSinceInteraction = now - lastInteraction;
-
-            let timeScore = 0;
-            if (timeSinceInteraction < dayInMs) {
-              timeScore = 1000;
-            } else if (timeSinceInteraction < weekInMs) {
-              timeScore = 500;
-            } else if (timeSinceInteraction < monthInMs) {
-              timeScore = 100;
-            } else {
-              timeScore = Math.max(1, 50 - (timeSinceInteraction / monthInMs));
-            }
-
-            const interactionFrequency = (contact.interactionCount || 0) * 10;
-            const recentScore = contact.recentInteractionScore || 0;
-
-            return timeScore + interactionFrequency + recentScore;
-          };
-
-          const aActivity = calculateActivityScore(a);
-          const bActivity = calculateActivityScore(b);
-          compareValue = bActivity - aActivity;
-          break;
-        }*/
-        /* TODO: I don't think we would have this one
-           case 'nearMeNow': {
-           const aAddress = resolveFrom(a, 'address');
-           const bAddress = resolveFrom(b, 'address');
-           const aDistance = (aAddress as any)?.distance || Number.MAX_SAFE_INTEGER;
-           const bDistance = (bAddress as any)?.distance || Number.MAX_SAFE_INTEGER;
-           compareValue = aDistance - bDistance;
-           break;
-         }*/
-        case 'sharedTags': {
-          const calculateSharedTagsScore = (contact: typeof a) => {
-            const sharedTags = contact.sharedTagsCount || 0;
-            const totalTags = contact.tag?.size || 0;
-            const tagSimilarity = totalTags > 0 ? (sharedTags / totalTags) * 100 : 0;
-            return sharedTags * 10 + tagSimilarity;
-          };
-
-          const aSharedScore = calculateSharedTagsScore(a);
-          const bSharedScore = calculateSharedTagsScore(b);
-          compareValue = bSharedScore - aSharedScore;
-          break;
-        }
-        case 'vouchTotal': {
-          const aVouches = (a.vouchesSent || 0) + (a.vouchesReceived || 0);
-          const bVouches = (b.vouchesSent || 0) + (b.vouchesReceived || 0);
-          compareValue = aVouches - bVouches;
-          break;
-        }
-        case 'praiseTotal': {
-          const aPraises = (a.praisesSent || 0) + (a.praisesReceived || 0);
-          const bPraises = (b.praisesSent || 0) + (b.praisesReceived || 0);
-          compareValue = aPraises - bPraises;
-          break;
-        }
-        default:
-          compareValue = 0;
-      }
-
-      return sortDirection === 'asc' ? compareValue : -compareValue;
-    });
-
-    setContacts(allContacts);
-
-    const startIndex = page * limit;
-    const endIndex = startIndex + limit;
-    const paginatedContacts = limit === 0 ? filtered : filtered.slice(startIndex, endIndex);
-
-    setTotalCount(filtered.length);
-    return paginatedContacts.map(contact => contact['@id'] || '');
-  }, [filters, limit]);
-
   const loadNextGraphContacts = useCallback(async (page: number): Promise<string[]> => {
     if (!session || !session.ng) {
       return [];
@@ -296,7 +99,8 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
       accountFilter = 'all',
       relationshipFilter = 'all',
       searchQuery,
-      hasAddressFilter = false
+      hasAddressFilter = false,
+      naoStatusFilter = 'all'
     } = filters;
 
 
@@ -313,20 +117,22 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     if (hasAddressFilter) {
       filterParams.set('hasAddress', 'true');
     }
+    if (naoStatusFilter !== 'all') {
+      filterParams.set('naoStatus', naoStatusFilter);
+    }
 
     const offset = page * limit;
-    const contactIDsResult = await nextgraphDataService.getContactIDs(session, limit, offset,
+    const contactIDsResult = await contactService.getContactIDs(session, limit, offset,
       undefined, undefined, [{sortBy, sortDirection}], filterParams);
-    const contactsCountResult = await nextgraphDataService.getContactsCount(session, filterParams);
+    const contactsCountResult = await contactService.getContactsCount(session, filterParams);
 
     // @ts-expect-error TODO output format of ng sparql query
     const totalContactsInDB = contactsCountResult.results.bindings[0].totalCount.value as number;
 
     setTotalCount(totalContactsInDB);
-    const containerOverlay = session.privateStoreId!.substring(46);
     // @ts-expect-error TODO output format of ng sparql query
     return contactIDsResult.results.bindings.map(
-      (binding) => binding.contactUri.value + containerOverlay
+      (binding) => getContactGraph(binding.contactUri.value, session)
     );
   }, [session, filters, limit]);
 
@@ -339,21 +145,13 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
 
   const clearFilters = useCallback(() => {
     setFilters(prevFilters => ({
-      ...prevFilters,
-      searchQuery: '',
-      relationshipFilter: 'all',
-      naoStatusFilter: 'all',
-      accountFilter: 'all',
-      groupFilter: 'all',
-      sortBy: 'mostActive',
-      sortDirection: 'asc',
-      hasAddressFilter: false
+      ...prevFilters, ...defaultFilters
     }));
   }, []);
 
   const loadContacts = useCallback(async (page: number) => {
     try {
-      const nuris = !isNextGraph ? await loadMockContacts(page) : await loadNextGraphContacts(page);
+      const nuris = await loadNextGraphContacts(page);
       if (page === 0) {
         setContactNuris(nuris);
       } else {
@@ -364,7 +162,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
       setError(errorMessage);
       console.error(`Error loading contacts:`, errorMessage);
     }
-  }, [isNextGraph, loadMockContacts, loadNextGraphContacts]);
+  }, [loadNextGraphContacts]);
 
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return;
@@ -383,7 +181,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
 
   const handleContactsCategorized = useCallback(async (contactIds: string[], rcardId: string) => {
     for (const contactId of contactIds) {
-      await updateContact(contactId, {rcard: {"@id": rcardId}});
+      await updateContact(contactId, {rcard: rcardId});
     }
     if (filters.relationshipFilter !== 'all') {
       reloadContacts();
@@ -395,7 +193,6 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
   }, [reloadContacts]);
 
   return {
-    contacts,
     contactNuris,
     isLoading,
     isLoadingMore,

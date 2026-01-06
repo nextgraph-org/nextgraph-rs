@@ -1,6 +1,6 @@
-import {useContactData} from "@/hooks/contacts/useContactData";
 import {useEffect, useRef} from "react";
-import {Contact} from "@/types/contact";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 /**
  * Invisible component that loads contact data for a single NURI
@@ -11,17 +11,17 @@ export function NetworkContactProbe({
   onContact,
 }: {
   nuri: string;
-  onContact: (nuri: string, contact: Contact | undefined) => void;
+  onContact: (nuri: string, contact: SocialContact | undefined) => void;
 }) {
-  const {contact} = useContactData(nuri);
-  const lastContactRef = useRef<Contact | undefined>(undefined);
+  const {ormContact} = useContactOrm(nuri);
+  const lastContactRef = useRef<SocialContact | undefined>(undefined);
 
   useEffect(() => {
-    if (contact !== lastContactRef.current) {
-      lastContactRef.current = contact;
-      onContact(nuri, contact);
+    if (ormContact !== lastContactRef.current) {
+      lastContactRef.current = ormContact;
+      onContact(nuri, ormContact);
     }
-  }, [nuri, contact, onContact]);
+  }, [nuri, ormContact, onContact]);
 
   return null;
 }

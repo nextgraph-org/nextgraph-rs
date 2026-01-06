@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaPredicate, OrmSchemaShape};
+use ng_net::orm::{OrmPatchOp, OrmSchemaPredicate, OrmSchemaShape};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::VerifierError;
 
@@ -20,9 +20,7 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 
 use crate::orm::types::*;
-use crate::orm::utils::{
-    assess_and_rank_children, decode_json_pointer, json_to_sparql_val, nuri_to_string,
-};
+use crate::orm::utils::{decode_json_pointer, json_to_sparql_val, nuri_to_string};
 use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
 
@@ -102,7 +100,11 @@ impl Verifier {
             .await
         {
             Err(e) => {
-                //log_info!("[orm_frontend_update] query failed: {:?}", e);
+                log_info!(
+                    "[orm_frontend_update] query failed: {:?}\nQuery: {}",
+                    e,
+                    sparql_update
+                );
 
                 Err(e)
             }
@@ -549,10 +551,12 @@ fn create_sparql_update_query_for_patches(
                 } else {
                     if let Some(val) = &p.value {
                         let sparql_val = json_to_sparql_val(val);
-                        if schema.is_multi() {
-                            builder.add_value(graph, subj, pred, &sparql_val);
-                        } else {
-                            builder.overwrite_value(graph, subj, pred, &sparql_val);
+                        if sparql_val.len() > 0 {
+                            if schema.is_multi() {
+                                builder.add_value(graph, subj, pred, &sparql_val);
+                            } else {
+                                builder.overwrite_value(graph, subj, pred, &sparql_val);
+                            }
                         }
                     }
                 }

@@ -1,71 +1,28 @@
-import {ContactInfo, ContactViewHeader } from "@/components/contacts";
+import {ContactInfo, ContactViewHeader} from "@/components/contacts";
 import {UilArrowLeft, UilRedo, UilSave} from "@iconscout/react-unicons";
-import {Box, Button, Divider, Grid, Paper} from "@mui/material";
+import {Box, Button, CircularProgress, Divider, Grid, Paper, Typography} from "@mui/material";
 import {useNavigate} from "react-router-dom";
-import {dataService} from "@/services/dataService.ts";
-import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
 import {useCallback, useEffect, useState} from "react";
-import {Contact} from "@/types/contact.ts";
-import {contactCommonProperties, contactLdSetProperties} from "@/utils/socialContact/contactUtils.ts";
+import {useAddContact} from "@/hooks/contacts/useAddContact.ts";
 
 const CreateContactPage = () => {
   const navigate = useNavigate();
-  const isNextgraph = isNextGraphEnabled();
-  const {createContact} = useSaveContacts();
   const [loading, setLoading] = useState(false);
-  const [contact, setContact] = useState<Contact>();
   const [isValid, setIsValid] = useState(true);
 
-  const initContact = useCallback(async () => {
-    const draftContact = await dataService.getDraftContact();
-    setIsValid((draftContact?.name?.size ?? 0) > 0);//TODO for now just checking name
-    setContact(draftContact);
-  }, []);
+  const {draftContact, error, isLoading, saveContact, resetContact} = useAddContact();
 
   useEffect(() => {
-    let cancelled = false;
+    setIsValid((draftContact?.name?.size ?? 0) > 0);
+  }, [draftContact]);
 
-    (async () => {
-      if (cancelled) return;
-
-      await initContact();
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [initContact]);
-  useCallback(async () => {
-    console.log("Updating avatar not implemented yet");
-  }, []);
-  const saveContact = useCallback(async () => {
-    if (!contact)//TODO validation
+  const addContact = useCallback(async () => {
+    if (!draftContact || !isValid)//TODO validation
       return;
     setLoading(true);
-    delete contact.isDraft;
-
-    //ldo issue
-    if (isNextgraph) {
-      contactLdSetProperties.forEach(propertyKey => {
-        (contact[propertyKey]?.toArray() as any[]).forEach(el => delete el["@id"]);
-      });
-      contactCommonProperties.forEach(propertyKey => {
-        if (contact[propertyKey]) {
-          delete (contact[propertyKey] as any)["@id"];
-        }
-      });
-    }
-
-    const newContact = !isNextgraph ? await dataService.addContact(contact) : await createContact(contact);
-    navigate(`/contacts/${newContact!["@id"]}`);
-    dataService.removeDraftContact();
-  }, [contact, createContact, isNextgraph, navigate]);
-
-  const resetContact = useCallback(() => {
-    dataService.removeDraftContact();
-    initContact();
-  }, [initContact])
+    saveContact();
+    navigate(`/contacts/${draftContact!["@graph"]}`);
+  }, [draftContact, isValid, navigate, saveContact]);
 
   const handleBack = async () => {
     navigate("/contacts");
@@ -80,53 +37,80 @@ const CreateContactPage = () => {
       >
         Back to Contacts
       </Button>
-      <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
-        <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0}}>
-          <Box sx={{display: 'block', gap: 1}}>
-            <Button
-              style={{float: 'right'}}
-              variant={"text"}
-              startIcon={<UilRedo size="20"/>}
-              onClick={resetContact}
-              disabled={loading}
-            >
-              Reset
-            </Button>
+      {
+        error ? (
+          <Box sx={{textAlign: 'center', py: 8}}>
+            <Typography variant="h6" color="error" gutterBottom>
+              Something went wrong
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {error.message}
+            </Typography>
+          </Box>
+        ) : isLoading ? (
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            py: 8,
+            gap: 2
+          }}>
+            <CircularProgress size={48}/>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Loading...
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Please wait
+            </Typography>
+          </Box>
+        ) : <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
+          <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0}}>
+            <Box sx={{display: 'block', gap: 1}}>
+              <Button
+                style={{float: 'right'}}
+                variant={"text"}
+                startIcon={<UilRedo size="20"/>}
+                onClick={resetContact}
+                disabled={loading}
+              >
+                Reset
+              </Button>
             </Box>
             <Box>
-            <Button
-              style={{float: 'right'}}
-              variant={"text"}
-              startIcon={<UilSave size="20"/>}
-              onClick={saveContact}
-              loading={loading}
-              disabled={!isValid}
-            >
-              Save
-            </Button>
+              <Button
+                style={{float: 'right'}}
+                variant={"text"}
+                startIcon={<UilSave size="20"/>}
+                onClick={addContact}
+                loading={loading}
+                disabled={!isValid}
+              >
+                Save
+              </Button>
             </Box>
-        </Box>
+          </Box>
 
-        <ContactViewHeader
-          contact={contact!}
-          isLoading={false}
-          isEditing={!loading}
-          showStatus={false}
-          showTags={false}
-          showActions={false}
-          validateParent={setIsValid}
-        />
+          <ContactViewHeader
+            contact={draftContact!}
+            isEditing={!loading}
+            showStatus={false}
+            showTags={false}
+            showActions={false}
+            validateParent={setIsValid}
+          />
 
-        <Divider sx={{my: 3}}/>
+          <Divider sx={{my: 3}}/>
 
-        <Grid container spacing={3}>
-          <Grid size={{xs: 12, md: 12}}>
-            <ContactInfo contact={contact!} isEditing={!loading}/>
+          <Grid container spacing={3}>
+            <Grid size={{xs: 12, md: 12}}>
+              <ContactInfo contact={draftContact!} isEditing={!loading}/>
+            </Grid>
           </Grid>
-        </Grid>
 
-        <Divider sx={{my: 3}}/>
-      </Paper>
+          <Divider sx={{my: 3}}/>
+        </Paper>
+      }
     </Box>
   );
 }

@@ -1,9 +1,5 @@
 # Schema Converter SHEX > TypeScript
 
-[![Apache 2.0 Licensed][license-image]][license-link]
-[![MIT Licensed][license-image2]][license-link2]
-[![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
-
 CLI tool to convert SHEX shapes to schemas and TypeScript definitions ("shape types") that can be used for creating ORM objects.
 
 ## How to Use
@@ -26,7 +22,7 @@ The output directory will contain the typescript files with type definitions and
 You will then pass the shape type of a shape definition to the ng sdk:
 
 ```ts
-import { useShape } from "@ng-org/signals/react";
+import { useShape } from "@ng-org/orm/react";
 import { TestObjectShapeType } from "../shapes/orm/testShape.shapeTypes";
 
 export function TestComponent() {
@@ -211,7 +207,7 @@ And our community forum where you can ask questions is here [https://forum.nextg
 
 3 files have been taken from LDO project and modified by us. 1 file has been taken from LDO project without modifications.
 
-All for repository
+All from repository
 https://github.com/o-development/ldo/tree/main/packages/schema-converter-shex
 at commit c461beb5a5acf379d3069f0734dfa5d57fd20eaa (Aug 23, 2025) licensed under MIT License with copyright attribution to : Copyright (c) 2023 Jackson Morgan.
 Those 4 files are here relicensed under Apache 2.0 and MIT.

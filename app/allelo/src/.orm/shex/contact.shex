@@ -115,9 +115,6 @@ ngc:SocialContact EXTRA a {
   # Contact import groups
   ngcontact:contactImportGroup @ngc:ContactImportGroup * ;
 
-  # Internal groups
-  ngcontact:internalGroup @ngc:InternalGroup * ;
-
   # Headlines
   ngcontact:headline @ngc:Headline * ;
 
@@ -140,7 +137,7 @@ ngc:SocialContact EXTRA a {
   ngcontact:rcard IRI ?;
 
   # Status and timestamps
-  ngcontact:naoStatus @ngc:NaoStatus ? ;
+  ngcontact:naoStatus xsd:string ? ;
   ngcontact:invitedAt @ngc:InvitedAt ? ;
   ngcontact:createdAt @ngc:CreatedAt ? ;
   ngcontact:updatedAt @ngc:UpdatedAt ? ;
@@ -149,6 +146,8 @@ ngc:SocialContact EXTRA a {
   ngcontact:mergedFrom IRI * ;
   ngcontact:centralityScore xsd:integer ?;
   ngcontact:mostRecentInteraction xsd:dateTime ?;
+
+  ngcontact:isDraft xsd:boolean ? ;
 }
 
 ngc:PhoneNumber {
@@ -591,24 +590,6 @@ ngc:ContactImportGroup {
     // rdfs:comment "Source of the group data" ;
   ngcore:hidden xsd:boolean ?
     // rdfs:comment "Whether this is hidden from list" ;
-}
-
-ngc:InternalGroup {
-  ngcore:value xsd:string
-    // rdfs:comment "Mostly to preserve current mock UI group id" ;
-  ngcore:source xsd:string ?
-    // rdfs:comment "Source of the internal group data" ;
-  ngcore:hidden xsd:boolean ?
-    // rdfs:comment "Whether this is hidden from list" ;
-}
-
-ngc:NaoStatus {
-  ngcore:value xsd:string
-    // rdfs:comment "NAO status value" ;
-  ngcore:source xsd:string ?
-    // rdfs:comment "Source of the status data" ;
-  ngcore:selected xsd:boolean ?
-    // rdfs:comment "Whether this is main" ;
 }
 
 ngc:InvitedAt {

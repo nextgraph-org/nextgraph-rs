@@ -45,7 +45,7 @@ export const RCardsSideWidget = () => {
         Drag and drop contacts into a category to automatically set sharing permissions.
       </Typography>
       <Box sx={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1}}>
-        {rCards.map((rCard) => (
+        {[...rCards ?? []].map((rCard) => (
           <RCardsCategoryTile
             key={rCard["@id"]}
             rCard={rCard}

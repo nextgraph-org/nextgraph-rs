@@ -1,15 +1,15 @@
 import {useSettings} from "@/hooks/useSettings.ts";
 import {useCallback, useState} from "react";
-import {getPropsByFilter} from "@/utils/socialContact/contactUtils.ts";
-import {useContactData} from "@/hooks/contacts/useContactData.ts";
+import {getPropsByFilter} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {useNavigate} from "react-router-dom";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 export const useGreenCheck = () => {
   const {settings} = useSettings();
   const navigate = useNavigate();
   const [showGreencheckDialog, setShowGreencheckDialog] = useState(false);
-  const {contact} = useContactData(null, true);
-  const phones = getPropsByFilter(contact, "phoneNumber", {source: "GreenCheck"});
+  const {ormContact} = useContactOrm(null, true);
+  const phones = getPropsByFilter(ormContact, "phoneNumber", {source: "GreenCheck"});
   const verified = Boolean(settings?.greencheckId);
 
   const handleGreencheckConnect = useCallback(() => {

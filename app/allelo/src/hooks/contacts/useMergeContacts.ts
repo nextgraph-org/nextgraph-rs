@@ -1,153 +1,63 @@
-import {dataService} from "@/services/dataService.ts";
-import {ldoToJson, nextgraphDataService} from "@/services/nextgraphDataService.ts";
-import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
-import type {Contact} from "@/types/contact.ts";
-import {
-  contactCommonProperties,
-  contactLdSetProperties,
-  processContactFromJSON
-} from "@/utils/socialContact/contactUtils.ts";
-import {dataset, useNextGraphAuth} from "@/lib/nextgraph.ts";
-import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes.ts";
-import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
+import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
-import {useCallback} from "react";
-import {SocialContact} from "@/.ldo/contact.typings.ts";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {mergeContactService} from "@/services/mergeContactService.ts";
+import {useMergeContactIntoTarget} from "@/hooks/contacts/useMergeContactIntoTarget.ts";
 
 interface UseMergeContactsReturn {
   getDuplicatedContacts: () => Promise<string[][]>;
   mergeContacts: (contactsIDs: string[]) => Promise<void>;
 }
 
-function uniqueShallow (arr: any[]): any[] {
-  const seen = new Set();
-  const excludeKeys = ["preferred", "selected", "hidden"];
-  return arr.filter((obj): any => {
-    const h = JSON.stringify(Object.keys(obj)
-      .filter(k => !excludeKeys.includes(k))
-      .sort()
-      .map(k => [k, obj[k]]));
-    if (seen.has(h)) return false;
-    seen.add(h);
-    return true;
-  });
-}
-
 export function useMergeContacts(): UseMergeContactsReturn {
-  const isNextGraph = isNextGraphEnabled();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
-  const {createContact, updateContact} = useSaveContacts();
+  const {createContact} = useSaveContacts();
+  const isMergingNow = useRef<boolean>(false);
+  const mergeResolveRef = useRef<(() => void) | null>(null);
 
-  const getDuplicatedContacts = async (): Promise<string[][]> => {
-    return !isNextGraph ? dataService.getDuplicatedContacts() : nextgraphDataService.getDuplicatedContacts(session);
-  };
+  const [contactIds, setContactIds] = useState<string[]>([]);
 
-  const calcMergedContact = async (contactsToMerge: Contact[]): Promise<Contact | null> => {
-    if (contactsToMerge.length === 0) return null;
+  const {setMergingContactIds, mergedContact} = useMergeContactIntoTarget();
 
-    const mergedContactJson: any = {
-      mergedFrom: []
-    };
+  const getDuplicatedContacts = useCallback(async (): Promise<string[][]> => {
+    return mergeContactService.getDuplicatedContacts(session);
+  }, [session]);
 
-    contactsToMerge.forEach((contact) => {
-      try {
-        delete contact.mergedFrom;
-        delete contact.mergedInto;
-        const contactJson = ldoToJson(contact) as any;
+  useEffect(() => {
+    setMergingContactIds(contactIds);
+  }, [contactIds, setMergingContactIds]);
 
-        mergedContactJson.mergedFrom.push({"@id": contactJson["@id"]});
-        contactLdSetProperties.forEach(propertyKey => {
-          let value = contactJson[propertyKey] as any[];
-          if (!value?.length) {
-            return;
-          }
+  const mergeContacts = useCallback(async (contactIdsToMerge: string[]) => {
+    if (contactIdsToMerge.length === 0) return;
 
-          if (isNextGraph) {//LDO bug issue
-            value = value.filter(el => el["@id"]);
-            if (!value.length) {
-              return;
-            }
-          }
-
-          value.forEach(el => delete el["@id"]);
-          mergedContactJson[propertyKey] ??= [];
-          mergedContactJson[propertyKey].push(...value);
-        });
-
-        contactCommonProperties.forEach(key => {
-          if (["@id", "@context", "type"].includes(key) || !contactJson[key]) {
-            return;
-          }
-          const value = contactJson[key] as any;
-          delete value["@id"];
-          mergedContactJson[key] ??= value;
-        });
-
-        if (!isNextGraph) {
-          ([
-            "humanityConfidenceScore",
-            "vouchesSent",
-            "vouchesReceived",
-            "praisesSent",
-            "praisesReceived",
-            "relationshipCategory",
-            "lastInteractionAt",
-            "interactionCount",
-            "recentInteractionScore",
-            "sharedTagsCount"
-          ] as (keyof Contact)[]).forEach(key => mergedContactJson[key] ??= contact[key]);
-        }
-      } catch (error) {
-        console.log("Couldn't parse contact to json: " + contact);
-        throw error;
-      }
+    return new Promise<void>((resolve) => {
+      mergeResolveRef.current = resolve;
+      setContactIds(contactIdsToMerge);
     });
+  }, []);
 
-    contactLdSetProperties.forEach(propertyKey => {
-      if (mergedContactJson[propertyKey]) {
-        mergedContactJson[propertyKey] = uniqueShallow(mergedContactJson[propertyKey]);
-      }
-    })
-
-    return await processContactFromJSON(mergedContactJson, !isNextGraph);
-  }
-
-  const getMergingContacts = useCallback(async (mergingContactIds: string[]) => {
-    return (await Promise.all(
-      mergingContactIds.map(id => {
-        if (!isNextGraph) {
-          return dataService.getContact(id)
-        }
-        return dataset.usingType(SocialContactShapeType).fromSubject(id);
-      })
-    )) as Contact[];
-  }, [isNextGraph])
-
-  const mergeContacts = async (mergingContactIds: (string)[]) => {
-    if (isNextGraph) {
-      mergingContactIds = mergingContactIds.map(id => id.substring(0, 53));
-    }
-    const mergingContacts = await getMergingContacts(mergingContactIds);
+  const onMergeContactChange = useCallback(async() => {
+    if (!mergedContact || mergedContact["@id"] || isMergingNow.current) return;
+    isMergingNow.current = true;
     try {
-      const mergedContact = await calcMergedContact(mergingContacts);
-
-      if (mergedContact) {
-        if (!isNextGraph) {
-          await dataService.addContact(mergedContact);
-        } else {
-          await createContact(mergedContact);
-        }
-
-        for (const contactId of mergingContactIds) {
-          await updateContact(contactId, {mergedInto: new BasicLdSet([{"@id": mergedContact["@id"]} as SocialContact])});
-        }
-      }
+      await createContact(mergedContact);
+      await mergeContactService.markContactsAsMerged(session, contactIds, mergedContact!["@id"]!);
     } catch (error) {
-      console.error(error);
+      console.log(error);
     }
-  }
+    isMergingNow.current = false;
+
+    if (mergeResolveRef.current) {
+      mergeResolveRef.current();
+      mergeResolveRef.current = null;
+    }
+  }, [mergedContact, contactIds, createContact, session]);
+
+  useEffect(() => {
+    onMergeContactChange();
+  }, [onMergeContactChange]);
 
   return {
     getDuplicatedContacts,

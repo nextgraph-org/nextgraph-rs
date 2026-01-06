@@ -1,4 +1,3 @@
-export * from './GroupHeader';
 export * from './GroupTabs';
 export * from './GroupSettings';
 export * from './GroupVouches';
