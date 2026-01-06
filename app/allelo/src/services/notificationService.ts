@@ -149,7 +149,7 @@ export class NotificationService {
       await dataService.acceptConnectionRequest(notificationId, selectedRCardId);
       
       // Update the contact's status to 'member' after accepting connection
-      dataService.updateContactStatus(notification.metadata.contactId, 'member');
+      // dataService.updateContactStatus(notification.metadata.contactId, 'member');
       
       notification.status = 'accepted';
       notification.isActionable = false;

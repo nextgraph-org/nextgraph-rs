@@ -2,15 +2,15 @@ import {useCallback, useEffect, useMemo, useState} from "react";
 import {useMap} from "react-leaflet";
 import L from "leaflet";
 import {DEFAULT_CENTER, DEFAULT_ZOOM} from "./mapUtils";
-import {resolveFrom} from "@/utils/socialContact/contactUtils";
-import {Contact} from "@/types/contact";
 import {ContactProbe} from "@/components/contacts/ContactProbe";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export const MapController = ({contactNuris}: { contactNuris: string[] }) => {
   const map = useMap();
-  const [byNuri, setByNuri] = useState<Record<string, Contact>>({});
+  const [byNuri, setByNuri] = useState<Record<string, SocialContact>>({});
 
-  const upsert = useCallback((nuri: string, contact: Contact | undefined) => {
+  const upsert = useCallback((nuri: string, contact: SocialContact | undefined) => {
     if (!contact) return;
     setByNuri(s => (s[nuri] === contact ? s : {...s, [nuri]: contact}));
   }, []);

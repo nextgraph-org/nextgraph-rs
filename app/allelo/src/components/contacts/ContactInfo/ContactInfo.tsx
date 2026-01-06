@@ -10,19 +10,17 @@ import {
   UilBriefcase as Business,
   UilUserSquare as AccountBox,
 } from '@iconscout/react-unicons';
-import type {Contact} from '@/types/contact';
 import {MultiPropertyWithVisibility} from '../MultiPropertyWithVisibility';
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
-import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface ContactInfoProps {
-  contact: Contact | null;
+  contact: SocialContact | null;
   isEditing?: boolean;
-  resource?: NextGraphResource;
 }
 
 export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(
-  ({contact, resource, isEditing}, ref) => {
+  ({contact, isEditing}, ref) => {
     if (!contact) return null;
 
     return (
@@ -40,7 +38,6 @@ export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(
             isEditing={isEditing}
             placeholder={"Email"}
             validateType={"email"}
-            resource={resource}
           />
 
           <MultiPropertyWithVisibility
@@ -51,7 +48,6 @@ export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(
             isEditing={isEditing}
             placeholder={"Phone number"}
             validateType={"phone"}
-            resource={resource}
             required={false}
           />
 
@@ -62,7 +58,6 @@ export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(
             propertyKey="organization"
             isEditing={isEditing}
             placeholder={"Company"}
-            resource={resource}
           />
 
           <MultiPropertyWithVisibility
@@ -76,7 +71,6 @@ export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(
             hideIcon={true}
             hideLabel={true}
             hasPreferred={false}
-            resource={resource}
           />
         </CardContent>
       </Card>

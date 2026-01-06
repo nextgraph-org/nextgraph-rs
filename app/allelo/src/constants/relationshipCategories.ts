@@ -6,7 +6,7 @@ import {
   communityPermissions,
   defaultPermissions, familyPermissions, friendsPermissions,
 } from "./rPermissions.ts";
-import {RCardPermission} from "@/.ldo/rcard.typings.ts";
+import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 
 export interface CategoryColorScheme {
   main: string;

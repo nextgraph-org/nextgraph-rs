@@ -5,7 +5,6 @@ import {
   Info,
 } from "@mui/icons-material";
 import {ContactMap} from "@/components/ContactMap";
-import {getMockPosts} from "@/components/groups/GroupDetailPage/mocks.ts";
 import {ActivityFeed} from "@/components/groups/GroupDetailPage/ActivityFeed";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
@@ -41,7 +40,7 @@ const GroupDetailPage = () => {
 
   let contactNuris: string[] = [];
   if (group.hasMember)
-    contactNuris = [...group.hasMember];
+    contactNuris = [...group.hasMember].map(el => el.contactId);
 
   return (
     <Box sx={{width: "100%", px: {xs: 1, sm: 3}, py: {xs: 1, sm: 2}}}>
@@ -128,9 +127,12 @@ const GroupDetailPage = () => {
             width: "100%",
           }}
         >
-          <ActivityFeed
-            posts={getMockPosts("1")}
-          />
+          <Box sx={{width: {md: "50%"}}}>
+            <ActivityFeed
+              posts={[...(group.post ?? [])]}
+              group={group}
+            />
+          </Box>
 
           {/* Network and Map */}
           <Box sx={{display: "flex", flexDirection: "column", flex: 1}}>

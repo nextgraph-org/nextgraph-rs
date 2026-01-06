@@ -17,15 +17,15 @@ import {
   UilTrashAlt as RestoreFromTrash,
   UilClock as Schedule
 } from '@iconscout/react-unicons';
-import { resolveFrom } from '@/utils/socialContact/contactUtils.ts';
 import { notificationService } from '@/services/notificationService';
 import { RCardSelectionModal } from '@/components/notifications/RCardSelectionModal';
-import type { Contact } from '@/types/contact';
 import type { Notification } from '@/types/notification';
 import {formatDate} from "@/utils/dateHelpers";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export interface RejectedVouchesAndPraisesProps {
-  contact?: Contact;
+  contact?: SocialContact;
   onAcceptanceChanged?: () => void;
 }
 
@@ -36,6 +36,7 @@ export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: Reje
   const [rCardModalOpen, setRCardModalOpen] = useState(false);
   const [pendingNotificationId, setPendingNotificationId] = useState<string | null>(null);
   const [pendingNotificationType, setPendingNotificationType] = useState<'vouch' | 'praise'>('vouch');
+  const name = resolveContactName(contact);
 
   useEffect(() => {
     const loadRejectedNotifications = async () => {
@@ -98,7 +99,7 @@ export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: Reje
       <Box sx={{ mb: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Cancel sx={{ color: 'error.main', fontSize: 20 }} />
-          Rejected from {resolveFrom(contact, 'name')?.value?.split(' ')[0] || 'Contact'}
+          Rejected from {name?.split(' ')[0] || 'Contact'}
         </Typography>
         
         <Card variant="outlined" sx={{ borderColor: alpha(theme.palette.error.main, 0.3) }}>
@@ -193,7 +194,7 @@ export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: Reje
           setPendingNotificationId(null);
         }}
         onSelect={handleRCardSelect}
-        contactName={resolveFrom(contact, 'name')?.value || undefined}
+        contactName={name}
         isVouch={pendingNotificationType === 'vouch'}
         multiSelect={true}
       />

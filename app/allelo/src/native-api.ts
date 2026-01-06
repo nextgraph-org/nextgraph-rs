@@ -65,6 +65,7 @@ const mapping = {
     "upload_start": ["session_id", "nuri", "mimetype"],
     "upload_done": ["upload_id","session_id","nuri","filename"],
     "orm_update": ["scope","shape_type_name","diff","session_id"],
+    "get_qrcode_for_contact": ["session_id", "contact", "size"],
 }
 
 

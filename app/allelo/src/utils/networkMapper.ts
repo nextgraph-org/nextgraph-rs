@@ -1,20 +1,18 @@
-import { Contact } from '@/types/contact';
 import { GraphNode, GraphEdge, NodePriority } from '@/types/network';
-import { resolveFrom } from '@/utils/socialContact/contactUtils';
-import { defaultTemplates, renderTemplate } from '@/utils/templateRenderer';
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {resolveContactName, resolveContactPhoto} from "@/utils/socialContact/contactUtilsOrm.ts";
 
-const calculatePriority = (contact: Contact): NodePriority => {
+const calculatePriority = (contact: SocialContact): NodePriority => {
   const hasRecentInteraction = contact.mostRecentInteraction &&
     Date.now() - new Date(contact.mostRecentInteraction).getTime() < 30 * 24 * 60 * 60 * 1000;
-  const hasHighInteractionCount = (contact.interactionCount || 0) > 10;
-  const hasVouches = (contact.vouchesSent || 0) + (contact.vouchesReceived || 0) > 0;
-  const photo = resolveFrom(contact, 'photo');
+  //TODO const hasVouches = (contact.vouchesSent || 0) + (contact.vouchesReceived || 0) > 0;
+  const photo = resolveContactPhoto(contact);
   const hasPhoto = !!photo;
 
   const centralityScore = contact.centralityScore || 0;
   const isCentralContact = centralityScore > 0;
 
-  if ((hasRecentInteraction || hasHighInteractionCount || hasVouches || isCentralContact) && hasPhoto) {
+  if ((hasRecentInteraction || isCentralContact) && hasPhoto) {
     return 'high';
   }
 
@@ -31,7 +29,7 @@ const getInitials = (name: string): string => {
 };
 
 export const mapContactsToNodes = (
-  contacts: Contact[],
+  contacts: SocialContact[],
   centeredContactId?: string
 ): GraphNode[] => {
   const maxCentralityScore = Math.max(
@@ -40,45 +38,24 @@ export const mapContactsToNodes = (
   );
 
   return contacts.map((contact) => {
-    // Handle name - can be a Set-like object or an array
-    let name = resolveFrom(contact, 'name');
-
-    // If resolveFrom returns undefined but contact.name exists, try to extract it
-    if (!name && contact.name) {
-      // Try to convert to array if it has toArray method (Set-like object)
-      const nameArray = typeof contact.name === 'object' && 'toArray' in contact.name
-        ? (contact.name as any).toArray()
-        : Array.isArray(contact.name)
-        ? contact.name
-        : [contact.name];
-
-      if (nameArray.length > 0) {
-        // Find preferred/selected name, or use first one
-        name = nameArray.find((n: any) => n.selected || n.preferred) || nameArray[0];
-      }
-    }
-
-    const photo = resolveFrom(contact, 'photo');
-    const nameValue = name?.value || renderTemplate(defaultTemplates.contactName, name) || 'Unknown';
+    const photo = resolveContactPhoto(contact);
+    const nameValue = resolveContactName(contact) || 'Unknown';
 
     const centralityScore = contact.centralityScore || 0;
     const normalizedCentrality = maxCentralityScore > 0
       ? centralityScore / maxCentralityScore
       : 0;
 
-    // Use loadedAvatarUrl (from probe), photoUrl, or undefined
-    const avatarUrl = (contact as any).loadedAvatarUrl || photo?.photoUrl || undefined;
-
     return {
       id: contact['@id'] || nameValue,
       type: 'person' as const,
       name: nameValue,
-      avatar: avatarUrl,
+      avatar: photo,
       initials: getInitials(nameValue),
       isCentered: contact['@id'] === centeredContactId,
       priority: calculatePriority(contact),
       centrality: normalizedCentrality,
-      mostRecentInteraction: contact.mostRecentInteraction || contact.lastInteractionAt,
+      mostRecentInteraction: contact.mostRecentInteraction,
     };
   });
 };
@@ -114,13 +91,13 @@ const addEdge = (
   }
 };
 
-export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
+export const mapContactsToEdges = (contacts: SocialContact[]): GraphEdge[] => {
   const edges: GraphEdge[] = [];
 
   contacts.forEach((contact) => {
     const contactId = contact['@id'] || '';
 
-    if (contact.internalGroup) {
+    /*if (contact.internalGroup) {
       contact.internalGroup.forEach((groupId) => {
         const otherContacts = contacts.filter(
           (c) => c.internalGroup?.some((g) => g.groupId === groupId.groupId) && c['@id'] !== contactId
@@ -141,17 +118,17 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
           );
         });
       });
-    }
+    }*/
 
     if (contact.relation) {
       contact.relation.forEach((rel) => {
         const relatedContact = contacts.find((c) => {
-          const name = resolveFrom(c, 'name');
-          return name?.value === rel.value;
+          const name = resolveContactName(c);
+          return name === rel.value;
         });
 
-        if (relatedContact && relatedContact['@id']) {
-          const relType = rel.type2?.['@id'];
+        if (relatedContact && relatedContact['@id']) {//TODO:
+          const relType = rel.type;
           const isStrongRelation = ['spouse', 'child', 'parent', 'sibling', 'partner'].includes(
             relType || ''
           );
@@ -174,7 +151,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
 
         const colleagues = contacts.filter((c) => {
           if (c['@id'] === contactId) return false;
-          return c.organization?.some((o) => o.value === orgValue);
+          return [...c.organization ?? []].some((o) => o.value === orgValue);
         });
 
         colleagues.forEach((colleague) => {
@@ -203,7 +180,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
 
         const alumni = contacts.filter((c) => {
           if (c['@id'] === contactId) return false;
-          return c.education?.some((e) => e.value === schoolName);
+          return [...c.education ?? []].some((e) => e.value === schoolName);
         });
 
         alumni.forEach((alum) => {
@@ -219,7 +196,7 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
 
         const collaborators = contacts.filter((c) => {
           if (c['@id'] === contactId) return false;
-          return c.project?.some((p) => p.value === projectName);
+          return [...c.project ?? []].some((p) => p.value === projectName);
         });
 
         collaborators.forEach((collab) => {
@@ -231,13 +208,13 @@ export const mapContactsToEdges = (contacts: Contact[]): GraphEdge[] => {
     if (contact.tag) {
       const contactTagsArray = Array.from(contact.tag);
       if (contactTagsArray.length > 0) {
-        const contactTags = new Set(contactTagsArray.map((t) => t.valueIRI['@id']));
+        const contactTags = new Set(contactTagsArray.map((t) => t.valueIRI));
 
         contacts.forEach((otherContact) => {
           if (otherContact['@id'] === contactId || !otherContact.tag) return;
 
           const otherTagsArray = Array.from(otherContact.tag);
-          const sharedTags = otherTagsArray.filter((t) => contactTags.has(t.valueIRI['@id']));
+          const sharedTags = otherTagsArray.filter((t) => contactTags.has(t.valueIRI));
 
           if (sharedTags.length >= 3) {
             addEdge(

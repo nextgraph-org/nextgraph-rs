@@ -77,15 +77,14 @@ const CreateGroupPage = () => {
       title: formData.title,
       description: formData.description,
       createdAt: new Date().toISOString(),
-      hasAdmin: new Set([ormContact["@id"]!]),
-      hasMember: new Set(selectedMembers),
       tag: new Set(formData["tags"])
     }
 
-    const socialGroupId = await createGroup(groupObj);
+    const socialGroupId = await createGroup(groupObj, selectedMembers, ormContact["@id"]!);
     
     if (socialGroupId) {
-      navigate(`/groups/${socialGroupId}`);
+      //wait a bit until a group creates
+      setTimeout(() =>  navigate(`/groups/${socialGroupId}`), 1000);
     }
   }, [ormContact, formData, selectedMembers, createGroup, navigate]);
 

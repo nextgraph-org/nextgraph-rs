@@ -22,7 +22,6 @@ PREFIX ngkgender: <did:ng:k:gender#>
 PREFIX ngkhumrel: <did:ng:k:humanRelationship#>
 PREFIX ngknickname: <did:ng:k:contact:nickname#>
 PREFIX ngprof: <did:ng:k:skills:language:proficiency#>
-PREFIX ngkmemberstatus: <did:ng:k:contact:memberStatus#>
 
 ngc:SocialContact EXTRA a {
   # Core type definitions
@@ -116,9 +115,6 @@ ngc:SocialContact EXTRA a {
   # Contact import groups
   ngcontact:contactImportGroup @ngc:ContactImportGroup * ;
 
-  # Internal groups
-  ngcontact:internalGroup @ngc:InternalGroup * ;
-
   # Headlines
   ngcontact:headline @ngc:Headline * ;
 
@@ -141,7 +137,7 @@ ngc:SocialContact EXTRA a {
   ngcontact:rcard IRI ?;
 
   # Status and timestamps
-  ngcontact:naoStatus @ngc:NaoStatus ? ;
+  ngcontact:naoStatus xsd:string ? ;
   ngcontact:invitedAt @ngc:InvitedAt ? ;
   ngcontact:createdAt @ngc:CreatedAt ? ;
   ngcontact:updatedAt @ngc:UpdatedAt ? ;
@@ -150,6 +146,8 @@ ngc:SocialContact EXTRA a {
   ngcontact:mergedFrom IRI * ;
   ngcontact:centralityScore xsd:integer ?;
   ngcontact:mostRecentInteraction xsd:dateTime ?;
+
+  ngcontact:isDraft xsd:boolean ? ;
 }
 
 ngc:PhoneNumber {
@@ -592,28 +590,6 @@ ngc:ContactImportGroup {
     // rdfs:comment "Source of the group data" ;
   ngcore:hidden xsd:boolean ?
     // rdfs:comment "Whether this is hidden from list" ;
-}
-
-ngc:InternalGroup {
-  ngcontact:groupId IRI
-    // rdfs:comment "Group id" ;
-  ngcontact:memberStatus [ ngkmemberstatus:invited ngkmemberstatus:joined ngkmemberstatus:declined ]
-    // rdfs:comment "Status of group member" ;
-  ngcontact:joinDate xsd:date ?
-      // rdfs:comment "When user joined" ;
-  ngcore:hidden xsd:boolean ?
-    // rdfs:comment "Whether this is hidden from list" ;
-  ngcore:source xsd:string ?
-      // rdfs:comment "Source of the groups" ;
-}
-
-ngc:NaoStatus {
-  ngcore:value xsd:string
-    // rdfs:comment "NAO status value" ;
-  ngcore:source xsd:string ?
-    // rdfs:comment "Source of the status data" ;
-  ngcore:selected xsd:boolean ?
-    // rdfs:comment "Whether this is main" ;
 }
 
 ngc:InvitedAt {

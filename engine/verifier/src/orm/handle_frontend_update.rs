@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaPredicate, OrmSchemaShape};
+use ng_net::orm::{OrmPatchOp, OrmSchemaPredicate, OrmSchemaShape};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::VerifierError;
 
@@ -20,9 +20,7 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 
 use crate::orm::types::*;
-use crate::orm::utils::{
-    assess_and_rank_children, decode_json_pointer, json_to_sparql_val, nuri_to_string,
-};
+use crate::orm::utils::{decode_json_pointer, json_to_sparql_val, nuri_to_string};
 use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
 

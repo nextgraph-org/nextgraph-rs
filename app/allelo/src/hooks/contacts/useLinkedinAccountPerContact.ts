@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
+import {contactService} from "@/services/contactService.ts";
 
 export const useLinkedinAccountPerContact = () => {
   const [linkedinAccounts, setLinkedinAccounts] = useState<Record<string, string>>({});
@@ -11,7 +11,7 @@ export const useLinkedinAccountPerContact = () => {
   useEffect(() => {
     if (!session) return;
 
-    nextgraphDataService.getAllLinkedinAccountsByContact(session).then(accounts => {
+    contactService.getAllLinkedinAccountsByContact(session).then(accounts => {
       setLinkedinAccounts(accounts);
     });
   }, [session]);

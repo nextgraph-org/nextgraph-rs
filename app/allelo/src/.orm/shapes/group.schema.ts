@@ -69,24 +69,15 @@ export const groupSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "iri",
+            valType: "shape",
+            shape:
+              "did:ng:x:social:group#SocialGroup||did:ng:x:social:group#hasMember",
           },
         ],
         maxCardinality: -1,
         minCardinality: 0,
         iri: "did:ng:x:social:group#hasMember",
         readablePredicate: "hasMember",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "iri",
-          },
-        ],
-        maxCardinality: -1,
-        minCardinality: 0,
-        iri: "did:ng:x:social:group#hasAdmin",
-        readablePredicate: "hasAdmin",
       },
       {
         dataTypes: [
@@ -114,6 +105,64 @@ export const groupSchema: Schema = {
       },
     ],
   },
+  "did:ng:x:social:group#SocialGroup||did:ng:x:social:group#hasMember": {
+    iri: "did:ng:x:social:group#SocialGroup||did:ng:x:social:group#hasMember",
+    predicates: [
+      {
+        dataTypes: [
+          {
+            valType: "iri",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "did:ng:x:contact#contactId",
+        readablePredicate: "contactId",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#invited"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#joined"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#declined"],
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "did:ng:x:contact#memberStatus",
+        readablePredicate: "memberStatus",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#joinDate",
+        readablePredicate: "joinDate",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "boolean",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#isAdmin",
+        readablePredicate: "isAdmin",
+      },
+    ],
+  },
   "did:ng:x:social:group#SocialGroup||did:ng:x:social:group#post": {
     iri: "did:ng:x:social:group#SocialGroup||did:ng:x:social:group#post",
     predicates: [
@@ -136,8 +185,8 @@ export const groupSchema: Schema = {
             valType: "iri",
           },
         ],
-        maxCardinality: -1,
-        minCardinality: 0,
+        maxCardinality: 1,
+        minCardinality: 1,
         iri: "did:ng:x:social:post#author",
         readablePredicate: "author",
       },
@@ -198,8 +247,8 @@ export const groupSchema: Schema = {
             valType: "iri",
           },
         ],
-        maxCardinality: -1,
-        minCardinality: 0,
+        maxCardinality: 1,
+        minCardinality: 1,
         iri: "did:ng:x:social:post#author",
         readablePredicate: "author",
       },
@@ -235,6 +284,64 @@ export const groupSchema: Schema = {
         minCardinality: 1,
         iri: "did:ng:x:social:post#description",
         readablePredicate: "description",
+      },
+    ],
+  },
+  "did:ng:x:contact:class#GroupMembership": {
+    iri: "did:ng:x:contact:class#GroupMembership",
+    predicates: [
+      {
+        dataTypes: [
+          {
+            valType: "iri",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "did:ng:x:contact#contactId",
+        readablePredicate: "contactId",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#invited"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#joined"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:memberStatus#declined"],
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 1,
+        iri: "did:ng:x:contact#memberStatus",
+        readablePredicate: "memberStatus",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "string",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#joinDate",
+        readablePredicate: "joinDate",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "boolean",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#isAdmin",
+        readablePredicate: "isAdmin",
       },
     ],
   },

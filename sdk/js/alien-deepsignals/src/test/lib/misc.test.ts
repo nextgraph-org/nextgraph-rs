@@ -131,4 +131,43 @@ describe("tier3: Set iteration variants", () => {
         await Promise.resolve();
         stop();
     });
+
+    it("iterator helpers exist on Set iterators and the root Set", () => {
+        const st = deepSignal({ s: new Set([1, 2, 3]) });
+        const viaIterator = st.s
+            .values()
+            .map((value) => (value as number) * 2)
+            .filter((value) => value > 2)
+            .toArray();
+        expect(viaIterator).to.deep.equal([4, 6]);
+
+        const viaRoot = st.s
+            .map((value) => (value as number) + 1)
+            .take(2)
+            .toArray();
+        expect(viaRoot).to.deep.equal([2, 3]);
+    });
+
+    it("set iterator helpers return proxied objects", async () => {
+        const st = deepSignal(
+            { s: new Set<any>() },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
+        st.s.add({ id: "obj1", nested: { value: 1 } });
+        const [entry] = st.s.map((value) => value).toArray();
+        const paths: string[] = [];
+        const { stopListening: stop } = watch(st, ({ patches }) =>
+            paths.push(...patches.map((pp: any) => pp.path.join(".")))
+        );
+        (entry as any).nested.value = 5;
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(paths.some((p) => p.endsWith("obj1.nested.value"))).to.equal(
+            true
+        );
+        stop();
+    });
 });

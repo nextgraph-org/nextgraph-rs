@@ -1,9 +1,10 @@
 import {useState, useEffect, useCallback} from 'react';
 import type {SortParams} from '@/types/contact';
-import {nextgraphDataService} from "@/services/nextgraphDataService";
 import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
+import {contactService} from "@/services/contactService.ts";
+import {getContactGraph} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
 
 export interface ContactsFilters extends SortParams {
   searchQuery?: string;
@@ -63,7 +64,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     ...initialFilters
   }));
 
-  const {updateContact} = useSaveContacts();
+  const {updateContact} = useUpdateContact();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
   const hasMore = contactNuris.length < totalCount;
@@ -98,7 +99,8 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
       accountFilter = 'all',
       relationshipFilter = 'all',
       searchQuery,
-      hasAddressFilter = false
+      hasAddressFilter = false,
+      naoStatusFilter = 'all'
     } = filters;
 
 
@@ -115,20 +117,22 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     if (hasAddressFilter) {
       filterParams.set('hasAddress', 'true');
     }
+    if (naoStatusFilter !== 'all') {
+      filterParams.set('naoStatus', naoStatusFilter);
+    }
 
     const offset = page * limit;
-    const contactIDsResult = await nextgraphDataService.getContactIDs(session, limit, offset,
+    const contactIDsResult = await contactService.getContactIDs(session, limit, offset,
       undefined, undefined, [{sortBy, sortDirection}], filterParams);
-    const contactsCountResult = await nextgraphDataService.getContactsCount(session, filterParams);
+    const contactsCountResult = await contactService.getContactsCount(session, filterParams);
 
     // @ts-expect-error TODO output format of ng sparql query
     const totalContactsInDB = contactsCountResult.results.bindings[0].totalCount.value as number;
 
     setTotalCount(totalContactsInDB);
-    const containerOverlay = session.privateStoreId!.substring(46);
     // @ts-expect-error TODO output format of ng sparql query
     return contactIDsResult.results.bindings.map(
-      (binding) => binding.contactUri.value + containerOverlay
+      (binding) => getContactGraph(binding.contactUri.value, session)
     );
   }, [session, filters, limit]);
 
@@ -177,7 +181,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
 
   const handleContactsCategorized = useCallback(async (contactIds: string[], rcardId: string) => {
     for (const contactId of contactIds) {
-      await updateContact(contactId, {rcard: {"@id": rcardId}});
+      await updateContact(contactId, {rcard: rcardId});
     }
     if (filters.relationshipFilter !== 'all') {
       reloadContacts();

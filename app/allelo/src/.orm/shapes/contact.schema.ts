@@ -406,19 +406,6 @@ export const contactSchema: Schema = {
           {
             valType: "shape",
             shape:
-              "did:ng:x:contact:class#SocialContact||did:ng:x:contact#internalGroup",
-          },
-        ],
-        maxCardinality: -1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#internalGroup",
-        readablePredicate: "internalGroup",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "shape",
-            shape:
               "did:ng:x:contact:class#SocialContact||did:ng:x:contact#headline",
           },
         ],
@@ -506,9 +493,7 @@ export const contactSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "shape",
-            shape:
-              "did:ng:x:contact:class#SocialContact||did:ng:x:contact#naoStatus",
+            valType: "string",
           },
         ],
         maxCardinality: 1,
@@ -612,6 +597,17 @@ export const contactSchema: Schema = {
         iri: "did:ng:x:contact#mostRecentInteraction",
         readablePredicate: "mostRecentInteraction",
       },
+      {
+        dataTypes: [
+          {
+            valType: "boolean",
+          },
+        ],
+        maxCardinality: 1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#isDraft",
+        readablePredicate: "isDraft",
+      },
     ],
   },
   "did:ng:x:contact:class#SocialContact||did:ng:x:contact#phoneNumber": {
@@ -632,29 +628,87 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:phoneNumber#home",
-              "did:ng:k:contact:phoneNumber#work",
-              "did:ng:k:contact:phoneNumber#mobile",
-              "did:ng:k:contact:phoneNumber#homeFax",
-              "did:ng:k:contact:phoneNumber#workFax",
-              "did:ng:k:contact:phoneNumber#otherFax",
-              "did:ng:k:contact:phoneNumber#pager",
-              "did:ng:k:contact:phoneNumber#workMobile",
-              "did:ng:k:contact:phoneNumber#workPager",
-              "did:ng:k:contact:phoneNumber#main",
-              "did:ng:k:contact:phoneNumber#googleVoice",
-              "did:ng:k:contact:phoneNumber#callback",
-              "did:ng:k:contact:phoneNumber#car",
-              "did:ng:k:contact:phoneNumber#companyMain",
-              "did:ng:k:contact:phoneNumber#isdn",
-              "did:ng:k:contact:phoneNumber#radio",
-              "did:ng:k:contact:phoneNumber#telex",
-              "did:ng:k:contact:phoneNumber#ttyTdd",
-              "did:ng:k:contact:phoneNumber#assistant",
-              "did:ng:k:contact:phoneNumber#mms",
-              "did:ng:k:contact:phoneNumber#other",
-            ],
+            literals: ["did:ng:k:contact:phoneNumber#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#mobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#homeFax"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#workFax"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#otherFax"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#pager"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#workMobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#workPager"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#main"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#googleVoice"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#callback"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#car"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#companyMain"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#isdn"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#radio"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#telex"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#ttyTdd"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#assistant"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#mms"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#other"],
           },
         ],
         maxCardinality: 1,
@@ -907,13 +961,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:type#home",
-              "did:ng:k:contact:type#work",
-              "did:ng:k:contact:type#mobile",
-              "did:ng:k:contact:type#custom",
-              "did:ng:k:contact:type#other",
-            ],
+            literals: ["did:ng:k:contact:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#mobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -985,12 +1049,19 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:type#home",
-              "did:ng:k:contact:type#work",
-              "did:ng:k:contact:type#custom",
-              "did:ng:k:contact:type#other",
-            ],
+            literals: ["did:ng:k:contact:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -1271,14 +1342,27 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:org:type#business",
-              "did:ng:k:org:type#school",
-              "did:ng:k:org:type#work",
-              "did:ng:k:org:type#custom",
-              "did:ng:k:org:type#school",
-              "did:ng:k:org:type#other",
-            ],
+            literals: ["did:ng:k:org:type#business"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#school"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#school"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -1470,22 +1554,59 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:link:type#homepage",
-              "did:ng:k:link:type#sourceCode",
-              "did:ng:k:link:type#blog",
-              "did:ng:k:link:type#documentation",
-              "did:ng:k:link:type#profile",
-              "did:ng:k:link:type#home",
-              "did:ng:k:link:type#work",
-              "did:ng:k:link:type#appInstall",
-              "did:ng:k:link:type#linkedin",
-              "did:ng:k:link:type#ftp",
-              "did:ng:k:link:type#custom",
-              "did:ng:k:link:type#reservations",
-              "did:ng:k:link:type#appInstallPage",
-              "did:ng:k:link:type#other",
-            ],
+            literals: ["did:ng:k:link:type#homepage"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#sourceCode"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#blog"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#documentation"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#profile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#appInstall"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#linkedin"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#ftp"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#reservations"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#appInstallPage"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -1633,13 +1754,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:event#anniversary",
-              "did:ng:k:event#party",
-              "did:ng:k:event#birthday",
-              "did:ng:k:event#custom",
-              "did:ng:k:event#other",
-            ],
+            literals: ["did:ng:k:event#anniversary"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#party"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#birthday"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#other"],
           },
         ],
         maxCardinality: 1,
@@ -1678,13 +1809,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:gender#male",
-              "did:ng:k:gender#female",
-              "did:ng:k:gender#other",
-              "did:ng:k:gender#unknown",
-              "did:ng:k:gender#none",
-            ],
+            literals: ["did:ng:k:gender#male"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#female"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#other"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#unknown"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#none"],
           },
         ],
         maxCardinality: 1,
@@ -1745,14 +1886,27 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:nickname#default",
-              "did:ng:k:contact:nickname#initials",
-              "did:ng:k:contact:nickname#otherName",
-              "did:ng:k:contact:nickname#shortName",
-              "did:ng:k:contact:nickname#maidenName",
-              "did:ng:k:contact:nickname#alternateName",
-            ],
+            literals: ["did:ng:k:contact:nickname#default"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#initials"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#otherName"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#shortName"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#maidenName"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#alternateName"],
           },
         ],
         maxCardinality: 1,
@@ -1840,25 +1994,71 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:humanRelationship#spouse",
-              "did:ng:k:humanRelationship#child",
-              "did:ng:k:humanRelationship#parent",
-              "did:ng:k:humanRelationship#sibling",
-              "did:ng:k:humanRelationship#friend",
-              "did:ng:k:humanRelationship#colleague",
-              "did:ng:k:humanRelationship#manager",
-              "did:ng:k:humanRelationship#assistant",
-              "did:ng:k:humanRelationship#brother",
-              "did:ng:k:humanRelationship#sister",
-              "did:ng:k:humanRelationship#father",
-              "did:ng:k:humanRelationship#mother",
-              "did:ng:k:humanRelationship#domesticPartner",
-              "did:ng:k:humanRelationship#partner",
-              "did:ng:k:humanRelationship#referredBy",
-              "did:ng:k:humanRelationship#relative",
-              "did:ng:k:humanRelationship#other",
-            ],
+            literals: ["did:ng:k:humanRelationship#spouse"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#child"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#parent"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#sibling"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#friend"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#colleague"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#manager"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#assistant"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#brother"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#sister"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#father"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#mother"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#domesticPartner"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#partner"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#referredBy"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#relative"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#other"],
           },
         ],
         maxCardinality: 1,
@@ -2126,11 +2326,15 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:type#home",
-              "did:ng:k:contact:type#work",
-              "did:ng:k:contact:type#other",
-            ],
+            literals: ["did:ng:k:contact:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -2213,12 +2417,19 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:sip#home",
-              "did:ng:k:contact:sip#work",
-              "did:ng:k:contact:sip#mobile",
-              "did:ng:k:contact:sip#other",
-            ],
+            literals: ["did:ng:k:contact:sip#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:sip#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:sip#mobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:sip#other"],
           },
         ],
         maxCardinality: 1,
@@ -2355,11 +2566,15 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:calendar:type#home",
-              "did:ng:k:calendar:type#availability",
-              "did:ng:k:calendar:type#work",
-            ],
+            literals: ["did:ng:k:calendar:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:calendar:type#availability"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:calendar:type#work"],
           },
         ],
         maxCardinality: 1,
@@ -2545,59 +2760,207 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:tag#ai",
-              "did:ng:k:contact:tag#technology",
-              "did:ng:k:contact:tag#leadership",
-              "did:ng:k:contact:tag#design",
-              "did:ng:k:contact:tag#creative",
-              "did:ng:k:contact:tag#branding",
-              "did:ng:k:contact:tag#humaneTech",
-              "did:ng:k:contact:tag#ethics",
-              "did:ng:k:contact:tag#networking",
-              "did:ng:k:contact:tag#golang",
-              "did:ng:k:contact:tag#infrastructure",
-              "did:ng:k:contact:tag#blockchain",
-              "did:ng:k:contact:tag#protocols",
-              "did:ng:k:contact:tag#p2p",
-              "did:ng:k:contact:tag#entrepreneur",
-              "did:ng:k:contact:tag#climate",
-              "did:ng:k:contact:tag#agriculture",
-              "did:ng:k:contact:tag#socialImpact",
-              "did:ng:k:contact:tag#investing",
-              "did:ng:k:contact:tag#ventures",
-              "did:ng:k:contact:tag#identity",
-              "did:ng:k:contact:tag#trust",
-              "did:ng:k:contact:tag#digitalCredentials",
-              "did:ng:k:contact:tag#crypto",
-              "did:ng:k:contact:tag#organizations",
-              "did:ng:k:contact:tag#transformation",
-              "did:ng:k:contact:tag#author",
-              "did:ng:k:contact:tag#cognition",
-              "did:ng:k:contact:tag#research",
-              "did:ng:k:contact:tag#futurism",
-              "did:ng:k:contact:tag#writing",
-              "did:ng:k:contact:tag#ventureCapital",
-              "did:ng:k:contact:tag#deepTech",
-              "did:ng:k:contact:tag#startups",
-              "did:ng:k:contact:tag#sustainability",
-              "did:ng:k:contact:tag#environment",
-              "did:ng:k:contact:tag#healthcare",
-              "did:ng:k:contact:tag#policy",
-              "did:ng:k:contact:tag#medicare",
-              "did:ng:k:contact:tag#education",
-              "did:ng:k:contact:tag#careerDevelopment",
-              "did:ng:k:contact:tag#openai",
-              "did:ng:k:contact:tag#decentralized",
-              "did:ng:k:contact:tag#database",
-              "did:ng:k:contact:tag#forestry",
-              "did:ng:k:contact:tag#biotech",
-              "did:ng:k:contact:tag#mrna",
-              "did:ng:k:contact:tag#vaccines",
-              "did:ng:k:contact:tag#fintech",
-              "did:ng:k:contact:tag#product",
-              "did:ng:k:contact:tag#ux",
-            ],
+            literals: ["did:ng:k:contact:tag#ai"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#technology"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#leadership"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#design"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#creative"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#branding"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#humaneTech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ethics"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#networking"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#golang"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#infrastructure"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#blockchain"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#protocols"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#p2p"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#entrepreneur"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#climate"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#agriculture"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#socialImpact"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#investing"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ventures"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#identity"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#trust"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#digitalCredentials"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#crypto"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#organizations"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#transformation"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#author"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#cognition"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#research"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#futurism"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#writing"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ventureCapital"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#deepTech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#startups"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#sustainability"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#environment"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#healthcare"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#policy"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#medicare"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#education"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#careerDevelopment"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#openai"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#decentralized"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#database"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#forestry"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#biotech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#mrna"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#vaccines"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#fintech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#product"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ux"],
           },
         ],
         maxCardinality: 1,
@@ -2686,71 +3049,6 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:core#hidden",
         readablePredicate: "hidden",
-      },
-    ],
-  },
-  "did:ng:x:contact:class#SocialContact||did:ng:x:contact#internalGroup": {
-    iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#internalGroup",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "iri",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#groupId",
-        readablePredicate: "groupId",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "literal",
-            literals: [
-              "did:ng:k:contact:memberStatus#invited",
-              "did:ng:k:contact:memberStatus#joined",
-              "did:ng:k:contact:memberStatus#declined",
-            ],
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#memberStatus",
-        readablePredicate: "memberStatus",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#joinDate",
-        readablePredicate: "joinDate",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#hidden",
-        readablePredicate: "hidden",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
       },
     ],
   },
@@ -2941,13 +3239,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:skills:language:proficiency#elementary",
-              "did:ng:k:skills:language:proficiency#limitedWork",
-              "did:ng:k:skills:language:proficiency#professionalWork",
-              "did:ng:k:skills:language:proficiency#fullWork",
-              "did:ng:k:skills:language:proficiency#bilingual",
-            ],
+            literals: ["did:ng:k:skills:language:proficiency#elementary"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#limitedWork"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#professionalWork"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#fullWork"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#bilingual"],
           },
         ],
         maxCardinality: 1,
@@ -3143,44 +3451,6 @@ export const contactSchema: Schema = {
       },
     ],
   },
-  "did:ng:x:contact:class#SocialContact||did:ng:x:contact#naoStatus": {
-    iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#naoStatus",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#selected",
-        readablePredicate: "selected",
-      },
-    ],
-  },
   "did:ng:x:contact:class#SocialContact||did:ng:x:contact#invitedAt": {
     iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#invitedAt",
     predicates: [
@@ -3351,29 +3621,87 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:phoneNumber#home",
-              "did:ng:k:contact:phoneNumber#work",
-              "did:ng:k:contact:phoneNumber#mobile",
-              "did:ng:k:contact:phoneNumber#homeFax",
-              "did:ng:k:contact:phoneNumber#workFax",
-              "did:ng:k:contact:phoneNumber#otherFax",
-              "did:ng:k:contact:phoneNumber#pager",
-              "did:ng:k:contact:phoneNumber#workMobile",
-              "did:ng:k:contact:phoneNumber#workPager",
-              "did:ng:k:contact:phoneNumber#main",
-              "did:ng:k:contact:phoneNumber#googleVoice",
-              "did:ng:k:contact:phoneNumber#callback",
-              "did:ng:k:contact:phoneNumber#car",
-              "did:ng:k:contact:phoneNumber#companyMain",
-              "did:ng:k:contact:phoneNumber#isdn",
-              "did:ng:k:contact:phoneNumber#radio",
-              "did:ng:k:contact:phoneNumber#telex",
-              "did:ng:k:contact:phoneNumber#ttyTdd",
-              "did:ng:k:contact:phoneNumber#assistant",
-              "did:ng:k:contact:phoneNumber#mms",
-              "did:ng:k:contact:phoneNumber#other",
-            ],
+            literals: ["did:ng:k:contact:phoneNumber#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#mobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#homeFax"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#workFax"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#otherFax"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#pager"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#workMobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#workPager"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#main"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#googleVoice"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#callback"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#car"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#companyMain"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#isdn"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#radio"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#telex"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#ttyTdd"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#assistant"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#mms"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:phoneNumber#other"],
           },
         ],
         maxCardinality: 1,
@@ -3626,13 +3954,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:type#home",
-              "did:ng:k:contact:type#work",
-              "did:ng:k:contact:type#mobile",
-              "did:ng:k:contact:type#custom",
-              "did:ng:k:contact:type#other",
-            ],
+            literals: ["did:ng:k:contact:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#mobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -3704,12 +4042,19 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:type#home",
-              "did:ng:k:contact:type#work",
-              "did:ng:k:contact:type#custom",
-              "did:ng:k:contact:type#other",
-            ],
+            literals: ["did:ng:k:contact:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -3990,14 +4335,27 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:org:type#business",
-              "did:ng:k:org:type#school",
-              "did:ng:k:org:type#work",
-              "did:ng:k:org:type#custom",
-              "did:ng:k:org:type#school",
-              "did:ng:k:org:type#other",
-            ],
+            literals: ["did:ng:k:org:type#business"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#school"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#school"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:org:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -4189,22 +4547,59 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:link:type#homepage",
-              "did:ng:k:link:type#sourceCode",
-              "did:ng:k:link:type#blog",
-              "did:ng:k:link:type#documentation",
-              "did:ng:k:link:type#profile",
-              "did:ng:k:link:type#home",
-              "did:ng:k:link:type#work",
-              "did:ng:k:link:type#appInstall",
-              "did:ng:k:link:type#linkedin",
-              "did:ng:k:link:type#ftp",
-              "did:ng:k:link:type#custom",
-              "did:ng:k:link:type#reservations",
-              "did:ng:k:link:type#appInstallPage",
-              "did:ng:k:link:type#other",
-            ],
+            literals: ["did:ng:k:link:type#homepage"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#sourceCode"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#blog"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#documentation"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#profile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#appInstall"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#linkedin"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#ftp"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#reservations"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#appInstallPage"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:link:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -4352,13 +4747,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:event#anniversary",
-              "did:ng:k:event#party",
-              "did:ng:k:event#birthday",
-              "did:ng:k:event#custom",
-              "did:ng:k:event#other",
-            ],
+            literals: ["did:ng:k:event#anniversary"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#party"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#birthday"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#custom"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:event#other"],
           },
         ],
         maxCardinality: 1,
@@ -4397,13 +4802,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:gender#male",
-              "did:ng:k:gender#female",
-              "did:ng:k:gender#other",
-              "did:ng:k:gender#unknown",
-              "did:ng:k:gender#none",
-            ],
+            literals: ["did:ng:k:gender#male"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#female"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#other"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#unknown"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:gender#none"],
           },
         ],
         maxCardinality: 1,
@@ -4464,14 +4879,27 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:nickname#default",
-              "did:ng:k:contact:nickname#initials",
-              "did:ng:k:contact:nickname#otherName",
-              "did:ng:k:contact:nickname#shortName",
-              "did:ng:k:contact:nickname#maidenName",
-              "did:ng:k:contact:nickname#alternateName",
-            ],
+            literals: ["did:ng:k:contact:nickname#default"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#initials"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#otherName"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#shortName"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#maidenName"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:nickname#alternateName"],
           },
         ],
         maxCardinality: 1,
@@ -4559,25 +4987,71 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:humanRelationship#spouse",
-              "did:ng:k:humanRelationship#child",
-              "did:ng:k:humanRelationship#parent",
-              "did:ng:k:humanRelationship#sibling",
-              "did:ng:k:humanRelationship#friend",
-              "did:ng:k:humanRelationship#colleague",
-              "did:ng:k:humanRelationship#manager",
-              "did:ng:k:humanRelationship#assistant",
-              "did:ng:k:humanRelationship#brother",
-              "did:ng:k:humanRelationship#sister",
-              "did:ng:k:humanRelationship#father",
-              "did:ng:k:humanRelationship#mother",
-              "did:ng:k:humanRelationship#domesticPartner",
-              "did:ng:k:humanRelationship#partner",
-              "did:ng:k:humanRelationship#referredBy",
-              "did:ng:k:humanRelationship#relative",
-              "did:ng:k:humanRelationship#other",
-            ],
+            literals: ["did:ng:k:humanRelationship#spouse"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#child"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#parent"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#sibling"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#friend"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#colleague"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#manager"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#assistant"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#brother"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#sister"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#father"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#mother"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#domesticPartner"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#partner"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#referredBy"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#relative"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:humanRelationship#other"],
           },
         ],
         maxCardinality: 1,
@@ -4845,11 +5319,15 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:type#home",
-              "did:ng:k:contact:type#work",
-              "did:ng:k:contact:type#other",
-            ],
+            literals: ["did:ng:k:contact:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:type#other"],
           },
         ],
         maxCardinality: 1,
@@ -4932,12 +5410,19 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:sip#home",
-              "did:ng:k:contact:sip#work",
-              "did:ng:k:contact:sip#mobile",
-              "did:ng:k:contact:sip#other",
-            ],
+            literals: ["did:ng:k:contact:sip#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:sip#work"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:sip#mobile"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:sip#other"],
           },
         ],
         maxCardinality: 1,
@@ -5074,11 +5559,15 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:calendar:type#home",
-              "did:ng:k:calendar:type#availability",
-              "did:ng:k:calendar:type#work",
-            ],
+            literals: ["did:ng:k:calendar:type#home"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:calendar:type#availability"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:calendar:type#work"],
           },
         ],
         maxCardinality: 1,
@@ -5264,59 +5753,207 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:contact:tag#ai",
-              "did:ng:k:contact:tag#technology",
-              "did:ng:k:contact:tag#leadership",
-              "did:ng:k:contact:tag#design",
-              "did:ng:k:contact:tag#creative",
-              "did:ng:k:contact:tag#branding",
-              "did:ng:k:contact:tag#humaneTech",
-              "did:ng:k:contact:tag#ethics",
-              "did:ng:k:contact:tag#networking",
-              "did:ng:k:contact:tag#golang",
-              "did:ng:k:contact:tag#infrastructure",
-              "did:ng:k:contact:tag#blockchain",
-              "did:ng:k:contact:tag#protocols",
-              "did:ng:k:contact:tag#p2p",
-              "did:ng:k:contact:tag#entrepreneur",
-              "did:ng:k:contact:tag#climate",
-              "did:ng:k:contact:tag#agriculture",
-              "did:ng:k:contact:tag#socialImpact",
-              "did:ng:k:contact:tag#investing",
-              "did:ng:k:contact:tag#ventures",
-              "did:ng:k:contact:tag#identity",
-              "did:ng:k:contact:tag#trust",
-              "did:ng:k:contact:tag#digitalCredentials",
-              "did:ng:k:contact:tag#crypto",
-              "did:ng:k:contact:tag#organizations",
-              "did:ng:k:contact:tag#transformation",
-              "did:ng:k:contact:tag#author",
-              "did:ng:k:contact:tag#cognition",
-              "did:ng:k:contact:tag#research",
-              "did:ng:k:contact:tag#futurism",
-              "did:ng:k:contact:tag#writing",
-              "did:ng:k:contact:tag#ventureCapital",
-              "did:ng:k:contact:tag#deepTech",
-              "did:ng:k:contact:tag#startups",
-              "did:ng:k:contact:tag#sustainability",
-              "did:ng:k:contact:tag#environment",
-              "did:ng:k:contact:tag#healthcare",
-              "did:ng:k:contact:tag#policy",
-              "did:ng:k:contact:tag#medicare",
-              "did:ng:k:contact:tag#education",
-              "did:ng:k:contact:tag#careerDevelopment",
-              "did:ng:k:contact:tag#openai",
-              "did:ng:k:contact:tag#decentralized",
-              "did:ng:k:contact:tag#database",
-              "did:ng:k:contact:tag#forestry",
-              "did:ng:k:contact:tag#biotech",
-              "did:ng:k:contact:tag#mrna",
-              "did:ng:k:contact:tag#vaccines",
-              "did:ng:k:contact:tag#fintech",
-              "did:ng:k:contact:tag#product",
-              "did:ng:k:contact:tag#ux",
-            ],
+            literals: ["did:ng:k:contact:tag#ai"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#technology"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#leadership"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#design"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#creative"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#branding"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#humaneTech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ethics"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#networking"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#golang"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#infrastructure"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#blockchain"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#protocols"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#p2p"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#entrepreneur"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#climate"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#agriculture"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#socialImpact"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#investing"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ventures"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#identity"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#trust"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#digitalCredentials"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#crypto"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#organizations"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#transformation"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#author"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#cognition"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#research"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#futurism"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#writing"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ventureCapital"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#deepTech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#startups"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#sustainability"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#environment"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#healthcare"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#policy"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#medicare"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#education"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#careerDevelopment"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#openai"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#decentralized"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#database"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#forestry"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#biotech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#mrna"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#vaccines"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#fintech"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#product"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:contact:tag#ux"],
           },
         ],
         maxCardinality: 1,
@@ -5405,109 +6042,6 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:core#hidden",
         readablePredicate: "hidden",
-      },
-    ],
-  },
-  "did:ng:x:contact:class#InternalGroup": {
-    iri: "did:ng:x:contact:class#InternalGroup",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "iri",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#groupId",
-        readablePredicate: "groupId",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "literal",
-            literals: [
-              "did:ng:k:contact:memberStatus#invited",
-              "did:ng:k:contact:memberStatus#joined",
-              "did:ng:k:contact:memberStatus#declined",
-            ],
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:contact#memberStatus",
-        readablePredicate: "memberStatus",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:contact#joinDate",
-        readablePredicate: "joinDate",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#hidden",
-        readablePredicate: "hidden",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
-      },
-    ],
-  },
-  "did:ng:x:contact:class#NaoStatus": {
-    iri: "did:ng:x:contact:class#NaoStatus",
-    predicates: [
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "did:ng:x:core#value",
-        readablePredicate: "value",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#source",
-        readablePredicate: "source",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "boolean",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "did:ng:x:core#selected",
-        readablePredicate: "selected",
       },
     ],
   },
@@ -5850,13 +6384,23 @@ export const contactSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:k:skills:language:proficiency#elementary",
-              "did:ng:k:skills:language:proficiency#limitedWork",
-              "did:ng:k:skills:language:proficiency#professionalWork",
-              "did:ng:k:skills:language:proficiency#fullWork",
-              "did:ng:k:skills:language:proficiency#bilingual",
-            ],
+            literals: ["did:ng:k:skills:language:proficiency#elementary"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#limitedWork"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#professionalWork"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#fullWork"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:k:skills:language:proficiency#bilingual"],
           },
         ],
         maxCardinality: 1,

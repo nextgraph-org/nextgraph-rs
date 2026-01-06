@@ -1,8 +1,8 @@
-import {ContactLdSetProperties} from "@/utils/socialContact/contactUtils";
 import {AccountRegistry} from "@/utils/accountRegistry.tsx";
 import {defaultTemplates, extractTemplateProps} from "@/utils/templateRenderer.ts";
-import {RCardPermission} from "@/.ldo/rcard.typings.ts";
-import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
+import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
+import {rCardDictMapper} from "@/utils/dictMappers.ts";
+import {ContactSetProperties} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 export type rCardZones = "top" | "bottom" | "middle";
 
@@ -10,7 +10,7 @@ export type PropertyConfig = {
   label?: string;
   displayProp?: string;
   template?: string;
-  templateProp?: keyof ContactLdSetProperties;
+  templateProp?: ContactSetProperties;
   resolveTo?: string;
   type?: string;
   shareAll?: boolean;
@@ -18,7 +18,7 @@ export type PropertyConfig = {
   separator?: string;
   filterParams?: any;
 }
-type ContactPermissionsConfig = Partial<Record<keyof ContactLdSetProperties, Record<string, PropertyConfig>>>;
+type ContactPermissionsConfig = Partial<Record<ContactSetProperties, Record<string, PropertyConfig>>>;
 
 export const rCardPermissionConfig: ContactPermissionsConfig = {
   name: {
@@ -119,7 +119,7 @@ export const rCardPermissionConfig: ContactPermissionsConfig = {
 };
 
 export function getPermissionConfig(permission: RCardPermission): PropertyConfig {
-  const firstLevel = permission.firstLevel as keyof ContactLdSetProperties;
+  const firstLevel = permission.firstLevel as ContactSetProperties;
   let secondLevel = permission.secondLevel ?? "*";
   if (permission.selector) {
     secondLevel += "^" + permission.selector;
@@ -133,18 +133,25 @@ export function getPermissionConfig(permission: RCardPermission): PropertyConfig
   return config ?? {};
 }
 
-export function getPermissionId (permission: RCardPermission) {
+export function getPermissionId(permission: RCardPermission) {
   return `${permission.firstLevel}-${permission.secondLevel}-${permission.selector ?? ""}`;
 }
 
-function getPermission(firstLevel: keyof ContactLdSetProperties, secondLevel: string, zone?: rCardZones, selector?: string): RCardPermission {
-  const permission: RCardPermission = {firstLevel, secondLevel,  selector, zone: {"@id": zone ?? "middle"}};
+function getPermission(firstLevel: ContactSetProperties, secondLevel: string, zone?: rCardZones, selector?: string): RCardPermission {
+  const permission: RCardPermission = {
+    "@graph": "",
+    "@id": "",
+    firstLevel,
+    secondLevel,
+    selector,
+    zone: rCardDictMapper.appendPrefixToDictValue("permission", "zone", zone ?? "middle")
+  };
   const config = getPermissionConfig(permission);
 
   if (config.template) {
     const firstLevel = config.templateProp ?? permission.firstLevel;
-    permission.triple = new BasicLdSet(extractTemplateProps(config.template).map(secondLevel => {
-      return {firstLevel, secondLevel};
+    permission.triple = new Set(extractTemplateProps(config.template).map(secondLevel => {
+      return {"@graph": "", "@id": "", firstLevel, secondLevel};
     }));
   }
   return permission;

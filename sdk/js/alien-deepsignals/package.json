@@ -1,6 +1,6 @@
 {
   "name": "@ng-org/alien-deepsignals",
-  "version": "0.1.0",
+  "version": "0.1.2-alpha.3",
   "private": false,
   "authors": [
     "Laurin Weger",
@@ -12,23 +12,35 @@
   ],
   "main": "src/index.ts",
   "publishConfig": {
+    "access": "public",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
     "exports": {
       ".": {
-        "import": "./dist/index.mjs",
-        "require": "./dist/index.js"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./react": {
+        "types": "./dist/hooks/react/index.d.ts",
+        "default": "./dist/hooks/react/index.js"
+      },
+      "./svelte": {
+        "types": "./dist/hooks/svelte/index.d.ts",
+        "default": "./dist/hooks/svelte/index.js"
+      },
+      "./vue": {
+        "types": "./dist/hooks/vue/index.d.ts",
+        "default": "./dist/hooks/vue/index.js"
       }
     }
   },
-  "description": "NextGraph adaptation of AlienDeepSignals 🧶 -alien signals, but using regular JavaScript objects",
+  "description": "NextGraph adaptation of AlienDeepSignals - alien signals, but using regular JavaScript objects",
   "scripts": {
     "test": "vitest --coverage --dir src/test/lib",
     "test:frontend": "playwright test src/test/frontend",
-    "dev": "tsup --watch src",
-    "build:ts": "tsup",
-    "release": "bumpp && npm run build && npm publish --registry=https://registry.npmjs.org/"
+    "build:ts": "tsc",
+    "prepublishOnly": "pnpm build:ts"
   },
   "exports": {
     ".": {
@@ -62,12 +74,10 @@
     "@types/react-dom": "^19.2.2",
     "@vitest/coverage-v8": "3.2.4",
     "astro": "^5.16.1",
-    "bumpp": "^9.9.2",
     "@playwright/test": "^1.55.0",
     "react-dom": "^19.0.0",
     "react": "^19.0.0",
     "svelte": "^5.1.9",
-    "tsup": "^8.3.5",
     "typescript": "^5.4.3",
     "vue": "^3.5.11",
     "vitest": "^3.0.2"

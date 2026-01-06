@@ -1,52 +1,27 @@
-import {useContactData} from "@/hooks/contacts/useContactData";
-import {useContactPhoto} from "@/hooks/contacts/useContactPhoto";
 import {useEffect, useRef} from "react";
-import {Contact} from "@/types/contact";
-import {resolveFrom} from "@/utils/socialContact/contactUtils";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 /**
  * Invisible component that loads contact data for a single NURI
  * Similar to ContactProbe but optimized for network graph use
- * Also loads the contact's avatar from blob storage
  */
 export function NetworkContactProbe({
   nuri,
   onContact,
 }: {
   nuri: string;
-  onContact: (nuri: string, contact: Contact | undefined) => void;
+  onContact: (nuri: string, contact: SocialContact | undefined) => void;
 }) {
-  const {contact} = useContactData(nuri);
-  const photo = contact ? resolveFrom(contact, 'photo') : undefined;
-  const {displayUrl, isLoadingImage} = useContactPhoto(contact, photo);
-  const lastContactRef = useRef<Contact | undefined>(undefined);
-  const lastAvatarRef = useRef<string | undefined>(undefined);
+  const {ormContact} = useContactOrm(nuri);
+  const lastContactRef = useRef<SocialContact | undefined>(undefined);
 
   useEffect(() => {
-    if (!contact) {
-      if (lastContactRef.current !== undefined) {
-        lastContactRef.current = undefined;
-        onContact(nuri, undefined);
-      }
-      return;
+    if (ormContact !== lastContactRef.current) {
+      lastContactRef.current = ormContact;
+      onContact(nuri, ormContact);
     }
-
-    // Check if contact or avatar changed
-    const avatarChanged = displayUrl !== lastAvatarRef.current && !isLoadingImage;
-    const contactChanged = contact !== lastContactRef.current;
-
-    if (contactChanged || avatarChanged) {
-      lastContactRef.current = contact;
-      lastAvatarRef.current = displayUrl;
-
-      // Augment contact with loaded avatar URL
-      const contactWithAvatar = displayUrl
-        ? { ...contact, loadedAvatarUrl: displayUrl }
-        : contact;
-
-      onContact(nuri, contactWithAvatar);
-    }
-  }, [nuri, contact, displayUrl, isLoadingImage, onContact]);
+  }, [nuri, ormContact, onContact]);
 
   return null;
 }

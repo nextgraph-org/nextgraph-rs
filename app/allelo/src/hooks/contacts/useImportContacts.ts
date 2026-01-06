@@ -2,11 +2,11 @@ import {useState, useEffect, useCallback} from 'react';
 import {useSaveContacts} from "@/hooks/contacts/useSaveContacts";
 import {ImportSourceConfig} from "@/types/importSource";
 import {ImportSourceRegistry} from "@/importers/importSourceRegistry";
-import {Contact} from "@/types/contact";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface UseImportContactsReturn {
   importSources: ImportSourceConfig[];
-  importContacts: (contacts: Contact[]) => Promise<void>;
+  importContacts: (contacts: SocialContact[]) => Promise<void>;
   importProgress: number;
   isLoading: boolean;
   isImporting: boolean;
@@ -25,7 +25,7 @@ export const useImportContacts = (onImportDone: () => void): UseImportContactsRe
     setImportSources(sources);
   }, []);
 
-  const importContacts = useCallback(async (socialContacts: Contact[]) => {
+  const importContacts = useCallback(async (socialContacts: SocialContact[]) => {
     setImportProgress(0);
     setIsImporting(true);
 
@@ -35,8 +35,6 @@ export const useImportContacts = (onImportDone: () => void): UseImportContactsRe
         setImportProgress(progress);
       });
 
-      // Add a small delay to ensure NextGraph has processed the data
-      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsLoading(false);
       setIsImporting(false);
       onImportDone();

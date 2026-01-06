@@ -89,7 +89,7 @@ export const ChipsVariant = ({
             {label}
           </Typography> :
           <Chip
-          label={getIconForType(item?.type2) + label}
+          label={getIconForType(item?.type) + label}
             size="small"
           />
         }
