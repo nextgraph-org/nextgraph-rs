@@ -709,7 +709,7 @@ impl Verifier {
                                     &orm_subscription.graph_scope,
                                     schema,
                                     &shape_iri,
-                                    Some(objects_to_fetch),
+                                    Some(&objects_to_fetch),
                                 )?;
 
                                 // Recursively process nested objects.
@@ -782,6 +782,8 @@ impl Verifier {
                 panic!("Something went wrong during validation: Too many cycles");
             }
         }
+
+        orm_subscription.cleanup_tracked_orm_objects();
 
         Ok(())
     }
@@ -870,5 +872,4 @@ impl Verifier {
 
         init
     }
-    // cleanup_tracked_orm_objects removed: use OrmSubscription::cleanup_tracked_orm_objects instead
 }

@@ -28,6 +28,7 @@ use ng_repo::types::OverlayId;
 use ng_repo::types::RepoId;
 use serde_json::json;
 use serde_json::Value;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::sync::Arc;
 // use std::sync::RwLock;
@@ -109,12 +110,21 @@ impl Verifier {
                 continue;
             }
 
+            // Filter quads by subject scope if applicable
+            let (inserts, removes) =
+                filter_quads_by_subject_scope_if_necessary(&subscription, inserts, removes);
+
+            if inserts.is_empty() && removes.is_empty() {
+                self.orm_subscriptions.insert(subscription_id, subscription);
+                continue;
+            }
+
             // Process changes for this shape
             let mut orm_changes: OrmChanges = HashMap::new();
             let res = self.process_changes_for_subscription(
                 &mut subscription,
-                inserts,
-                removes,
+                &inserts,
+                &removes,
                 &mut orm_changes,
                 false,
             );
@@ -396,6 +406,52 @@ impl Verifier {
                     .await;
             }
         }
+    }
+}
+
+/// Filters quads by subject scope. If the subscription has no subject scope,
+/// returns borrowed references to the original slices (no allocation).
+/// Otherwise, returns owned filtered vectors.
+fn filter_quads_by_subject_scope_if_necessary<'a>(
+    subscription: &OrmSubscription,
+    inserts: &'a [Quad],
+    removes: &'a [Quad],
+) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>) {
+    if subscription.subject_scope.is_empty() {
+        (Cow::Borrowed(inserts), Cow::Borrowed(removes))
+    } else {
+        // Relevant subjects consist of all tormos plus the explicit subject scope.
+        let relevant_subjects: HashSet<String> = subscription
+            .iter_all_objects()
+            .map(|tormo| tormo.read().unwrap().subject_iri.clone())
+            .chain(subscription.subject_scope.iter().cloned())
+            .collect();
+
+        let filtered_inserts: Vec<Quad> = inserts
+            .iter()
+            .filter(|quad| {
+                let quad_subject = match &quad.subject {
+                    ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
+                    _ => "", // Cannot happen
+                };
+                relevant_subjects.contains(quad_subject)
+            })
+            .cloned()
+            .collect();
+
+        let filtered_removes: Vec<Quad> = removes
+            .iter()
+            .filter(|quad| {
+                let quad_subject = match &quad.subject {
+                    ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
+                    _ => "", // Cannot happen
+                };
+                relevant_subjects.contains(quad_subject)
+            })
+            .cloned()
+            .collect();
+
+        (Cow::Owned(filtered_inserts), Cow::Owned(filtered_removes))
     }
 }
 

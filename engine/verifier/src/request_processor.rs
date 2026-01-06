@@ -901,18 +901,26 @@ impl Verifier {
         payload: Option<AppRequestPayload>,
         session_id: u64,
     ) -> Result<AppResponse, NgError> {
+        log_info!(
+            "[request_processor.process] called with command {:?} and payload {:?}",
+            command,
+            payload
+        );
         match command {
             AppRequestCommandV0::OrmUpdate => match payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
-                    diff,
+                    patches,
                     subscription_id,
                 )))) => {
-                    return match self.orm_frontend_update(subscription_id, diff).await {
+                    return match self.orm_frontend_update(subscription_id, patches).await {
                         Err(e) => Ok(AppResponse::error(e)),
                         Ok(()) => Ok(AppResponse::ok()),
                     }
                 }
-                _ => return Err(NgError::InvalidArgument),
+                _ => {
+                    log_err!("orm update has wrong payload: {:?}", payload);
+                    return Err(NgError::InvalidArgument);
+                }
             },
             AppRequestCommandV0::SocialQueryStart => {
                 let (from_profile, contacts_string, degree) =

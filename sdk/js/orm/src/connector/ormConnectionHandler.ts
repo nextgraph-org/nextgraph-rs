@@ -38,7 +38,7 @@ export class OrmConnection<T extends BaseType> {
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
     readonly signalObject: DeepSignalSet<T>;
-    private subscriptionId: bigint | undefined;
+    private subscriptionId: number | undefined;
     private refCount: number;
     /** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
@@ -58,7 +58,7 @@ export class OrmConnection<T extends BaseType> {
                   console.log("finalization called for", connectionId);
                   // Best-effort fallback; look up by id and clean
                   const entry = this.idToEntry.get(connectionId);
-                  //console.log("cleaning up connection",connectionId)
+                  console.log("cleaning up connection", connectionId);
                   if (!entry) return;
                   entry.release();
               })
@@ -96,7 +96,6 @@ export class OrmConnection<T extends BaseType> {
         });
 
         ngSession.then(async ({ ng, session }) => {
-            //console.log("Creating orm connection. ng and session", ng, session);
             try {
                 this.cancel = await ng.orm_start(
                     scope,
@@ -172,7 +171,6 @@ export class OrmConnection<T extends BaseType> {
     };
 
     private onBackendMessage = (message: any) => {
-        console.debug("backend message received", message);
         const data = message?.V0;
         if (data?.OrmInitial) {
             this.handleInitialResponse(data.OrmInitial);
@@ -185,7 +183,7 @@ export class OrmConnection<T extends BaseType> {
 
     private handleInitialResponse = ([initialData, subscriptionId]: [
         any,
-        bigint,
+        number,
     ]) => {
         this.subscriptionId = subscriptionId;
         // Assign initial data to empty signal object without triggering watcher at first.
