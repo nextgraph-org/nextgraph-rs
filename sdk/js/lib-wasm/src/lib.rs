@@ -15,6 +15,7 @@
 mod model;
 
 use async_std::prelude::Future;
+use ng_repo::log_info;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -23,7 +24,6 @@ use std::sync::Arc;
 use nextgraph::net::app_protocol::AppRequest;
 use nextgraph::net::app_protocol::NuriV0;
 use ng_net::orm::OrmPatch;
-use ng_repo::log_info;
 use ng_wallet::types::SensitiveWallet;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -1857,12 +1857,20 @@ pub async fn doc_subscribe(
 
 #[wasm_bindgen]
 pub async fn orm_start(
-    graph_scope: Vec<String>,
-    subject_scope: Vec<String>,
+    graph_scope: Array,
+    subject_scope: Array,
     shapeType: JsValue,
     session_id: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
+    log_info!("[orm_start] entered");
+
+    let graph_scope: Vec<String> = graph_scope.iter().map(|s| s.as_string().unwrap()).collect();
+    let subject_scope: Vec<String> = subject_scope
+        .iter()
+        .map(|s| s.as_string().unwrap())
+        .collect();
+
     let shape_type: OrmShapeType = serde_wasm_bindgen::from_value::<OrmShapeType>(shapeType)
         .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
     let session_id: u64 =
@@ -1889,7 +1897,6 @@ pub async fn orm_start(
         graph_nuris
     };
 
-    //log_info!("[orm_start] parameters parsed, calling new_orm_start");
     let mut request = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await

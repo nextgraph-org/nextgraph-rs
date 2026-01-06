@@ -98,7 +98,6 @@ export class OrmConnection<T extends BaseType> {
         ngSession.then(async ({ ng, session }) => {
             //console.log("Creating orm connection. ng and session", ng, session);
             try {
-                //await new Promise((resolve) => setTimeout(resolve, 4_000));
                 this.cancel = await ng.orm_start(
                     scope,
                     [],
