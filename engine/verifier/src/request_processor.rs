@@ -51,11 +51,11 @@ impl Verifier {
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match command {
             AppRequestCommandV0::OrmStart => match payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
                     shape_type,
                     graph_scope,
                     subject_scope,
-                ))) => self.start_orm(graph_scope, subject_scope, shape_type).await,
+                )))) => self.start_orm(graph_scope, subject_scope, shape_type).await,
                 _ => return Err(NgError::InvalidArgument),
             },
             AppRequestCommandV0::Fetch(fetch) => match fetch {
