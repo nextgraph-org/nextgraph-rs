@@ -1,14 +1,12 @@
-import {useCallback, useEffect, useState} from "react";
+import {useCallback, useMemo} from "react";
 import {
   NextGraphAuth,
 } from "@/types/nextgraph.ts";
-import {getNotificationDictValues} from "@/utils/notificationDictMapper.ts";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
-import {getShortUri} from "@/utils/nextgraph/ngHelpers.ts";
 import {UserNotification} from "@/.orm/shapes/notification.typings.ts";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
-import {useShape} from "@ng-org/signals/react";
-import {UserNotificationShapeType} from "@/.orm/shapes/notification.shapeTypes.ts";
+import {userNotificationDictMapper} from "@/utils/dictMappers.ts";
+import {useGetNotifications} from "@/hooks/notifications/useGetNotifications.ts";
+import {getScope} from "@/utils/nextgraph/ngHelpers.ts";
 
 type NotificationWithoutMeta = Omit<UserNotification, "@id" | "@graph" | "@type">;
 
@@ -18,14 +16,10 @@ function getRandom(arr: string[]): string {
 
 const bodyPool: string[] = [
   "Alice would like to connect with you",
-  "",
   "Bob vouched for your React skills",
-  "",
   "Carol praised your leadership",
-  "",
   "System: Your profile is now 100% complete",
   "Dave endorsed your TypeScript skills",
-  ""
 ];
 
 const now = Date.now();
@@ -38,42 +32,22 @@ interface SaveNotificationReturn {
 export const useSaveNotification = (): SaveNotificationReturn => {
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
 
+  const {notifications} = useGetNotifications();
 
-  const notifications = useShape(UserNotificationShapeType);
-  const [contactIDs, setContactIDs] = useState<string[]>([]);
-
-  console.log(notifications);
-
-  useEffect(() => {
-    nextgraphDataService.getContactIDs(session).then(contactIDsResult => {
-      const bindings: any[] = contactIDsResult?.results?.bindings ?? [];
-      setContactIDs(bindings.map(
-        (binding) => binding.contactUri.value
-      ));
-    });
-  }, [session]);
-
-
-  const typePool: string[] = getNotificationDictValues("notificationType");
-  const statusPool: string[] = getNotificationDictValues("notificationStatus");
+  const typePool: string[] = useMemo(() =>
+    [...userNotificationDictMapper.getDictValues("UserNotification", "type")], []);
+  const statusPool: string[] = useMemo(() =>
+    [...userNotificationDictMapper.getDictValues("UserNotification", "status")], []);
 
   const createNotification = useCallback(async (notification: NotificationWithoutMeta) => {
     if (!session || !session.ng) {
       throw new Error('No active session available');
     }
 
-    const docId = await session.ng.doc_create(
-      session.sessionId,
-      "Graph",
-      "data:graph",
-      "store"
-    );
-
-    const id = getShortUri(docId);
     const notificationObj: UserNotification = {
-      "@graph": docId,
-      "@id": id,
-      "@type": "did:ng:x:social:notification#Notification",
+      "@graph": getScope(session.privateStoreId),
+      "@id": "",
+      "@type": new Set(["did:ng:x:social:notification#Notification"]),
       ...notification
     }
 
@@ -91,17 +65,16 @@ export const useSaveNotification = (): SaveNotificationReturn => {
         const notification: NotificationWithoutMeta = {
           date: createdAt,
           body: getRandom(bodyPool),
-          type: ("did:ng:x:social:notification:type#" + getRandom(typePool)) as UserNotification["type"],
-          status: ("did:ng:x:social:notification:status#"  + getRandom(statusPool)) as UserNotification["status"],
+          type: userNotificationDictMapper.appendPrefixToDictValue("UserNotification", "type", getRandom(typePool)),
+          status: userNotificationDictMapper.appendPrefixToDictValue("UserNotification", "status", getRandom(statusPool)),
           seen: false,
           hidden: false,
-          subject: getRandom(contactIDs),
         };
 
         await createNotification(notification);
       }
     },
-    [contactIDs, createNotification, statusPool, typePool],
+    [createNotification, statusPool, typePool],
   );
 
   return {

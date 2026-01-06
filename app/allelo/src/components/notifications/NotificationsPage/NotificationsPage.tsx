@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useState} from 'react';
+import {forwardRef} from 'react';
 import {
   Typography,
   Box,
@@ -16,20 +16,7 @@ export interface NotificationsPageProps {
 export const NotificationsPage = forwardRef<HTMLDivElement, NotificationsPageProps>(
   ({className}, ref) => {
     const {generateRandomNotifications} = useSaveNotification();
-    const {notifications, unseenNotifications, isLoading} = useGetNotifications(10);
-
-    const [unseenCount, setUnseenCount] = useState<number>(0);
-
-    useEffect(() => {
-      setUnseenCount(unseenNotifications.length);
-    }, [unseenNotifications])
-
-    const handleMarkAsRead = () => setUnseenCount(prev => prev - 1);
-
-    const handleMarkAllAsRead = async () => {
-      unseenNotifications.forEach(notification => notification.seen = true);
-      setUnseenCount(0);
-    };
+    const {notifications, unseenCount, markAllAsRead} = useGetNotifications();
 
     return (
       <Box
@@ -92,7 +79,7 @@ export const NotificationsPage = forwardRef<HTMLDivElement, NotificationsPagePro
             <Button
               variant="outlined"
               startIcon={<UilEnvelopeCheck size="20"/>}
-              onClick={handleMarkAllAsRead}
+              onClick={markAllAsRead}
               sx={{
                 borderRadius: 2,
                 fontSize: {xs: '0.75rem', md: '0.875rem'},
@@ -114,8 +101,6 @@ export const NotificationsPage = forwardRef<HTMLDivElement, NotificationsPagePro
           <Box sx={{p: {xs: 0, md: 0}}}>
             <NotificationsList
               notifications={notifications}
-              handleMarkAsRead={handleMarkAsRead}
-              isLoading={isLoading}
             />
           </Box>
         </Box>

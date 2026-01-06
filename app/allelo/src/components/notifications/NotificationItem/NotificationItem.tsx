@@ -11,11 +11,11 @@ import {
 } from "@iconscout/react-unicons";
 import {formatDate} from "@/utils/dateHelpers.ts";
 import {UserNotification} from "@/.orm/shapes/notification.typings.ts";
+import {userNotificationDictMapper} from "@/utils/dictMappers.ts";
 
 interface NotificationItemProps {
   notification: UserNotification;
   showDivider?: boolean;
-  handleMarkAsRead: (notificationId: string) => void;
 }
 
 interface NotificationAction {
@@ -27,15 +27,15 @@ interface NotificationAction {
 export const NotificationItem = forwardRef<HTMLLIElement, NotificationItemProps>(
   ({
      notification,
-     handleMarkAsRead,
      showDivider = true
    }, ref) => {
 
     const theme = useTheme();
 
     const notificationId = notification["@id"];
-    const notificationStatus = notification.status?.split("#")[1] ?? "";
-    const notificationType = notification.type.split("#")[1];
+
+    const notificationStatus = userNotificationDictMapper.removePrefix(notification?.status);
+    const notificationType = userNotificationDictMapper.removePrefix(notification?.type);
 
     const getNotificationIcon = useCallback(() => {
       switch (notificationType) {
@@ -196,7 +196,6 @@ export const NotificationItem = forwardRef<HTMLLIElement, NotificationItemProps>
                   onClick={(e) => {
                     e.stopPropagation();
                     notification.seen = true;
-                    handleMarkAsRead(notificationId);
                   }}
                 >
                   <UilTimes size="16"/>

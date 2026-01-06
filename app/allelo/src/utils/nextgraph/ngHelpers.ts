@@ -16,3 +16,8 @@ export function generateUri(base: string) {
 export function getShortUri(base: string): string {
   return base.substring(0, 53)
 }
+
+export function getScope(storeId: string | undefined): string {
+  if (!storeId) {return ""}
+  return "did:ng:" + storeId;
+}

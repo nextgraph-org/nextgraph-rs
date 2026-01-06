@@ -8,26 +8,12 @@ import {UserNotification} from "@/.orm/shapes/notification.typings.ts";
 
 export interface NotificationsListProps {
   notifications: Set<UserNotification> | undefined;
-  handleMarkAsRead: (notificationId: string) => void;
-  isLoading: boolean;
 }
 
 export const NotificationsList = forwardRef<HTMLDivElement, NotificationsListProps>(
   ({
      notifications,
-     handleMarkAsRead,
-     isLoading,
    }, ref) => {
-    if (isLoading) {
-      return (
-        <Box ref={ref} sx={{textAlign: 'center', py: 8}}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            Loading notifications...
-          </Typography>
-        </Box>
-      );
-    }
-
     if ((notifications?.size ?? 0) === 0) {
       return (
         <Box ref={ref} sx={{textAlign: 'center', py: 8}}>
@@ -47,7 +33,6 @@ export const NotificationsList = forwardRef<HTMLDivElement, NotificationsListPro
           {[...(notifications?.values() ?? [])].map((notification) => <NotificationItem
             key={notification["@id"]}
             notification={notification}
-            handleMarkAsRead={handleMarkAsRead}
           />)}
         </Box>
 
