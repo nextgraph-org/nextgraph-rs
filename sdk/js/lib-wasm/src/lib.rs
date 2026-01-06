@@ -1863,8 +1863,6 @@ pub async fn orm_start(
     session_id: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
-    log_info!("[orm_start] entered");
-
     let graph_scope: Vec<String> = graph_scope.iter().map(|s| s.as_string().unwrap()).collect();
     let subject_scope: Vec<String> = subject_scope
         .iter()
@@ -1903,13 +1901,21 @@ pub async fn orm_start(
 }
 
 #[wasm_bindgen]
-pub async fn orm_update(subscription_id: u64, diff: JsValue) -> Result<(), String> {
+pub async fn orm_update(subscription_id: JsValue, diff: JsValue) -> Result<(), String> {
+    let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
+        .map_err(|_| {
+            format!(
+                "Deserialization error of subscription_id {:?} orm_start",
+                subscription_id
+            )
+        })?;
+
     let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
 
     let mut request = AppRequest::new_orm_update(subscription_id, diff);
+    request.set_session_id(1);
 
-    log_info!("[orm_update] calling orm_update");
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;

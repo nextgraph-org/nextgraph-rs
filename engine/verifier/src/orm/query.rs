@@ -37,7 +37,7 @@ impl Verifier {
         nuris: &Vec<String>,
         schema: &OrmSchema,
         root_shape: &ShapeIri,
-        filter_subjects: Option<Vec<String>>,
+        filter_subjects: Option<&Vec<String>>,
     ) -> Result<Vec<Quad>, NgError> {
         // Determine graph filters based on nuri.
         let filter_graphs: Option<&Vec<String>> = if nuris.is_empty() {
@@ -68,7 +68,7 @@ impl Verifier {
         in_queue.insert(root_shape.clone());
         order.push_back(root_shape.clone());
         if let Some(subs) = filter_subjects {
-            let set: HashSet<String> = subs.into_iter().collect();
+            let set: HashSet<String> = subs.iter().cloned().collect();
             pending.insert(root_shape.clone(), set);
         }
 

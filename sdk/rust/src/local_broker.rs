@@ -2917,7 +2917,7 @@ pub async fn doc_query_quads_for_shape_type(
     nuri: Option<String>,
     schema: &ng_net::orm::OrmSchema,
     shape: &ShapeIri,
-    filter_subjects: Option<Vec<String>>,
+    filter_subjects: Option<&Vec<String>>,
 ) -> Result<Vec<Quad>, NgError> {
     let broker = get_broker().await?;
     let session = broker.get_session(session_id)?;

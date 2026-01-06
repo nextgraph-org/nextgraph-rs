@@ -100,7 +100,7 @@ impl Verifier {
                 &orm_subscription.graph_scope,
                 &orm_subscription.shape_type.schema,
                 &orm_subscription.shape_type.shape,
-                None,
+                Some(&orm_subscription.subject_scope),
             )?
         };
 
