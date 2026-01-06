@@ -10,14 +10,20 @@ export type IRI = string;
  * UserNotification Type
  */
 export interface UserNotification {
+  /**
+   * The graph IRI.
+   */
   readonly "@graph": IRI;
+  /**
+   * The subject IRI.
+   */
   readonly "@id": IRI;
   /**
    * User-visible notification in the app
    *
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": "did:ng:x:social:notification#Notification";
+  "@type": Set<"did:ng:x:social:notification#Notification" | (IRI & {})>;
   /**
    * When the notification was created
    *

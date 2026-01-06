@@ -48,12 +48,19 @@ export const notificationSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:x:social:notification:type#Connection",
-              "did:ng:x:social:notification:type#System",
-              "did:ng:x:social:notification:type#Vouch",
-              "did:ng:x:social:notification:type#Praise",
-            ],
+            literals: ["did:ng:x:social:notification:type#Connection"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:x:social:notification:type#System"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:x:social:notification:type#Vouch"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:x:social:notification:type#Praise"],
           },
         ],
         maxCardinality: 1,
@@ -65,11 +72,15 @@ export const notificationSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: [
-              "did:ng:x:social:notification:status#Accepted",
-              "did:ng:x:social:notification:status#Rejected",
-              "did:ng:x:social:notification:status#Pending",
-            ],
+            literals: ["did:ng:x:social:notification:status#Accepted"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:x:social:notification:status#Rejected"],
+          },
+          {
+            valType: "literal",
+            literals: ["did:ng:x:social:notification:status#Pending"],
           },
         ],
         maxCardinality: 1,
