@@ -34,7 +34,7 @@ export const useNetworkGraphStore = create<NetworkGraphState>((set, get) => ({
   simulation: null,
   currentZoomIndex: 0, // Start fully zoomed in (showing all contacts on largest canvas)
   canvasSize: 1200,
-  maxZoomIndex: 4,
+  maxZoomIndex: 5,
 
   setNodes: (nodes) => set({ nodes }),
 

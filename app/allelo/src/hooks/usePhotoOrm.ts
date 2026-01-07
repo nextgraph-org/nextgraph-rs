@@ -17,12 +17,12 @@ export const usePhotoOrm = (
   const [displayUrl, setDisplayUrl] = useState<string | undefined>(fallbackUrl);
 
   useEffect(() => {
-    if (!subject) {
+    if (!subject || !subject["@id"]) {
       return;
     }
     if (sessionId && photoIRI) {
       setIsLoadingImage(true);
-      imageService.getBlob(subject["@id"]!, photoIRI, true, sessionId)
+      imageService.getBlob(subject["@id"], photoIRI, true, sessionId)
         .then((url) => {
           if (url && url !== true) {
             setDisplayUrl(url as string);

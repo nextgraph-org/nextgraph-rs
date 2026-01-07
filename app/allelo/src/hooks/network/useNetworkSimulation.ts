@@ -40,7 +40,6 @@ const DEFAULT_CONFIG: SimulationConfig = {
 
 export const useNetworkSimulation = (
   nodes: GraphNode[],
-  edges: GraphEdge[],
   width: number,
   height: number,
   config: SimulationConfig = DEFAULT_CONFIG
@@ -127,13 +126,14 @@ export const useNetworkSimulation = (
         simulation.stop();
       });
 
+
     simulationRef.current = simulation;
     setSimulation(simulation);
 
     return () => {
       simulation.stop();
     };
-  }, [nodes, edges, width, height, config, setSimulation, updateNodePositions]);
+  }, [nodes.length]); //TODO: do we need it to be animated?
 
   return simulationRef.current;
 };

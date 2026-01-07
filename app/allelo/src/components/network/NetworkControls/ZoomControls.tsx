@@ -30,22 +30,22 @@ export const ZoomControls = ({ onZoomIn, onZoomOut }: ZoomControlsProps) => {
       </Box>
       <IconButton
         size="small"
-        onClick={onZoomOut}
+        onClick={onZoomIn}
         title="More contacts"
-        disabled={!canZoomOut}
+        disabled={!canZoomIn}
         sx={{
-          color: canZoomOut ? 'rgba(0, 0, 0, 0.87)' : 'rgba(0, 0, 0, 0.26)',
+          color: canZoomIn ? 'rgba(0, 0, 0, 0.87)' : 'rgba(0, 0, 0, 0.26)',
         }}
       >
         <UilPlus size="20" />
       </IconButton>
       <IconButton
         size="small"
-        onClick={onZoomIn}
+        onClick={onZoomOut}
         title="Fewer contacts"
-        disabled={!canZoomIn}
+        disabled={!canZoomOut}
         sx={{
-          color: canZoomIn ? 'rgba(0, 0, 0, 0.87)' : 'rgba(0, 0, 0, 0.26)',
+          color: canZoomOut ? 'rgba(0, 0, 0, 0.87)' : 'rgba(0, 0, 0, 0.26)',
         }}
       >
         <UilMinus size="20" />
