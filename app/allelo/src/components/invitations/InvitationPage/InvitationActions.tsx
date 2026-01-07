@@ -55,11 +55,11 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
       <Box ref={ref}>
         <Grid container spacing={4} >
           <Grid size={{ xs: 12, md: 12 }}>
-            <Paper sx={{ p: 3, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ p: {xs: 1, md: 2}, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" gutterBottom>
                 QR Code
               </Typography>
-              <Box id="qr-code-svg" sx={{ mb: 2 }} ref={containerRef} dangerouslySetInnerHTML={{ __html: htmlString }}>
+              <Box id="qr-code-svg" sx={{ mb: 2, p: 0 }} ref={containerRef} dangerouslySetInnerHTML={{ __html: htmlString }}>
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {isGroupInvite 
