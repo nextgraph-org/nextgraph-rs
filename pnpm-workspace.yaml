@@ -9,6 +9,7 @@ packages:
     - sdk/js/examples/expense-tracker
     - sdk/js/examples/multi-framework-signals
     - sdk/js/examples/react-ldo
+    - sdk/js/examples/test-react-sdk
     - app/ui-common
     - app/nextgraph
     - app/allelo

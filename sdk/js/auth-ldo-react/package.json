@@ -7,8 +7,7 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js"
+      "default": "./src/index.ts"
     },
     "./package.json": "./package.json"
   },
@@ -54,6 +53,13 @@
     "src"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/types/index.d.ts",
+        "import": "./dist/esm/index.js"
+      },
+      "./package.json": "./package.json"
+    }
   }
 }
