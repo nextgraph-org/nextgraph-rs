@@ -339,6 +339,14 @@ impl Verifier {
         }
 
         if new_validity == TrackedOrmObjectValidity::Invalid {
+            if previous_validity == TrackedOrmObjectValidity::Valid {
+                log_warn!(
+                    "TORMO became invalid: (shape, graph, subject): {}, {}, {}",
+                    shape.iri,
+                    tracked_orm_object.graph_iri,
+                    tracked_orm_object.subject_iri
+                );
+            }
             // For invalid subjects, we schedule cleanup.
             if tracked_orm_object.parents.len() == 0 {
                 tracked_orm_object.valid = TrackedOrmObjectValidity::Invalid;

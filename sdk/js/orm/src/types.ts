@@ -8,5 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/** The Scope of a shape request */
-export type Scope = string[];
+/** The Scope of a shape request.
+ * `subjects` maybe set to `undefined` or `[]` to indicate no filtering by subject.
+ * If `graphs` is `undefined`, the scope is all available graphs.
+ * **If `graphs` is `[]`, the scope is none and no objects are returned.
+ */
+export type Scope = { graphs?: string[]; subjects?: string[] };

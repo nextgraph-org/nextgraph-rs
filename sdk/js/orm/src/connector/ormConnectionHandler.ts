@@ -33,7 +33,7 @@ export class OrmConnection<T extends BaseType> {
      * Useful when a hook unsubscribes and resubscribes in a short time interval
      * so that no new connections need to be set up.
      */
-    private WAIT_BEFORE_RELEASE = 500;
+    private WAIT_BEFORE_CLOSE = 500;
 
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
@@ -47,7 +47,7 @@ export class OrmConnection<T extends BaseType> {
     /** Aggregation of patches to be sent when in transaction. */
     pendingPatches: Patch[] | undefined;
     readyPromise: Promise<void>;
-    cancel: () => void;
+    private closeOrmConnection: () => void;
     /** Promise that resolves once initial data has been applied. */
     resolveReady!: () => void;
 
@@ -60,20 +60,22 @@ export class OrmConnection<T extends BaseType> {
                   const entry = this.idToEntry.get(connectionId);
                   console.log("cleaning up connection", connectionId);
                   if (!entry) return;
-                  entry.release();
+                  entry.close();
               })
             : null;
 
     private constructor(shapeType: ShapeType<T>, scope: Scope) {
         // @ts-expect-error
         window.ormSignalConnections = OrmConnection.idToEntry;
+        // @ts-expect-error
+        window.OrmConnection = OrmConnection;
 
         this.shapeType = shapeType;
         this.scope = scope;
         this.refCount = 1;
-        this.cancel = () => {};
+        this.closeOrmConnection = () => {};
         this.suspendDeepWatcher = false;
-        this.identifier = `${shapeType.shape}::${canonicalScope(scope)}`;
+        this.identifier = `${shapeType.shape}|${canonicalScope(scope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
             propGenerator: this.signalObjectPropGenerator,
             // Don't set syntheticIdPropertyName - let propGenerator handle all ID logic
@@ -97,9 +99,9 @@ export class OrmConnection<T extends BaseType> {
 
         ngSession.then(async ({ ng, session }) => {
             try {
-                this.cancel = await ng.orm_start(
-                    scope,
-                    [],
+                this.closeOrmConnection = await ng.orm_start(
+                    scope.graphs ?? ["did:ng:i"],
+                    scope.subjects ?? [],
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
@@ -111,20 +113,20 @@ export class OrmConnection<T extends BaseType> {
     }
 
     /**
-     * Get a connection which contains the ORM and lifecycle methods.
+     * Get or create a connection which contains the ORM and lifecycle methods.
      * @param shapeType
      * @param scope
      * @param ng
      * @returns
      */
-    public static getConnection = <T extends BaseType>(
+    public static getOrCreate = <T extends BaseType>(
         shapeType: ShapeType<T>,
         scope: Scope
     ): OrmConnection<T> => {
         const scopeKey = canonicalScope(scope);
 
         // Unique identifier for a given shape type and scope.
-        const identifier = `${shapeType.shape}::${scopeKey}`;
+        const identifier = `${shapeType.shape}|${scopeKey}`;
 
         // If we already have an object for this shape+scope,
         // return it and just increase the reference count.
@@ -140,7 +142,7 @@ export class OrmConnection<T extends BaseType> {
         }
     };
 
-    public release = () => {
+    public close = () => {
         setTimeout(() => {
             if (this.refCount > 0) this.refCount--;
             if (this.refCount === 0) {
@@ -149,9 +151,9 @@ export class OrmConnection<T extends BaseType> {
                 OrmConnection.cleanupSignalRegistry?.unregister(
                     this.signalObject
                 );
-                this.cancel();
+                this.closeOrmConnection();
             }
-        }, this.WAIT_BEFORE_RELEASE);
+        }, this.WAIT_BEFORE_CLOSE);
     };
 
     private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent<T>) => {
@@ -166,7 +168,7 @@ export class OrmConnection<T extends BaseType> {
         if (this.inTransaction) {
             this.pendingPatches?.push(...ormPatches);
         } else {
-            ng.orm_update(this.subscriptionId!, ormPatches);
+            ng.orm_update(this.subscriptionId!, ormPatches, session.session_id);
         }
     };
 
@@ -272,9 +274,13 @@ export class OrmConnection<T extends BaseType> {
 
     public commitTransaction = async () => {
         this.inTransaction = false;
-        const { ng } = await ngSession;
+        const { ng, session } = await ngSession;
         await this.readyPromise;
-        ng.orm_update(this.subscriptionId!, this.pendingPatches!);
+        ng.orm_update(
+            this.subscriptionId!,
+            this.pendingPatches!,
+            session.session_id
+        );
 
         this.pendingPatches = undefined;
     };
@@ -312,9 +318,11 @@ const parseOrmInitialObject = (obj: any): any => {
     return obj;
 };
 
-function canonicalScope(scope: Scope | undefined): string {
-    if (scope == null) return "";
-    return Array.isArray(scope)
-        ? scope.slice().sort().join(",")
-        : String(scope);
+/**
+ * Creates a string out of the scope in the format
+ * `graphIri1,graphIri2|subjectIri1,subjectIri2`
+ */
+function canonicalScope(scope: Scope): string {
+    if (!scope) return "";
+    return `${(scope.graphs || []).slice().sort().join(",")}|${(scope.subjects || []).slice().sort().join(",")}`;
 }

@@ -57,7 +57,7 @@ impl Verifier {
             .await
         {
             Err(e) => {
-                log_info!(
+                log_err!(
                     "[orm_frontend_update] query failed: {:?}\nQuery: {}",
                     e,
                     sparql_update
@@ -215,10 +215,6 @@ fn create_sparql_update_query_for_patches(
                 // primitive leaf expected
                 // If more segments follow -> invalid path for primitives
                 if idx != segs.len() {
-                    log_debug!(
-                        "[resolve_path] extra segments after primitive '{}'",
-                        pred_name
-                    );
                     return None;
                 }
 

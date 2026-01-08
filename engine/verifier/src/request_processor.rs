@@ -901,11 +901,6 @@ impl Verifier {
         payload: Option<AppRequestPayload>,
         session_id: u64,
     ) -> Result<AppResponse, NgError> {
-        log_info!(
-            "[request_processor.process] called with command {:?} and payload {:?}",
-            command,
-            payload
-        );
         match command {
             AppRequestCommandV0::OrmUpdate => match payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((

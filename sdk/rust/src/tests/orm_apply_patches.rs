@@ -184,16 +184,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
     // Get initial state (person without name)
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Add name
     let root = root_path(&doc_nuri, "urn:test:person1");
@@ -204,7 +208,7 @@ INSERT DATA {
         value: Some(json!("Alice")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -302,16 +306,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
+    let mut subscription_id = None;
     // Get initial state (person without name)
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("No subscription_id found");
 
     // Apply ORM patch: Remove name
     let root = root_path(&doc_nuri, "urn:test:person2");
@@ -330,7 +338,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -430,16 +438,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
-    // Get initial state (person without name)
+    // Get initial state (person with name)
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Replace name (remove old, add new)
     let root = root_path(&doc_nuri, "urn:test:person3");
@@ -458,7 +470,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -559,16 +571,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
     // Get initial state (person without name)
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Add hobby
     let root = root_path(&doc_nuri, "urn:test:person4");
@@ -579,7 +595,7 @@ INSERT DATA {
         value: Some(json!("Swimming")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -663,16 +679,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
     // Get initial state
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Remove hobby
     let root = root_path(&doc_nuri, "urn:test:person5");
@@ -683,7 +703,7 @@ INSERT DATA {
         value: Some(json!("Swimming")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -836,16 +856,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
+    let mut subscription_id = None;
     // Get initial state
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Change city in nested address
     let root = root_path(&doc_nuri, "urn:test:person6");
@@ -856,7 +880,7 @@ INSERT DATA {
         value: Some(json!("Shelbyville")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1094,16 +1118,20 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
+    let mut subscription_id = None;
     // Get initial state
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
     let root = root_path(
@@ -1135,7 +1163,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1260,16 +1288,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
+    let mut subscription_id = None;
     // Get initial state
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Create a new object
     let root = root_path(&doc_nuri, "urn:test:person8");
@@ -1326,7 +1358,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1479,16 +1511,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
     // Get initial state
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Add a second address.
     let root = root_path(&doc_nuri, "urn:test:person9");
@@ -1526,7 +1562,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1680,16 +1716,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
     // Get initial state (no address yet)
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patches to create the single nested Address under person10
     let root = root_path(&doc_nuri, "urn:test:person10");
@@ -1722,7 +1762,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1880,16 +1920,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
-    // Drain initial
+    // Drain initial and capture subscription id
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply patches to replace the single-nested address with a new subject B
     let root = root_path(&doc_nuri, "urn:test:person12");
@@ -1921,7 +1965,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -2038,16 +2082,20 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .expect("orm_start failed");
 
     // Get initial state (person without name)
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     // Apply ORM patch: Change type to something invalid by schema.
     let root = root_path(&doc_nuri, "urn:test:person2");
@@ -2058,7 +2106,7 @@ INSERT DATA {
         value: Some(json!("InvalidType")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), patch, session_id)
+    orm_update(subscription_id, patch, session_id)
         .await
         .expect("orm_update failed");
 
@@ -2187,14 +2235,18 @@ INSERT DATA {
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .unwrap();
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if matches!(app_response, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     let root = root_path(&doc_nuri, "urn:test:personML");
     let child_seg = composite_key(&doc_nuri, "urn:test:a1");
@@ -2204,9 +2256,7 @@ INSERT DATA {
         valType: Some(OrmPatchType::object),
         value: None,
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
 
     let quads = doc_sparql_select(
         session_id,
@@ -2320,14 +2370,18 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
+    let (mut receiver, _cancel_fn) =
+        orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
+            .await
+            .unwrap();
+    let mut subscription_id = None;
     while let Some(app_response) = receiver.next().await {
-        if matches!(app_response, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = app_response {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
 
     let root = root_path(&doc_nuri, "urn:test:personT");
     let encoded_child_key = format!(
@@ -2369,7 +2423,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
             value: Some(json!("Lane")),
         },
     ];
-    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .unwrap();
 
@@ -2445,14 +2499,17 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+    let (mut rx, _cf) = orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
         .await
         .unwrap();
+    let mut subscription_id = None;
     while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = r {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
     let root = root_path(&doc_nuri, "urn:test:mv1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
@@ -2460,9 +2517,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
         valType: None,
         value: None,
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2534,14 +2589,17 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+    let (mut rx, _cf) = orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
         .await
         .unwrap();
+    let mut subscription_id = None;
     while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = r {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
     let root = root_path(&doc_nuri, "urn:test:idem1");
     let patch = OrmPatch {
         op: OrmPatchOp::add,
@@ -2549,14 +2607,9 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
         valType: Some(OrmPatchType::set),
         value: Some(json!("Reading")),
     };
-    orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
-        vec![patch.clone(), patch],
-        session_id,
-    )
-    .await
-    .unwrap();
+    orm_update(subscription_id, vec![patch.clone(), patch], session_id)
+        .await
+        .unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2635,14 +2688,17 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+    let (mut rx, _cf) = orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
         .await
         .unwrap();
+    let mut subscription_id = None;
     while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = r {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
     let root = root_path(&doc_nuri, "urn:test:noopr1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
@@ -2650,9 +2706,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
         valType: None,
         value: Some(json!("Swimming")),
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2743,14 +2797,17 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+    let (mut rx, _cf) = orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
         .await
         .unwrap();
+    let mut subscription_id = None;
     while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = r {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
     let root = root_path(&doc_nuri, "urn:test:mix1");
     let patches = vec![
         OrmPatch {
@@ -2772,7 +2829,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
             value: Some(json!("Reading")),
         },
     ];
-    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .unwrap();
     let quads = doc_sparql_select(
@@ -2858,19 +2915,21 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+    let (mut rx, _cf) = orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
         .await
         .unwrap();
+    let mut subscription_id = None;
     while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = r {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
     let root = root_path(&doc_nuri, "urn:test:rar1");
     // selective remove Reading
     orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
+        subscription_id,
         vec![OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/hobby", root),
@@ -2883,8 +2942,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
     .unwrap();
     // remove_all remaining
     orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
+        subscription_id,
         vec![OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/hobby", root),
@@ -2981,14 +3039,17 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
         schema,
     };
     let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+    let (mut rx, _cf) = orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
         .await
         .unwrap();
+    let mut subscription_id = None;
     while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = r {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
     let root = root_path(&doc_nuri, "urn:test:personDL");
     let child_seg = composite_key(&doc_nuri, "urn:test:addr1");
     let patch = OrmPatch {
@@ -2997,14 +3058,9 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
         valType: Some(OrmPatchType::object),
         value: None,
     };
-    orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
-        vec![patch.clone(), patch],
-        session_id,
-    )
-    .await
-    .unwrap();
+    orm_update(subscription_id, vec![patch.clone(), patch], session_id)
+        .await
+        .unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -3105,14 +3161,17 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         schema,
     };
     let nuri = NuriV0::new_entire_user_site();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+    let (mut rx, _cf) = orm_start(vec![nuri.clone()], vec![], shape_type.clone(), session_id)
         .await
         .unwrap();
+    let mut subscription_id = None;
     while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_initial, sid)) = r {
+            subscription_id = Some(sid);
             break;
         }
     }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
     let root = root_path(&parent_doc, "urn:test:personCR");
     let child_seg = composite_key(&child_doc, "urn:test:child1");
     let diff = vec![OrmPatch {
@@ -3121,9 +3180,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         valType: Some(OrmPatchType::object),
         value: None,
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),

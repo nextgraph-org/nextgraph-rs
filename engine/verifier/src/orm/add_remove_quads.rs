@@ -30,13 +30,6 @@ pub fn add_quads_for_subject(
     orm_subscription: &mut OrmSubscription,
     orm_object_changes: &mut TrackedOrmObjectChange,
 ) {
-    log_debug!(
-        "[add_quads_for_subject] Applying quads to subject: {}, shape: {}, graph: {}",
-        subject_iri,
-        shape.iri,
-        graph_iri,
-    );
-
     // Ensure the parent tracked orm object exists for this (graph, subject, shape)
     let parent_arc =
         orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, &shape);

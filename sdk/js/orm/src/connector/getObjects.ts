@@ -10,21 +10,25 @@
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { OrmConnection } from "./ormConnectionHandler.ts";
+import { Scope } from "../types.ts";
+import { deepClone } from "./utils.ts";
 
 /**
- * Utility for adding ORM-typed objects to the database without the need for subscribing to documents.
- * @param shapeType The shape type of the objects to be inserted.
- * @param object The object to be inserted.
+ * Utility for retrieving objects once without establishing a two-way subscription.
+ * @param shapeType The shape type of the objects to be retrieved.
+ * @param scope The scope of the objects to be retrieved.
+ * @returns A set of all objects matching the shape and scope
  */
-export async function insertObject<T extends BaseType>(
+export async function getObjects<T extends BaseType>(
     shapeType: ShapeType<T>,
-    object: T
+    scope: Scope
 ) {
-    const connection = OrmConnection.getOrCreate(shapeType, {
-        graphs: [], // Subscribe to no documents
-    });
+    const connection = OrmConnection.getOrCreate(shapeType, scope);
     await connection.readyPromise;
-    connection.signalObject.add(object);
 
-    connection.close();
+    setTimeout(() => {
+        connection.close();
+    }, 1_000);
+
+    return deepClone(connection.signalObject);
 }
