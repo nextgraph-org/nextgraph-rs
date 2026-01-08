@@ -12,6 +12,7 @@ use futures::SinkExt;
 use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
+use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -25,8 +26,6 @@ use crate::verifier::Verifier;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::OrmSchemaShape;
 use ng_repo::errors::NgError;
-use ng_repo::log::*;
-use std::u64;
 
 use futures::channel::mpsc;
 
@@ -37,9 +36,9 @@ impl Verifier {
     /// Triggers the creation of an orm object which is sent back to the receiver.
     pub(crate) async fn start_orm(
         &mut self,
-        nuri: &NuriV0,
-        shape_type: &OrmShapeType,
-        session_id: u64,
+        graph_scope: Vec<NuriV0>,
+        subject_scope: Vec<String>,
+        shape_type: OrmShapeType,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
 
@@ -48,28 +47,39 @@ impl Verifier {
         // All referenced shapes must be available.
         // All shapes must have predicate
 
+        self.orm_subscription_counter += 1;
         // Create new subscription and add to self.orm_subscriptions
         let orm_subscription = OrmSubscription::new(
-            shape_type.clone(),
-            session_id,
-            nuri_to_string(nuri),
+            shape_type,
+            self.orm_subscription_counter,
+            graph_scope
+                .iter()
+                .map(|nuri| nuri_to_string(nuri))
+                .collect(),
+            subject_scope,
             tx.clone(),
         );
 
-        let orm_objects = self.create_orm_object_for_shape(orm_subscription)?;
+        let orm_objects =
+            match self.create_orm_object_for_shape_and_insert_subscription(orm_subscription) {
+                Err(error) => {
+                    log_err!(
+                        "Error occurred while creating orm subscription: {:?}",
+                        error
+                    );
+                    return Err(error);
+                }
+                Ok(res) => res,
+            };
 
         let _ = tx
-            .send(AppResponse::V0(AppResponseV0::OrmInitial(orm_objects)))
+            .send(AppResponse::V0(AppResponseV0::OrmInitial(
+                orm_objects,
+                self.orm_subscription_counter,
+            )))
             .await;
 
-        let nuri_string = nuri_to_string(nuri);
-        let shape_string = shape_type.shape.clone();
         let close = Box::new(move || {
-            log_info!(
-                "closing ORM subscription for {session_id} {} {}",
-                nuri_string,
-                shape_string
-            );
             if !tx.is_closed() {
                 tx.close_channel();
             }
@@ -78,17 +88,21 @@ impl Verifier {
     }
 
     /// For a nuri, session, and shape, create an ORM JSON object.
-    fn create_orm_object_for_shape(
+    fn create_orm_object_for_shape_and_insert_subscription(
         &mut self,
         mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
-        let shape_quads = self.query_quads_for_shape(
-            Some(orm_subscription.nuri.clone()),
-            &orm_subscription.shape_type.schema,
-            &orm_subscription.shape_type.shape,
-            None,
-        )?;
+        let shape_quads = if orm_subscription.graph_scope.is_empty() {
+            vec![]
+        } else {
+            self.query_quads_for_shape(
+                &orm_subscription.graph_scope,
+                &orm_subscription.shape_type.schema,
+                &orm_subscription.shape_type.shape,
+                Some(&orm_subscription.subject_scope),
+            )?
+        };
 
         let mut changes: OrmChanges = HashMap::new();
 
@@ -129,9 +143,7 @@ impl Verifier {
         }
 
         self.orm_subscriptions
-            .entry(orm_subscription.nuri.clone())
-            .or_insert(vec![])
-            .push(orm_subscription);
+            .insert(orm_subscription.subscription_id, orm_subscription);
         Ok(return_val)
     }
 }

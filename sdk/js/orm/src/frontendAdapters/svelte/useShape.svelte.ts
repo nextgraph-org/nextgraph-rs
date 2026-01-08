@@ -8,7 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
 import type { Scope } from "../../types.ts";
 import { onDestroy } from "svelte";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
@@ -16,6 +15,7 @@ import {
     useDeepSignal,
     type UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte";
+import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
 
 export type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte";
 
@@ -30,14 +30,14 @@ export interface UseShapeRuneResult<T extends object>
  */
 export function useShapeRune<T extends BaseType>(
     shape: ShapeType<T>,
-    scope?: Scope
+    scope: Scope = {}
 ): UseShapeRuneResult<Set<T>> {
-    const { signalObject: rootSignal, stop } = createSignalObjectForShape(
+    const { signalObject: rootSignal, close } = OrmConnection.getOrCreate(
         shape,
         scope
     );
 
-    onDestroy(stop);
+    onDestroy(close);
 
     const ds = useDeepSignal<Set<T>>(rootSignal as Set<T>);
     return { root: rootSignal, ...ds } as UseShapeRuneResult<Set<T>>;

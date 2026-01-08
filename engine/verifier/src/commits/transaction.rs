@@ -424,7 +424,7 @@ impl Verifier {
         inserts: Vec<Quad>,
         removes: Vec<Quad>,
         peer_id: Vec<u8>,
-        session_id: u64,
+        subscription_id: u64,
     ) -> Result<(Vec<String>, Vec<Quad>, Vec<Quad>, Vec<Quad>), VerifierError> {
         // options when not a publisher on the repo:
         // - skip
@@ -545,7 +545,7 @@ impl Verifier {
             };
             updates.push(info);
         }
-        match self.update_graph(updates, session_id).await {
+        match self.update_graph(updates, subscription_id).await {
             Ok(commits) => Ok((
                 commits,
                 revert_inserts,
@@ -607,7 +607,7 @@ impl Verifier {
     async fn update_graph(
         &mut self,
         mut updates: Vec<BranchUpdateInfo>,
-        session_id: u64,
+        subscription_id: u64,
     ) -> Result<Vec<String>, VerifierError> {
         let updates_ref = &mut updates;
         let res = self
@@ -852,7 +852,7 @@ impl Verifier {
                         let graph_nuri =
                             NuriV0::repo_graph_name(&update.repo_id, &update.overlay_id);
                         self.orm_backend_update(
-                            session_id,
+                            subscription_id,
                             update.repo_id.clone(),
                             update.overlay_id,
                             update.transaction.as_quads_patch(graph_nuri),
@@ -872,7 +872,7 @@ impl Verifier {
         query: &String,
         base: &Option<String>,
         peer_id: Vec<u8>,
-        session_id: u64,
+        subscription_id: u64,
     ) -> Result<(Vec<String>, Vec<Quad>, Vec<Quad>, Vec<Quad>), String> {
         let store = self.graph_dataset.as_ref().unwrap();
 
@@ -894,7 +894,7 @@ impl Verifier {
                         Vec::from_iter(inserts),
                         Vec::from_iter(removes),
                         peer_id,
-                        session_id,
+                        subscription_id,
                     )
                     .await
                     .map_err(|e| e.to_string())

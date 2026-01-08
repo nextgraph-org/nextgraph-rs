@@ -564,16 +564,28 @@ async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> 
 
 #[tauri::command(rename_all = "snake_case")]
 async fn new_orm_start(
-    scope: String,
+    graph_scope: Vec<String>,
+    subject_scope: Vec<String>,
     shape_type: ng_net::orm::OrmShapeType,
     session_id: u64,
 ) -> Result<AppRequest, String> {
-    let scope = if scope.is_empty() {
-        NuriV0::new_entire_user_site()
+    let graph_nuris: Vec<NuriV0> = if graph_scope.is_empty() {
+        vec![NuriV0::new_entire_user_site()]
     } else {
-        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
+        let mut graph_nuris = vec![];
+        for gs in graph_scope {
+            if gs.is_empty() {
+                graph_nuris = vec![NuriV0::new_entire_user_site()];
+                break;
+            }
+            graph_nuris.push(
+                NuriV0::new_from(&gs).map_err(|_| "Deserialization error of scope".to_string())?,
+            );
+        }
+        graph_nuris
     };
-    let mut req = AppRequest::new_orm_start(scope, shape_type);
+
+    let mut req = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
     req.set_session_id(session_id);
     Ok(req)
 }

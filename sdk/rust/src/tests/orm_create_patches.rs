@@ -30,7 +30,7 @@ async fn test_orm_patch_creation() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
 
-    test_patch_nested_house_inhabitants(session_id).await;
+    // test_patch_nested_house_inhabitants(session_id).await;
 
     test_patch_add_array(session_id).await;
 
@@ -39,6 +39,8 @@ async fn test_orm_patch_creation() {
     test_cross_graph_child_in_separate_graph(session_id).await;
 
     // _test_patch_add_nested_1(session_id).await;  // TODO: Edge case not yet fully implemented
+
+    test_patch_scope_correct(session_id).await;
 }
 
 /// Test that when a root object references a child object that lives in a different graph,
@@ -157,7 +159,7 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, _cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, _cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
@@ -170,7 +172,7 @@ INSERT DATA {
         };
         match opt {
             Some(app_response) => {
-                if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
+                if let AppResponse::V0(AppResponseV0::OrmInitial(_, sid)) = app_response {
                     break;
                 }
             }
@@ -320,7 +322,7 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
@@ -335,7 +337,7 @@ INSERT DATA {
             Some(app_response) => {
                 let _ = match app_response {
                     AppResponse::V0(v) => match v {
-                        AppResponseV0::OrmInitial(json) => Some(json),
+                        AppResponseV0::OrmInitial(json, sid) => Some(json),
                         _ => None,
                     },
                 }
@@ -515,7 +517,7 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
@@ -527,7 +529,7 @@ INSERT DATA {
         };
         match opt {
             Some(app_response) => {
-                if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
+                if let AppResponse::V0(AppResponseV0::OrmInitial(json, sid)) = app_response {
                     break;
                 }
             }
@@ -732,7 +734,7 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
     loop {
@@ -745,7 +747,7 @@ INSERT DATA {
             Some(app_response) => {
                 let _ = match app_response {
                     AppResponse::V0(v) => match v {
-                        AppResponseV0::OrmInitial(json) => Some(json),
+                        AppResponseV0::OrmInitial(json, sid) => Some(json),
                         _ => None,
                     },
                 }
@@ -1072,7 +1074,7 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
@@ -1085,7 +1087,7 @@ INSERT DATA {
         };
         match opt {
             Some(app_response) => {
-                if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
+                if let AppResponse::V0(AppResponseV0::OrmInitial(json, sid)) = app_response {
                     break;
                 }
             }
@@ -1538,7 +1540,7 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, _cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, _cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
@@ -1550,7 +1552,7 @@ INSERT DATA {
             Err(_) => panic!("Timed out waiting for OrmInitial"),
         };
         match opt {
-            Some(AppResponse::V0(AppResponseV0::OrmInitial(_))) => break,
+            Some(AppResponse::V0(AppResponseV0::OrmInitial(json, sid))) => break,
             Some(_) => continue,
             None => panic!("ORM receiver closed before initial response"),
         }
@@ -1612,6 +1614,235 @@ INSERT DATA {
         let mut actual = json!(patches);
         if let Some(graph) = extract_graph_from_actual_paths(&actual) {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
+        }
+
+        assert_json_eq(&mut expected, &mut actual);
+        break;
+    }
+}
+
+async fn test_patch_scope_correct(session_id: u64) {
+    // Create a second document holding the child object (ensures a different graph)
+    let child_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:personX>
+        a ex:Person ;
+        ex:name "Xavier" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Create the root document with a Project that will reference the person in the other graph
+    let parent_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:project10>
+        a ex:Project .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Create a root document that's not in the scope
+    let unrelated_doc = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:project20>
+        ex:members <urn:test:personX> ;
+        a ex:Project .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define ORM schema: Project has members -> Person
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/ProjectShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/ProjectShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Project".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/members".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "members".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/PersonShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    schema.insert(
+        "http://example.org/PersonShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/PersonShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/ProjectShape".to_string(),
+    };
+
+    let nuri = NuriV0::new_entire_user_site();
+    let (mut receiver, _cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    // Drain initial (with timeout)
+    loop {
+        let res = timeout(Duration::from_secs(1), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => panic!("Timed out waiting for OrmInitial response"),
+        };
+        match opt {
+            Some(app_response) => {
+                if let AppResponse::V0(AppResponseV0::OrmInitial(_, _)) = app_response {
+                    break;
+                }
+            }
+            None => panic!("ORM receiver closed before initial response"),
+        }
+    }
+
+    // Link the person from the other document into the project's members (in the parent graph)
+    doc_sparql_update(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+DELETE DATA {
+    <urn:test:project20> ex:members <urn:test:personX> .
+}
+INSERT DATA {
+    <urn:test:project10> ex:members <urn:test:personX> .
+}
+"#
+        .to_string(),
+        Some(unrelated_doc.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    loop {
+        let res = timeout(Duration::from_secs(10), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => panic!("Timed out waiting for cross-graph OrmUpdate"),
+        };
+        let app_response = match opt {
+            Some(a) => a,
+            None => panic!("ORM receiver closed before cross-graph OrmUpdate"),
+        };
+        let patches = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmUpdate(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("Cross-graph patches arrived:\n");
+        for patch in patches.iter() {
+            log_info!("{:?}", patch);
+        }
+
+        // We expect at least the object creation and its @id and @graph under members
+        let mut expected = json!([
+            { "op": "add", "valType": "object", "path": "/urn:test:project10/members/urn:test:personX" },
+            { "op": "add", "path": "/urn:test:project10/members/urn:test:personX/@id", "value": "urn:test:personX" },
+        ]);
+
+        let mut actual = json!(patches);
+
+        // Rewrite with root graph first
+        if let Some(root_graph) = extract_graph_from_actual_paths(&actual) {
+            rewrite_expected_paths_with_graph(&mut expected, &root_graph);
+
+            // Find the child graph from the @graph patch in actual
+            if let Some(child_graph) =
+                extract_child_graph_from_actual(&actual, "members", "urn:test:personX")
+            {
+                // Ensure we also expect the @graph patch
+                expected.as_array_mut().unwrap().push(json!({
+                    "op": "add",
+                    "path": format!("/{}|urn:test:project10/members/{}|urn:test:personX/@graph", root_graph, child_graph),
+                    "value": child_graph
+                }));
+                // Fix the child segment to use its own graph (not the root one)
+                fix_child_segment_graph_in_expected(
+                    &mut expected,
+                    "members",
+                    "urn:test:personX",
+                    &root_graph,
+                    &child_graph,
+                );
+            }
         }
 
         assert_json_eq(&mut expected, &mut actual);

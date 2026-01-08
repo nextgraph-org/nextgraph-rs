@@ -20,7 +20,8 @@ import Expenses from "./Expenses.vue";
             <header class="expense-hero">
                 <h1>Vue Expense Tracker</h1>
                 <p>
-                    Organize categories, log purchases. Encrypted and local-first.
+                    Organize categories, log purchases. Encrypted and
+                    local-first.
                 </p>
             </header>
             <div class="section-stack">

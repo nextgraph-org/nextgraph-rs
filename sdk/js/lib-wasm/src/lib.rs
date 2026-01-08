@@ -15,6 +15,7 @@
 mod model;
 
 use async_std::prelude::Future;
+use ng_repo::log_info;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -23,7 +24,6 @@ use std::sync::Arc;
 use nextgraph::net::app_protocol::AppRequest;
 use nextgraph::net::app_protocol::NuriV0;
 use ng_net::orm::OrmPatch;
-use ng_repo::log_info;
 use ng_wallet::types::SensitiveWallet;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -1885,11 +1885,18 @@ pub async fn doc_subscribe(
 
 #[wasm_bindgen]
 pub async fn orm_start(
-    scope: String,
+    graph_scope: Array,
+    subject_scope: Array,
     shapeType: JsValue,
     session_id: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
+    let graph_scope: Vec<String> = graph_scope.iter().map(|s| s.as_string().unwrap()).collect();
+    let subject_scope: Vec<String> = subject_scope
+        .iter()
+        .map(|s| s.as_string().unwrap())
+        .collect();
+
     let shape_type: OrmShapeType = serde_wasm_bindgen::from_value::<OrmShapeType>(shapeType)
         .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
     let session_id: u64 =
@@ -1900,43 +1907,53 @@ pub async fn orm_start(
             )
         })?;
 
-    let scope = if scope.is_empty() || scope == "did:ng:i" {
-        NuriV0::new_entire_user_site()
+    let graph_nuris: Vec<NuriV0> = if graph_scope.is_empty() {
+        vec![NuriV0::new_entire_user_site()]
     } else {
-        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
+        let mut graph_nuris = vec![];
+        for gs in graph_scope {
+            if gs.is_empty() || gs == "did:ng:i" {
+                graph_nuris = vec![NuriV0::new_entire_user_site()];
+                break;
+            }
+            graph_nuris.push(
+                NuriV0::new_from(&gs).map_err(|_| "Deserialization error of scope".to_string())?,
+            );
+        }
+        graph_nuris
     };
-    //log_info!("[orm_start] parameters parsed, calling new_orm_start");
-    let mut request = AppRequest::new_orm_start(scope, shape_type);
+
+    let mut request = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }
 
 #[wasm_bindgen]
 pub async fn orm_update(
-    scope: String,
-    shapeTypeName: String,
+    subscription_id: JsValue,
     diff: JsValue,
     session_id: JsValue,
 ) -> Result<(), String> {
-    let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
-        .map_err(|e| format!("Deserialization error of diff {e}"))?;
-
-    let scope = if scope.is_empty() || scope == "did:ng:i" {
-        NuriV0::new_entire_user_site()
-    } else {
-        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
-    };
-    let mut request = AppRequest::new_orm_update(scope, shapeTypeName, diff);
+    let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
+        .map_err(|_| {
+            format!(
+                "Deserialization error of subscription_id {:?} orm_start",
+                subscription_id
+            )
+        })?;
     let session_id: u64 =
         serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
             format!(
-                "Deserialization error of session_id {:?} orm_update",
+                "Deserialization error of session_id {:?} orm_start",
                 session_id
             )
         })?;
 
+    let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
+        .map_err(|e| format!("Deserialization error of diff {e}"))?;
+
+    let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
-    //log_info!("[orm_update] calling orm_update");
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;

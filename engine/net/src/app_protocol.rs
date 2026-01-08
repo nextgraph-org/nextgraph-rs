@@ -820,23 +820,29 @@ impl AppRequest {
         })
     }
 
-    pub fn new_orm_start(scope: NuriV0, shape_type: OrmShapeType) -> Self {
+    pub fn new_orm_start(
+        graph_scope: Vec<NuriV0>,
+        subject_scope: Vec<String>,
+        shape_type: OrmShapeType,
+    ) -> Self {
         AppRequest::new(
             AppRequestCommandV0::OrmStart,
-            scope,
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(
+            NuriV0::new_empty(),
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
                 shape_type,
-            ))),
+                graph_scope,
+                subject_scope,
+            )))),
         )
     }
 
-    pub fn new_orm_update(scope: NuriV0, shape_type_name: String, diff: OrmPatches) -> Self {
+    pub fn new_orm_update(subscription_id: u64, diff: OrmPatches) -> Self {
         AppRequest::new(
             AppRequestCommandV0::OrmUpdate,
-            scope,
+            NuriV0::new_empty(),
             Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
                 diff,
-                shape_type_name,
+                subscription_id,
             )))),
         )
     }
@@ -1070,9 +1076,8 @@ pub enum AppRequestPayloadV0 {
     //Invoke(InvokeArguments),
     QrCodeProfile(u32),
     QrCodeProfileImport(String),
-    OrmStart(OrmShapeType),
-    OrmUpdate((OrmPatches, String)), // ShapeID
-    OrmStop(String),                 //ShapeID
+    OrmStart((OrmShapeType, Vec<NuriV0>, Vec<String>)),
+    OrmUpdate((OrmPatches, u64)), // subscription id
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1322,7 +1327,7 @@ pub enum AppResponseV0 {
     Nuri(String),
     Header(AppHeader),
     Commits(Vec<String>),
-    OrmInitial(Value),
+    OrmInitial(Value, u64), // Initial JSON object and subscription id for communication
     OrmUpdate(OrmPatches),
     OrmError(String),
 }

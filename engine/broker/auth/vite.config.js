@@ -24,7 +24,11 @@ export default defineConfig({
   envPrefix: ["VITE_", "NG_"],
   server: {
     port: 14401,
-    cors: true
+    cors: true,
+    strictPort: true,
+            hmr : {
+                clientPort: 14401,
+            },
   },
   worker: {
       format: 'es',

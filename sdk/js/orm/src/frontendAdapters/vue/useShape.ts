@@ -8,24 +8,24 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
 import type { Scope } from "../../types.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { onBeforeUnmount } from "vue";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
+import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
 
 export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
-    scope?: Scope
+    scope: Scope = {}
 ) {
-    const handle = createSignalObjectForShape(shape, scope);
+    const connection = OrmConnection.getOrCreate(shape, scope);
 
     // Cleanup
     onBeforeUnmount(() => {
-        handle.stop();
+        connection.close();
     });
 
-    const ref = useDeepSignal(handle.signalObject);
+    const ref = useDeepSignal(connection.signalObject);
 
     return ref;
 }

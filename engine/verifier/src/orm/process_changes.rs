@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
-use std::u64;
 
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
@@ -708,10 +707,10 @@ impl Verifier {
                             if objects_to_fetch.len() > 0 {
                                 // Create sparql query
                                 let new_quads = self.query_quads_for_shape(
-                                    Some(orm_subscription.nuri.clone()),
+                                    &orm_subscription.graph_scope,
                                     schema,
                                     &shape_iri,
-                                    Some(objects_to_fetch),
+                                    Some(&objects_to_fetch),
                                 )?;
 
                                 // Recursively process nested objects.
@@ -787,101 +786,16 @@ impl Verifier {
             }
         }
 
+        orm_subscription.cleanup_tracked_orm_objects();
+
         Ok(())
-    }
-
-    /// TODO: Delete this fn.
-    /// Helper to call process_changes_for_shape for all subscriptions on nuri's document.
-    pub(crate) fn _process_changes_for_nuri_and_session(
-        self: &mut Self,
-        nuri: &String,
-        session_id: u64,
-        quads_added: &[Quad],
-        quads_removed: &[Quad],
-        data_already_fetched: bool,
-    ) -> Result<OrmChanges, NgError> {
-        let mut orm_changes = HashMap::new();
-
-        // TODO: This could be hacky if two threads want to read the subscriptions in parallel
-        // Temporarily take the subscriptions out to avoid borrow conflicts
-        let mut subscriptions = self.orm_subscriptions.remove(nuri).unwrap();
-
-        for orm_subscription in subscriptions.iter_mut() {
-            if orm_subscription.session_id != session_id {
-                continue;
-            }
-
-            // Now self can be mutably borrowed in process_changes_for_subscription
-            self.process_changes_for_subscription(
-                orm_subscription,
-                quads_added,
-                quads_removed,
-                &mut orm_changes,
-                data_already_fetched,
-            )?;
-        }
-
-        // Put the subscriptions back
-        self.orm_subscriptions.insert(nuri.clone(), subscriptions);
-
-        Ok(orm_changes)
-    }
-
-    pub fn get_first_orm_subscription_for(
-        &self,
-        nuri: &String,
-        shape: Option<&ShapeIri>,
-        session_id: Option<&u64>,
-    ) -> &OrmSubscription {
-        self.orm_subscriptions.get(nuri).unwrap().
-        // Filter shapes, if present.
-        iter().filter(|s| match shape {
-            Some(sh) => *sh == s.shape_type.shape,
-            None => true
-        // Filter session ids if present.
-        }).filter(|s| match session_id {
-            Some(id) => *id == s.session_id,
-            None => true
-        }).next().unwrap()
-    }
-
-    pub fn get_first_orm_subscription_sender_for(
-        &mut self,
-        nuri: &String,
-        shape: Option<&ShapeIri>,
-        session_id: Option<&u64>,
-    ) -> Result<(UnboundedSender<AppResponse>, &OrmSubscription), VerifierError> {
-        let mut subs = self.orm_subscriptions.remove(nuri).unwrap();
-        subs.retain(|sub| !sub.sender.is_closed());
-        if subs.is_empty() {
-            return Err(VerifierError::OrmSubscriptionNotFound);
-        }
-        let subs = self
-            .orm_subscriptions
-            .entry(nuri.clone())
-            .or_insert_with(|| subs);
-        match subs // Filter shapes, if present.
-            .iter()
-            .filter(|s| match shape {
-                Some(sh) => *sh == s.shape_type.shape,
-                None => true, // Filter session ids if present.
-            })
-            .filter(|s| match session_id {
-                Some(id) => *id == s.session_id,
-                None => true,
-            })
-            .next()
-        {
-            None => Err(VerifierError::OrmSubscriptionNotFound),
-            Some(subscription) => Ok((subscription.sender.clone(), subscription)),
-        }
     }
 
     /// Groups modified (graph, subject) pairs by their associated shapes for validation.
     /// Used to initialize the validation stack in `process_changes_for_shape_and_session`.
     /// Returns a vector of (shape, [(graph, subject)]) pairs to process.
     fn init_validation_stack(
-        orm_subscription: &mut OrmSubscription,
+        orm_subscription: &OrmSubscription,
         modified_gs: &HashSet<(String, String)>,
     ) -> Vec<(
         Arc<OrmSchemaShape>, // The shape to validate against
@@ -961,5 +875,4 @@ impl Verifier {
 
         init
     }
-    // cleanup_tracked_orm_objects removed: use OrmSubscription::cleanup_tracked_orm_objects instead
 }

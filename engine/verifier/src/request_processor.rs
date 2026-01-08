@@ -44,16 +44,18 @@ use crate::verifier::*;
 impl Verifier {
     pub(crate) async fn process_stream(
         &mut self,
-        command: &AppRequestCommandV0,
-        nuri: &NuriV0,
-        _payload: &Option<AppRequestPayload>,
+        command: AppRequestCommandV0,
+        nuri: NuriV0,
+        payload: Option<AppRequestPayload>,
         session_id: u64,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match command {
-            AppRequestCommandV0::OrmStart => match _payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(shape_type))) => {
-                    self.start_orm(nuri, &shape_type, session_id).await
-                }
+            AppRequestCommandV0::OrmStart => match payload {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
+                    shape_type,
+                    graph_scope,
+                    subject_scope,
+                )))) => self.start_orm(graph_scope, subject_scope, shape_type).await,
                 _ => return Err(NgError::InvalidArgument),
             },
             AppRequestCommandV0::Fetch(fetch) => match fetch {
@@ -126,7 +128,7 @@ impl Verifier {
                     //log_debug!("FileGet cancelled");
                     tx.close_channel();
                 });
-                Ok((rx, fnonce))
+                Ok((rx, fnonce as CancelFn))
             }
             _ => unimplemented!(),
         }
@@ -901,16 +903,19 @@ impl Verifier {
     ) -> Result<AppResponse, NgError> {
         match command {
             AppRequestCommandV0::OrmUpdate => match payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((diff, shape_id)))) => {
-                    return match self
-                        .orm_frontend_update(session_id, &nuri, shape_id, diff)
-                        .await
-                    {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
+                    patches,
+                    subscription_id,
+                )))) => {
+                    return match self.orm_frontend_update(subscription_id, patches).await {
                         Err(e) => Ok(AppResponse::error(e)),
                         Ok(()) => Ok(AppResponse::ok()),
                     }
                 }
-                _ => return Err(NgError::InvalidArgument),
+                _ => {
+                    log_err!("orm update has wrong payload: {:?}", payload);
+                    return Err(NgError::InvalidArgument);
+                }
             },
             AppRequestCommandV0::SocialQueryStart => {
                 let (from_profile, contacts_string, degree) =
@@ -1223,7 +1228,7 @@ impl Verifier {
                                     &sparql,
                                     &base,
                                     self.get_peer_id_for_skolem(),
-                                    session_id,
+                                    0,
                                 )
                                 .await
                             {

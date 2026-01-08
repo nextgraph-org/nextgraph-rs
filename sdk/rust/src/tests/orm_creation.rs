@@ -716,14 +716,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -938,8 +938,8 @@ fn test_basic_schema_shape_to_sparql_generation() {
 
     let q = schema_shape_to_sparql(
         &shape,
-        Some(vec!["urn:s1".to_string()]),
-        Some(vec!["urn:g1".to_string()]),
+        &Some(vec!["urn:s1".to_string()]),
+        Some(&vec!["urn:g1".to_string()]),
     );
 
     // Basic projections and GRAPH usage
@@ -1045,14 +1045,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -1179,14 +1179,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -1328,14 +1328,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -1457,14 +1457,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -1574,14 +1574,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -1692,14 +1692,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -1926,14 +1926,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -2064,14 +2064,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -2276,14 +2276,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -2431,14 +2431,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }
@@ -2594,14 +2594,14 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_root).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start(vec![nuri], vec![], shape_type, session_id)
         .await
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmInitial(json, sid) => Some(json),
                 _ => None,
             },
         }

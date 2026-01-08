@@ -8,28 +8,23 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { Diff, Scope } from "../types.ts";
-import type { ShapeType, BaseType } from "@ng-org/shex-orm";
+import { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { OrmConnection } from "./ormConnectionHandler.ts";
 
 /**
- *
- * @param shapeType
- * @param scope
- * @returns
+ * Utility for adding ORM-typed objects to the database without the need for subscribing to documents.
+ * @param shapeType The shape type of the objects to be inserted.
+ * @param object The object to be inserted.
  */
-export function createSignalObjectForShape<T extends BaseType>(
+export async function insertObject<T extends BaseType>(
     shapeType: ShapeType<T>,
-    scope?: Scope
+    object: T
 ) {
-    const connection: OrmConnection<T> = OrmConnection.getConnection(
-        shapeType,
-        scope || ""
-    );
+    const connection = OrmConnection.getOrCreate(shapeType, {
+        graphs: [], // Subscribe to no documents
+    });
+    await connection.readyPromise;
+    connection.signalObject.add(object);
 
-    return {
-        signalObject: connection.signalObject,
-        stop: connection.release,
-        readyPromise: connection.readyPromise,
-    };
+    connection.close();
 }

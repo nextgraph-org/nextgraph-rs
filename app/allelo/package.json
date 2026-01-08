@@ -16,7 +16,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "webdev": "cross-env NG_ENV_WEB=1 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
-    "webdev3": "cross-env NG_ENV_WEB=3 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
+    "webdev3": "cross-env NG_ENV_WEB=3 NG_DEV3=1 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
     "webbuild": "cross-env NG_ENV_WEB=1 NG_ENV_ONEFILE=1 vite build && node prepare-web-file.cjs",
     "webbuild3": "cross-env NG_ENV_WEB=3 NG_ENV_ONEFILE=1 vite build && node prepare-web-file.cjs",
     "libwasm": "cd ../.. && cargo install cargo-run-script && cargo run-script libwasm"

@@ -12,8 +12,9 @@ import type { BaseType } from "@ng-org/shex-orm";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
 import { useEffect, useMemo } from "react";
-import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
 import type { Scope } from "../../types.ts";
+import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
+import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 /**
  *
@@ -24,27 +25,29 @@ import type { Scope } from "../../types.ts";
  */
 const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
-    scope: Scope | undefined = ""
+    scope: Scope | string[] = {}
 ) => {
-    const signalHandler = useMemo(
+    const parsedScope = Array.isArray(scope) ? { subjects: scope } : scope;
+
+    const ormConnection = useMemo(
         () =>
             scope === undefined
                 ? undefined
-                : createSignalObjectForShape(shape, scope),
-        [shape, scope]
+                : OrmConnection.getOrCreate(shape, parsedScope),
+        [shape, scope, parsedScope.graphs, parsedScope.subjects]
     );
 
     useEffect(() => {
-        if (!signalHandler) return;
+        if (!ormConnection) return;
 
         return () => {
-            signalHandler.stop();
+            ormConnection.close();
         };
-    }, [signalHandler]);
+    }, [ormConnection]);
 
-    const state = useDeepSignal(signalHandler?.signalObject ?? readOnlySet);
+    const state = useDeepSignal(ormConnection?.signalObject ?? readOnlySet);
 
-    return state;
+    return state as DeepSignalSet<T>;
 };
 
 const readOnlySet = new Proxy(new Set(), {

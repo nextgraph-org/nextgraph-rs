@@ -196,7 +196,7 @@ const tauri_handler = {
                 let request; let callback;
                 if (path[0] === "app_request_stream") { request = args[0]; callback = args[1]; }
                 else if (path[0] === "doc_subscribe") { request = await invoke("doc_fetch_repo_subscribe", {repo_o:args[0]}); request.V0.session_id = args[1]; callback = args[2]; }
-                else if (path[0] === "orm_start") { request = await invoke("new_orm_start", {scope:args[0], shape_type:args[1], session_id:args[2] }); callback = args[3]; }
+                else if (path[0] === "orm_start") { request = await invoke("new_orm_start", {graph_scope:args[0], subject_scope: args[1], shape_type:args[2], session_id:args[3] }); callback = args[4]; }
                 else if (path[0] === "file_get") { request = await invoke("new_file_get", {nuri:args[1], branch_nuri:args[2], session_id:args[0] }); callback = args[3]; }
 
                 let unlisten = await getCurrentWindow().listen(stream_id, async (event) => {

@@ -10,7 +10,6 @@
 
 use std::collections::HashMap;
 use std::sync::RwLock;
-use std::u64;
 
 use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
@@ -28,6 +27,7 @@ use ng_repo::types::OverlayId;
 use ng_repo::types::RepoId;
 use serde_json::json;
 use serde_json::Value;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::sync::Arc;
 // use std::sync::RwLock;
@@ -48,7 +48,7 @@ impl Verifier {
     /// TODO: How to prevent duplicate application of change data?
     pub(crate) async fn orm_backend_update(
         &mut self,
-        session_id: u64,
+        subscription_id: u64,
         repo_id: RepoId,
         overlay_id: OverlayId,
         patch: GraphQuadsPatch,
@@ -75,7 +75,7 @@ impl Verifier {
         // TODO: Omit sending patches back to the subscription where they came from.
 
         // Apply changes to all affected scopes and send patches to clients
-        self.apply_changes_to_all_scopes(repo_id, overlay_id, &inserts, &removes, session_id)
+        self.apply_changes_to_all_scopes(repo_id, overlay_id, &inserts, &removes, subscription_id)
             .await;
     }
 
@@ -88,65 +88,82 @@ impl Verifier {
         overlay_id: OverlayId,
         inserts: &[Quad],
         removes: &[Quad],
-        origin_session_id: u64,
+        origin_subscription_id: u64,
     ) {
         let overlaylink: OverlayLink = overlay_id.into();
 
-        // Collect scope strings to process (to avoid borrow conflicts)
-        let scope_strs: Vec<String> = self.orm_subscriptions.keys().cloned().collect();
+        // First: Clean up and remove old subscriptions
+        self.orm_subscriptions
+            .retain(|_k, sub| !sub.sender.is_closed());
 
-        for scope_str in scope_strs {
-            // TODO: This could be hacky if two threads want to read the subscriptions in parallel
-            // Temporarily take the subscriptions out to avoid borrow conflicts
-            let mut subs = self.orm_subscriptions.remove(&scope_str).unwrap();
+        // Collect keys first to avoid holding a borrow on the map while mutating it
+        let subscription_ids: Vec<_> = self.orm_subscriptions.keys().cloned().collect();
 
-            // First: Clean up and remove old subscriptions
-            subs.retain(|sub| !sub.sender.is_closed());
+        for subscription_id in subscription_ids {
+            // Temporarily take ownership of the subscription at this index to allow re-borrowing self
+            let mut subscription = self.orm_subscriptions.remove(&subscription_id).unwrap();
 
-            // Process changes for each subscription.
-            for orm_subscription in subs.iter_mut() {
-                // Check if this scope is affected by this backend update
-                if !Self::is_scope_affected(&scope_str, repo_id, &overlaylink) {
-                    continue;
-                }
-
-                // Process changes for this shape
-                let mut orm_changes: OrmChanges = HashMap::new();
-                let _ = self.process_changes_for_subscription(
-                    orm_subscription,
-                    inserts,
-                    removes,
-                    &mut orm_changes,
-                    false,
-                );
-                // log_info!("[apply_changes_to_all_scopes] got the following changes from process_changes_for_subscription: {:?}", orm_changes);
-
-                // Send patches if the subscription's session is different to the origin's session.
-                // TODO: Is this the session_id the correct way to check this?
-                if origin_session_id != orm_subscription.session_id {
-                    // Create and send patches from changes
-                    Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
-                }
-
-                //log_info!("[apply_changes_to_all_scopes]: Create and send patches for orm_subscription.session_id {} and origin_session_id {}", orm_subscription.session_id, origin_session_id);
-                //Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
+            // Check if this scope is affected by this backend update
+            if !Self::is_scope_affected(&subscription, repo_id, &overlaylink) {
+                self.orm_subscriptions.insert(subscription_id, subscription);
+                continue;
             }
 
-            // Put the subscriptions back
-            self.orm_subscriptions.insert(scope_str, subs);
+            // Filter quads by subject scope if applicable
+            let (inserts, removes) =
+                filter_quads_by_subject_scope_if_necessary(&subscription, inserts, removes);
+
+            if inserts.is_empty() && removes.is_empty() {
+                self.orm_subscriptions.insert(subscription_id, subscription);
+                continue;
+            }
+
+            // Process changes for this shape
+            let mut orm_changes: OrmChanges = HashMap::new();
+            let res = self.process_changes_for_subscription(
+                &mut subscription,
+                &inserts,
+                &removes,
+                &mut orm_changes,
+                false,
+            );
+            if let Err(error) = res {
+                log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
+            }
+
+            // Send patches if the subscription's session is different to the origin's session.
+            if origin_subscription_id != subscription_id {
+                // send patches from changes
+                Verifier::send_orm_patches_from_changes(&subscription, &orm_changes).await;
+            }
+
+            // Put the subscription back to preserve order
+            self.orm_subscriptions.insert(subscription_id, subscription);
         }
     }
 
     /// Checks if a scope is affected by this backend update.
-    fn is_scope_affected(scope_str: &String, repo_id: RepoId, overlaylink: &OverlayLink) -> bool {
-        let scope_nuri = NuriV0::new_from(scope_str).unwrap_or_else(|_| NuriV0::new_empty());
-        scope_nuri.target == NuriTargetV0::UserSite
-            || scope_nuri
-                .overlay
-                .as_ref()
-                .map_or(false, |ol| overlaylink == ol)
-            || scope_nuri.target == NuriTargetV0::Repo(repo_id)
-            || scope_str == "did:ng:i" // Listens to all (entire user site).
+    fn is_scope_affected(
+        orm_subscription: &OrmSubscription,
+        repo_id: RepoId,
+        overlaylink: &OverlayLink,
+    ) -> bool {
+        // For each scope in graph...
+        for scope in orm_subscription.graph_scope.iter() {
+            let scope_nuri = NuriV0::new_from(scope).unwrap_or_else(|_| NuriV0::new_empty());
+            if scope_nuri.target == NuriTargetV0::UserSite
+                || scope_nuri
+                    .overlay
+                    .as_ref()
+                    .map_or(false, |ol| overlaylink == ol)
+                || scope_nuri.target == NuriTargetV0::Repo(repo_id)
+                || scope == "did:ng:i"
+            // Listens to all (entire user site).
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// Creates and sends patches to clients from orm changes.
@@ -259,7 +276,6 @@ impl Verifier {
                         }
                         continue;
                     }
-
                     // == Subject is valid or has become valid ==
 
                     // Process predicate changes for this valid subject
@@ -389,6 +405,52 @@ impl Verifier {
                     .await;
             }
         }
+    }
+}
+
+/// Filters quads by subject scope. If the subscription has no subject scope,
+/// returns borrowed references to the original slices (no allocation).
+/// Otherwise, returns owned filtered vectors.
+fn filter_quads_by_subject_scope_if_necessary<'a>(
+    subscription: &OrmSubscription,
+    inserts: &'a [Quad],
+    removes: &'a [Quad],
+) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>) {
+    if subscription.subject_scope.is_empty() {
+        (Cow::Borrowed(inserts), Cow::Borrowed(removes))
+    } else {
+        // Relevant subjects consist of all tormos plus the explicit subject scope.
+        let relevant_subjects: HashSet<String> = subscription
+            .iter_all_objects()
+            .map(|tormo| tormo.read().unwrap().subject_iri.clone())
+            .chain(subscription.subject_scope.iter().cloned())
+            .collect();
+
+        let filtered_inserts: Vec<Quad> = inserts
+            .iter()
+            .filter(|quad| {
+                let quad_subject = match &quad.subject {
+                    ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
+                    _ => "", // Cannot happen
+                };
+                relevant_subjects.contains(quad_subject)
+            })
+            .cloned()
+            .collect();
+
+        let filtered_removes: Vec<Quad> = removes
+            .iter()
+            .filter(|quad| {
+                let quad_subject = match &quad.subject {
+                    ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
+                    _ => "", // Cannot happen
+                };
+                relevant_subjects.contains(quad_subject)
+            })
+            .cloned()
+            .collect();
+
+        (Cow::Owned(filtered_inserts), Cow::Owned(filtered_removes))
     }
 }
 

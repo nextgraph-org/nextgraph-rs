@@ -12,15 +12,14 @@ use ng_oxigraph::oxrdf::{GraphName, Quad, Subject};
 use ng_repo::types::OverlayId;
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use lazy_static::lazy_static;
 use regex::Regex;
 
+use ng_net::app_protocol::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
-use ng_net::{app_protocol::*, orm::*};
 
-use crate::orm::types::{SubjectIri, TrackedOrmObject, TrackedOrmObjectValidity};
+use crate::orm::types::{TrackedOrmObject, TrackedOrmObjectValidity};
 use std::sync::{Arc, RwLock};
 // use ng_oxigraph::oxrdf::Triple;
 
@@ -294,7 +293,7 @@ pub fn assess_and_rank_children(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ng_net::orm::{OrmSchemaDataType, OrmSchemaShape, OrmSchemaValType};
+    use ng_net::orm::{OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType};
 
     fn mk_shape(iri: &str) -> Arc<OrmSchemaShape> {
         Arc::new(OrmSchemaShape {
