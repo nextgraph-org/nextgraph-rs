@@ -10,7 +10,6 @@
 
 use std::collections::HashMap;
 use std::sync::RwLock;
-use std::u64;
 
 use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
