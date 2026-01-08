@@ -1,6 +1,5 @@
 import {useCallback, useState} from 'react';
 import {
-  Typography,
   Box,
   Button,
   Dialog,
@@ -48,9 +47,7 @@ export const AddMembersDialog = ({open, onClose, onAddMembers}: AddMembersDialog
       }}
     >
       <DialogTitle>
-        <Typography variant="h6" sx={{fontWeight: 600}}>
           Add Members
-        </Typography>
       </DialogTitle>
       <DialogContent sx={{p: 0, display: 'flex', flexDirection: 'column'}}>
         <Box sx={{flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>

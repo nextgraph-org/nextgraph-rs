@@ -97,7 +97,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
           </Typography>
         </Box>
 
-        <Paper sx={{p: 3, display: 'flex', flexDirection: 'column', alignItems: "center", gap: 2, mb: 2}}>
+        <Paper sx={{p: 2, display: 'flex', flexDirection: 'column', alignItems: "center", gap: 2, mb: 2}}>
           <InvitationDetails
             contact={contact}
             group={group}

@@ -27,6 +27,7 @@ import {
   useSensors
 } from '@dnd-kit/core';
 import {CircleLogo} from "@/components/ui/CircleLogo.tsx";
+import {useGetNotifications} from "@/hooks/notifications/useGetNotifications.ts";
 
 const drawerWidth = 280;
 
@@ -45,13 +46,14 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const {unseenCount} = useGetNotifications();
 
   const mode = searchParams.get('mode');
   const isInviteMode = mode === 'invite' || mode === 'create-group';
 
   const navItems: NavItem[] = [
     {text: 'Home', icon: <UilApps size="20"/>, path: '/'},
-    {text: 'Dashboard', icon: <UilUser size="20"/>, path: '/account'},
+    {text: 'Dashboard', icon: <UilUser size="20"/>, path: '/account', badge: unseenCount},
     {text: 'Network', icon: <UilSitemap size="20"/>, path: '/contacts'},
     {text: 'Groups', icon: <UilUsersAlt size="20"/>, path: '/groups'},
     {text: 'Chat', icon: <UilCommentAltLines size="20"/>, path: '/messages'},

@@ -72,24 +72,8 @@ export const ContactListTab = ({
     setSelectedContacts([]);
   }, [filters]);
 
-  const handleContactClick = (contactId: string) => {
-    if (manageMode) {
-      return handleSelectContact(contactId);
-    }
 
-    if (isSelectionMode) return;
-    if (mode === 'invite' && returnTo === 'group-info' && groupId) {
-      const inviteParams = new URLSearchParams();
-      inviteParams.set('groupId', groupId);
-      inviteParams.set('inviteeNuri', contactId);
-      inviteParams.set('inviterName', 'Oli S-B');
-      navigate(`/invite?${inviteParams.toString()}`);
-    } else {
-      navigate(`/contacts/${contactId}`);
-    }
-  };
-
-  const handleSelectContact = (nuri: string) => {
+  const handleSelectContact = useCallback((nuri: string) => {
     if (mode === 'invite' && returnTo === 'group-info' && groupId) {
       const inviteParams = new URLSearchParams();
       inviteParams.set('groupId', groupId);
@@ -108,9 +92,27 @@ export const ContactListTab = ({
     if (returnTo === 'group-info' && groupId) {
       navigate(`/groups/${groupId}/info?selectedContactNuri=${encodeURIComponent(nuri)}`);
     }
-  };
+  }, [groupId, mode, navigate, returnTo]);
 
-  const handleToggleContactSelection = (contact: string) => {
+  const handleContactClick = useCallback((contactId: string) => {
+    if (manageMode) {
+      return handleSelectContact(contactId);
+    }
+
+    if (isSelectionMode) return;
+    if (mode === 'invite' && returnTo === 'group-info' && groupId) {
+      const inviteParams = new URLSearchParams();
+      inviteParams.set('groupId', groupId);
+      inviteParams.set('inviteeNuri', contactId);
+      inviteParams.set('inviterName', 'Oli S-B');
+      navigate(`/invite?${inviteParams.toString()}`);
+    } else {
+      navigate(`/contacts/${contactId}`);
+    }
+  }, [groupId, handleSelectContact, isSelectionMode, manageMode, mode, navigate, returnTo]);
+
+
+  const handleToggleContactSelection = useCallback((contact: string) => {
     setSelectedContacts(prev => {
       const isSelected = prev.some(c => c === contact);
       if (isSelected) {
@@ -118,7 +120,7 @@ export const ContactListTab = ({
       }
       return [...prev, contact];
     });
-  };
+  }, []);
 
   const hasSelection = selectedContacts.length > 0;
 
@@ -158,31 +160,26 @@ export const ContactListTab = ({
     onDragEnd: handleDragEnd,
   });
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (hasSelection) {
       setSelectedContacts([]);
     } else {
       setSelectedContacts(contactNuris);
     }
-  };
+  }, [contactNuris, hasSelection]);
 
-  const isContactSelected = (nuri: string) => {
+  const isContactSelected = useCallback((nuri: string) => {
     return selectedContacts.some(c => c === nuri);
-  };
+  }, [selectedContacts]);
 
-  const handleMergeContacts = () => setIsMergeDialogOpen(true);
+  const handleMergeContacts = useCallback(() => setIsMergeDialogOpen(true), []);
 
-  const handleCloseMergeDialog = () => {
+  const handleCloseMergeDialog = useCallback(() => {
     setIsMergeDialogOpen(false);
     setUseAI(false);
-  };
+  }, []);
 
-  const handleConfirmMerge = () => {
-    setIsMergeDialogOpen(false);
-    return selectedContacts.length > 1 ? manualMerge() : autoMerge();
-  };
-
-  const autoMerge = () => {
+  const autoMerge = useCallback(() => {
     setIsMerging(true);
     setMergeProgress(0);
     setManageMode(false);
@@ -207,9 +204,9 @@ export const ContactListTab = ({
       setMergeProgress(100);
       setIsMerging(false);
     })();
-  }
+  }, [getDuplicatedContacts, mergeContacts, reloadContacts, setManageMode]);
 
-  const manualMerge = () => {
+  const manualMerge = useCallback(() => {
     setIsMerging(true);
     setMergeProgress(0);
     setManageMode(false);
@@ -228,7 +225,12 @@ export const ContactListTab = ({
       setMergeProgress(100);
       setIsMerging(false);
     })();
-  }
+  }, [mergeContacts, reloadContacts, selectedContacts, setManageMode]);
+
+  const handleConfirmMerge = useCallback(() => {
+    setIsMergeDialogOpen(false);
+    return selectedContacts.length > 1 ? manualMerge() : autoMerge();
+  }, [autoMerge, manualMerge, selectedContacts.length]);
 
   return <>
     <ContactFilters

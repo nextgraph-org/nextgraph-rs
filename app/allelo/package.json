@@ -8,7 +8,7 @@
     "build": "vite build",
     "build-importer": "cd ../tauri-plugin-contacts-importer && bun run build",
     "check": "tsc -p tsconfig.json --noEmit && eslint .",
-    "build:orm": "npx rdf-orm build --input ./src/.orm/shex --output ./src/.orm/shapes && pnpm scripts/generateContactUtils.js",
+    "build:orm": "npx rdf-orm build --input ./src/.orm/shex --output ./src/.orm/shapes && pnpm scripts/generateOrmUtils.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",
