@@ -14,11 +14,20 @@ export default defineConfig({
     vite: {
         plugins: [topLevelAwait(), wasm()],
         server: {
+            strictPort: true,
+            hmr : {
+                clientPort: 5183,
+            },
+        },
+        envPrefix: ["VITE_", "NG_"],
+    },
+    server: {
+            
+            port: 5183,
             headers: {
                 "Access-Control-Allow-Private-Network": "true",
             },
         },
-    },
     devToolbar: {
         enabled: false,
     },

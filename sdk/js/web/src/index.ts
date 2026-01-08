@@ -17,7 +17,7 @@ const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
 const config = import.meta.env.NG_DEV3
     ? {
           redirect:
-              "http/fix '=' expected., Individual declarations in merged declaration 'NG' must be all exported or all local.://127.0.0.1:3033/redir/#/?o=",
+              "http://127.0.0.1:3033/redir/#/?o=",
           origin: "http://127.0.0.1:3033",
       }
     : import.meta.env.NG_DEV
