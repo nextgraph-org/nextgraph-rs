@@ -20,7 +20,7 @@ export const usePhotoOrm = (
     if (!subject || !subject["@id"]) {
       return;
     }
-    if (sessionId && photoIRI) {
+    if (sessionId && photoIRI && !displayUrl) {
       setIsLoadingImage(true);
       imageService.getBlob(subject["@id"], photoIRI, true, sessionId)
         .then((url) => {
@@ -40,7 +40,7 @@ export const usePhotoOrm = (
     } else {
       setIsLoadingImage(false);
     }
-  }, [sessionId, subject, photoIRI, fallbackUrl]);
+  }, [sessionId, subject, photoIRI, fallbackUrl, displayUrl]);
 
   return {displayUrl, isLoadingImage};
 };

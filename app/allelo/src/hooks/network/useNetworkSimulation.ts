@@ -7,7 +7,7 @@ import {
   forceRadial,
   Simulation,
 } from 'd3-force';
-import { GraphNode, GraphEdge, SimulationConfig } from '@/types/network';
+import { GraphNode, GraphEdge } from '@/types/network';
 import { useNetworkGraphStore } from '@/stores/networkGraphStore';
 import { getRadialDistance } from '@/utils/networkCentrality';
 
@@ -16,33 +16,11 @@ interface PrevDimensions {
   height: number;
 }
 
-const DEFAULT_CONFIG: SimulationConfig = {
-  alphaDecay: 0.05,
-  velocityDecay: 0.6,
-  forces: {
-    charge: {
-      strength: -500,
-      distanceMax: 600,
-    },
-    link: {
-      distance: 150,
-      strength: 0.5,
-    },
-    center: {
-      strength: 0.1,
-    },
-    collision: {
-      radius: 80,
-      strength: 1.0,
-    },
-  },
-};
-
 export const useNetworkSimulation = (
   nodes: GraphNode[],
   width: number,
   height: number,
-  config: SimulationConfig = DEFAULT_CONFIG
+  isMobile: boolean,
 ) => {
   const simulationRef = useRef<Simulation<GraphNode, GraphEdge> | null>(null);
   const prevDimensionsRef = useRef<PrevDimensions | null>(null);
@@ -118,22 +96,27 @@ export const useNetworkSimulation = (
           centerX,
           centerY
         ).strength(radialStrength)
-      )
-      .on('tick', () => {
+      );
+
+    if (!isMobile) {
+      simulation.on('tick', () => {
         updateNodePositions([...simulation.nodes()]);
       })
-      .on('end', () => {
-        simulation.stop();
-      });
-
-
+        .on('end', () => {
+          simulation.stop();
+        });
+    } else {
+      simulation.stop();
+      simulation.tick(Math.ceil(Math.log(simulation.alphaMin()) / Math.log(1 - simulation.alphaDecay())));
+      updateNodePositions([...simulation.nodes()]);
+    }
     simulationRef.current = simulation;
     setSimulation(simulation);
 
     return () => {
       simulation.stop();
     };
-  }, [nodes.length]); //TODO: do we need it to be animated?
+  }, [nodes.length, isMobile]); //TODO: do we need it to be animated?
 
   return simulationRef.current;
 };

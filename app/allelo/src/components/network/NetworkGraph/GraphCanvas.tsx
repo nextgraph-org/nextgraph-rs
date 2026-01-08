@@ -76,6 +76,7 @@ export const GraphCanvas = ({
         })
         .on('zoom', (event) => {
           // Only apply translation, not scale
+          if (event.transform.x && event.transform.y && !isNaN(event.transform.x) && !isNaN(event.transform.y))
           g.attr('transform', `translate(${event.transform.x},${event.transform.y})`);
         });
 

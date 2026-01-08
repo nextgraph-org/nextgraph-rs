@@ -151,7 +151,7 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps)
     return [...specialNodes];
   }, [centeredNodeId, zoomLevels, nodes, currentZoomIndex]);
 
-  useNetworkSimulation(filteredNodes, canvasSize, canvasSize);
+  useNetworkSimulation(filteredNodes, canvasSize, canvasSize, isMobile);
 
   const handleZoomIn = useCallback(() => {
     zoomIn();
