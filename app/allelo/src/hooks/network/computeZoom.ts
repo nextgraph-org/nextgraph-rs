@@ -59,12 +59,12 @@
  */
 
   const ME_ICON_RADIUS = 20;
-  const ITEM_SIZE = 54;
+  const ITEM_SIZE = 140;
   const ITEM_SURFACE = ITEM_SIZE * ITEM_SIZE;
   const ME_SURFACE = ME_ICON_RADIUS * ME_ICON_RADIUS * Math.PI;
   const MIN_VIEW_SIZE = ( ME_ICON_RADIUS + 5 * ITEM_SIZE ) * 2;
 
-  class ZoomInfo {
+  export class ZoomInfo {
     count() : number {
       return this.central10 + this.central08 + this.central06 + this.central04 + this.central02;
     }

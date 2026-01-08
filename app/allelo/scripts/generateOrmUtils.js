@@ -106,14 +106,23 @@ function getShapeBody(content, shapeName) {
  * @param {string} shapeBody - The shape body
  * @param {Object} prefixes - Map of prefix names to URIs
  * @param {boolean} isMainShape - Whether this is a main shape (EXTRA a)
+ * @param {string} shapeName - The shape name to extract (e.g., "SocialContact")
  * @returns {Object} Map of property names to {prefix: string, values: string[]}
  */
-function resolveNestedDictionaries(content, shapeBody, prefixes, isMainShape) {
+function resolveNestedDictionaries(content, shapeBody, prefixes, isMainShape, shapeName) {
   const dictionaries = {};
+
+  const extractedDictionaries = extractDictionaries(shapeBody, prefixes);
 
   if (!isMainShape) {
     // For nested shapes, just extract their own dictionaries
-    return extractDictionaries(shapeBody, prefixes);
+    return extractedDictionaries;
+  } else {
+    for (const [nestedPropName, dictData] of Object.entries(extractedDictionaries)) {
+      // Use dotted notation: "parentProp.nestedProp" (e.g., "phoneNumber.type")
+      const dottedKey = `${shapeName}.${nestedPropName}`;
+      dictionaries[dottedKey] = dictData;
+    }
   }
 
   // For main shapes (EXTRA a), find properties that reference other shapes
@@ -167,7 +176,7 @@ function parseShExShape(content, shapeName, prefixes, isMainShape = false) {
   }
 
   // Extract dictionaries (with nested resolution for main shapes)
-  const dictionaries = resolveNestedDictionaries(content, shapeBody, prefixes, isMainShape);
+  const dictionaries = resolveNestedDictionaries(content, shapeBody, prefixes, isMainShape, shapeName);
 
   // Parse properties
   // Pattern: prefix:propertyName ... cardinality ;
@@ -257,7 +266,8 @@ export type ${shapeName}NonSetPropertyName = (typeof ${camelCaseName}NonSetPrope
       const dictMapping = {};
       for (const [dottedKey] of Object.entries(dictionaries)) {
         const [prop, subProp] = dottedKey.split('.');
-        dictMapping[prop] = subProp;
+        dictMapping[prop] ??= [];
+        dictMapping[prop].push(subProp);
       }
 
       section += `\n\n/**
@@ -284,7 +294,7 @@ export type ${shapeName}DictType = keyof typeof ${camelCaseName}DictPrefixes;
  * Based on the ORM shape definition
  */
 export type ${shapeName}DictMap = {
-${Object.entries(dictMapping).map(([prop, subProp]) => `  ${prop}: "${subProp}";`).join("\n")}
+${Object.entries(dictMapping).map(([prop, subProp]) => `  ${prop}: "${subProp.join('" | "')}";`).join("\n")}
 };
 
 /**

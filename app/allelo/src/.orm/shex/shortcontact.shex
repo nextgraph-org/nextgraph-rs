@@ -1,0 +1,113 @@
+# Platform ontologies
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+
+# Domain ontology for Contacts in vcard-like form and NextGraph skills
+PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
+PREFIX ngc: <did:ng:x:contact:class#>
+PREFIX ngcore: <did:ng:x:core#>
+PREFIX ngcontact: <did:ng:x:contact#>
+PREFIX ngkct: <did:ng:k:contact:type#>
+
+ngc:ShortSocialContact EXTRA a {
+  # Core type definitions
+  a [ vcard:Individual ] OR [ ngc:Me ] +
+    // rdfs:comment "Defines the node as an Individual (from vcard) " ;
+
+  # Names
+  ngcontact:name @ngc:Name * ;
+
+  # Addresses
+  ngcontact:address @ngc:Address * ;
+
+  # Photos
+  ngcontact:photo @ngc:Photo * ;
+
+  # Status and timestamps
+  ngcontact:naoStatus xsd:string ? ;
+  ngcontact:centralityScore xsd:integer ?;
+  ngcontact:mostRecentInteraction xsd:dateTime ?;
+}
+
+ngc:Name {
+  ngcore:value xsd:string ?
+    // rdfs:comment "The display name" ;
+  ngcontact:displayNameLastFirst xsd:string ?
+    // rdfs:comment "The display name with the last name first" ;
+  ngcontact:unstructuredName xsd:string ?
+    // rdfs:comment "The free form name value" ;
+  ngcontact:familyName xsd:string ?
+    // rdfs:comment "The family name" ;
+  ngcontact:firstName xsd:string ?
+    // rdfs:comment "The given name" ;
+  ngcontact:maidenName xsd:string ?
+    // rdfs:comment "The maiden name" ;
+  ngcontact:middleName xsd:string ?
+    // rdfs:comment "The middle name(s)" ;
+  ngcontact:honorificPrefix xsd:string ?
+    // rdfs:comment "The honorific prefixes, such as Mrs. or Dr." ;
+  ngcontact:honorificSuffix xsd:string ?
+    // rdfs:comment "The honorific suffixes, such as Jr." ;
+  ngcontact:phoneticFullName xsd:string ?
+    // rdfs:comment "The full name spelled as it sounds" ;
+  ngcontact:phoneticFamilyName xsd:string ?
+    // rdfs:comment "The family name spelled as it sounds" ;
+  ngcontact:phoneticGivenName xsd:string ?
+    // rdfs:comment "The given name spelled as it sounds" ;
+  ngcontact:phoneticMiddleName xsd:string ?
+    // rdfs:comment "The middle name(s) spelled as they sound" ;
+  ngcontact:phoneticHonorificPrefix xsd:string ?
+    // rdfs:comment "The honorific prefixes spelled as they sound" ;
+  ngcontact:phoneticHonorificSuffix xsd:string ?
+    // rdfs:comment "The honorific suffixes spelled as they sound" ;
+  ngcore:source xsd:string ?
+    // rdfs:comment "Source of the name data" ;
+  ngcore:selected xsd:boolean ?
+    // rdfs:comment "Whether this is main" ;
+}
+
+ngc:Photo {
+  ngcore:photoUrl xsd:string ?
+    // rdfs:comment "The URL of the photo" ;
+  ngcore:photoIRI IRI
+    // rdfs:comment "The IRI of blob" ;
+  ngcontact:preferred xsd:boolean ?
+    // rdfs:comment "True if the photo is a default photo" ;
+  ngcore:source xsd:string ?
+    // rdfs:comment "Source of the photo data" ;
+  ngcore:hidden xsd:boolean ?
+    // rdfs:comment "Whether this is hidden from list" ;
+}
+
+ngc:Address {
+  ngcore:value xsd:string ?
+    // rdfs:comment "The unstructured value of the address" ;
+  ngcore:type [ ngkct:home ngkct:work ngkct:custom ngkct:other ] ?
+    // rdfs:comment "The type of the address" ;
+  ngcontact:coordLat xsd:double ?
+    // rdfs:comment "Latitude of address" ;
+  ngcontact:coordLng xsd:double ?
+    // rdfs:comment "Longitude of address" ;
+  ngcontact:poBox xsd:string ?
+    // rdfs:comment "The P.O. box of the address" ;
+  ngcontact:streetAddress xsd:string ?
+    // rdfs:comment "The street address" ;
+  ngcontact:extendedAddress xsd:string ?
+    // rdfs:comment "The extended address; for example, the apartment number" ;
+  ngcontact:city xsd:string ?
+    // rdfs:comment "The city of the address" ;
+  ngcontact:region xsd:string ?
+    // rdfs:comment "The region of the address; for example, the state or province" ;
+  ngcontact:postalCode xsd:string ?
+    // rdfs:comment "The postal code of the address" ;
+  ngcontact:country xsd:string ?
+    // rdfs:comment "The country of the address" ;
+  ngcontact:countryCode xsd:string ?
+    // rdfs:comment "The ISO 3166-1 alpha-2 country code" ;
+  ngcore:source xsd:string ?
+    // rdfs:comment "Source of the address data" ;
+  ngcore:hidden xsd:boolean ?
+    // rdfs:comment "Whether this is hidden from list" ;
+  ngcontact:preferred xsd:boolean ?
+    // rdfs:comment "Whether this is the preferred address" ;
+}

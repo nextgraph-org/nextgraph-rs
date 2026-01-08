@@ -23,6 +23,11 @@ import {
   socialGroupDictValues,
   type SocialGroupDictMap,
 } from "@/.orm/utils/group.utils";
+import {
+  UserNotificationDictMap,
+  userNotificationDictPrefixes,
+  userNotificationDictValues
+} from "@/.orm/utils/notification.utils.ts";
 
 /**
  * Singleton DictMapper for SocialContact entities
@@ -61,6 +66,18 @@ export const groupDictMapper = new DictMapper<
 );
 
 /**
+ * Singleton DictMapper for UserNotification entities
+ */
+export const userNotificationDictMapper = new DictMapper<
+  typeof userNotificationDictPrefixes,
+  typeof userNotificationDictValues,
+  UserNotificationDictMap
+>(
+  userNotificationDictPrefixes,
+  userNotificationDictValues
+);
+
+/**
  * Registry object for dynamic access by entity type
  */
 export const dictMappers = {
@@ -69,6 +86,7 @@ export const dictMappers = {
   rCard: rCardDictMapper,
   group: groupDictMapper,
   socialGroup: groupDictMapper, // alias
+  userNotification: userNotificationDictMapper,
 } as const;
 
 /**
