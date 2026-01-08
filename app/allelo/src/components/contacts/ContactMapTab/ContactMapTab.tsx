@@ -66,7 +66,7 @@ export const ContactMapTab = () => {
     ) : contactNuris.length === 0 ? (
       <Box sx={{textAlign: 'center', py: 8}}>
         <Typography variant="h6" color="text.secondary" gutterBottom>
-          No contacts to map
+          No contacts to display on map
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Import some contacts to see your map!

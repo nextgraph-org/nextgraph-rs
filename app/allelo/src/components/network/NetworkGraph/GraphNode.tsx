@@ -1,5 +1,7 @@
 import { useTheme, alpha } from '@mui/material';
 import { GraphNode as GraphNodeType } from '@/types/network';
+import {usePhotoOrm} from "@/hooks/usePhotoOrm.ts";
+import {useCallback} from "react";
 
 interface GraphNodeProps {
   node: GraphNodeType;
@@ -9,15 +11,16 @@ interface GraphNodeProps {
   isDimmed?: boolean;
 }
 
-export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }: GraphNodeProps) => {
+export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed = false }: GraphNodeProps) => {
   const theme = useTheme();
+  const {displayUrl} = usePhotoOrm({"@id": node.id}, node.avatar);
 
-  const getNodeColor = () => {
+  const getNodeColor = useCallback(() => {
     if (node.type === 'user') return theme.palette.grey[600];
     if (node.type === 'person') return '#D32F2F';
     if (node.type === 'entity') return theme.palette.primary.main;
     return theme.palette.grey[400];
-  };
+  }, [node.type, theme.palette.grey, theme.palette.primary.main]);
 
   if (!node.x || !node.y) return null;
 
@@ -68,9 +71,9 @@ export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }:
     );
   }
 
-  const baseSize = node.isCentered ? 80 : 30;
+  const baseSize = node.isCentered ? 40 : 30;
   const nodeSize = baseSize;
-  const borderWidth = node.isCentered ? 4 : 2;
+  const borderWidth = 2;
   const isEntity = node.type === 'entity';
 
   return (
@@ -85,18 +88,9 @@ export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }:
       transform={`translate(${node.x}, ${node.y})`}
       opacity={isDimmed ? 0.15 : 1}
     >
-      <circle
-        r={nodeSize / 2 + borderWidth}
-        fill={isEntity ? getNodeColor() : alpha(getNodeColor(), 0.2)}
-        stroke={getNodeColor()}
-        strokeWidth={borderWidth}
-        opacity={isEntity ? 0.95 : 1}
-        filter={node.isCentered ? 'url(#glow)' : undefined}
-      />
-
-      {node.avatar ? (
+      {displayUrl ? (
         <image
-          href={node.avatar}
+          href={displayUrl}
           x={-nodeSize / 2}
           y={-nodeSize / 2}
           width={nodeSize}
@@ -105,15 +99,25 @@ export const GraphNode = ({ node, onClick, onTouchStart, onTouchEnd, isDimmed }:
           preserveAspectRatio="xMidYMid slice"
         />
       ) : (
-        <text
-          textAnchor="middle"
-          dy=".35em"
-          fill={isEntity ? 'white' : getNodeColor()}
-          fontSize={node.isCentered ? '24' : '14'}
-          fontWeight={600}
-        >
-          {node.initials}
-        </text>
+        <>
+          <circle
+            r={nodeSize / 2 - borderWidth}
+            fill={isEntity ? getNodeColor() : alpha(getNodeColor(), 0.2)}
+            stroke={getNodeColor()}
+            strokeWidth={borderWidth}
+            opacity={isEntity ? 0.95 : 1}
+            filter={node.isCentered ? 'url(#glow)' : undefined}
+          />
+          <text
+            textAnchor="middle"
+            dy=".35em"
+            fill={isEntity ? 'white' : getNodeColor()}
+            fontSize="14"
+            fontWeight={600}
+          >
+            {node.name === "ME" ? node.name : node.initials}
+          </text>
+        </>
       )}
     </g>
   );

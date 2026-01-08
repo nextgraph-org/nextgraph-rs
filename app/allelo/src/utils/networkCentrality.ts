@@ -61,7 +61,7 @@ export const calculateNetworkCentrality = (
 };
 
 export const getRadialDistance = (centralityScore: number, maxRadius: number): number => {
-  const minRadius = maxRadius * 0.2;
+  const minRadius = maxRadius * 0.15;
   const usableRadius = maxRadius - minRadius;
 
   return minRadius + (usableRadius * (1 - centralityScore));
