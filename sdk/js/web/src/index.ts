@@ -8,8 +8,8 @@
 // according to those terms.
 
 import { createAsyncProxy } from "async-proxy";
-//import type * as NGModule from "@ng-org/lib-wasm";
-//export type NG = typeof NGModule;
+import type * as NGModule from "@ng-org/lib-wasm";
+export type NG = typeof NGModule;
 
 let initialized = false;
 
@@ -181,4 +181,4 @@ const handler = {
     },
 };
 
-export const ng: any = createAsyncProxy({}, handler);
+export const ng: NG = createAsyncProxy({}, handler);
