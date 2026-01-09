@@ -11,7 +11,6 @@
 use ng_net::orm::{OrmPatchOp, OrmSchemaPredicate, OrmSchemaShape};
 
 use std::sync::Arc;
-use std::u64;
 
 use ng_net::app_protocol::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
@@ -509,9 +508,6 @@ fn create_sparql_update_query_for_patches(
     }
 
     let result = builder.finish();
-    log_debug!(
-        "[create_sparql_update_query_for_patches] builder produced {} bytes",
-        result.len()
-    );
+
     result
 }

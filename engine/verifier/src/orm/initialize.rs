@@ -92,7 +92,7 @@ impl Verifier {
         &mut self,
         mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
-        // Query triples for this shape
+        // Query quads for this shape
         let shape_quads = if orm_subscription.graph_scope.is_empty() {
             vec![]
         } else {

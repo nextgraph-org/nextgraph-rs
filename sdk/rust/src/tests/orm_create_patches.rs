@@ -1652,7 +1652,7 @@ INSERT DATA {
     .await;
 
     // Create a root document that's not in the scope
-    let unrelated_doc = create_doc_with_data(
+    let unrelated_doc_nuri = create_doc_with_data(
         session_id,
         r#"
 PREFIX ex: <http://example.org/>
@@ -1774,17 +1774,19 @@ INSERT DATA {
     // Link the person from the other document into the project's members (in the parent graph)
     doc_sparql_update(
         session_id,
-        r#"
+        format!(
+            r#"
 PREFIX ex: <http://example.org/>
-DELETE DATA {
-    <urn:test:project20> ex:members <urn:test:personX> .
-}
-INSERT DATA {
-    <urn:test:project10> ex:members <urn:test:personX> .
-}
-"#
-        .to_string(),
-        Some(unrelated_doc.clone()),
+INSERT DATA {{
+    GRAPH <{}> {{ <urn:test:project10> ex:members <urn:test:personX> . }}
+}} ;
+DELETE DATA {{
+    GRAPH <{}> {{ <urn:test:project20> ex:members <urn:test:personX> . }}
+}}
+"#,
+            parent_doc_nuri, unrelated_doc_nuri
+        ),
+        Some(parent_doc_nuri.clone()),
     )
     .await
     .expect("SPARQL update failed");
@@ -1816,6 +1818,7 @@ INSERT DATA {
         let mut expected = json!([
             { "op": "add", "valType": "object", "path": "/urn:test:project10/members/urn:test:personX" },
             { "op": "add", "path": "/urn:test:project10/members/urn:test:personX/@id", "value": "urn:test:personX" },
+            // { "op": "add", "path": "/urn:test:project10/members/urn:test:personX/name", "value": "Xavier" },
         ]);
 
         let mut actual = json!(patches);
