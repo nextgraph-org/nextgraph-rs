@@ -8,10 +8,16 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use futures::channel::mpsc::UnboundedReceiver;
+use futures::StreamExt;
+use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
+use ng_net::orm::OrmShapeType;
 use ng_repo::log_err;
 use serde_json::Value;
 
-use crate::local_broker::{doc_create, doc_sparql_update};
+use ng_repo::log::*;
+
+use crate::local_broker::{doc_create, doc_sparql_update, orm_start};
 
 #[doc(hidden)]
 pub mod orm_creation;
@@ -82,4 +88,39 @@ fn sort_arrays(value: &mut Value) {
         }
         _ => {}
     }
+}
+
+async fn create_orm_connection(
+    nuris: Vec<String>,
+    subjects: Vec<String>,
+    shape_type: OrmShapeType,
+    session_id: u64,
+) -> (
+    UnboundedReceiver<ng_net::app_protocol::AppResponse>,
+    Box<dyn FnOnce() + Send + Sync>,
+    u64,
+    serde_json::Value,
+) {
+    let nuris = nuris
+        .iter()
+        .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
+        .collect();
+    let (mut receiver, cancel_fn) = orm_start(nuris, subjects, shape_type, session_id)
+        .await
+        .expect("orm_start failed");
+
+    // Get initial state (person without name)
+    let mut subscription_id = None;
+    let mut initial_value = None;
+    while let Some(app_response) = receiver.next().await {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(init, sid)) = app_response {
+            subscription_id = Some(sid);
+            initial_value = Some(init);
+            break;
+        }
+    }
+    let subscription_id = subscription_id.expect("Did not receive subscription_id");
+    let initial = initial_value.expect("Did not receive initial value");
+
+    return (receiver, cancel_fn, subscription_id, initial);
 }

@@ -508,9 +508,6 @@ fn create_sparql_update_query_for_patches(
     }
 
     let result = builder.finish();
-    log_debug!(
-        "[create_sparql_update_query_for_patches] builder produced {} bytes",
-        result.len()
-    );
+
     result
 }

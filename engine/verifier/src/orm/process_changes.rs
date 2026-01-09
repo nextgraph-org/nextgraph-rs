@@ -8,16 +8,13 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use futures::channel::mpsc::UnboundedSender;
-use ng_repo::errors::VerifierError;
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
-use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
@@ -786,7 +783,7 @@ impl Verifier {
             }
         }
 
-        orm_subscription.cleanup_tracked_orm_objects();
+        // orm_subscription.cleanup_tracked_orm_objects();
 
         Ok(())
     }
