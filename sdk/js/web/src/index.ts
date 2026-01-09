@@ -8,8 +8,8 @@
 // according to those terms.
 
 import { createAsyncProxy } from "async-proxy";
-//import type * as NGModule from "@ng-org/lib-wasm";
-//export type NG = typeof NGModule;
+import type * as NGModule from "@ng-org/lib-wasm";
+export type NG = typeof NGModule;
 
 let initialized = false;
 
@@ -17,7 +17,7 @@ const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
 const config = import.meta.env.NG_DEV3
     ? {
           redirect:
-              "http/fix '=' expected., Individual declarations in merged declaration 'NG' must be all exported or all local.://127.0.0.1:3033/redir/#/?o=",
+              "http://127.0.0.1:3033/redir/#/?o=",
           origin: "http://127.0.0.1:3033",
       }
     : import.meta.env.NG_DEV
@@ -181,4 +181,4 @@ const handler = {
     },
 };
 
-export const ng: any = createAsyncProxy({}, handler);
+export const ng: NG = createAsyncProxy({}, handler);
