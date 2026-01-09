@@ -473,7 +473,7 @@ fn create_sparql_update_query_for_patches(
                     match &p.value {
                         None => builder.remove_all(graph, subj, pred),
                         Some(val) => {
-                            let sparql_val = json_to_sparql_val(val);
+                            let sparql_val = json_to_sparql_val(val, schema);
                             builder.remove_value(graph, subj, pred, &sparql_val);
                         }
                     }
@@ -493,7 +493,7 @@ fn create_sparql_update_query_for_patches(
                     }
                 } else {
                     if let Some(val) = &p.value {
-                        let sparql_val = json_to_sparql_val(val);
+                        let sparql_val = json_to_sparql_val(val, schema);
                         if sparql_val.len() > 0 {
                             if schema.is_multi() {
                                 builder.add_value(graph, subj, pred, &sparql_val);

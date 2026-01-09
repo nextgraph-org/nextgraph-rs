@@ -16,8 +16,11 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use ng_net::app_protocol::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
+use ng_net::{
+    app_protocol::*,
+    orm::{OrmSchemaPredicate, OrmSchemaValType},
+};
 
 use crate::orm::types::{TrackedOrmObject, TrackedOrmObjectValidity};
 use std::sync::{Arc, RwLock};
@@ -103,11 +106,14 @@ pub fn is_uri_escaped(iri: &str) -> bool {
     re.is_match(iri)
 }
 
-pub fn json_to_sparql_val(json: &serde_json::Value) -> String {
+pub fn json_to_sparql_val(
+    json: &serde_json::Value,
+    predicate_schema: &OrmSchemaPredicate,
+) -> String {
     match json {
         serde_json::Value::Array(arr) => arr
             .iter()
-            .map(|val| json_to_sparql_val(val))
+            .map(|val| json_to_sparql_val(val, predicate_schema))
             .collect::<Vec<String>>()
             .join(", "),
         serde_json::Value::Bool(bool) => match bool {
@@ -115,10 +121,27 @@ pub fn json_to_sparql_val(json: &serde_json::Value) -> String {
             false => "false".to_string(),
         },
         serde_json::Value::Number(num) => num.to_string(),
-        serde_json::Value::String(str) => match is_iri(str) {
-            true => format!("<{}>", str),
-            false => format!("\"{}\"", escape_sparql_string(str)),
-        },
+        serde_json::Value::String(str) => {
+            let schema_has_string = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::string);
+            let schema_has_iri = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::iri);
+
+            if schema_has_iri && schema_has_string {
+                match is_iri(str) {
+                    true => format!("<{}>", str),
+                    false => format!("\"{}\"", escape_sparql_string(str)),
+                }
+            } else if schema_has_iri {
+                format!("<{}>", str)
+            } else {
+                format!("\"{}\"", escape_sparql_string(str))
+            }
+        }
         _ => panic!(),
     }
 }
@@ -129,7 +152,7 @@ pub fn is_iri(s: &str) -> bool {
     lazy_static! {
         static ref IRI_REGEX: Regex = Regex::new(r"^[A-Za-z][A-Za-z0-9+\.\-]{1,12}:").unwrap();
     }
-    IRI_REGEX.is_match(s)
+    IRI_REGEX.is_match(s) && is_uri_escaped(s)
 }
 
 // ===== Child assessment heuristic =====

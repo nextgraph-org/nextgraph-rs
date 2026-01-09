@@ -12,7 +12,7 @@ use crate::local_broker::{doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{assert_json_eq, create_doc_with_data, create_orm_connection};
 use async_std::stream::StreamExt;
-use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
+use ng_net::app_protocol::{AppResponse, AppResponseV0};
 use ng_net::orm::{
     BasicType, OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate,
     OrmSchemaShape, OrmSchemaValType, OrmShapeType,
@@ -155,7 +155,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -184,7 +184,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add name
     let root = root_path(&doc_nuri, "urn:test:person1");
@@ -252,7 +252,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -293,7 +293,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Remove name
     let root = root_path(&doc_nuri, "urn:test:person2");
@@ -371,7 +371,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -412,7 +412,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Replace name (remove old, add new)
     let root = root_path(&doc_nuri, "urn:test:person3");
@@ -503,7 +503,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -532,7 +532,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add hobby
     let root = root_path(&doc_nuri, "urn:test:person4");
@@ -598,7 +598,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -627,7 +627,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Remove hobby
     let root = root_path(&doc_nuri, "urn:test:person5");
@@ -704,7 +704,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -750,7 +750,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -791,7 +791,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
     // Apply ORM patch: Change city in nested address
     let root = root_path(&doc_nuri, "urn:test:person6");
     let diff = vec![OrmPatch {
@@ -889,7 +889,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example-test_patch_multilevel_nested.org/Person".to_string(),
                         )]),
@@ -937,7 +937,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example-test_patch_multilevel_nested.org/Company".to_string(),
                         )]),
@@ -998,7 +998,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example-test_patch_multilevel_nested.org/Address".to_string(),
                         )]),
@@ -1153,7 +1153,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1194,7 +1194,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Create a new object
     let root = root_path(&doc_nuri, "urn:test:person8");
@@ -1329,7 +1329,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1375,7 +1375,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -1404,7 +1404,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add a second address.
     let root = root_path(&doc_nuri, "urn:test:person9");
@@ -1521,7 +1521,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1567,7 +1567,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -1596,7 +1596,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patches to create the single nested Address under person10
     let root = root_path(&doc_nuri, "urn:test:person10");
@@ -1712,7 +1712,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1758,7 +1758,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -1787,7 +1787,7 @@ INSERT DATA {
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply patches to replace the single-nested address with a new subject B
     let root = root_path(&doc_nuri, "urn:test:person12");
@@ -1879,7 +1879,7 @@ INSERT DATA {
 
 /// Test replacing object's type invalidating it.
 async fn test_patch_invalidating_object(session_id: u64) {
-    log_info!("\n\n=== TEST: Remove Single Literal ===\n");
+    log_info!("\n\n=== TEST: Patch invalidating object ===\n");
 
     let doc_nuri = create_doc_with_data(
         session_id,
@@ -1907,7 +1907,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1935,8 +1935,16 @@ INSERT DATA {
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+    let (receiver, _cancel_fn, subscription_id, initial) = create_orm_connection(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+    )
+    .await;
+
+    let (mut receiver2, _cancel_fn, subscription_id2, initial2) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Change type to something invalid by schema.
     let root = root_path(&doc_nuri, "urn:test:person2");
@@ -1952,7 +1960,7 @@ INSERT DATA {
         .expect("orm_update failed");
 
     // Expect delete patch for root object
-    while let Some(app_response) = receiver.next().await {
+    while let Some(app_response) = receiver2.next().await {
         let patches = match app_response {
             AppResponse::V0(v) => match v {
                 AppResponseV0::OrmUpdate(json) => Some(json),
@@ -2013,7 +2021,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2048,7 +2056,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -2076,7 +2084,7 @@ INSERT DATA {
         schema,
     };
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:personML");
     let child_seg = composite_key(&doc_nuri, "urn:test:a1");
@@ -2138,7 +2146,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2172,7 +2180,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -2200,7 +2208,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
         schema,
     };
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:personT");
     let encoded_child_key = format!(
@@ -2239,7 +2247,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/street", root, encoded_child_key),
             valType: None,
-            value: Some(json!("Lane")),
+            value: Some(json!("not:iri:Lane")),
         },
     ];
     orm_update(subscription_id, patches, session_id)
@@ -2258,7 +2266,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
             .to_string()
             .contains("http://example.org/example~Address/seg")
             && q.predicate.as_str() == "http://example.org/street"
-            && q.object.to_string().contains("Lane")
+            && q.object.to_string().contains("not:iri:Lane")
     });
     assert!(
         has_street,
@@ -2291,7 +2299,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2319,7 +2327,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:mv1");
     let diff = vec![OrmPatch {
@@ -2373,7 +2381,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2401,7 +2409,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:idem1");
     let patch = OrmPatch {
@@ -2464,7 +2472,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2492,7 +2500,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:noopr1");
     let diff = vec![OrmPatch {
@@ -2553,7 +2561,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2593,7 +2601,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:mix1");
     let patches = vec![
@@ -2675,7 +2683,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2703,7 +2711,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:rar1");
     // selective remove Reading
@@ -2771,7 +2779,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2804,7 +2812,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
                 maxCardinality: 1,
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str(
                         "http://example.org/Address".to_string(),
                     )]),
@@ -2819,7 +2827,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
-        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:personDL");
     let child_seg = composite_key(&doc_nuri, "urn:test:addr1");
@@ -2885,7 +2893,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2918,7 +2926,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
                 maxCardinality: 1,
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str(
                         "http://example.org/Address".to_string(),
                     )]),

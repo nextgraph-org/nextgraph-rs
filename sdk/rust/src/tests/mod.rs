@@ -8,12 +8,14 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use async_std::future::timeout;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::OrmShapeType;
 use ng_repo::log_err;
 use serde_json::Value;
+use std::time::Duration;
 
 use ng_repo::log::*;
 
@@ -109,18 +111,26 @@ async fn create_orm_connection(
         .await
         .expect("orm_start failed");
 
-    // Get initial state (person without name)
-    let mut subscription_id = None;
-    let mut initial_value = None;
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(init, sid)) = app_response {
-            subscription_id = Some(sid);
-            initial_value = Some(init);
-            break;
+    // Get initial state with timeout
+    let subscription_id;
+    let initial_value;
+    loop {
+        let res = timeout(Duration::from_secs(1), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => panic!("Timed out waiting for OrmInitial response (1 second)"),
+        };
+        match opt {
+            Some(app_response) => {
+                if let AppResponse::V0(AppResponseV0::OrmInitial(init, sid)) = app_response {
+                    subscription_id = sid;
+                    initial_value = init;
+                    break;
+                }
+            }
+            None => panic!("ORM receiver closed before initial response"),
         }
     }
-    let subscription_id = subscription_id.expect("Did not receive subscription_id");
-    let initial = initial_value.expect("Did not receive initial value");
 
-    return (receiver, cancel_fn, subscription_id, initial);
+    return (receiver, cancel_fn, subscription_id, initial_value);
 }

@@ -236,14 +236,19 @@ impl Verifier {
     }
 
     /// Ensure parent<->child links exist for newly added shape references on this subject.
-    /// Returns a map of child shape -> Vec of (child graph, child subject) to be merged into the children queue.
+    /// Returns a map of child shape -> Vec of ((child graph, child subject), needs_fetch) to be merged into the children queue.
+    /// When a child is referenced but not found in any known graph and `data_already_fetched` is false,
+    /// an empty graph string is used and needs_fetch is true to trigger a cross-graph query.
+    /// When `data_already_fetched` is true (initial load), unfound children are not queued.
     fn reconcile_links_for_subject_additions(
         orm_subscription: &mut OrmSubscription,
         change: &mut TrackedOrmObjectChange,
         added_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
         removed_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
-    ) -> HashMap<ShapeIri, Vec<(GraphIri, SubjectIri)>> {
-        let mut children_to_queue: HashMap<ShapeIri, Vec<(GraphIri, SubjectIri)>> = HashMap::new();
+        data_already_fetched: bool,
+    ) -> HashMap<ShapeIri, Vec<((GraphIri, SubjectIri), bool)>> {
+        let mut children_to_queue: HashMap<ShapeIri, Vec<((GraphIri, SubjectIri), bool)>> =
+            HashMap::new();
 
         // Parent identifiers
         let (parent_graph, parent_subject, _parent_shape_iri, parent_arc) = {
@@ -352,7 +357,9 @@ impl Verifier {
                 candidate_graphs.retain(|g| seen.insert(g.clone()));
 
                 // Try to link/create per candidate graph; mark for queueing precise (graph,subject)
-                let mut queued_pairs: Vec<(String, String)> = Vec::new();
+                // Each entry is ((graph, subject), needs_fetch)
+                let mut queued_pairs: Vec<((String, String), bool)> = Vec::new();
+                let mut found_child = false;
                 for child_graph in candidate_graphs {
                     if let Some(child_arc) = orm_subscription.get_tracked_orm_object(
                         &child_graph,
@@ -373,36 +380,45 @@ impl Verifier {
                             // Parent needs reevaluation since effective cardinality may have changed
                             change.is_validated = false;
                         }
-                        queued_pairs.push((child_graph.clone(), child_subject.clone()));
+                        queued_pairs.push(((child_graph.clone(), child_subject.clone()), false));
+                        found_child = true;
                     } else {
                         // If this graph-subject appears in diffs, we may need to queue the child to be processed first.
                         let key = (child_graph.clone(), child_subject.clone());
                         if added_by_graph_and_subject.contains_key(&key)
                             || removed_by_graph_and_subject.contains_key(&key)
                         {
-                            queued_pairs.push((child_graph.clone(), child_subject.clone()));
+                            queued_pairs
+                                .push(((child_graph.clone(), child_subject.clone()), false));
+                            found_child = true;
                         }
                     }
+                }
+
+                // If child was not found in any candidate graph and we're processing updates
+                // (not initial load), queue it with an empty graph and needs_fetch = true
+                // to trigger a cross-graph query. During initial load, unfound children are
+                // simply pending/non-existent and should not trigger a fetch.
+                if !found_child && !data_already_fetched {
+                    queued_pairs.push(((String::new(), child_subject.clone()), true));
                 }
 
                 // Dedup and schedule pairs
                 if !queued_pairs.is_empty() {
                     let mut seen: HashSet<(String, String)> = HashSet::new();
-                    let mut uniq: Vec<(String, String)> = Vec::new();
-                    for (g, s) in queued_pairs.into_iter() {
+                    let mut uniq: Vec<((String, String), bool)> = Vec::new();
+                    for ((g, s), needs_fetch) in queued_pairs.into_iter() {
                         if seen.insert((g.clone(), s.clone())) {
-                            uniq.push((g, s));
+                            uniq.push(((g, s), needs_fetch));
                         }
                     }
                     let entry = children_to_queue
                         .entry(target_shape_iri.clone())
                         .or_insert_with(Vec::new);
-                    for (g, s) in uniq.into_iter() {
-                        entry.push((g, s));
+                    for item in uniq.into_iter() {
+                        entry.push(item);
                     }
                 }
-
-                // Else: Linked object does not exist in dataset.
             }
         }
 
@@ -526,6 +542,7 @@ impl Verifier {
                             change,
                             &added_by_graph_and_subject,
                             &removed_by_graph_and_subject,
+                            data_already_fetched,
                         );
                         // Link this tracked orm object to all tracked_nested_subjects that reference it.
                         // Running this once suffices because it will search for all subjects x graph pairs relevant.
@@ -560,13 +577,16 @@ impl Verifier {
                 let mut child_targets: HashMap<ShapeIri, HashMap<(GraphIri, SubjectIri), bool>> =
                     HashMap::new();
 
-                // 1) children discovered during linking (subjects only)
+                // 1) children discovered during linking (with needs_fetch flag)
                 for (child_shape_iri, entries) in link_children_to_eval.iter() {
                     let entry_map = child_targets
                         .entry(child_shape_iri.clone())
                         .or_insert_with(HashMap::new);
-                    for (g, s) in entries.iter() {
-                        entry_map.entry((g.clone(), s.clone())).or_insert(false);
+                    for ((g, s), needs_fetch) in entries.iter() {
+                        entry_map
+                            .entry((g.clone(), s.clone()))
+                            .and_modify(|v| *v = *v || *needs_fetch)
+                            .or_insert(*needs_fetch);
                     }
                 }
 
@@ -702,9 +722,21 @@ impl Verifier {
                                 .collect();
 
                             if objects_to_fetch.len() > 0 {
+                                // Check if any subject has an empty graph (cross-graph child)
+                                // If so, use an unrestricted query (no graph filter)
+                                let has_cross_graph_child = objects_to_eval
+                                    .iter()
+                                    .any(|((g, _s), needs_fetch)| *needs_fetch && g.is_empty());
+                                let query_scope = if has_cross_graph_child {
+                                    // Use unrestricted query for cross-graph children
+                                    vec![]
+                                } else {
+                                    orm_subscription.graph_scope.clone()
+                                };
+
                                 // Create sparql query
                                 let new_quads = self.query_quads_for_shape(
-                                    &orm_subscription.graph_scope,
+                                    &query_scope,
                                     schema,
                                     &shape_iri,
                                     Some(&objects_to_fetch),

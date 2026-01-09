@@ -17,5 +17,5 @@ ex:TestObjectShape EXTRA a {
     ex:prop2 xsd:integer ;
   } * ;
   ex:numOrStr xsd:string OR xsd:integer ;
-  ex:lit1Or2 ["lit1"] OR ["lit2"] ;
+  ex:lit1Or2 ["lit1" "lit2"] ;
 }

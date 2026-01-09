@@ -170,11 +170,7 @@ impl Verifier {
                 set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                 break;
             // Check 3.3) Required literals present.
-            } else if p_schema
-                .dataTypes
-                .iter()
-                .any(|dt| dt.valType == OrmSchemaValType::literal)
-            {
+            } else if p_schema.dataTypes.iter().any(|dt| dt.literals.is_some()) {
                 // If the predicate is optional and has no values, skip literal validation
                 if p_schema.minCardinality == 0 && count == 0 {
                     continue;

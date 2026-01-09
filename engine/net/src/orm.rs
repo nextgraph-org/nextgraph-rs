@@ -65,7 +65,6 @@ pub enum OrmSchemaValType {
     string,
     boolean,
     iri,
-    literal,
     shape,
 }
 

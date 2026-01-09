@@ -14,17 +14,17 @@ ex:Expense {
     // rdfs:comment "The number of items bought" ;
   ex:dateOfPurchase xsd:date
     // rdfs:comment "The date of purchase" ;
-  ex:expenseCategory IRI *
+  ex:expenseCategory ex:ExpenseCategoryShape *
     // rdfs:comment "The use category of the product" ;  
   ex:isRecurring xsd:boolean
     // rdfs:comment "True, if this is a recurring expense (e.g. bus pass)" ;
   ex:recurrenceInterval xsd:duration ?
     // rdfs:comment "For recurring events, the interval of recurrence" ;
-  ex:paymentStatus [ex:Paid] OR [ex:Pending] OR [ex:Overdue] OR [ex:Refunded]
+  ex:paymentStatus [ex:Paid ex:Pending ex:Overdue ex:Refunded]
     // rdfs:comment "The payment status of the expense" ;
 }
 
-ex:ExpenseCategory EXTRA a {
+ex:ExpenseCategoryShape EXTRA a {
   a [ ex:ExpenseCategory ] ;
   ex:categoryName xsd:string
     // rdfs:comment "Name of expense category" ;

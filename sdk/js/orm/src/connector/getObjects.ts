@@ -21,7 +21,7 @@ import { deepClone } from "./utils.ts";
  */
 export async function getObjects<T extends BaseType>(
     shapeType: ShapeType<T>,
-    scope: Scope
+    scope: Scope = {}
 ) {
     const connection = OrmConnection.getOrCreate(shapeType, scope);
     await connection.readyPromise;

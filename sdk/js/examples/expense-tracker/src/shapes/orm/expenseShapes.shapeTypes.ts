@@ -9,5 +9,5 @@ export const ExpenseShapeType: ShapeType<Expense> = {
 };
 export const ExpenseCategoryShapeType: ShapeType<ExpenseCategory> = {
   schema: expenseShapesSchema,
-  shape: "http://example.org/ExpenseCategory",
+  shape: "http://example.org/ExpenseCategoryShape",
 };
