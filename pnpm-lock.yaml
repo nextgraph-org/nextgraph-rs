@@ -377,6 +377,9 @@ importers:
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
+      flowbite:
+        specifier: ^1.6.5
+        version: 1.8.1
       postcss:
         specifier: ^8.4.23
         version: 8.5.6
