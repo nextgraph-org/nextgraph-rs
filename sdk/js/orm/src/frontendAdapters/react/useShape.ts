@@ -19,15 +19,20 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 /**
  *
  * @param shape The shape type
- * @param scope The document scope (IRI of named graph)
+ * @param scope The scope as graph, array of graphs or scope object with graphs and subjects.
  * @returns A deep signal set with the orm objects, an empty set if still loading,
  *          or an empty set which errors on modifications if scope is undefined.
  */
 const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
-    scope: Scope | string[] = {}
+    scope: Scope | string[] | string = {}
 ) => {
-    const parsedScope = Array.isArray(scope) ? { subjects: scope } : scope;
+    const parsedScope =
+        typeof scope === "string"
+            ? { graphs: [scope] }
+            : Array.isArray(scope)
+              ? { graphs: scope }
+              : scope;
 
     const ormConnection = useMemo(
         () =>
