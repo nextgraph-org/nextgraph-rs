@@ -1,23 +1,27 @@
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer } from 'react-leaflet';
-import { GlobalStyles } from '@mui/material';
+import {useEffect, useRef} from 'react';
+import {MapContainer, TileLayer} from 'react-leaflet';
+import {GlobalStyles} from '@mui/material';
 import L from 'leaflet';
-import { DEFAULT_CENTER, DEFAULT_ZOOM, initializeLeafletIcons } from './mapUtils';
-import { MapController } from './MapController';
-import { ContactMarker } from './ContactMarker';
-import { EmptyState } from './EmptyState';
-import type { ContactMapProps } from './types';
+import {DEFAULT_CENTER, DEFAULT_ZOOM, initializeLeafletIcons} from './mapUtils';
+import {MapController} from './MapController';
+import {ContactMarker} from './ContactMarker';
+import {EmptyState} from './EmptyState';
+import type {ContactMapProps} from './types';
 import 'leaflet/dist/leaflet.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css'
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css'
 
-export const ContactMap = ({ contactNuris, onContactClick }: ContactMapProps) => {
+import MarkerClusterGroup from "react-leaflet-cluster";
+
+export const ContactMap = ({contacts, onContactClick}: ContactMapProps) => {
   const mapRef = useRef<L.Map>(null);
 
   useEffect(() => {
     initializeLeafletIcons();
   }, []);
 
-  if (contactNuris.length === 0) {
-    return <EmptyState />;
+  if (contacts.length === 0) {
+    return <EmptyState/>;
   }
 
   return (
@@ -47,7 +51,7 @@ export const ContactMap = ({ contactNuris, onContactClick }: ContactMapProps) =>
         ref={mapRef}
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
-        style={{ height: '100%', width: '100%' }}
+        style={{height: '100%', width: '100%'}}
         maxZoom={18}
         minZoom={2}
         maxBounds={[[-85, -180], [85, 180]]}
@@ -58,15 +62,16 @@ export const ContactMap = ({ contactNuris, onContactClick }: ContactMapProps) =>
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <MapController contactNuris={contactNuris} />
-
-        {contactNuris.map((nuri) => (
-          <ContactMarker
-            key={nuri}
-            nuri={nuri}
-            onContactClick={onContactClick}
-          />
-        ))}
+        <MapController contacts={contacts}/>
+        <MarkerClusterGroup chunkedLoading>
+          {contacts.map((contact) => (
+            <ContactMarker
+              key={contact["@id"]}
+              contact={contact}
+              onContactClick={onContactClick}
+            />
+          ))}
+        </MarkerClusterGroup>
       </MapContainer>
     </>
   );

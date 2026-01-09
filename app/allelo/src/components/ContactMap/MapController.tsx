@@ -1,26 +1,19 @@
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo} from "react";
 import {useMap} from "react-leaflet";
 import L from "leaflet";
 import {DEFAULT_CENTER, DEFAULT_ZOOM} from "./mapUtils";
-import {ContactProbe} from "@/components/contacts/ContactProbe";
-import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {ShortSocialContact} from "@/.orm/shapes/shortcontact.typings.ts";
 
-export const MapController = ({contactNuris}: { contactNuris: string[] }) => {
+export const MapController = ({contacts}: { contacts: ShortSocialContact[] }) => {
   const map = useMap();
-  const [byNuri, setByNuri] = useState<Record<string, SocialContact>>({});
-
-  const upsert = useCallback((nuri: string, contact: SocialContact | undefined) => {
-    if (!contact) return;
-    setByNuri(s => (s[nuri] === contact ? s : {...s, [nuri]: contact}));
-  }, []);
 
   const points = useMemo(() => {
-    return Object.values(byNuri)
+    return Object.values(contacts)
       .map(c => resolveFrom(c, "address"))
       .filter(a => a?.coordLat != null && a?.coordLng != null)
       .map(a => [a!.coordLat, a!.coordLng] as [number, number]);
-  }, [byNuri]);
+  }, [contacts]);
 
   // Fix map size on mount and when window resizes
   useEffect(() => {
@@ -48,10 +41,6 @@ export const MapController = ({contactNuris}: { contactNuris: string[] }) => {
   }, [map, points]);
 
   return (
-    <>
-      {contactNuris.map(nuri => (
-        <ContactProbe key={nuri} nuri={nuri} onContact={upsert}/>
-      ))}
-    </>
+    <></>
   );
 };
