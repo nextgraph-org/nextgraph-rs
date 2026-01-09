@@ -33,7 +33,7 @@ ex:TestObjectShape EXTRA a {
   ex:objectValue { ... } ;
   ex:anotherObject { ... } * ;
   ex:numOrStr xsd:string OR xsd:integer ;
-  ex:lit1Or2 ["lit1"] OR ["lit2"] ;
+  ex:lit1Or2 ["lit1" "lit2"] ;
 }
 ```
 

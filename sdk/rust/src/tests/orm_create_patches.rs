@@ -89,7 +89,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Project".to_string(),
                         )]),
@@ -127,7 +127,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -268,7 +268,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/TestObject".to_string(),
                         )]),
@@ -439,7 +439,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/TestObject".to_string(),
                         )]),
@@ -823,7 +823,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/House".to_string(),
                         )]),
@@ -875,7 +875,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -927,7 +927,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
                         shape: None,
                     }],
@@ -978,7 +978,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str("http://example.org/Toy".to_string())]),
                         shape: None,
                     }],
@@ -1358,7 +1358,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "@type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://www.w3.org/2006/vcard/ns#Individual".to_string(),
                         )]),
@@ -1579,7 +1579,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Project".to_string(),
                         )]),
@@ -1617,7 +1617,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),

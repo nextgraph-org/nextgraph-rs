@@ -181,7 +181,6 @@ Failure handling and reverts:
 * Pending children: parents become `Pending`, scheduling fetch or re-evaluation. Links established mid-loop can revert objects back to `Pending` until stabilization.
 * Deletions: Invalid objects with parents become `ToDelete`; pruned during cleanup without cascading deletions to unrelated parents.
 * Multi-valued nested: returned as a map keyed by `"graph|subject"` (unordered). In TypeScript signals these maps are treated as sets.
-* Data types: a string is considered an IRI if it matches regex `^[A-Za-z][A-Za-z0-9+\.\-]{1,12}:` (see `utils::is_iri`).
 
 ## Contract for consumers
 

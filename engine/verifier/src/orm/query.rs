@@ -394,7 +394,21 @@ pub fn schema_shape_to_sparql(
                             }
                             BasicType::Num(n) => n.to_string(),
                             BasicType::Str(s) => {
-                                if is_iri(s) {
+                                let schema_has_string = pred
+                                    .dataTypes
+                                    .iter()
+                                    .any(|dt| dt.valType == OrmSchemaValType::string);
+                                let schema_has_iri = pred
+                                    .dataTypes
+                                    .iter()
+                                    .any(|dt| dt.valType == OrmSchemaValType::iri);
+
+                                if schema_has_iri && schema_has_string {
+                                    match is_iri(s) {
+                                        true => format!("<{}>", s),
+                                        false => format!("\"{}\"", escape_sparql_string(s)),
+                                    }
+                                } else if schema_has_iri {
                                     format!("<{}>", s)
                                 } else {
                                     format!("\"{}\"", escape_sparql_string(s))

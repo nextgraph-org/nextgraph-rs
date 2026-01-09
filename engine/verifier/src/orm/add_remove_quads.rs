@@ -86,7 +86,7 @@ pub fn add_quads_for_subject(
                     .unwrap()
                     .dataTypes
                     .iter()
-                    .any(|dt| dt.valType == OrmSchemaValType::literal)
+                    .any(|dt| dt.literals.is_some())
                 {
                     match &mut tracked_predicate.current_literals {
                         Some(lits) => lits.push(obj_term.clone()),
@@ -148,7 +148,7 @@ pub fn remove_quads_for_subject(
             .unwrap()
             .dataTypes
             .iter()
-            .any(|dt| dt.valType == OrmSchemaValType::literal)
+            .any(|dt| dt.literals.is_some())
         {
             if let Some(current_literals) = &mut tracked_predicate.current_literals {
                 // Remove obj_val from current_literals in-place

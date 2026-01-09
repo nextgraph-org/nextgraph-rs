@@ -27,12 +27,12 @@ export interface Shape {
 }
 
 export type DataType = {
-    /** The required literal value(s), if type is `literal`. Others are allowed, if `extra` is true. */
+    /** The required literal value(s). Additional values are allowed, if `extra` is true. */
     literals?: number[] | string[] | boolean;
     /** If `valType` is `"shape"`, the nested shape or its reference. Use reference for serialization. */
     shape?: string | Shape;
     /** The type of object value for a triple constraint. */
-    valType: "number" | "string" | "boolean" | "iri" | "literal" | "shape";
+    valType: "number" | "string" | "boolean" | "iri" | "shape";
 };
 
 export interface Predicate {

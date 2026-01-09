@@ -5,11 +5,11 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": ["http://www.w3.org/2006/vcard/ns#Individual"]
           },
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": ["did:ng:x:contact:class#Me"]
           }
         ],
@@ -552,7 +552,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:phoneNumber#home",
               "did:ng:k:contact:phoneNumber#work",
@@ -827,7 +827,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:type#home",
               "did:ng:k:contact:type#work",
@@ -905,7 +905,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:type#home",
               "did:ng:k:contact:type#work",
@@ -1191,7 +1191,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:org:type#business",
               "did:ng:k:org:type#school",
@@ -1390,7 +1390,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:link:type#homepage",
               "did:ng:k:link:type#sourceCode",
@@ -1553,7 +1553,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:event#anniversary",
               "did:ng:k:event#party",
@@ -1598,7 +1598,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:gender#male",
               "did:ng:k:gender#female",
@@ -1665,7 +1665,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:nickname#default",
               "did:ng:k:contact:nickname#initials",
@@ -1760,7 +1760,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:humanRelationship#spouse",
               "did:ng:k:humanRelationship#child",
@@ -2046,7 +2046,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:type#home",
               "did:ng:k:contact:type#work",
@@ -2133,7 +2133,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:sip#home",
               "did:ng:k:contact:sip#work",
@@ -2275,7 +2275,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:calendar:type#home",
               "did:ng:k:calendar:type#availability",
@@ -2465,7 +2465,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:tag#ai",
               "did:ng:k:contact:tag#technology",
@@ -2834,7 +2834,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:skills:language:proficiency#elementary",
               "did:ng:k:skills:language:proficiency#limitedWork",
@@ -3244,7 +3244,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:phoneNumber#home",
               "did:ng:k:contact:phoneNumber#work",
@@ -3519,7 +3519,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:type#home",
               "did:ng:k:contact:type#work",
@@ -3597,7 +3597,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:type#home",
               "did:ng:k:contact:type#work",
@@ -3883,7 +3883,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:org:type#business",
               "did:ng:k:org:type#school",
@@ -4082,7 +4082,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:link:type#homepage",
               "did:ng:k:link:type#sourceCode",
@@ -4245,7 +4245,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:event#anniversary",
               "did:ng:k:event#party",
@@ -4290,7 +4290,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:gender#male",
               "did:ng:k:gender#female",
@@ -4357,7 +4357,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:nickname#default",
               "did:ng:k:contact:nickname#initials",
@@ -4452,7 +4452,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:humanRelationship#spouse",
               "did:ng:k:humanRelationship#child",
@@ -4738,7 +4738,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:type#home",
               "did:ng:k:contact:type#work",
@@ -4825,7 +4825,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:sip#home",
               "did:ng:k:contact:sip#work",
@@ -4967,7 +4967,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:calendar:type#home",
               "did:ng:k:calendar:type#availability",
@@ -5157,7 +5157,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:contact:tag#ai",
               "did:ng:k:contact:tag#technology",
@@ -5716,7 +5716,7 @@
       {
         "dataTypes": [
           {
-            "valType": "literal",
+            "valType": "iri",
             "literals": [
               "did:ng:k:skills:language:proficiency#elementary",
               "did:ng:k:skills:language:proficiency#limitedWork",

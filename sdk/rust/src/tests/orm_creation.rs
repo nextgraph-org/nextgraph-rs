@@ -416,7 +416,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Organization".to_string(),
                         )]),
@@ -463,7 +463,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Department".to_string(),
                         )]),
@@ -510,7 +510,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Project".to_string(),
                         )]),
@@ -670,7 +670,7 @@ INSERT DATA {
         ex:objectValue <urn:test:obj2objVal> ;
         ex:anotherObject <urn:test:obj2AnotherSub1>, <urn:test:obj2AnotherSub2> ;
         ex:numOrStr 4 ;
-        ex:lit1Or2 "lit2" ;
+        ex:lit1Or2 "lit2:not-an-iri.ex" ;
         ex:unrelated "some value2" ;
         ex:anotherUnrelated 42422 .
 }
@@ -864,7 +864,7 @@ INSERT DATA {
                 },
                 "arrayValue":[4.0,5.0,6.0],
                 "boolValue":false,
-                "lit1Or2":"lit2",
+                "lit1Or2":"lit2:not-an-iri.ex",
                 "numOrStr":4.0,
                 "numValue":422.0,
                 "objectValue":{
@@ -895,7 +895,7 @@ fn test_basic_schema_shape_to_sparql_generation() {
         maxCardinality: -1,
         readablePredicate: "requiredLiteral".to_string(),
         dataTypes: vec![OrmSchemaDataType {
-            valType: OrmSchemaValType::literal,
+            valType: OrmSchemaValType::string,
             literals: Some(vec![
                 BasicType::Str("A".to_string()),
                 BasicType::Str("B".to_string()),
@@ -993,7 +993,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1029,7 +1029,7 @@ INSERT DATA {
                 minCardinality: 1,
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
                     shape: None,
                 }],
@@ -1127,7 +1127,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1163,7 +1163,7 @@ INSERT DATA {
                 minCardinality: 1,
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
                     shape: None,
                 }],
@@ -1296,7 +1296,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/TestObject".to_string(),
                         )]),
@@ -1513,17 +1513,17 @@ PREFIX ex: <http://example.org/>
 INSERT DATA {
     <urn:test:oj1> 
         ex:lit1 "lit 1" ;
-        ex:lit2 "lit 2" .   
+        ex:lit2 "lit2:not-an-iri.ex" .   
 
     # Valid because ex:lit1 allows extra.
     <urn:test:obj2> 
         ex:lit1 "lit 1", "lit 1 extra" ;
-        ex:lit2 "lit 2" .
+        ex:lit2 "lit2:not-an-iri.ex" .
 
     # Invalid because ex:lit2 does not allow extra.
     <urn:test:obj3> 
         ex:lit1 "lit 1" ;
-        ex:lit2 "lit 2", "lit 2 extra" .
+        ex:lit2 "lit2:not-an-iri.ex", "lit 2 extra" .
 }
 "#
         .to_string(),
@@ -1544,7 +1544,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "lit1".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::string,
                         literals: Some(vec![BasicType::Str("lit 1".to_string())]),
                         shape: None,
                     }],
@@ -1557,8 +1557,8 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "lit2".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
-                        literals: Some(vec![BasicType::Str("lit 2".to_string())]),
+                        valType: OrmSchemaValType::string,
+                        literals: Some(vec![BasicType::Str("lit2:not-an-iri.ex".to_string())]),
                         shape: None,
                     }],
                 }
@@ -2180,7 +2180,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::string,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Alice".to_string(),
                         )]),
@@ -2224,7 +2224,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str("http://example.org/Bob".to_string())]),
                         shape: None,
                     }],
@@ -2258,7 +2258,7 @@ INSERT DATA {
                 minCardinality: 1,
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str(
                         "http://example.org/Claire".to_string(),
                     )]),
@@ -2379,7 +2379,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2415,7 +2415,7 @@ INSERT DATA {
                 minCardinality: 1,
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
                     shape: None,
                 }],
@@ -2562,7 +2562,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2661,7 +2661,7 @@ fn create_big_schema() -> OrmSchema {
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/TestObject".to_string(),
                         )]),
@@ -2773,13 +2773,13 @@ fn create_big_schema() -> OrmSchema {
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![
                         OrmSchemaDataType {
-                            valType: OrmSchemaValType::literal,
+                            valType: OrmSchemaValType::string,
                             literals: Some(vec![BasicType::Str("lit1".to_string())]),
                             shape: None,
                         },
                         OrmSchemaDataType {
-                            valType: OrmSchemaValType::literal,
-                            literals: Some(vec![BasicType::Str("lit2".to_string())]),
+                            valType: OrmSchemaValType::string,
+                            literals: Some(vec![BasicType::Str("lit2:not-an-iri.ex".to_string())]),
                             shape: None,
                         },
                     ],
