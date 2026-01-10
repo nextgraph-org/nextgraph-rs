@@ -11,17 +11,18 @@
 use crate::local_broker::{doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{assert_json_eq, create_doc_with_data, create_orm_connection};
+use async_std::future::timeout;
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0};
 use ng_net::orm::{
     BasicType, OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate,
     OrmSchemaShape, OrmSchemaValType, OrmShapeType,
 };
-
-use ng_repo::log_info;
+use ng_repo::log::*;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 // Helper: escape a JSON Pointer segment (RFC 6901): ~ -> ~0, / -> ~1
 fn escape_pointer_segment(segment: &str) -> String {
@@ -123,6 +124,12 @@ async fn test_orm_apply_patches() {
 
     // Test 19: Cross-graph object link removal
     test_patch_cross_graph_object_removal(session_id).await;
+
+    // Test 20: Revert patches for invalid schema values
+    test_patch_revert_invalid_schema_value(session_id).await;
+
+    // Test 21: Revert patches for multi-valued set invalid value
+    test_patch_revert_multi_valued_invalid(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -1952,7 +1959,7 @@ INSERT DATA {
         op: OrmPatchOp::add,
         path: format!("{}/type", root),
         valType: None,
-        value: Some(json!("InvalidType")),
+        value: Some(json!("http://example.org/NotAPerson")),
     }];
 
     orm_update(subscription_id, patch, session_id)
@@ -2940,7 +2947,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
 
     let root = root_path(&parent_doc, "urn:test:personCR");
@@ -2969,4 +2976,219 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         "Cross-graph link should be removed in parent graph"
     );
     log_info!("✓ Test passed: Cross-graph object link removal");
+}
+
+/// Test that invalid schema values trigger revert patches
+/// When a patch contains a value that doesn't match the schema (e.g., non-IRI for IRI-only predicate),
+/// the system should send a revert patch back to the frontend.
+async fn test_patch_revert_invalid_schema_value(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert Patches for Invalid Schema Value ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:personRevert1> a ex:Person ;
+        ex:someResource <http://example.org/resource1> .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define schema with an IRI-only predicate (no string allowed)
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/someResource".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "someResource".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    // Only IRI allowed, no string
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // Send a patch with a plain string, not an IRI.
+    let root = root_path(&doc_nuri, "urn:test:personRevert1");
+    let invalid_diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/someResource", root),
+        valType: None,
+        value: Some(json!("not a valid IRI")),
+    }];
+
+    orm_update(subscription_id, invalid_diff, session_id)
+        .await
+        .expect("orm_update");
+
+    // Wait for revert patch from the receiver.
+    // For single-valued predicates with an existing value, the revert should be
+    // an `add` patch that restores the original value.
+    let revert_received = timeout(Duration::from_secs(1), async {
+        while let Some(response) = receiver.next().await {
+            if let AppResponse::V0(AppResponseV0::OrmUpdate(patches)) = response {
+                // Should receive a revert patch that restores the original value
+                for patch in &patches {
+                    if patch.op == OrmPatchOp::add
+                        && patch.path.contains("someResource")
+                        && patch.value == Some(json!("http://example.org/resource1"))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    })
+    .await;
+
+    assert!(
+        revert_received.unwrap_or(false),
+        "Should receive a revert patch for invalid schema value"
+    );
+
+    log_info!("✓ Test passed: Revert patches for invalid schema value");
+}
+
+/// Test that invalid values in multi-valued sets trigger revert patches
+async fn test_patch_revert_multi_valued_invalid(session_id: u64) {
+    use async_std::future::timeout;
+    use std::time::Duration;
+
+    log_info!("\n\n=== TEST: Revert Patches for Multi-Valued Set Invalid Value ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:personRevert2> a ex:Person ;
+        ex:links <http://example.org/link1> ;
+        ex:links <http://example.org/link2> .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define schema with multi-valued IRI-only predicate
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/links".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "links".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: -1, // Multi-valued
+                    // Only IRI allowed
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // Send a batch with one valid and one invalid add
+    let root = root_path(&doc_nuri, "urn:test:personRevert2");
+    let mixed_diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/links", root),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!(["http://example.org/link3", "invalid plain text"])),
+    }];
+
+    orm_update(subscription_id, mixed_diff, session_id)
+        .await
+        .expect("orm_update should not fail");
+
+    // Wait for revert patch for the invalid value only
+    let revert_received = timeout(Duration::from_secs(1), async {
+        while let Some(response) = receiver.next().await {
+            if let AppResponse::V0(AppResponseV0::OrmUpdate(patches)) = response {
+                log_debug!("got patch: {:?}", patches);
+                for patch in &patches {
+                    if patch.op == OrmPatchOp::remove
+                        && patch.path.contains("links")
+                        && patch.value
+                            == Some(json!(["http://example.org/link3", "invalid plain text"]))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    })
+    .await;
+
+    assert!(
+        revert_received.unwrap_or(false),
+        "Should receive a revert patch for invalid multi-valued set value"
+    );
+
+    log_info!("✓ Test passed: Revert patches for multi-valued set invalid value");
 }

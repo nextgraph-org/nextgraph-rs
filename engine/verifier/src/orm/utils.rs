@@ -109,18 +109,44 @@ pub fn is_uri_escaped(iri: &str) -> bool {
 pub fn json_to_sparql_val(
     json: &serde_json::Value,
     predicate_schema: &OrmSchemaPredicate,
-) -> String {
+) -> Result<String, String> {
     match json {
-        serde_json::Value::Array(arr) => arr
-            .iter()
-            .map(|val| json_to_sparql_val(val, predicate_schema))
-            .collect::<Vec<String>>()
-            .join(", "),
-        serde_json::Value::Bool(bool) => match bool {
-            true => "true".to_string(),
-            false => "false".to_string(),
-        },
-        serde_json::Value::Number(num) => num.to_string(),
+        serde_json::Value::Array(arr) => {
+            if !predicate_schema.is_multi() {
+                Err("Schema does not allow multiple values".into())
+            } else {
+                let results: Result<Vec<String>, String> = arr
+                    .iter()
+                    .map(|val| json_to_sparql_val(val, predicate_schema))
+                    .collect();
+                results.map(|vec| vec.join(", "))
+            }
+        }
+        serde_json::Value::Bool(bool) => {
+            let schema_has_num = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::boolean);
+            if !schema_has_num {
+                Err("Schema does not allow booleans".into())
+            } else {
+                match bool {
+                    true => Ok("true".to_string()),
+                    false => Ok("false".to_string()),
+                }
+            }
+        }
+        serde_json::Value::Number(num) => {
+            let schema_has_num = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::number);
+            if !schema_has_num {
+                Err("Schema does not allow numbers".into())
+            } else {
+                Ok(num.to_string())
+            }
+        }
         serde_json::Value::String(str) => {
             let schema_has_string = predicate_schema
                 .dataTypes
@@ -131,15 +157,18 @@ pub fn json_to_sparql_val(
                 .iter()
                 .any(|dt| dt.valType == OrmSchemaValType::iri);
 
-            if schema_has_iri && schema_has_string {
-                match is_iri(str) {
-                    true => format!("<{}>", str),
-                    false => format!("\"{}\"", escape_sparql_string(str)),
-                }
-            } else if schema_has_iri {
-                format!("<{}>", str)
+            if !schema_has_string && !schema_has_iri {
+                return Err("Schema does not allow strings".into());
+            }
+
+            let val_is_iri = is_iri(str);
+
+            if val_is_iri && schema_has_iri {
+                Ok(format!("<{}>", str))
+            } else if schema_has_string {
+                Ok(format!("\"{}\"", escape_sparql_string(str)))
             } else {
-                format!("\"{}\"", escape_sparql_string(str))
+                Err("Value is not an IRI".into())
             }
         }
         _ => panic!(),
