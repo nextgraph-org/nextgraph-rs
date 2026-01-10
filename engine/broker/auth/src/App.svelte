@@ -299,8 +299,7 @@
                   const method = e.data.method;
                   const args = e.data.args;
                   const port = e.data.port;
-                  // TODO: once nextgraph.net is re-deployed, remove all the ORs
-                  if ( e.data.streamed || method === "doc_subscribe" || method === "orm_start" || method === "app_request_stream" || method === "file_get" ) {
+                  if ( e.data.streamed ) {
                     //console.log("processing streamed request ...",method, args);
                     args.push((callbacked)=> {
                       port.postMessage({stream:true, ret:callbacked});
