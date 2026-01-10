@@ -78,7 +78,7 @@ export default defineConfig((): UserConfig => {
         : undefined,
       watch: {
         // 3. tell Vite to ignore watching `src-tauri`
-        ignored: ["**/src-tauri/**"],
+        ignored: ["**/src-tauri/**", "index.html", "public_dev/ng.html"],
       },
     },
     publicDir: process.env.NG_PUBLIC_DEV ? "public_dev" : "public",
