@@ -567,36 +567,25 @@ async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> 
 
 #[tauri::command(rename_all = "snake_case")]
 async fn new_orm_start(
-    scope: String,
+    mut graph_scope: Vec<NuriV0>,
+    subject_scope: Vec<String>,
     shape_type: ng_net::orm::OrmShapeType,
     session_id: u64,
 ) -> Result<AppRequest, String> {
-    let scope = if scope.is_empty() {
-        NuriV0::new_entire_user_site()
-    } else {
-        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
-    };
-    let mut req = AppRequest::new_orm_start(scope, shape_type);
+    if graph_scope.is_empty() {
+        graph_scope.push(NuriV0::new_entire_user_site());
+    }
+    let mut req = AppRequest::new_orm_start(graph_scope, subject_scope, shape_type);
     req.set_session_id(session_id);
     Ok(req)
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn orm_update(
-    scope: String,
-    shape_type_name: String,
-    diff: OrmPatches,
-    session_id: u64,
-) -> Result<(), String> {
-    let scope = if scope.is_empty() || scope == "did:ng:i" {
-        NuriV0::new_entire_user_site()
-    } else {
-        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
-    };
-    let mut request = AppRequest::new_orm_update(scope, shape_type_name, diff);
+async fn orm_update(subscription_id: u64, diff: OrmPatches, session_id: u64) -> Result<(), String> {
+    let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
     //log_info!("[orm_update] calling orm_update");
-    let response = nextgraph::local_broker::app_request(request)
+    let _response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
     Ok(())
