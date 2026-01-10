@@ -893,6 +893,10 @@ async fn main_inner() -> Result<(), NgdError> {
     let pubkey = peer_from_file.to_pub();
     log_info!("PeerId of node: {}", pubkey);
 
+    if args.json {
+        println!("{{\n\"peerID\":\"{pubkey}\"\n}}");
+    }
+
     //debug_println!("Private key of peer: {}", privkey.to_string());
 
     //let x_from_ed = pubkey.to_dh_from_ed();
