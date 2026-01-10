@@ -214,7 +214,7 @@ pub fn apply_quads_for_subject(
     );
 }
 
-fn oxrdf_term_to_orm_basic_type(term: &ng_oxigraph::oxrdf::Term) -> BasicType {
+pub(crate) fn oxrdf_term_to_orm_basic_type(term: &ng_oxigraph::oxrdf::Term) -> BasicType {
     match oxrdf_term_to_orm_term(term) {
         Term::Str(s) => BasicType::Str(s),
         Term::Num(n) => BasicType::Num(n),
