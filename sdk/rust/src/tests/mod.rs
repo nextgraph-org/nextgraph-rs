@@ -13,7 +13,6 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::OrmShapeType;
-use ng_repo::log_err;
 use serde_json::Value;
 use std::time::Duration;
 

@@ -16,6 +16,7 @@ use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -60,17 +61,19 @@ impl Verifier {
             tx.clone(),
         );
 
-        let orm_objects =
-            match self.create_orm_object_for_shape_and_insert_subscription(orm_subscription) {
-                Err(error) => {
-                    log_err!(
-                        "Error occurred while creating orm subscription: {:?}",
-                        error
-                    );
-                    return Err(error);
-                }
-                Ok(res) => res,
-            };
+        let orm_objects = match self
+            .create_orm_object_for_shape_and_insert_subscription(orm_subscription)
+            .await
+        {
+            Err(error) => {
+                log_err!(
+                    "Error occurred while creating orm subscription: {:?}",
+                    error
+                );
+                return Err(error);
+            }
+            Ok(res) => res,
+        };
 
         let _ = tx
             .send(AppResponse::V0(AppResponseV0::OrmInitial(
@@ -88,7 +91,7 @@ impl Verifier {
     }
 
     /// For a nuri, session, and shape, create an ORM JSON object.
-    fn create_orm_object_for_shape_and_insert_subscription(
+    async fn create_orm_object_for_shape_and_insert_subscription(
         &mut self,
         mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
@@ -120,6 +123,8 @@ impl Verifier {
         let mut return_val = json!({});
         let obj_map = return_val.as_object_mut().unwrap();
 
+        let mut graphs: HashSet<String> = HashSet::new();
+
         // For each valid change struct, we build an orm object.
         for (graph_iri, subject_iri, tracked_orm_object) in
             orm_subscription.iter_objects_by_shape(&orm_subscription.shape_type.shape)
@@ -138,8 +143,14 @@ impl Verifier {
                         format!("{}|{}", tormo.graph_iri, tormo.subject_iri),
                         new_val,
                     );
+                    graphs.insert(graph_iri);
                 }
             }
+        }
+
+        for graph in graphs.iter() {
+            let nuri = NuriV0::new_from_repo_graph(graph)?;
+            self.open_for_target(&nuri.target, true).await?;
         }
 
         self.orm_subscriptions

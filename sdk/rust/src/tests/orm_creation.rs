@@ -20,7 +20,7 @@ use ng_net::orm::{
     OrmShapeType,
 };
 
-use ng_repo::log_info;
+use ng_repo::log::*;
 use ng_verifier::orm::query::schema_shape_to_sparql;
 // use ng_verifier::orm::query::shape_type_to_sparql_select; // replaced by query_quads_for_shape_type
 use serde_json::{json, Value};
