@@ -895,6 +895,7 @@ extern "C" {
     ) -> Result<JsValue, JsValue>;
 }
 
+#[cfg(not(wasmpack_target = "nodejs"))]
 fn local_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>> + Send + Sync> {
     //log_info!("local_read {key}");
     Box::new(async {
@@ -908,6 +909,13 @@ fn local_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>> +
     })
 }
 
+#[cfg(wasmpack_target = "nodejs")]
+fn local_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>> + Send + Sync> {
+    //log_info!("local_read {key}");
+    Box::new(async move { local_get(key).ok_or(NgError::JsStorageReadError) })
+}
+
+#[cfg(not(wasmpack_target = "nodejs"))]
 fn local_write(
     key: String,
     value: String,
@@ -923,6 +931,20 @@ fn local_write(
     })
 }
 
+#[cfg(wasmpack_target = "nodejs")]
+fn local_write(
+    key: String,
+    value: String,
+) -> Box<dyn Future<Output = Result<(), NgError>> + Send + Sync> {
+    Box::new(async move {
+        match local_save(key, value) {
+            Some(err) => Err(NgError::JsStorageWriteError(err)),
+            None => Ok(()),
+        }
+    })
+}
+
+#[cfg(not(wasmpack_target = "nodejs"))]
 fn session_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>> + Send + Sync> {
     //log_info!("session_read {key}");
     Box::new(async {
@@ -936,6 +958,13 @@ fn session_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>>
     })
 }
 
+#[cfg(wasmpack_target = "nodejs")]
+fn session_read(key: String) -> Box<dyn Future<Output = Result<String, NgError>> + Send + Sync> {
+    //log_info!("session_read {key}");
+    Box::new(async move { session_get(key).ok_or(NgError::JsStorageReadError) })
+}
+
+#[cfg(not(wasmpack_target = "nodejs"))]
 fn session_write(
     key: String,
     value: String,
@@ -948,6 +977,19 @@ fn session_write(
             }
         })
         .await
+    })
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+fn session_write(
+    key: String,
+    value: String,
+) -> Box<dyn Future<Output = Result<(), NgError>> + Send + Sync> {
+    Box::new(async move {
+        match session_save(key, value) {
+            Some(err) => Err(NgError::JsStorageWriteError(err)),
+            None => Ok(()),
+        }
     })
 }
 
@@ -1639,7 +1681,7 @@ async fn do_upload_done_(
     let response = nextgraph::local_broker::upload_done(upload_id, session_id, nuri, filename)
         .await
         .map_err(|e| {
-            let ee: JsValue = e.into();
+            let ee: JsValue = e.to_string().into();
             ee
         })?;
 
