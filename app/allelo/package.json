@@ -70,7 +70,8 @@
     "svelte-in-react": "^0.2.0",
     "svelte-material-ui": "^8.0.3",
     "svelte-time": "^1.0.0",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "react-leaflet-cluster": "^4.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

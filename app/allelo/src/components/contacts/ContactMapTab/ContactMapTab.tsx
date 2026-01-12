@@ -3,6 +3,10 @@ import {ContactFilters} from "../ContactFilters";
 import {ContactMap} from "@/components/ContactMap";
 import {useContacts} from "@/hooks/contacts/useContacts.ts";
 import {useNavigate} from "react-router-dom";
+import {ShortSocialContactShapeType} from "@/.orm/shapes/shortcontact.shapeTypes.ts";
+import {useEffect, useState} from "react";
+import {ShortSocialContact} from "@/.orm/shapes/shortcontact.typings.ts";
+import {getObjects} from "../../../../../../sdk/js/orm";
 
 
 export const ContactMapTab = () => {
@@ -19,6 +23,18 @@ export const ContactMapTab = () => {
       "hasAddressFilter": true
     }
   });
+
+  const [contacts, setContacts] = useState<ShortSocialContact[]>([]);
+
+  useEffect(() => {
+    const loadContacts = async () => {
+      const contactsSet = await getObjects(ShortSocialContactShapeType, {graphs: contactNuris});
+      const contactsArray = [...contactsSet ?? []];
+      setContacts(contactsArray);
+    };
+
+    loadContacts();
+  }, [contactNuris]);
 
   const navigate = useNavigate();
 
@@ -46,24 +62,7 @@ export const ContactMapTab = () => {
           {error.message}
         </Typography>
       </Box>
-    ) : isLoading ? (
-      <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        py: 8,
-        gap: 2
-      }}>
-        <CircularProgress size={48} />
-        <Typography variant="h6" color="text.secondary" gutterBottom>
-          Loading map...
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Building your contact map view
-        </Typography>
-      </Box>
-    ) : contactNuris.length === 0 ? (
+    ) : !isLoading && contacts.length === 0 ? (
       <Box sx={{textAlign: 'center', py: 8}}>
         <Typography variant="h6" color="text.secondary" gutterBottom>
           No contacts to display on map
@@ -83,10 +82,15 @@ export const ContactMapTab = () => {
         overflow: 'hidden',
         height: "100%"
       }}>
+        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 500, display: 'flex', gap: 1, alignItems: 'center' }}>
+          {isLoading && (
+            <CircularProgress size={20} sx={{ color: 'primary.main' }} />
+          )}
+        </Box>
         <ContactMap
-          contactNuris={contactNuris}
+          contacts={contacts}
           onContactClick={(contact) => {
-            navigate(`/contacts/${contact["@id"]}`);
+            navigate(`/contacts/${contact["@graph"]}`);
           }}
         />
       </Box>
