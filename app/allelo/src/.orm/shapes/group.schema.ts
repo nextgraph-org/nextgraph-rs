@@ -12,7 +12,7 @@ export const groupSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:group#Group"],
           },
         ],
@@ -122,15 +122,15 @@ export const groupSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:memberStatus#invited"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:memberStatus#joined"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:memberStatus#declined"],
           },
         ],
@@ -169,7 +169,7 @@ export const groupSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:post#Post"],
           },
         ],
@@ -231,7 +231,7 @@ export const groupSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:post#Post"],
           },
         ],
@@ -304,15 +304,15 @@ export const groupSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:memberStatus#invited"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:memberStatus#joined"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:memberStatus#declined"],
           },
         ],

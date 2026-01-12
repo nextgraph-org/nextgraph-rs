@@ -1,11 +1,11 @@
-import {useCallback, useState, useEffect, useRef} from 'react';
+import {useCallback, useState} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes.ts";
-import {useShape} from "@ng-org/orm/react";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {rCardService} from "@/services/rCardService.ts";
 import {contactService} from "@/services/contactService.ts";
+import { insertObject } from "@ng-org/orm";
 
 interface UseSaveContactsReturn {
   saveContacts: (contacts: SocialContact[], onProgress?: (current: number, total: number) => void) => Promise<void>;
@@ -17,13 +17,9 @@ interface UseSaveContactsReturn {
 export function useSaveContacts(): UseSaveContactsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentDocId, setCurrentDocId] = useState<string | undefined>(undefined);
-  const currentContactRef = useRef<SocialContact | undefined>(undefined);
 
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
-
-  const contactsSet = useShape(SocialContactShapeType, currentDocId);
 
   function generateUri(base: string) {
     return base.substring(0, 9 + 44);
@@ -40,7 +36,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
       rCardId ??= await rCardService.getRCardId(session);
 
       const docId = await session.ng!.doc_create(
-        session.sessionId,
+        session.sessionId!,
         "Graph",
         "data:graph",
         "store"
@@ -55,9 +51,6 @@ export function useSaveContacts(): UseSaveContactsReturn {
 
       await contactService.updateContactDocHeader(contact, session);
 
-      currentContactRef.current = contact;
-
-      setCurrentDocId(docId);
       return contact;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to save contacts';
@@ -82,7 +75,11 @@ export function useSaveContacts(): UseSaveContactsReturn {
       const rCardId = await rCardService.getRCardId(session);
 
       for (let i = 0; i < contacts.length; i++) {
-        await createContact(contacts[i], rCardId);
+        const contact = await createContact(contacts[i], rCardId);
+
+        if (contact) {
+          await insertObject(SocialContactShapeType, contact)
+        }
 
         onProgress?.(i + 1, contacts.length);
 
@@ -104,13 +101,6 @@ export function useSaveContacts(): UseSaveContactsReturn {
       setIsLoading(false);
     }
   }, [createContact, session]);
-
-  useEffect(() => {
-    if (currentDocId && contactsSet && currentContactRef.current) {
-      contactsSet.add(currentContactRef.current);
-      currentContactRef.current = undefined;
-    }
-  }, [currentDocId, contactsSet]);
 
   return {
     saveContacts,
