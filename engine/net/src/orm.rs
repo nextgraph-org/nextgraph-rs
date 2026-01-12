@@ -95,7 +95,7 @@ pub struct OrmSchemaPredicate {
 }
 impl OrmSchemaPredicate {
     pub fn is_multi(&self) -> bool {
-        self.maxCardinality > 1 || self.maxCardinality == -1
+        self.maxCardinality > 1 || self.maxCardinality == -1 || self.extra.unwrap_or(false)
     }
     pub fn is_object(&self) -> bool {
         self.dataTypes
