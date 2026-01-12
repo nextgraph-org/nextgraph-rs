@@ -8,6 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use futures::channel::mpsc::UnboundedSender;
 use futures::SinkExt;
 use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
@@ -61,26 +62,16 @@ impl Verifier {
             tx.clone(),
         );
 
-        let orm_objects = match self
-            .create_orm_object_for_shape_and_insert_subscription(orm_subscription)
+        if let Err(error) = self
+            .create_orm_object_for_shape_and_insert_subscription(orm_subscription, &mut tx)
             .await
         {
-            Err(error) => {
-                log_err!(
-                    "Error occurred while creating orm subscription: {:?}",
-                    error
-                );
-                return Err(error);
-            }
-            Ok(res) => res,
+            log_err!(
+                "Error occurred while creating orm subscription: {:?}",
+                error
+            );
+            return Err(error);
         };
-
-        let _ = tx
-            .send(AppResponse::V0(AppResponseV0::OrmInitial(
-                orm_objects,
-                self.orm_subscription_counter,
-            )))
-            .await;
 
         let close = Box::new(move || {
             if !tx.is_closed() {
@@ -94,7 +85,8 @@ impl Verifier {
     async fn create_orm_object_for_shape_and_insert_subscription(
         &mut self,
         mut orm_subscription: OrmSubscription,
-    ) -> Result<Value, NgError> {
+        tx: &mut UnboundedSender<AppResponse>,
+    ) -> Result<(), NgError> {
         // Query quads for this shape
         let shape_quads = if orm_subscription.graph_scope.is_empty() {
             vec![]
@@ -120,8 +112,8 @@ impl Verifier {
         let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
         let root_shape = schema.get(&orm_subscription.shape_type.shape).unwrap();
 
-        let mut return_val = json!({});
-        let obj_map = return_val.as_object_mut().unwrap();
+        let mut orm_objects = json!({});
+        let obj_map = orm_objects.as_object_mut().unwrap();
 
         let mut graphs: HashSet<String> = HashSet::new();
 
@@ -148,14 +140,27 @@ impl Verifier {
             }
         }
 
+        let _ = tx
+            .send(AppResponse::V0(AppResponseV0::OrmInitial(
+                orm_objects,
+                orm_subscription.subscription_id,
+            )))
+            .await;
+
+        self.orm_subscriptions
+            .insert(orm_subscription.subscription_id, orm_subscription);
+
+        // sync and subscribe to all the graphs found by ORM.
+        // This can have the side effect of sending more AppResponses to the stream
+        // (in case some new updates have been received while we were building the initial values).
+        // For this reason, it happens AFTER the OrmInitial is sent (just above) because
+        // the client cannot apply OrmPatches if it didn't receive the OrmInitial first.
         for graph in graphs.iter() {
             let nuri = NuriV0::new_from_repo_graph(graph)?;
             self.open_for_target(&nuri.target, true).await?;
         }
 
-        self.orm_subscriptions
-            .insert(orm_subscription.subscription_id, orm_subscription);
-        Ok(return_val)
+        Ok(())
     }
 }
 
