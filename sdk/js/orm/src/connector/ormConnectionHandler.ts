@@ -26,6 +26,8 @@ import type {
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 
+const WAIT_BEFORE_CLOSE = 500;
+
 export class OrmConnection<T extends BaseType> {
     private static idToEntry = new Map<string, OrmConnection<any>>();
     /**
@@ -33,7 +35,6 @@ export class OrmConnection<T extends BaseType> {
      * Useful when a hook unsubscribes and resubscribes in a short time interval
      * so that no new connections need to be set up.
      */
-    private WAIT_BEFORE_CLOSE = 500;
 
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
@@ -153,7 +154,7 @@ export class OrmConnection<T extends BaseType> {
                 );
                 this.closeOrmConnection();
             }
-        }, this.WAIT_BEFORE_CLOSE);
+        }, WAIT_BEFORE_CLOSE);
     };
 
     private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent<T>) => {
