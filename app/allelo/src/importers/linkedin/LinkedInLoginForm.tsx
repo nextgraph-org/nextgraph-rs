@@ -93,8 +93,8 @@ export function LinkedInLoginForm({
           autoCapitalize="none"
           autoCorrect="off"
           inputProps={{
-            autocapitalize: 'none',
-            autocorrect:'off'
+            autoCapitalize: 'none',
+            autoCorrect:'off'
           }}
           fullWidth
         />
