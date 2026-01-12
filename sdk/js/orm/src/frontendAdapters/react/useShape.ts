@@ -11,7 +11,7 @@
 import type { BaseType } from "@ng-org/shex-orm";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Scope } from "../../types.ts";
 import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
@@ -34,11 +34,16 @@ const useShape = <T extends BaseType>(
               ? { graphs: scope }
               : scope;
 
+    const prevOrmConnection = useRef<undefined | OrmConnection<T>>(undefined);
+
     const ormConnection = useMemo(
-        () =>
-            scope === undefined
-                ? undefined
-                : OrmConnection.getOrCreate(shape, parsedScope),
+        () => {
+            if (scope === undefined) return undefined;
+            if (prevOrmConnection.current) prevOrmConnection.current.close();
+            const newOrmConnection = OrmConnection.getOrCreate(shape, parsedScope);
+            prevOrmConnection.current = newOrmConnection;
+            return newOrmConnection;
+        },
         [shape, scope, parsedScope.graphs, parsedScope.subjects]
     );
 
