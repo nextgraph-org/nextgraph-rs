@@ -47,9 +47,9 @@ export class DictMapper<
     property: P,
     subProperty: SP,
     value?: string | null
-  ): DictValue<P, SP> {
+  ): DictValue<P, SP> | undefined {
     if (!value) {
-      return "" as DictValue<P, SP>;
+      return;
     }
 
     const dictKey = `${String(property)}.${String(subProperty)}`;

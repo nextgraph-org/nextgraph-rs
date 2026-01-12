@@ -5,7 +5,8 @@ import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {rCardService} from "@/services/rCardService.ts";
 import {contactService} from "@/services/contactService.ts";
-import { insertObject } from "@ng-org/orm";
+import {OrmConnection} from "@ng-org/orm";
+import {getShortId} from "@/utils/orm/ormUtils.ts";
 
 interface UseSaveContactsReturn {
   saveContacts: (contacts: SocialContact[], onProgress?: (current: number, total: number) => void) => Promise<void>;
@@ -21,9 +22,6 @@ export function useSaveContacts(): UseSaveContactsReturn {
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
 
-  function generateUri(base: string) {
-    return base.substring(0, 9 + 44);
-  }
 
   const createContact = useCallback(async (contact: SocialContact, rCardId?: string): Promise<SocialContact | undefined> => {
     if (!session || !session.ng) {
@@ -45,7 +43,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
       // @ts-expect-error @graph shouldn't be readonly
       contact["@graph"] = docId;
       // @ts-expect-error @id shouldn't be readonly
-      contact["@id"] = generateUri(docId);
+      contact["@id"] = getShortId(docId);
 
       contact.rcard ??= rCardId;
 
@@ -73,12 +71,14 @@ export function useSaveContacts(): UseSaveContactsReturn {
       console.log(`Starting to save ${contacts.length} contacts...`);
 
       const rCardId = await rCardService.getRCardId(session);
+      const connection = OrmConnection.getOrCreate(SocialContactShapeType, {graphs: ["did:ng:" + session.privateStoreId!]});
+      connection.beginTransaction();
 
       for (let i = 0; i < contacts.length; i++) {
         const contact = await createContact(contacts[i], rCardId);
 
         if (contact) {
-          await insertObject(SocialContactShapeType, contact)
+          connection.signalObject.add(contact);
         }
 
         onProgress?.(i + 1, contacts.length);
@@ -89,6 +89,8 @@ export function useSaveContacts(): UseSaveContactsReturn {
           console.log(`✓ Saved ${i + 1}/${contacts.length} contacts | ${elapsed}s elapsed | ${contactsPerSecond} contacts/sec`);
         }
       }
+      await connection.commitTransaction();
+      connection.close();
 
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
       const avgSpeed = (contacts.length / (Date.now() - startTime) * 1000).toFixed(2);
