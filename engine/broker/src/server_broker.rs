@@ -873,12 +873,6 @@ impl IServerBroker for ServerBroker {
     ) -> Result<Vec<ClientPeerId>, ServerError> {
         let topic = self.storage.save_event(overlay, event, user_id)?;
 
-        // log_debug!(
-        //     "DISPATCH EVENT {} {} {:?}",
-        //     overlay,
-        //     topic,
-        //     self.local_subscriptions
-        // );
         let lock = self.state.read().await;
         let mut map = lock
             .local_subscriptions
@@ -887,6 +881,9 @@ impl IServerBroker for ServerBroker {
             .unwrap_or(HashMap::new());
 
         map.remove(remote_peer);
+
+        // log_info!("DISPATCH EVENT {} {} {:?}", overlay, topic, map);
+
         Ok(map
             .iter()
             .map(|(k, v)| ClientPeerId::new_from(k, v))

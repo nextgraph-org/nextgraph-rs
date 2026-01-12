@@ -20,7 +20,7 @@ use ng_net::orm::{
 };
 use std::time::Duration;
 
-use ng_repo::log_info;
+use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;

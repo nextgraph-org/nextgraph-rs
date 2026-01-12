@@ -72,7 +72,6 @@ impl Verifier {
         //         .collect::<Vec<_>>()
         //         .join("\n")
         // );
-        // TODO: Omit sending patches back to the subscription where they came from.
 
         // Apply changes to all affected scopes and send patches to clients
         self.apply_changes_to_all_scopes(repo_id, overlay_id, &inserts, &removes, subscription_id)

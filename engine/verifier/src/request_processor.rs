@@ -55,7 +55,14 @@ impl Verifier {
                     shape_type,
                     graph_scope,
                     subject_scope,
-                )))) => self.start_orm(graph_scope, subject_scope, shape_type).await,
+                )))) => {
+                    for nuri in graph_scope.iter() {
+                        if nuri.is_valid_for_sparql_update() {
+                            self.open_for_target(&nuri.target, true).await?;
+                        }
+                    }
+                    self.start_orm(graph_scope, subject_scope, shape_type).await
+                }
                 _ => return Err(NgError::InvalidArgument),
             },
             AppRequestCommandV0::Fetch(fetch) => match fetch {

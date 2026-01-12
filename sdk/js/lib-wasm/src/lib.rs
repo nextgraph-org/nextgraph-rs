@@ -15,7 +15,6 @@
 mod model;
 
 use async_std::prelude::Future;
-use ng_repo::log_info;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
