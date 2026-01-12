@@ -169,7 +169,7 @@ export async function mapLinkedInPerson(
           .map((phone): PhoneNumber => ({
             "@graph": "",
             "@id": "",
-            value: phone.number || "",
+            value: (phone.number || "").replace(/\s+/g, ""),
             type: contactDictMapper.appendPrefixToDictValue("phoneNumber", "type", phone.type || ""),
             //TODO: check linkedidn phone types
             source: src,

@@ -4,6 +4,7 @@ import {NextGraphAuth} from "@/types/nextgraph";
 import {GroupMembership, SocialGroup} from "@/.orm/shapes/group.typings";
 import {useShape} from "@ng-org/orm/react";
 import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
+import {getShortId} from "@/utils/orm/ormUtils.ts";
 
 interface UseSaveGroupsReturn {
   createGroup: (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string) => Promise<string>;
@@ -22,10 +23,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
   const groupsSet = useShape(SocialGroupShapeType, currentDocId);
 
-  function generateUri(base: string) {
-    return base.substring(0, 9 + 44);
-  }
-
   const createGroup = useCallback(async (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string): Promise<string> => {
     if (!session || !session.ng) {
       const errorMsg = 'No active session available';
@@ -38,13 +35,13 @@ export function useSaveGroups(): UseSaveGroupsReturn {
 
     try {
       const docId = await session.ng.doc_create(
-        session.sessionId,
+        session.sessionId!,
         "Graph",
         "data:graph",
         "store"
       );
 
-      const id = generateUri(docId);
+      const id = getShortId(docId);
 
       const members: GroupMembership[] = membersNuris.map(nuri => {
         return {
