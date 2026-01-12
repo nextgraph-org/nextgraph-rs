@@ -34,8 +34,8 @@ export const ImportingOverlay = ({isImporting, importProgress}: { isImporting: b
       justifyContent: 'center',
       color: 'white'
     }}>
-      <Typography variant="h6">
-        Video Placeholder
+      <Typography variant="h6" color="white">
+        Please wait...
       </Typography>
     </Box>
   </Dialog>
