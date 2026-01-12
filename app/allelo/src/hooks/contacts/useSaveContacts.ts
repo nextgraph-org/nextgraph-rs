@@ -5,7 +5,8 @@ import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {rCardService} from "@/services/rCardService.ts";
 import {contactService} from "@/services/contactService.ts";
-import {OrmConnection} from "@ng-org/orm";
+//import {OrmConnection} from "@ng-org/orm";
+import { insertObject } from "@ng-org/orm";
 import {getShortId} from "@/utils/orm/ormUtils.ts";
 
 interface UseSaveContactsReturn {
@@ -71,14 +72,15 @@ export function useSaveContacts(): UseSaveContactsReturn {
       console.log(`Starting to save ${contacts.length} contacts...`);
 
       const rCardId = await rCardService.getRCardId(session);
-      const connection = OrmConnection.getOrCreate(SocialContactShapeType, {graphs: ["did:ng:" + session.privateStoreId!]});
-      connection.beginTransaction();
+      //const connection = OrmConnection.getOrCreate(SocialContactShapeType, {graphs: ["did:ng:" + session.privateStoreId!]});
+      //connection.beginTransaction();
 
       for (let i = 0; i < contacts.length; i++) {
         const contact = await createContact(contacts[i], rCardId);
 
         if (contact) {
-          connection.signalObject.add(contact);
+          await insertObject(SocialContactShapeType, contact)
+          //connection.signalObject.add(contact);
         }
 
         onProgress?.(i + 1, contacts.length);
@@ -89,8 +91,8 @@ export function useSaveContacts(): UseSaveContactsReturn {
           console.log(`✓ Saved ${i + 1}/${contacts.length} contacts | ${elapsed}s elapsed | ${contactsPerSecond} contacts/sec`);
         }
       }
-      await connection.commitTransaction();
-      connection.close();
+      //await connection.commitTransaction();
+      //connection.close();
 
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
       const avgSpeed = (contacts.length / (Date.now() - startTime) * 1000).toFixed(2);
