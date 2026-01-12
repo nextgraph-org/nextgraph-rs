@@ -12,11 +12,11 @@ export const shortcontactSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["http://www.w3.org/2006/vcard/ns#Individual"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:contact:class#Me"],
           },
         ],
@@ -309,19 +309,19 @@ export const shortcontactSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#home"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#work"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#custom"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#other"],
           },
         ],
@@ -804,19 +804,19 @@ export const shortcontactSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#home"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#work"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#custom"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:k:contact:type#other"],
           },
         ],

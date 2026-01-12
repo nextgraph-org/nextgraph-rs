@@ -12,7 +12,7 @@ export const notificationSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification#Notification"],
           },
         ],
@@ -47,19 +47,19 @@ export const notificationSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification:type#Connection"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification:type#System"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification:type#Vouch"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification:type#Praise"],
           },
         ],
@@ -71,15 +71,15 @@ export const notificationSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification:status#Accepted"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification:status#Rejected"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:social:notification:status#Pending"],
           },
         ],

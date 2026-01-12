@@ -12,7 +12,7 @@ export const settingsSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["did:ng:x:settings#Settings"],
           },
         ],
