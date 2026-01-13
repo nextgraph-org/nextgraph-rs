@@ -5,12 +5,12 @@ import {SocialContactShapeType} from "@/.orm/shapes/contact.shapeTypes.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {rCardService} from "@/services/rCardService.ts";
 import {contactService} from "@/services/contactService.ts";
-import {OrmConnection} from "@ng-org/orm";
+import {insertObject, OrmConnection} from "@ng-org/orm";
 import {getShortId} from "@/utils/orm/ormUtils.ts";
 
 interface UseSaveContactsReturn {
   saveContacts: (contacts: SocialContact[], onProgress?: (current: number, total: number) => void) => Promise<void>;
-  createContact: (contact: SocialContact) => Promise<SocialContact | undefined>;
+  saveContact: (contact: SocialContact) => Promise<SocialContact | undefined>;
   isLoading: boolean;
   error: string | null;
 }
@@ -23,7 +23,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
   const {session} = nextGraphAuth || {} as NextGraphAuth;
 
 
-  const createContact = useCallback(async (contact: SocialContact, rCardId?: string): Promise<SocialContact | undefined> => {
+  const createContactDocument = useCallback(async (contact: SocialContact, rCardId?: string): Promise<SocialContact | undefined> => {
     if (!session || !session.ng) {
       const errorMsg = 'No active session available';
       setError(errorMsg);
@@ -56,6 +56,16 @@ export function useSaveContacts(): UseSaveContactsReturn {
     }
   }, [session]);
 
+  const saveContact = useCallback(async (contactData: SocialContact) => {
+    const contact = await createContactDocument(contactData);
+
+    if (contact) {
+      await insertObject(SocialContactShapeType, contact);
+    }
+
+    return contact;
+  }, [createContactDocument]);
+
   const saveContacts = useCallback(async (contacts: SocialContact[], onProgress?: (current: number, total: number) => void) => {
     if (!session) {
       const errorMsg = 'No active session available';
@@ -75,7 +85,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
       connection.beginTransaction();
 
       for (let i = 0; i < contacts.length; i++) {
-        const contact = await createContact(contacts[i], rCardId);
+        const contact = await createContactDocument(contacts[i], rCardId);
 
         if (contact) {
           connection.signalObject.add(contact);
@@ -102,11 +112,11 @@ export function useSaveContacts(): UseSaveContactsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [createContact, session]);
+  }, [createContactDocument, session]);
 
   return {
     saveContacts,
-    createContact,
+    saveContact,
     isLoading,
     error
   };

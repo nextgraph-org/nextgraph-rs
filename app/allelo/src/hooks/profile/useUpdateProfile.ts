@@ -48,8 +48,8 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
       } else {
         const isProfileCreated = await profileService.isProfileCreated(session);
         if (!isProfileCreated) {
-          const newProfile: Partial<SocialContact> = {
-            "@graph": scope,
+          const newProfile: SocialContact = {
+            "@graph": scope!,
             "@id": getShortId(scope!),
             "@type": new Set(["did:ng:x:contact:class#Me", "http://www.w3.org/2006/vcard/ns#Individual"]),
           }

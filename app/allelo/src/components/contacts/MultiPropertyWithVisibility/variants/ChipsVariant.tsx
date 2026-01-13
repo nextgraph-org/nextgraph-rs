@@ -67,7 +67,7 @@ export const ChipsVariant = ({
   };
 
   const renderDisplayItem = (item: any, index: number) => {
-    const label = validateType === "phone" ? formatPhone(item[subKey]) :
+    const chipLabel = validateType === "phone" ? formatPhone(item[subKey]) :
       item[subKey]
 
     return (
@@ -75,7 +75,7 @@ export const ChipsVariant = ({
         {variant === "url" ? <Typography
             variant="body2"
             component="a"
-            href={label}
+            href={chipLabel}
             target="_blank"
             rel="noopener noreferrer"
             sx={{
@@ -86,10 +86,10 @@ export const ChipsVariant = ({
               },
             }}
           >
-            {label}
+            {chipLabel}
           </Typography> :
           <Chip
-          label={getIconForType(item?.type) + label}
+          label={getIconForType(item?.type) + chipLabel}
             size="small"
           />
         }

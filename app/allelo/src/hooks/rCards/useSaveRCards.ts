@@ -9,7 +9,7 @@ import {RCardShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
 import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 import {RCard} from "@/.orm/shapes/rcard.typings.ts";
 import {getShortId} from "@/utils/orm/ormUtils.ts";
-import {useShape} from "@ng-org/orm/react";
+import {insertObject} from "../../../../../sdk/js/orm";
 
 interface SaveRCardsReturn {
   saveDefaultRCards: () => Promise<void>;
@@ -20,21 +20,19 @@ export const useSaveRCards = (): SaveRCardsReturn => {
   const {session} = nextGraphAuth;
   const {rCardsExist} = useGetRCards();
 
-  const rCardsSet = useShape(RCardShapeType, "did:ng:i") as Set<RCard>;
-
   const createRCard = useCallback(async (
     rCardName: string,
     order: number,
     permissions: RCardPermission[],
   ) => {
     const docId = await session.ng!.doc_create(
-      session.sessionId,
+      session.sessionId!,
       "Graph",
       "data:graph",
       "store"
     );
 
-    await session!.ng!.update_header(session.sessionId, docId, rCardName);
+    await session!.ng!.update_header(session.sessionId!, docId, rCardName);
 
     const rCardObj: RCard = {
       "@graph": docId,
@@ -50,8 +48,8 @@ export const useSaveRCards = (): SaveRCardsReturn => {
       rCardObj.permission?.add(el);
     });
 
-    rCardsSet.add(rCardObj);
-  }, [rCardsSet, session]);
+    await insertObject(RCardShapeType, rCardObj);
+  }, [session]);
 
   const saveDefaultRCards = useCallback(async () => {
     if (!session) return;

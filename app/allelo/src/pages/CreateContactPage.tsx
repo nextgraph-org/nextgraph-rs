@@ -10,7 +10,7 @@ const CreateContactPage = () => {
   const [loading, setLoading] = useState(false);
   const [isValid, setIsValid] = useState(true);
 
-  const {draftContact, error, isLoading, saveContact, resetContact} = useAddContact();
+  const {draftContact, error, isLoading, saveDraftContact, resetContact} = useAddContact();
 
   useEffect(() => {
     setIsValid((draftContact?.name?.size ?? 0) > 0);
@@ -20,9 +20,9 @@ const CreateContactPage = () => {
     if (!draftContact || !isValid)//TODO validation
       return;
     setLoading(true);
-    saveContact();
+    saveDraftContact();
     navigate(`/contacts/${draftContact!["@graph"]}`);
-  }, [draftContact, isValid, navigate, saveContact]);
+  }, [draftContact, isValid, navigate, saveDraftContact]);
 
   const handleBack = async () => {
     navigate("/contacts");

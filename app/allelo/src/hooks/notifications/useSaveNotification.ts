@@ -5,8 +5,9 @@ import {
 import {UserNotification} from "@/.orm/shapes/notification.typings.ts";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {userNotificationDictMapper} from "@/utils/dictMappers.ts";
-import {useGetNotifications} from "@/hooks/notifications/useGetNotifications.ts";
 import {getScope} from "@/utils/nextgraph/ngHelpers.ts";
+import {insertObject} from "../../../../../sdk/js/orm";
+import {UserNotificationShapeType} from "@/.orm/shapes/notification.shapeTypes.ts";
 
 type NotificationWithoutMeta = Omit<UserNotification, "@id" | "@graph" | "@type">;
 
@@ -32,8 +33,6 @@ interface SaveNotificationReturn {
 export const useSaveNotification = (): SaveNotificationReturn => {
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
 
-  const {notifications} = useGetNotifications();
-
   const typePool: string[] = useMemo(() =>
     [...userNotificationDictMapper.getDictValues("UserNotification", "type")], []);
   const statusPool: string[] = useMemo(() =>
@@ -51,8 +50,8 @@ export const useSaveNotification = (): SaveNotificationReturn => {
       ...notification
     }
 
-    notifications?.add(notificationObj);
-  }, [notifications, session]);
+    await insertObject(UserNotificationShapeType, notificationObj);
+  }, [session]);
 
   const generateRandomNotifications = useCallback(
     async (count: number = 10) => {
@@ -65,7 +64,7 @@ export const useSaveNotification = (): SaveNotificationReturn => {
         const notification: NotificationWithoutMeta = {
           date: createdAt,
           body: getRandom(bodyPool),
-          type: userNotificationDictMapper.appendPrefixToDictValue("UserNotification", "type", getRandom(typePool)),
+          type: userNotificationDictMapper.appendPrefixToDictValue("UserNotification", "type", getRandom(typePool))!,
           status: userNotificationDictMapper.appendPrefixToDictValue("UserNotification", "status", getRandom(statusPool)),
           seen: false,
           hidden: false,
