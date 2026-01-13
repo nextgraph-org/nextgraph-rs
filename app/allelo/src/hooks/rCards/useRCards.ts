@@ -6,7 +6,6 @@ import {ContentItem} from "@/models/rcards";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import {RCardShapeType} from "@/.orm/shapes/rcard.shapeTypes.ts";
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
-import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {useShape} from "@ng-org/orm/react";
 import {rCardDictMapper} from "@/utils/dictMappers.ts";
@@ -45,8 +44,6 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
   const sessionId = session?.sessionId;
-
-  const {updatePermission} = useUpdatePermission();
 
   const rCardsSet = useShape(
     RCardShapeType,
@@ -112,20 +109,20 @@ export const useRCards = (nuri: string, isEditing: boolean = false): RCardsRetur
 
   const recalculateOrder = useCallback((zone: keyof ZoneContent) => {
     zoneContent[zone].forEach(async (item, index) => {
-      updatePermission(item.permission, "order", index);
+      item.permission.order = index;
     });
-  }, [zoneContent, updatePermission]);
+  }, [zoneContent]);
 
   const changeLocation = useCallback(async (item: ContentItem, targetZone: keyof ZoneContent, index: number) => {
     const sourceZone = rCardDictMapper.removePrefix(item.permission.zone) as rCardZones;
     zoneContent[sourceZone].splice(zoneContent[sourceZone].indexOf(item), 1);
     zoneContent[targetZone].splice(index, 0, item);
     if (sourceZone !== targetZone) {
-      updatePermission(item.permission, "zone", rCardDictMapper.appendPrefixToDictValue("permission",  "zone", targetZone));
+      item.permission.zone = rCardDictMapper.appendPrefixToDictValue("permission",  "zone", targetZone);
     }
 
     recalculateOrder(targetZone);
-  }, [zoneContent, recalculateOrder, updatePermission]);
+  }, [zoneContent, recalculateOrder]);
 
   return {
     rCard,
