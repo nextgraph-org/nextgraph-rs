@@ -4,7 +4,7 @@ import {Photo, SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {imageService} from "@/services/imageService.ts";
 import {socialContactSetProperties, SocialContactSetPropertyName} from "@/.orm/utils/contact.utils.ts";
 import {persistProperty} from "@/utils/orm/ormUtils.ts";
-import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {getContactGraph, resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 class ContactService {
   private static instance: ContactService;
@@ -54,11 +54,12 @@ class ContactService {
   }
   GROUP BY ?contactUri
 `;
-    const result = await session.ng!.sparql_query(session.sessionId, sparql);
+    const result = await session.ng!.sparql_query(session.sessionId!, sparql);
     const record: Record<string, string> = {};
 
     result.results?.bindings?.forEach(binding => {
-      record[binding.contactUri.value] = binding.linkedinAccount.value;
+      const graph = getContactGraph(binding.contactUri.value, session);
+      record[graph] = binding.linkedinAccount.value;
     });
 
     return record;
@@ -222,6 +223,10 @@ WHERE {
       case "hasAddress":
         return value === "true" ? [
           `FILTER EXISTS { ?contactUri ngcontact:address ?addressNode }`
+        ] : [];
+      case "hasNetworkCentrality":
+        return value === "true" ? [
+          `FILTER EXISTS { ?contactUri ngcontact:centralityScore ?centralityScore }`
         ] : [];
       case "account":
         return [`

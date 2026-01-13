@@ -20,7 +20,6 @@ import {InvitationDetails} from './InvitationDetails';
 import {InvitationActions} from './InvitationActions';
 import {useRCardsConfigs} from "@/hooks/rCards/useRCardsConfigs.ts";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
-import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
 export interface InvitationPageProps {
@@ -39,7 +38,6 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
     const contactNuri = searchParams.get("contactNuri");
     const {ormContact: contact} = useContactOrm(contactNuri);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
-    const {updateContact} = useUpdateContact();
 
     useEffect(() => {
       const contactRCardId = contact?.rcard ? contact.rcard : undefined;
@@ -112,10 +110,10 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
               value={selectedCategory}
               label="Select RCard"
               onChange={(e) => {
-                setSelectedCategory(e.target.value);
+                const rcard = e.target.value;
+                setSelectedCategory(rcard);
                 if (contact) {
-                  updateContact(contact["@id"]!, {rcard: e.target.value});
-                  setSelectedCategory(e.target.value);
+                  contact.rcard = rcard;
                 }
               }}
               displayEmpty={false}

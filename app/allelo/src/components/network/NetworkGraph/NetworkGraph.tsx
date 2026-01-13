@@ -7,12 +7,18 @@ import { GraphCanvas } from './GraphCanvas';
 import { NavigationTrail, ZoomControls } from '../NetworkControls';
 import { computeZoom, ZoomInfo } from '@/hooks/network/computeZoom';
 import {GraphNode} from "@/types/network.ts";
+import {ShortSocialContact} from "@/.orm/shapes/shortcontact.typings.ts";
+import {useNetworkGraph} from "@/hooks/network/useNetworkGraph.ts";
 
 interface NetworkGraphProps {
   backgroundColor?: string;
+  contacts: ShortSocialContact[]
 }
 
-export const NetworkGraph = ({ backgroundColor = '#F7F3EA' }: NetworkGraphProps) => {
+export const NetworkGraph = ({ backgroundColor = '#F7F3EA', contacts }: NetworkGraphProps) => {
+  // Build the network graph from loaded contacts
+  useNetworkGraph({ contacts: contacts });
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewportDimensions, setViewportDimensions] = useState({ width: 1200, height: 800 });
 

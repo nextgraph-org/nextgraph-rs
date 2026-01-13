@@ -34,8 +34,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   const phoneValidation = useFieldValidation(phoneNumber, "phone", { validateOn: "change" });
 
   useEffect(() => {
-    phoneValidation.triggerField();
-    setValid(!phoneValidation.errors.field);
+    phoneValidation.triggerField().then((el) => setValid(el));
   }, [phoneNumber]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

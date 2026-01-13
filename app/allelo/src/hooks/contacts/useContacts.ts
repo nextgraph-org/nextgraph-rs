@@ -4,7 +4,8 @@ import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {contactService} from "@/services/contactService.ts";
 import {getContactGraph} from "@/utils/socialContact/contactUtilsOrm.ts";
-import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
+import {useUpdateContacts} from "@/hooks/contacts/useUpdateContacts.ts";
+import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 
 export interface ContactsFilters extends SortParams {
   searchQuery?: string;
@@ -14,6 +15,7 @@ export interface ContactsFilters extends SortParams {
   groupFilter?: string;
   currentUserGroupIds?: string[];
   hasAddressFilter?: boolean;
+  hasNetworkCentralityFilter?: boolean;
 }
 
 export type iconFilter = 'relationshipFilter' | 'naoStatusFilter' | 'accountFilter' | 'vouchFilter' | 'praiseFilter';
@@ -44,7 +46,8 @@ const defaultFilters: ContactsFilters = {
   sortBy: 'mostRecentInteraction',
   sortDirection: 'desc',
   currentUserGroupIds: [],
-  hasAddressFilter: false
+  hasAddressFilter: false,
+  hasNetworkCentralityFilter: false
 };
 
 export interface UseContactsParams {
@@ -64,7 +67,7 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     ...initialFilters
   }));
 
-  const {updateContact} = useUpdateContact();
+  const {updateContacts} = useUpdateContacts();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
   const {session} = nextGraphAuth;
   const hasMore = contactNuris.length < totalCount;
@@ -100,7 +103,8 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
       relationshipFilter = 'all',
       searchQuery,
       hasAddressFilter = false,
-      naoStatusFilter = 'all'
+      naoStatusFilter = 'all',
+      hasNetworkCentralityFilter = false
     } = filters;
 
 
@@ -119,6 +123,9 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
     }
     if (naoStatusFilter !== 'all') {
       filterParams.set('naoStatus', naoStatusFilter);
+    }
+    if (hasNetworkCentralityFilter) {
+      filterParams.set('hasNetworkCentrality', 'true');
     }
 
     const offset = page * limit;
@@ -180,13 +187,17 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
   }, [loadContacts]);
 
   const handleContactsCategorized = useCallback(async (contactIds: string[], rcardId: string) => {
-    for (const contactId of contactIds) {
-      await updateContact(contactId, {rcard: rcardId});
-    }
+    const updContacts: Record<string, Partial<SocialContact>> = {};
+    contactIds.forEach((id: string) => {
+      updContacts[id] = {rcard: rcardId}
+    });
+
+    await updateContacts(updContacts);
+
     if (filters.relationshipFilter !== 'all') {
       reloadContacts();
     }
-  }, [updateContact, filters, reloadContacts]);
+  }, [updateContacts, filters, reloadContacts]);
 
   useEffect(() => {
     reloadContacts();
