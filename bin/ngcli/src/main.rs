@@ -310,6 +310,7 @@ async fn main_inner() -> Result<(), NgcliError> {
             .subcommand(
                 Command::new("gen-key")
                     .about("Generates a new key pair () public key and private key ) to be used by example for user authentication.")
+                    .arg(arg!(-j --json "outputs JSON formatted pair of keys").required(false))
             ).subcommand(
                 Command::new("get")
                     .about("fetches one or several commits, or a binary object, with an optional signature, from a broker, using the Ext Protocol, and connecting on the Outer Overlay. The request is anonymous and doesn't need any authentication")
@@ -330,10 +331,14 @@ async fn main_inner() -> Result<(), NgcliError> {
     }
     env_logger::init();
 
-    if let Some(_matches) = matches.subcommand_matches("gen-key") {
+    if let Some(matches) = matches.subcommand_matches("gen-key") {
         let (privkey, pubkey) = generate_keypair();
-        println!("Your Public key is:  {pubkey}");
-        println!("Your Private key is: {privkey}");
+        if matches.get_flag("json") {
+            println!("{{\n\"public\":\"{pubkey}\",\n\"private\":\"{privkey}\"\n}}");
+        } else {
+            println!("Your Public key is:  {pubkey}");
+            println!("Your Private key is: {privkey}");
+        }
         return Ok(());
     }
 

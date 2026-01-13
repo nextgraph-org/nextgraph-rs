@@ -1,8 +1,7 @@
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
-import {ShortSocialContact} from "@/.orm/shapes/shortcontact.typings.ts";
 
 export interface ContactMapProps {
-  contacts: ShortSocialContact[];
+  contactNuris: string[];
   onContactClick?: (contact: SocialContact) => void;
 }
 

@@ -43,5 +43,5 @@ cargo build -r
 ## run
 
 ```
-../target/release/ngnet
+../../target/release/ngnet
 ```

@@ -3,11 +3,6 @@ import {ContactFilters} from "../ContactFilters";
 import {ContactMap} from "@/components/ContactMap";
 import {useContacts} from "@/hooks/contacts/useContacts.ts";
 import {useNavigate} from "react-router-dom";
-import {ShortSocialContactShapeType} from "@/.orm/shapes/shortcontact.shapeTypes.ts";
-import {useEffect, useState} from "react";
-import {ShortSocialContact} from "@/.orm/shapes/shortcontact.typings.ts";
-import {getObjects} from "../../../../../../sdk/js/orm";
-
 
 export const ContactMapTab = () => {
   const {
@@ -23,18 +18,6 @@ export const ContactMapTab = () => {
       "hasAddressFilter": true
     }
   });
-
-  const [contacts, setContacts] = useState<ShortSocialContact[]>([]);
-
-  useEffect(() => {
-    const loadContacts = async () => {
-      const contactsSet = await getObjects(ShortSocialContactShapeType, {graphs: contactNuris});
-      const contactsArray = [...contactsSet ?? []];
-      setContacts(contactsArray);
-    };
-
-    loadContacts();
-  }, [contactNuris]);
 
   const navigate = useNavigate();
 
@@ -62,7 +45,7 @@ export const ContactMapTab = () => {
           {error.message}
         </Typography>
       </Box>
-    ) : !isLoading && contacts.length === 0 ? (
+    ) : !isLoading && contactNuris.length === 0 ? (
       <Box sx={{textAlign: 'center', py: 8}}>
         <Typography variant="h6" color="text.secondary" gutterBottom>
           No contacts to display on map
@@ -88,7 +71,7 @@ export const ContactMapTab = () => {
           )}
         </Box>
         <ContactMap
-          contacts={contacts}
+          contactNuris={contactNuris}
           onContactClick={(contact) => {
             navigate(`/contacts/${contact["@graph"]}`);
           }}

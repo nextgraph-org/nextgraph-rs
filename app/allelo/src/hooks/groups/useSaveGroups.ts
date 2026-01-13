@@ -1,13 +1,13 @@
-import {useCallback, useState, useEffect, useRef} from 'react';
+import {useCallback, useState} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph";
 import {GroupMembership, SocialGroup} from "@/.orm/shapes/group.typings";
-import {useShape} from "@ng-org/orm/react";
 import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
 import {getShortId} from "@/utils/orm/ormUtils.ts";
+import {insertObject} from "../../../../../sdk/js/orm";
 
 interface UseSaveGroupsReturn {
-  createGroup: (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string) => Promise<string>;
+  createGroup: (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string) => Promise<SocialGroup>;
   isLoading: boolean;
   error: string | null;
 }
@@ -15,15 +15,11 @@ interface UseSaveGroupsReturn {
 export function useSaveGroups(): UseSaveGroupsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentDocId, setCurrentDocId] = useState<string | undefined>(undefined);
-  const currentGroupRef = useRef<SocialGroup | undefined>(undefined);
 
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
 
-  const groupsSet = useShape(SocialGroupShapeType, currentDocId);
-
-  const createGroup = useCallback(async (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string): Promise<string> => {
+  const createGroup = useCallback(async (group: Partial<SocialGroup>, membersNuris: string[], adminNuri: string): Promise<SocialGroup> => {
     if (!session || !session.ng) {
       const errorMsg = 'No active session available';
       setError(errorMsg);
@@ -71,10 +67,9 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         "tag": group.tag,
       }
 
-      currentGroupRef.current = groupObj;
-      setCurrentDocId(docId);
+      await insertObject(SocialGroupShapeType, groupObj);
 
-      return docId;
+      return groupObj;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create group';
       setError(errorMsg);
@@ -83,13 +78,6 @@ export function useSaveGroups(): UseSaveGroupsReturn {
       setIsLoading(false);
     }
   }, [session]);
-
-  useEffect(() => {
-    if (currentDocId && groupsSet && currentGroupRef.current) {
-      groupsSet.add(currentGroupRef.current);
-      currentGroupRef.current = undefined;
-    }
-  }, [currentDocId, groupsSet]);
 
   return {
     createGroup,

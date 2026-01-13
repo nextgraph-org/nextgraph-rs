@@ -192,7 +192,6 @@ You need to freshly built it from source, following those instructions:
 ```
 cargo install cargo-run-script
 npm install -g pnpm
-cargo run-script libwasm
 pnpm buildfront
 ```
 

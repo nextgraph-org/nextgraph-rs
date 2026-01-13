@@ -374,6 +374,7 @@ impl Broker {
                             return Ok(());
                         }
                     }
+                    // FIXME: check that user is admin
                     let found = self.get_server_broker()?.read().await.get_user(admin_user);
                     if found.is_ok() && found.unwrap() {
                         return Ok(());

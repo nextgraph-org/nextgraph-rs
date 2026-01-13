@@ -12,7 +12,7 @@ interface AddContactData {
   draftContact: SocialContact | undefined;
   isLoading: boolean;
   error: Error | null;
-  saveContact: () => void;
+  saveDraftContact: () => void;
   resetContact: () => void;
 }
 
@@ -24,7 +24,7 @@ export const useAddContact = (): AddContactData => {
 
   const {ormContact: draftContact} = useContactOrm(draftContactId);
 
-  const {createContact} = useSaveContacts();
+  const {saveContact} = useSaveContacts();
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
 
   const createDraftContact = useCallback(async () => {
@@ -38,16 +38,16 @@ export const useAddContact = (): AddContactData => {
 
     socialContactSetProperties.forEach((propertyKey) => {
       contact[propertyKey] = new Set<any>();
-    })
+    });
 
 
-    await createContact(contact)
+    await saveContact(contact);
     if (!contact) {
       setError('Failed to create draft contact');
     } else {
       setDraftContactId(contact["@graph"]);
     }
-  }, [createContact])
+  }, [saveContact]);
 
   const loadDraftContact = useCallback(async () => {
     try {
@@ -72,7 +72,7 @@ export const useAddContact = (): AddContactData => {
     loadDraftContact();
   }, [loadDraftContact]);
 
-  const saveContact = useCallback(async () => {
+  const saveDraftContact = useCallback(async () => {
     if (!draftContact) return;
     await contactService.updateContactDocHeader(draftContact, session);
     draftContact.isDraft = false;
@@ -88,7 +88,7 @@ export const useAddContact = (): AddContactData => {
     draftContact,
     isLoading,
     error,
-    saveContact,
+    saveDraftContact,
     resetContact
   }
 }
