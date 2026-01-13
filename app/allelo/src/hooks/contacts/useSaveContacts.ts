@@ -60,7 +60,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
     const contact = await createContactDocument(contactData);
 
     if (contact) {
-      await insertObject(SocialContactShapeType, contact)
+      await insertObject(SocialContactShapeType, contact);
     }
 
     return contact;
