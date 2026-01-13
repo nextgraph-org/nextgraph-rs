@@ -174,12 +174,21 @@ export async function prepareContact(contact: Partial<SocialContact>): Promise<S
   contact["@type"] = new Set(["http://www.w3.org/2006/vcard/ns#Individual"]);
 
   await geoApiService.initContactGeoCodes(contact);
-
+/*
   //TODO: remove this when we would have real data
   // Only generate the centralityScore once, so we can reliably test the network graph
   if (contact.centralityScore === undefined) {
     contact.centralityScore = Math.round(100 * Math.random());
   }
+  //TODO: for geo map test only
+  contact.address ??= new Set();
+  contact.address.add({
+    "@graph": "",
+    "@id": "",
+    value: "some address",
+    coordLng: -180 + Math.random() * 360, // Random longitude: -180 to 180
+    coordLat: -60 + Math.random() * 130    // Random latitude: -60 to 70 (populated areas)
+  })*/
 
   return contact as SocialContact;
 }
