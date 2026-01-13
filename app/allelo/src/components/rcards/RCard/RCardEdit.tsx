@@ -127,6 +127,7 @@ export const RCardEdit = ({nuri}: RCardEditProps) => {
           transition: 'border-top 0.2s ease',
           cursor: 'move',
           opacity: draggedItem === item && hasTouchMoved ? 0.2 : 1,
+          mb: 1
         }}
       >
         <RCardProperty

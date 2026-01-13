@@ -9,6 +9,7 @@ import {camelCaseToWords} from "@/utils/stringHelpers.ts";
 import {languageNameByCode} from "@/utils/bcp47map.ts";
 import {RCardPermission} from "@/.orm/shapes/rcard.typings.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 export class ContentItem {
   label: ContactSetProperties;
@@ -60,7 +61,10 @@ export class ContentItem {
         }
       })
       if (this.isValueMissing) {
-        value += (this.propertyConfig.type ?? "") + " ";
+        const type = typeof this.propertyConfig.filterParams?.type === "string"
+          ? this.propertyConfig.filterParams?.type
+          : "";
+        value += type + " ";
       }
     }
     if (Object.values(templateData).length > 0) {
@@ -76,6 +80,9 @@ export class ContentItem {
       Object.keys(data).forEach(key => {
         if (data[key] && data[key]["@id"]) {
           data[key] = data[key]["@id"];
+        }
+        if (contactDictMapper.isDictProperty(this.label, key)) {
+          data[key] = contactDictMapper.removePrefix(data[key]);
         }
       })
     }
@@ -97,8 +104,9 @@ export class ContentItem {
     if (this.propertyConfig.label) {
       return this.propertyConfig.label;
     } else {
-      let labelToShow = this.propertyConfig.type ?? "";
-      labelToShow += " ";
+      let labelToShow = typeof this.propertyConfig.filterParams?.type === "string"
+        ? this.propertyConfig.filterParams?.type + " "
+        : "";
       const propLabel = camelCaseToWords(this.label);
       const displayProp = camelCaseToWords(this.propertyConfig.displayProp ?? "");
       if (!displayProp || displayProp.includes("value")) {
@@ -113,8 +121,8 @@ export class ContentItem {
   }
 
   getProperties(): ContactSetItem<ContactSetProperties>[] {
-    if (this.propertyConfig.type) {
-      return getPropsByType(this.profile, this.label, this.propertyConfig.type);
+    if (this.propertyConfig.filterParams?.type) {
+      return getPropsByType(this.profile, this.label, this.propertyConfig.filterParams.type);
     } else if (this.propertyConfig.filterParams) {
       return getPropsByFilter(this.profile, this.label, this.propertyConfig.filterParams);
     } else {

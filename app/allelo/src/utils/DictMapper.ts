@@ -18,6 +18,11 @@ export class DictMapper<
     public readonly values: DictValues
   ) {}
 
+  isDictProperty(property: string, subProperty: string): boolean {
+    const dictKey = `${String(property)}.${String(subProperty)}`;
+    return dictKey in this.values;
+  }
+
   /**
    * Get all valid values for a specific property
    * @param property - The parent property name (e.g., "phoneNumber", "email")

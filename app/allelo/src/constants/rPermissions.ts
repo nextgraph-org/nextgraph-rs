@@ -12,11 +12,10 @@ export type PropertyConfig = {
   template?: string;
   templateProp?: ContactSetProperties;
   resolveTo?: string;
-  type?: string;
   shareAll?: boolean;
   isMultiple?: boolean;
   separator?: string;
-  filterParams?: any;
+  filterParams?: Record<string, any>;
 }
 type ContactPermissionsConfig = Partial<Record<ContactSetProperties, Record<string, PropertyConfig>>>;
 
@@ -35,22 +34,23 @@ export const rCardPermissionConfig: ContactPermissionsConfig = {
     phoneticFullName: {displayProp: "phoneticFullName"},
   },
   phoneNumber: {
-    value: {displayProp: "value", isMultiple: true},
-    "value^mobile": {displayProp: "value", type: "mobile", isMultiple: true},
-    "value^work": {displayProp: "value", type: "work", isMultiple: true},
-    "value^other": {displayProp: "value", type: "other", isMultiple: true},
+    value: {displayProp: "value", isMultiple: true, filterParams: {type: {notIn: ["mobile", "work", "other"]}}},
+    "value^mobile": {displayProp: "value", filterParams: {type: "mobile"}, isMultiple: true},
+    "value^work": {displayProp: "value", filterParams: {type: "work"}, isMultiple: true},
+    "value^other": {displayProp: "value", filterParams: {type: "other"}, isMultiple: true},
   },
   email: {
-    value: {displayProp: "value", isMultiple: true},
-    "value^home": {displayProp: "value", type: "home", isMultiple: true},
-    "value^work": {displayProp: "value", type: "work", isMultiple: true},
-    "value^other": {displayProp: "value", type: "other", isMultiple: true},
+    value: {displayProp: "value", isMultiple: true, filterParams: {type: {notIn: ["home", "work", "other"]}}},
+    "value^home": {displayProp: "value", filterParams: {type: "home"}, isMultiple: true},
+    "value^work": {displayProp: "value", filterParams: {type: "work"}, isMultiple: true},
+    "value^other": {displayProp: "value", filterParams: {type: "other"}, isMultiple: true},
   },
   address: {
     value: {
       label: "full address",
       displayProp: "value",
       template: defaultTemplates.address,
+      isMultiple: true
     },
     city: {displayProp: "city", resolveTo: defaultTemplates.address},
     country: {displayProp: "country", resolveTo: defaultTemplates.address},
@@ -66,12 +66,12 @@ export const rCardPermissionConfig: ContactPermissionsConfig = {
     location: {displayProp: "location"},
   },
   url: {
-    value: {displayProp: "value", isMultiple: true},
-    "value^linkedin": {displayProp: "value", type: "linkedin", isMultiple: true},
-    "value^blog": {displayProp: "value", type: "blog", isMultiple: true},
-    "value^homepage": {displayProp: "value", type: "homepage", isMultiple: true},
-    "value^work": {displayProp: "value", type: "work", isMultiple: true},
-    "value^other": {displayProp: "value", type: "other", isMultiple: true},
+    value: {displayProp: "value", isMultiple: true, filterParams: {type: {notIn: ["linkedin", "blog", "homepage", "work", "other"]}}},
+    "value^linkedin": {displayProp: "value", filterParams: {type: "linkedin"}, isMultiple: true},
+    "value^blog": {displayProp: "value", filterParams: {type: "blog"}, isMultiple: true},
+    "value^homepage": {displayProp: "value", filterParams: {type: "homepage"}, isMultiple: true},
+    "value^work": {displayProp: "value", filterParams: {type: "work"}, isMultiple: true},
+    "value^other": {displayProp: "value", filterParams: {type: "other"}, isMultiple: true},
   },
   biography: {
     value: {displayProp: "value"},
@@ -181,6 +181,7 @@ export const defaultPermissions: RCardPermission[] = [
   getPermission("address", "country", "top"),
   getPermission("nickname", "value", "middle"),
   getPermission("organization", "value", "top"),
+  getPermission("url", "value", "middle"),
   getPermission("url", "value", "middle", "linkedin"),
   getPermission("url", "value", "middle", "blog"),
   getPermission("url", "value", "middle", "homepage"),
@@ -212,6 +213,7 @@ export const friendsPermissions: RCardPermission[] = [
   getPermission("address", "city", "bottom"),
   getPermission("address", "postalCode", "bottom"),
   getPermission("nickname", "value", "top"),
+  getPermission("url", "value", "bottom"),
   getPermission("url", "value", "bottom", "homepage"),
   getPermission("url", "value", "middle", "blog"),
   getPermission("url", "value", "middle", "other"),
@@ -244,6 +246,7 @@ export const familyPermissions: RCardPermission[] = [
   getPermission("headline", "value", "middle"),
   getPermission("nickname", "value", "top"),
   getPermission("birthday", "valueDate", "top"),
+  getPermission("url", "value", "middle"),
   getPermission("url", "value", "middle", "homepage"),
   getPermission("url", "value", "bottom", "blog"),
   getPermission("url", "value", "middle", "other"),
@@ -264,6 +267,7 @@ export const communityPermissions: RCardPermission[] = [
   getPermission("email", "value", "top"),
   getPermission("nickname", "value", "middle"),
   getPermission("phoneNumber", "value", "top"),
+  getPermission("url", "value", "bottom"),
   getPermission("url", "value", "bottom", "linkedin"),
   getPermission("headline", "value", "top"),
   getPermission("education", "value", "middle"),
@@ -284,8 +288,10 @@ export const businessPermissions: RCardPermission[] = [
   getPermission("name", "honorificPrefix", "middle"),
   getPermission("name", "honorificSuffix", "middle"),
   getPermission("name", "phoneticFullName", "middle"),
+  getPermission("phoneNumber", "value", "top"),
   getPermission("phoneNumber", "value", "top", "other"),
   getPermission("phoneNumber", "value", "middle", "work"),
+  getPermission("email", "value", "top"),
   getPermission("email", "value", "top", "other"),
   getPermission("email", "value", "top", "work"),
   getPermission("organization", "domain", "top"),
@@ -295,6 +301,7 @@ export const businessPermissions: RCardPermission[] = [
   getPermission("address", "city", "bottom"),
   getPermission("address", "postalCode", "bottom"),
   getPermission("address", "country", "bottom"),
+  getPermission("url", "value", "top"),
   getPermission("url", "value", "top", "linkedin"),
   getPermission("url", "value", "bottom", "work"),
   getPermission("headline", "value", "top"),
