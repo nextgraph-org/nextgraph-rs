@@ -239,11 +239,8 @@ export function applyPatches(
             continue;
         }
 
-        // parentVal now should be an object or Set into which we apply lastKey
-        if (
-            parentVal == null ||
-            (typeof parentVal !== "object" && !(parentVal instanceof Set))
-        ) {
+        // parentVal now should be an object, array, or set into which we apply lastKey
+        if (parentVal == null || typeof parentVal !== "object") {
             console.warn(
                 `[applyDiff] Skipping patch because parent is not an object or Set: ${patch.path}`
             );
@@ -366,6 +363,26 @@ export function applyPatches(
                     newLeaf["@id"] = idPatch.value;
                 }
                 parentVal[key] = newLeaf;
+            }
+
+            continue;
+        }
+
+        if (Array.isArray(parentVal)) {
+            if (key === "-") {
+                if (patch.op == "add") {
+                    parentVal.push(patch.value);
+                } else {
+                    parentVal.pop();
+                }
+            } else if (patch.op == "add") {
+                let keyNum = Number(key);
+                parentVal[keyNum] = patch.value;
+            } else {
+                // patch.op == remove
+                let keyNum = Number(key);
+                // Remove element at position from array in-place (will resize).
+                parentVal.splice(keyNum, 1);
             }
 
             continue;

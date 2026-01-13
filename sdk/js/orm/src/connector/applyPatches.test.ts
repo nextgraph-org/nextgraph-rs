@@ -10,6 +10,7 @@
 
 import { describe, test, expect } from "vitest";
 import { applyPatches, Patch } from "../index.ts";
+import path from "path";
 
 /**
  * Build a patch path string from segments (auto-prefix /)
@@ -645,7 +646,12 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             },
             {
                 op: "add",
-                path: p("parent", "children", "urn:graph1|urn:child1", "@graph"),
+                path: p(
+                    "parent",
+                    "children",
+                    "urn:graph1|urn:child1",
+                    "@graph"
+                ),
                 value: "urn:graph1",
             },
             {
@@ -680,7 +686,11 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             // Path: /parent/address/street
             // When creating "address", next segment is "street" (no |)
             // So "address" should be created as a plain object
-            { op: "add", path: p("parent", "address", "street"), value: "Main St" },
+            {
+                op: "add",
+                path: p("parent", "address", "street"),
+                value: "Main St",
+            },
         ];
         applyPatches(state, diff, true);
 
@@ -719,21 +729,48 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             {
                 op: "add",
                 valType: "object",
-                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1"),
+                path: p(
+                    "org",
+                    "departments",
+                    "urn:g1|dept1",
+                    "employees",
+                    "urn:g2|emp1"
+                ),
             },
             {
                 op: "add",
-                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1", "@graph"),
+                path: p(
+                    "org",
+                    "departments",
+                    "urn:g1|dept1",
+                    "employees",
+                    "urn:g2|emp1",
+                    "@graph"
+                ),
                 value: "urn:g2",
             },
             {
                 op: "add",
-                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1", "@id"),
+                path: p(
+                    "org",
+                    "departments",
+                    "urn:g1|dept1",
+                    "employees",
+                    "urn:g2|emp1",
+                    "@id"
+                ),
                 value: "emp1",
             },
             {
                 op: "add",
-                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1", "name"),
+                path: p(
+                    "org",
+                    "departments",
+                    "urn:g1|dept1",
+                    "employees",
+                    "urn:g2|emp1",
+                    "name"
+                ),
                 value: "John",
             },
         ];
@@ -838,5 +875,35 @@ describe("applyDiff - ignored / invalid scenarios", () => {
         const diff: Patch[] = [{ op: "add", path: p("a", "b", "c"), value: 1 }];
         applyPatches(state, diff, false);
         expect(state).toEqual({});
+    });
+});
+
+describe("applyDiff - array operations", () => {
+    test("appends items to an array", () => {
+        let obj = [1, 2, 3, 4, 5];
+        applyPatches(obj, [{ op: "add", path: "/-", value: 6 }], false);
+        expect(obj).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+    test("removes last item from array", () => {
+        let obj = [1, 2, 3, 4, 5];
+        // remove last
+        applyPatches(obj, [{ op: "remove", path: "/-" }], false);
+        expect(obj).toEqual([1, 2, 3, 4]);
+    });
+
+    test("replaces item in array", () => {
+        let obj = [1, 2, 3, 4, 5];
+        applyPatches(obj, [{ op: "add", path: "/1", value: 0 }], false);
+        expect(obj).toEqual([1, 0, 3, 4, 5]);
+    });
+    test("removes item from array", () => {
+        let obj = [1, 2, 3, 4, 5];
+        applyPatches(obj, [{ op: "remove", path: "/1" }], false);
+        expect(obj).toEqual([1, 3, 4, 5]);
+    });
+    test("adds item at an exceeding position", () => {
+        let obj = [1, 2, 3, 4, 5];
+        applyPatches(obj, [{ op: "add", path: "/6", value: 7 }], false);
+        expect(obj).toEqual([1, 2, 3, 4, 5, undefined, 7]);
     });
 });
