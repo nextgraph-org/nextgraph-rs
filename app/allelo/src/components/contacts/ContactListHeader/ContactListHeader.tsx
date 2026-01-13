@@ -40,7 +40,7 @@ export const ContactListHeader = ({
       return "Claim accounts"
     }
     if (currentTab === 1) {
-      return "Gain centrality"
+      return "Get Network"
     }
   }, [currentTab]);
 

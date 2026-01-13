@@ -46,7 +46,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             Verify Your Phone
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Enter your phone number to get started with GreenCheck verification
+            Enter your phone number to get started with GreenCheck verification. GreenCheck is a secure service partner of Allelo, that helps with retrieving information from other platforms.
           </Typography>
         </Box>
 

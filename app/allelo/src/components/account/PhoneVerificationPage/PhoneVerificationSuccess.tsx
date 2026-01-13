@@ -176,6 +176,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
             </Typography>
             <FormGroup sx={{mb: 2}}>
               <FormControlLabel
+              sx={{mb:2}}
                 control={
                   <Switch
                     checked={retrieveNetworkCentrality}
@@ -183,7 +184,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
                     disabled={enrichmentStatus === 'loading'}
                   />
                 }
-                label="Retrieve network centrality"
+                label="Retrieve network graph"
               />
               <FormControlLabel
                 control={

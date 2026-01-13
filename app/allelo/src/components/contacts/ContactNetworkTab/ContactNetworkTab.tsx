@@ -34,7 +34,7 @@ export const ContactNetworkTab = () => {
   if (contacts.length === 0) {
     return <Box sx={{textAlign: 'center', py: 8}}>
       <Typography variant="h6" color="text.secondary" gutterBottom>
-        No contacts with network centrality score found.
+        We don't have the network information about your contacts yet.
       </Typography>
       <Button
         variant="contained"
@@ -42,7 +42,7 @@ export const ContactNetworkTab = () => {
         onClick={handleGreencheckConnect}
         sx={{p: 1, minWidth: "26px"}}
       >
-        <UilCheck size="20" sx={{p: 0}}/>Obtain Network Centrality
+        <UilCheck size="20" sx={{p: 0}}/>Obtain Network Graph
 
       </Button>
     </Box>
