@@ -17,8 +17,8 @@ import {
   UilTrashAlt as RestoreFromTrash,
   UilClock as Schedule
 } from '@iconscout/react-unicons';
-import { notificationService } from '@/services/notificationService';
-import { RCardSelectionModal } from '@/components/notifications/RCardSelectionModal';
+import { resolveFrom } from '@/utils/socialContact/contactUtils.ts';
+import type { Contact } from '@/types/contact';
 import type { Notification } from '@/types/notification';
 import {formatDate} from "@/utils/dateHelpers";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
@@ -29,14 +29,10 @@ export interface RejectedVouchesAndPraisesProps {
   onAcceptanceChanged?: () => void;
 }
 
-export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: RejectedVouchesAndPraisesProps) => {
+export const RejectedVouchesAndPraises = ({ contact }: RejectedVouchesAndPraisesProps) => {
   const theme = useTheme();
   const [rejectedNotifications, setRejectedNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [rCardModalOpen, setRCardModalOpen] = useState(false);
-  const [pendingNotificationId, setPendingNotificationId] = useState<string | null>(null);
-  const [pendingNotificationType, setPendingNotificationType] = useState<'vouch' | 'praise'>('vouch');
-  const name = resolveContactName(contact);
 
   useEffect(() => {
     const loadRejectedNotifications = async () => {
@@ -44,9 +40,7 @@ export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: Reje
       
       setIsLoading(true);
       try {
-        const contactId = contact['@id'] || '';
-        const rejected = await notificationService.getRejectedNotificationsByContact(contactId);
-        setRejectedNotifications(rejected);
+        setRejectedNotifications([]);
       } catch (error) {
         console.error('Failed to load rejected notifications:', error);
       } finally {
@@ -56,35 +50,6 @@ export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: Reje
 
     loadRejectedNotifications();
   }, [contact]);
-
-  const handleAcceptRejected = (notificationId: string, type: 'vouch' | 'praise') => {
-    setPendingNotificationId(notificationId);
-    setPendingNotificationType(type);
-    setRCardModalOpen(true);
-  };
-
-  const handleRCardSelect = async (rCardIds: string[]) => {
-    if (!pendingNotificationId) return;
-
-    try {
-      await notificationService.reverseRejectionAndAccept(pendingNotificationId, rCardIds);
-      
-      // Remove from rejected list and update state
-      setRejectedNotifications(prev => 
-        prev.filter(n => n.id !== pendingNotificationId)
-      );
-      
-      // Notify parent component that data has changed
-      if (onAcceptanceChanged) {
-        onAcceptanceChanged();
-      }
-    } catch (error) {
-      console.error('Failed to accept rejected notification:', error);
-    }
-
-    setPendingNotificationId(null);
-    setRCardModalOpen(false);
-  };
 
   if (!contact || isLoading) {
     return null;
@@ -161,7 +126,6 @@ export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: Reje
                           size="small"
                           variant="outlined"
                           startIcon={<RestoreFromTrash />}
-                          onClick={() => handleAcceptRejected(notification.id, notification.type as 'vouch' | 'praise')}
                           sx={{
                             fontSize: '0.75rem',
                             py: 0.5,
@@ -185,19 +149,6 @@ export const RejectedVouchesAndPraises = ({ contact, onAcceptanceChanged }: Reje
           </CardContent>
         </Card>
       </Box>
-
-      {/* RCard Selection Modal */}
-      <RCardSelectionModal
-        open={rCardModalOpen}
-        onClose={() => {
-          setRCardModalOpen(false);
-          setPendingNotificationId(null);
-        }}
-        onSelect={handleRCardSelect}
-        contactName={name}
-        isVouch={pendingNotificationType === 'vouch'}
-        multiSelect={true}
-      />
     </>
   );
 };

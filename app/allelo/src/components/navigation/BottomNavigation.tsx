@@ -1,5 +1,6 @@
 import {useLocation, useNavigate} from 'react-router-dom';
 import {
+  Badge,
   BottomNavigation as MuiBottomNavigation,
   BottomNavigationAction,
   Paper
@@ -72,7 +73,13 @@ const BottomNavigation = ({navigationItems}: BottomNavigationProps) => {
             key={item.path}
             label={item.text}
             value={item.path}
-            icon={item.icon}
+            icon={item.badge ? (
+              <Badge badgeContent={item.badge} color="error">
+                {item.icon}
+              </Badge>
+            ) : (
+              item.icon
+            )}
           />
         ))}
       </MuiBottomNavigation>

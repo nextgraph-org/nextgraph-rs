@@ -2,7 +2,6 @@ import {Favorite, PersonOutline, Send, VerifiedUser} from "@mui/icons-material"
 import {alpha, Box, Button, Card, CardContent, Grid, Typography, useTheme} from "@mui/material"
 import {forwardRef, useState, useEffect, useCallback} from "react";
 import type {Notification} from "@/types/notification";
-import {notificationService} from "@/services/notificationService";
 import {formatDateDiff} from "@/utils/dateHelpers";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
@@ -24,9 +23,7 @@ export const VouchesAndPraises = forwardRef<HTMLDivElement, VouchesAndPraisesPro
     
     setIsLoading(true);
     try {
-      const contactId = contact['@id'] || '';
-      const accepted = await notificationService.getAcceptedNotificationsByContact(contactId);
-      setAcceptedNotifications(accepted);
+      setAcceptedNotifications([]);
     } catch (error) {
       console.error('Failed to load accepted notifications:', error);
     } finally {

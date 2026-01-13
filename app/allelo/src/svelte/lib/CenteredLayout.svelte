@@ -33,6 +33,11 @@
         await displayPopup("https://nextgraph.org", "NextGraph.org");
     };
 
+    const displayToS = async (e) => {
+        e.preventDefault()
+        await displayPopup("https://account.allelo.eco/#/create", "NextGraph.org Privacy Policy");
+    };
+
 </script>
 
 <div class="centered" bind:this={top}>
@@ -43,10 +48,19 @@
       <Button
           variant="outlined"
           onclick={displayNextgraphOrg}
-          style="height: 45px; background-color: #fff"
+          style="height: 45px; background-color: #fff; margin-top: 10px;"
       >
         <LogoSimple/> &nbsp;{$t("common.about_nextgraph")}
       </Button>
+      <a href="https://account.allelo.eco/#/create">
+        <Button
+            variant="outlined"
+            onclick={displayToS}
+            style="height: 45px; background-color: #fff; margin-top: 10px;"
+        >
+            Privacy Policy
+        </Button>
+      </a>
     </div>
   {/if}
 </div>

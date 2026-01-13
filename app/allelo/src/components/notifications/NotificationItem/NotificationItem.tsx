@@ -1,138 +1,215 @@
-import { forwardRef } from 'react';
+import {CSSProperties, forwardRef, useCallback, useMemo} from 'react';
+import {alpha, Avatar, Box, Chip, Divider, IconButton, Typography, useTheme} from "@mui/material";
 import {
-  ListItem,
-  Box,
-  Avatar,
-  Typography,
-  Chip,
-  alpha,
-  useTheme,
-} from '@mui/material';
-import { UilThumbsUp, UilStar } from '@iconscout/react-unicons';
-import { NotificationActions } from './NotificationActions';
-import type { NotificationItemProps } from './types';
+  UilBell,
+  UilCheckCircle,
+  UilClock,
+  UilHeart, UilSetting,
+  UilShieldCheck,
+  UilTimes,
+  UilUsersAlt
+} from "@iconscout/react-unicons";
+import {formatDate} from "@/utils/dateHelpers.ts";
+import {UserNotification} from "@/.orm/shapes/notification.typings.ts";
+import {userNotificationDictMapper} from "@/utils/dictMappers.ts";
+
+interface NotificationItemProps {
+  notification: UserNotification;
+  showDivider?: boolean;
+}
+
+interface NotificationAction {
+  title: string;
+  callback: () => void;
+  style?: CSSProperties;
+}
 
 export const NotificationItem = forwardRef<HTMLLIElement, NotificationItemProps>(
-  ({ 
-    notification,
-    onMarkAsRead,
-    onAcceptVouch,
-    onRejectVouch,
-    onAcceptPraise,
-    onRejectPraise,
-    onAssignToRCard,
-  }, ref) => {
+  ({
+     notification,
+     showDivider = true
+   }, ref) => {
+
     const theme = useTheme();
 
-    const getNotificationIcon = () => {
-      switch (notification.type) {
-        case 'vouch':
-          return <UilThumbsUp size="20" color={theme.palette.primary.main} />;
-        case 'praise':
-          return <UilStar size="20" color={theme.palette.warning.main} />;
-        default:
-          return null;
-      }
-    };
+    const notificationId = notification["@id"];
 
-    const getStatusChip = () => {
-      switch (notification.status) {
-        case 'pending':
-          return <Chip label="Pending" size="small" color="warning" />;
-        case 'accepted':
-          return <Chip label="Accepted" size="small" color="success" />;
-        case 'rejected':
-          return <Chip label="Declined" size="small" color="error" />;
-        case 'completed':
-          return <Chip label="Assigned" size="small" color="info" />;
+    const notificationStatus = userNotificationDictMapper.removePrefix(notification?.status);
+    const notificationType = userNotificationDictMapper.removePrefix(notification?.type);
+
+    const getNotificationIcon = useCallback(() => {
+      switch (notificationType) {
+        case 'Vouch':
+          return <UilShieldCheck size="20" color={theme.palette.primary.main}/>;
+        case 'Connection':
+          return <UilUsersAlt size="20" color={theme.palette.info.main}/>;
+        case 'Praise':
+          return <UilHeart size="20" color="#d81b60"/>;
+        case 'System':
+          return <UilSetting size="20" color={theme.palette.warning.main}/>;
         default:
-          return null;
+          return <UilBell size="20"/>;
       }
-    };
+    }, [notificationType, theme]);
+
+    const actions = useMemo<NotificationAction[]>(() => {
+      switch (notificationType) {
+        case "Connection":
+          return notification.status === "did:ng:x:social:notification:status#Pending" ? [
+            {
+              title: "Reject",
+              callback: () => {
+                notification.status = "did:ng:x:social:notification:status#Rejected"
+              },
+              style: {
+                border: '1px solid',
+                borderColor: theme.palette.grey[400],
+                backgroundColor: 'transparent',
+                color: theme.palette.text.primary,
+              }
+            },
+            {
+              title: "Accept",
+              callback: () => {
+                notification.status = "did:ng:x:social:notification:status#Accepted"
+              },
+              style: {
+                border: 'none',
+                backgroundColor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
+              }
+            },
+          ] : [];
+        default:
+          return [];
+      }
+    }, [notification, notificationType, theme]);
 
     return (
-      <ListItem
-        ref={ref}
-        sx={{
-          p: 2,
-          borderLeft: 4,
-          borderLeftColor: notification.isRead ? 'transparent' : 'primary.main',
-          backgroundColor: notification.isRead 
-            ? 'transparent' 
-            : alpha(theme.palette.primary.main, 0.02),
-          '&:hover': {
-            backgroundColor: alpha(theme.palette.action.hover, 0.5),
-          },
-        }}
-      >
-        <Box sx={{ display: 'flex', width: '100%', gap: 2, minWidth: 0 }}>
-          {/* Avatar and Icon */}
-          <Box sx={{ position: 'relative' }}>
-            <Avatar
-              src={notification.fromUserAvatar}
-              alt={notification.fromUserName}
-              sx={{ width: 48, height: 48 }}
-            >
-              {notification.fromUserName?.charAt(0) || 'N'}
-            </Avatar>
-            {getNotificationIcon() && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  bottom: -4,
-                  right: -4,
-                  backgroundColor: 'background.paper',
-                  borderRadius: '50%',
-                  p: 0.5,
-                  border: 2,
-                  borderColor: 'background.paper',
-                }}
-              >
-                {getNotificationIcon()}
-              </Box>
-            )}
+      <Box key={notificationId} ref={ref}>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 2,
+          py: 2,
+          backgroundColor: notification.seen ? 'transparent' : alpha(theme.palette.primary.main, 0.02),
+          borderRadius: 1,
+          position: 'relative'
+        }}>
+          {/* Notification Icon */}
+          <Box sx={{flexShrink: 0, mt: 0.5}}>
+            {getNotificationIcon()}
           </Box>
 
-          {/* Content */}
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1, gap: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.2, flexGrow: 1, minWidth: 0 }}>
-                {notification.title}
+          {/* Main Content */}
+          <Box
+            sx={{
+              flexGrow: 1,
+              minWidth: 0,
+              cursor: 'pointer',
+              '&:hover': {
+                opacity: 0.8,
+              }
+            }}
+            onClick={() => console.log(notificationId)}
+          >
+            {/* Sender Info */}
+            <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 1}}>
+              <Avatar
+                // src={notification.fromUserAvatar}
+                // alt={notification.fromUserName}
+                sx={{width: 24, height: 24, fontSize: '0.75rem'}}
+              >
+                {"notification.fromUserName?.charAt(0)"}
+              </Avatar>
+              <Typography variant="subtitle2" sx={{fontWeight: 600}}>
+                {"notification.fromUserName"}
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                {getStatusChip()}
-              </Box>
+              <Typography variant="caption" color="text.secondary">
+                {formatDate(notification.date, {month: "short"})}
+              </Typography>
             </Box>
 
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ 
-                mb: 1,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                wordBreak: 'break-word',
-                overflowWrap: 'break-word',
-              }}
-            >
-              {notification.message}
+            {/* Message */}
+            <Typography variant="body2" sx={{mb: 1, lineHeight: 1.5}}>
+              {notification.body}
             </Typography>
 
-            <NotificationActions
-              notification={notification}
-              onMarkAsRead={onMarkAsRead}
-              onAcceptVouch={onAcceptVouch}
-              onRejectVouch={onRejectVouch}
-              onAcceptPraise={onAcceptPraise}
-              onRejectPraise={onRejectPraise}
-              onAssignToRCard={onAssignToRCard}
-            />
+            {/* Status and Actions */}
+            <Box sx={{display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap'}}>
+              {notificationStatus && (
+                <Chip
+                  icon={notificationStatus === 'Accepted' ? <UilCheckCircle size="16"/> : <UilClock size="16"/>}
+                  label={notificationStatus}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    fontSize: '0.75rem',
+                    height: 20,
+                    textTransform: 'capitalize',
+                    ...(notificationStatus === 'Accepted' && {
+                      backgroundColor: alpha(theme.palette.success.main, 0.08),
+                      borderColor: alpha(theme.palette.success.main, 0.2),
+                      color: 'success.main'
+                    })
+                  }}
+                />
+              )}
+
+              {/* Action Buttons */}
+              {actions.length > 0 && (
+                <Box sx={{display: 'flex', gap: 1, ml: 'auto'}}>
+                  {actions.map(action => (
+                    <button
+                      onClick={action.callback}
+                      style={{
+                        minWidth: 60,
+                        fontSize: '0.75rem',
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        ...action.style
+                      }}
+                    >
+                      {action.title}
+                    </button>
+                  ))}
+                </Box>
+              )}
+
+            </Box>
+          </Box>
+
+          {/* Unread indicator and Mark as Read Button */}
+          <Box sx={{display: 'flex', alignItems: 'flex-start', gap: 1, flexShrink: 0}}>
+            {!notification.seen && (
+              <>
+                <Box sx={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  backgroundColor: 'primary.main',
+                  mt: 1
+                }}/>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    notification.seen = true;
+                  }}
+                >
+                  <UilTimes size="16"/>
+                </IconButton>
+              </>
+            )}
           </Box>
         </Box>
-      </ListItem>
-    );
+        {
+          showDivider && <Divider/>
+        }
+      </Box>
+    )
+
   }
 );
 
