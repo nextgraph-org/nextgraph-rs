@@ -14,3 +14,16 @@
  * **If `graphs` is `[]`, the scope is none and no objects are returned.
  */
 export type Scope = { graphs?: string[]; subjects?: string[] };
+
+export interface DiscreteArray extends Array<DiscreteType> {}
+export interface DiscreteObject {
+    [key: string]: DiscreteType;
+}
+export type DiscreteType =
+    | DiscreteArray
+    | DiscreteObject
+    | string
+    | number
+    | boolean;
+
+export type DiscreteCrdt = "YMap" | "YArray" | "Automerge";

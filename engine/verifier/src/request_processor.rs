@@ -957,8 +957,8 @@ impl Verifier {
         session_id: u64,
     ) -> Result<AppResponse, NgError> {
         match command {
-            AppRequestCommandV0::OrmUpdate => match payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
+            AppRequestCommandV0::GraphOrmUpdate => match payload {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::GraphOrmUpdate((
                     patches,
                     subscription_id,
                 )))) => {

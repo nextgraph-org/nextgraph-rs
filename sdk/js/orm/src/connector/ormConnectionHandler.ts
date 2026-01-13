@@ -19,12 +19,12 @@ import {
     batch,
 } from "@ng-org/alien-deepsignals";
 import type {
-    DeepPatch,
     DeepSignalPropGenFn,
     DeepSignalSet,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
+import { deepPatchesToWasm } from "./utils.ts";
 
 const WAIT_BEFORE_CLOSE = 500;
 
@@ -100,7 +100,7 @@ export class OrmConnection<T extends BaseType> {
 
         ngSession.then(async ({ ng, session }) => {
             try {
-                this.closeOrmConnection = await ng.orm_start(
+                this.closeOrmConnection = await ng.graph_orm_start(
                     scope.graphs ?? ["did:ng:i"],
                     scope.subjects ?? [],
                     shapeType,
@@ -169,16 +169,20 @@ export class OrmConnection<T extends BaseType> {
         if (this.inTransaction) {
             this.pendingPatches?.push(...ormPatches);
         } else {
-            ng.orm_update(this.subscriptionId!, ormPatches, session.session_id);
+            ng.graph_orm_update(
+                this.subscriptionId!,
+                ormPatches,
+                session.session_id
+            );
         }
     };
 
     private onBackendMessage = (message: any) => {
         const data = message?.V0;
-        if (data?.OrmInitial) {
-            this.handleInitialResponse(data.OrmInitial);
-        } else if (data?.OrmUpdate) {
-            this.onBackendUpdate(data.OrmUpdate);
+        if (data?.DiscreteOrmInitial) {
+            this.handleInitialResponse(data.DiscreteOrmInitial);
+        } else if (data?.DiscreteOrmUpdate) {
+            this.onBackendUpdate(data.DiscreteOrmUpdate);
         } else {
             console.warn("Received unknown ORM message from backend", message);
         }
@@ -197,7 +201,7 @@ export class OrmConnection<T extends BaseType> {
             // this.signalObject.clear();
 
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
-            for (const newItem of parseOrmInitialObject(initialData)) {
+            for (const newItem of parseDiscreteOrmInitialObject(initialData)) {
                 this.signalObject.add(newItem);
             }
         });
@@ -287,7 +291,7 @@ export class OrmConnection<T extends BaseType> {
         this.inTransaction = false;
         const { ng, session } = await ngSession;
         await this.readyPromise;
-        ng.orm_update(
+        ng.graph_orm_update(
             this.subscriptionId!,
             this.pendingPatches!,
             session.session_id
@@ -297,33 +301,21 @@ export class OrmConnection<T extends BaseType> {
     };
 }
 
-/**
- * Converts DeepSignal patches to ORM Wasm-compatible patches
- * @param patches DeepSignal patches
- * @returns Patches with stringified path
- */
-export function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
-    return patches.flatMap((patch) => {
-        if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
-            return [];
-        const path = "/" + patch.path.join("/");
-        return { ...patch, path };
-    }) as Patch[];
-}
-
-const parseOrmInitialObject = (obj: any): any => {
+const parseDiscreteOrmInitialObject = (obj: any): any => {
     // Regular arrays become sets.
     if (Array.isArray(obj)) {
-        return new Set(obj.map(parseOrmInitialObject));
+        return new Set(obj.map(parseDiscreteOrmInitialObject));
     } else if (obj && typeof obj === "object") {
         if ("@id" in obj) {
             // Regular object.
             for (const key of Object.keys(obj)) {
-                obj[key] = parseOrmInitialObject(obj[key]);
+                obj[key] = parseDiscreteOrmInitialObject(obj[key]);
             }
         } else {
             // Object does not have @id, that means it's a set of objects.
-            return new Set(Object.values(obj).map(parseOrmInitialObject));
+            return new Set(
+                Object.values(obj).map(parseDiscreteOrmInitialObject)
+            );
         }
     }
     return obj;

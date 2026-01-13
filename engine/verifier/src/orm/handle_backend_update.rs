@@ -400,7 +400,9 @@ impl Verifier {
                 let _ = orm_subscription
                     .sender
                     .clone()
-                    .send(AppResponse::V0(AppResponseV0::OrmUpdate(final_patches)))
+                    .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(
+                        final_patches,
+                    )))
                     .await;
             }
         }

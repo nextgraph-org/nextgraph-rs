@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use ng_repo::log::*;
 
-use crate::local_broker::{doc_create, doc_sparql_update, orm_start};
+use crate::local_broker::{doc_create, doc_sparql_update, graph_orm_start};
 
 #[doc(hidden)]
 pub mod orm_creation;
@@ -106,9 +106,9 @@ async fn create_orm_connection(
         .iter()
         .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
         .collect();
-    let (mut receiver, cancel_fn) = orm_start(nuris, subjects, shape_type, session_id)
+    let (mut receiver, cancel_fn) = graph_orm_start(nuris, subjects, shape_type, session_id)
         .await
-        .expect("orm_start failed");
+        .expect("graph_orm_start failed");
 
     // Get initial state with timeout
     let subscription_id;
@@ -117,11 +117,11 @@ async fn create_orm_connection(
         let res = timeout(Duration::from_secs(1), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for OrmInitial response (1 second)"),
+            Err(_) => panic!("Timed out waiting for GraphOrmInitial response (1 second)"),
         };
         match opt {
             Some(app_response) => {
-                if let AppResponse::V0(AppResponseV0::OrmInitial(init, sid)) = app_response {
+                if let AppResponse::V0(AppResponseV0::GraphOrmInitial(init, sid)) = app_response {
                     subscription_id = sid;
                     initial_value = init;
                     break;

@@ -825,7 +825,7 @@ impl AppRequest {
         })
     }
 
-    pub fn new_orm_start(
+    pub fn new_graph_orm_start(
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,
@@ -847,12 +847,11 @@ impl AppRequest {
 
     pub fn new_orm_update(subscription_id: u64, diff: OrmPatches) -> Self {
         AppRequest::new(
-            AppRequestCommandV0::OrmUpdate,
+            AppRequestCommandV0::GraphOrmUpdate,
             NuriV0::new_empty(),
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
-                diff,
-                subscription_id,
-            )))),
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::GraphOrmUpdate(
+                (diff, subscription_id),
+            ))),
         )
     }
 
@@ -1347,8 +1346,10 @@ pub enum AppResponseV0 {
     Nuri(String),
     Header(AppHeader),
     Commits(Vec<String>),
-    OrmInitial(Value, u64), // Initial JSON object and subscription id for communication
-    OrmUpdate(OrmPatches),
+    GraphOrmInitial(Value, u64), // Initial JSON object and subscription id for communication
+    GraphOrmUpdate(OrmPatches),
+    DiscreteOrmInitial(Value, u64), // Initial JSON object and subscription id for communication
+    DiscreteOrmUpdate(OrmPatches),
     OrmError(String),
 }
 

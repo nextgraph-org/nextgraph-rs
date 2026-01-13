@@ -563,7 +563,7 @@ async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> 
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn new_orm_start(
+async fn new_graph_orm_start(
     graph_scope: Vec<String>,
     subject_scope: Vec<String>,
     shape_type: ng_net::orm::OrmShapeType,
@@ -585,7 +585,7 @@ async fn new_orm_start(
         graph_nuris
     };
 
-    let mut req = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
+    let mut req = AppRequest::new_graph_orm_start(graph_nuris, subject_scope, shape_type);
     req.set_session_id(session_id);
     Ok(req)
 }

@@ -2874,13 +2874,13 @@ pub async fn upload_done(
     Ok(reference)
 }
 
-pub async fn orm_start(
+pub async fn graph_orm_start(
     graph_scope: Vec<NuriV0>,
     subject_scope: Vec<String>,
     shape_type: OrmShapeType,
     session_id: u64,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-    let mut request = AppRequest::new_orm_start(graph_scope, subject_scope, shape_type);
+    let mut request = AppRequest::new_graph_orm_start(graph_scope, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream(request).await
 }
@@ -2899,7 +2899,7 @@ pub async fn orm_update(
     diff: OrmPatches,
     session_id: u64,
 ) -> Result<(), NgError> {
-    let mut request = AppRequest::new_orm_update(subscription_id, diff);
+    let mut request = AppRequest::new_orm_graph_update(subscription_id, diff);
     request.set_session_id(session_id);
     app_request(request).await?;
     Ok(())
