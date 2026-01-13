@@ -239,7 +239,7 @@ dogs.add({
 
 > **Note**: For nested sub-objects, `@graph` is optional — the parent's graph IRI is used.
 >
-> **Note**: If you want to use the ORM signal object in a non-component context, you can use `createSignalObjectForShape` function as well.
+> **Note**: If you want to use the ORM signal object in a non-component context, you can create an ORM connection manually using `OrmConnection.getOrCreate()`.
 
 ### Modifying Objects
 

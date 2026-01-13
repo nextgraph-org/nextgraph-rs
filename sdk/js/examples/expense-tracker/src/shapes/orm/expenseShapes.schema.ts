@@ -12,7 +12,7 @@ export const expenseShapesSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["http://example.org/Expense"],
           },
         ],
@@ -79,7 +79,7 @@ export const expenseShapesSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "iri",
+            valType: "string",
           },
         ],
         maxCardinality: -1,
@@ -112,19 +112,19 @@ export const expenseShapesSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["http://example.org/Paid"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["http://example.org/Pending"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["http://example.org/Overdue"],
           },
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["http://example.org/Refunded"],
           },
         ],
@@ -135,13 +135,13 @@ export const expenseShapesSchema: Schema = {
       },
     ],
   },
-  "http://example.org/ExpenseCategory": {
-    iri: "http://example.org/ExpenseCategory",
+  "http://example.org/ExpenseCategoryShape": {
+    iri: "http://example.org/ExpenseCategoryShape",
     predicates: [
       {
         dataTypes: [
           {
-            valType: "literal",
+            valType: "iri",
             literals: ["http://example.org/ExpenseCategory"],
           },
         ],

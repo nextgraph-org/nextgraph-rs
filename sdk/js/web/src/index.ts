@@ -17,7 +17,7 @@ const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
 const config = import.meta.env.NG_DEV3
     ? {
           redirect:
-              "http/fix '=' expected., Individual declarations in merged declaration 'NG' must be all exported or all local.://127.0.0.1:3033/redir/#/?o=",
+              "http://127.0.0.1:3033/redir/#/?o=",
           origin: "http://127.0.0.1:3033",
       }
     : import.meta.env.NG_DEV
@@ -80,7 +80,7 @@ export const init = async function (
 
 const streamed_api: Record<string, number> = {
     doc_subscribe: 2,
-    orm_start: 3,
+    orm_start: 4,
     file_get: 3,
     app_request_stream: 1,
 };

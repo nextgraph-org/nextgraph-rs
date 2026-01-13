@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { Diff as Patches, Scope } from "../types.ts";
+import type { Scope } from "../types.ts";
 import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
@@ -26,6 +26,8 @@ import type {
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 
+const WAIT_BEFORE_CLOSE = 500;
+
 export class OrmConnection<T extends BaseType> {
     private static idToEntry = new Map<string, OrmConnection<any>>();
     /**
@@ -33,17 +35,20 @@ export class OrmConnection<T extends BaseType> {
      * Useful when a hook unsubscribes and resubscribes in a short time interval
      * so that no new connections need to be set up.
      */
-    private WAIT_BEFORE_RELEASE = 500;
 
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
     readonly signalObject: DeepSignalSet<T>;
+    private subscriptionId: number | undefined;
     private refCount: number;
     /** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
     suspendDeepWatcher: boolean;
+    inTransaction: boolean = false;
+    /** Aggregation of patches to be sent when in transaction. */
+    pendingPatches: Patch[] | undefined;
     readyPromise: Promise<void>;
-    cancel: () => void;
+    private closeOrmConnection: () => void;
     /** Promise that resolves once initial data has been applied. */
     resolveReady!: () => void;
 
@@ -51,25 +56,27 @@ export class OrmConnection<T extends BaseType> {
     private static cleanupSignalRegistry =
         typeof FinalizationRegistry === "function"
             ? new FinalizationRegistry<string>((connectionId) => {
+                  console.log("finalization called for", connectionId);
                   // Best-effort fallback; look up by id and clean
                   const entry = this.idToEntry.get(connectionId);
-                  //console.log("cleaning up connection",connectionId)
+                  console.log("cleaning up connection", connectionId);
                   if (!entry) return;
-                  entry.release();
+                  entry.close();
               })
             : null;
 
     private constructor(shapeType: ShapeType<T>, scope: Scope) {
-
         // @ts-expect-error
         window.ormSignalConnections = OrmConnection.idToEntry;
+        // @ts-expect-error
+        window.OrmConnection = OrmConnection;
 
         this.shapeType = shapeType;
         this.scope = scope;
         this.refCount = 1;
-        this.cancel = () => {};
+        this.closeOrmConnection = () => {};
         this.suspendDeepWatcher = false;
-        this.identifier = `${shapeType.shape}::${canonicalScope(scope)}`;
+        this.identifier = `${shapeType.shape}|${canonicalScope(scope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
             propGenerator: this.signalObjectPropGenerator,
             // Don't set syntheticIdPropertyName - let propGenerator handle all ID logic
@@ -92,11 +99,10 @@ export class OrmConnection<T extends BaseType> {
         });
 
         ngSession.then(async ({ ng, session }) => {
-            //console.log("Creating orm connection. ng and session", ng, session);
             try {
-                //await new Promise((resolve) => setTimeout(resolve, 4_000));
-                this.cancel = await ng.orm_start(
-                    scope.length == 0 ? "" : scope,
+                this.closeOrmConnection = await ng.orm_start(
+                    scope.graphs ?? ["did:ng:i"],
+                    scope.subjects ?? [],
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
@@ -108,20 +114,20 @@ export class OrmConnection<T extends BaseType> {
     }
 
     /**
-     * Get a connection which contains the ORM and lifecycle methods.
+     * Get or create a connection which contains the ORM and lifecycle methods.
      * @param shapeType
      * @param scope
      * @param ng
      * @returns
      */
-    public static getConnection = <T extends BaseType>(
+    public static getOrCreate = <T extends BaseType>(
         shapeType: ShapeType<T>,
         scope: Scope
     ): OrmConnection<T> => {
         const scopeKey = canonicalScope(scope);
 
         // Unique identifier for a given shape type and scope.
-        const identifier = `${shapeType.shape}::${scopeKey}`;
+        const identifier = `${shapeType.shape}|${scopeKey}`;
 
         // If we already have an object for this shape+scope,
         // return it and just increase the reference count.
@@ -137,7 +143,7 @@ export class OrmConnection<T extends BaseType> {
         }
     };
 
-    public release = () => {
+    public close = () => {
         setTimeout(() => {
             if (this.refCount > 0) this.refCount--;
             if (this.refCount === 0) {
@@ -146,9 +152,9 @@ export class OrmConnection<T extends BaseType> {
                 OrmConnection.cleanupSignalRegistry?.unregister(
                     this.signalObject
                 );
-                this.cancel();
+                this.closeOrmConnection();
             }
-        }, this.WAIT_BEFORE_RELEASE);
+        }, WAIT_BEFORE_CLOSE);
     };
 
     private onSignalObjectUpdate = async ({ patches }: WatchPatchEvent<T>) => {
@@ -160,12 +166,11 @@ export class OrmConnection<T extends BaseType> {
         const { ng, session } = await ngSession;
         await this.readyPromise;
 
-        ng.orm_update(
-            this.scope.length == 0 ? "" : this.scope,
-            this.shapeType.shape,
-            ormPatches,
-            session.session_id
-        );
+        if (this.inTransaction) {
+            this.pendingPatches?.push(...ormPatches);
+        } else {
+            ng.orm_update(this.subscriptionId!, ormPatches, session.session_id);
+        }
     };
 
     private onBackendMessage = (message: any) => {
@@ -179,7 +184,11 @@ export class OrmConnection<T extends BaseType> {
         }
     };
 
-    private handleInitialResponse = (initialData: any) => {
+    private handleInitialResponse = ([initialData, subscriptionId]: [
+        any,
+        number,
+    ]) => {
+        this.subscriptionId = subscriptionId;
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
         batch(() => {
@@ -258,6 +267,24 @@ export class OrmConnection<T extends BaseType> {
             syntheticId: graphIri + "|" + subjectIri,
         };
     };
+
+    public beginTransaction = () => {
+        this.inTransaction = true;
+        this.pendingPatches = [];
+    };
+
+    public commitTransaction = async () => {
+        this.inTransaction = false;
+        const { ng, session } = await ngSession;
+        await this.readyPromise;
+        ng.orm_update(
+            this.subscriptionId!,
+            this.pendingPatches!,
+            session.session_id
+        );
+
+        this.pendingPatches = undefined;
+    };
 }
 
 /**
@@ -265,13 +292,13 @@ export class OrmConnection<T extends BaseType> {
  * @param patches DeepSignal patches
  * @returns Patches with stringified path
  */
-export function deepPatchesToWasm(patches: DeepPatch[]): Patches {
+export function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
     return patches.flatMap((patch) => {
         if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
             return [];
         const path = "/" + patch.path.join("/");
         return { ...patch, path };
-    }) as Patches;
+    }) as Patch[];
 }
 
 const parseOrmInitialObject = (obj: any): any => {
@@ -292,9 +319,11 @@ const parseOrmInitialObject = (obj: any): any => {
     return obj;
 };
 
-function canonicalScope(scope: Scope | Scope[] | undefined): string {
-    if (scope == null) return "";
-    return Array.isArray(scope)
-        ? scope.slice().sort().join(",")
-        : String(scope);
+/**
+ * Creates a string out of the scope in the format
+ * `graphIri1,graphIri2|subjectIri1,subjectIri2`
+ */
+function canonicalScope(scope: Scope): string {
+    if (!scope) return "";
+    return `${(scope.graphs || []).slice().sort().join(",")}|${(scope.subjects || []).slice().sort().join(",")}`;
 }

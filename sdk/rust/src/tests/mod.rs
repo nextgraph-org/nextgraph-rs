@@ -8,10 +8,17 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use ng_repo::log_err;
+use async_std::future::timeout;
+use futures::channel::mpsc::UnboundedReceiver;
+use futures::StreamExt;
+use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
+use ng_net::orm::OrmShapeType;
 use serde_json::Value;
+use std::time::Duration;
 
-use crate::local_broker::{doc_create, doc_sparql_update};
+use ng_repo::log::*;
+
+use crate::local_broker::{doc_create, doc_sparql_update, orm_start};
 
 #[doc(hidden)]
 pub mod orm_creation;
@@ -82,4 +89,47 @@ fn sort_arrays(value: &mut Value) {
         }
         _ => {}
     }
+}
+
+async fn create_orm_connection(
+    nuris: Vec<String>,
+    subjects: Vec<String>,
+    shape_type: OrmShapeType,
+    session_id: u64,
+) -> (
+    UnboundedReceiver<ng_net::app_protocol::AppResponse>,
+    Box<dyn FnOnce() + Send + Sync>,
+    u64,
+    serde_json::Value,
+) {
+    let nuris = nuris
+        .iter()
+        .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
+        .collect();
+    let (mut receiver, cancel_fn) = orm_start(nuris, subjects, shape_type, session_id)
+        .await
+        .expect("orm_start failed");
+
+    // Get initial state with timeout
+    let subscription_id;
+    let initial_value;
+    loop {
+        let res = timeout(Duration::from_secs(1), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => panic!("Timed out waiting for OrmInitial response (1 second)"),
+        };
+        match opt {
+            Some(app_response) => {
+                if let AppResponse::V0(AppResponseV0::OrmInitial(init, sid)) = app_response {
+                    subscription_id = sid;
+                    initial_value = init;
+                    break;
+                }
+            }
+            None => panic!("ORM receiver closed before initial response"),
+        }
+    }
+
+    return (receiver, cancel_fn, subscription_id, initial_value);
 }

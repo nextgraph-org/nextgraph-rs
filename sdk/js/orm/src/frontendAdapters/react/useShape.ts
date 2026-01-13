@@ -11,40 +11,53 @@
 import type { BaseType } from "@ng-org/shex-orm";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
-import { useEffect, useMemo } from "react";
-import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
+import { useEffect, useMemo, useRef } from "react";
 import type { Scope } from "../../types.ts";
+import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
+import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 /**
  *
  * @param shape The shape type
- * @param scope The document scope (IRI of named graph)
+ * @param scope The scope as graph, array of graphs or scope object with graphs and subjects.
  * @returns A deep signal set with the orm objects, an empty set if still loading,
  *          or an empty set which errors on modifications if scope is undefined.
  */
 const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
-    scope: Scope | undefined = ""
+    scope: Scope | string[] | string = {}
 ) => {
-    const signalHandler = useMemo(
-        () =>
-            scope === undefined
-                ? undefined
-                : createSignalObjectForShape(shape, scope),
-        [shape, scope]
+    const parsedScope =
+        typeof scope === "string"
+            ? { graphs: [scope] }
+            : Array.isArray(scope)
+              ? { graphs: scope }
+              : scope;
+
+    const prevOrmConnection = useRef<undefined | OrmConnection<T>>(undefined);
+
+    const ormConnection = useMemo(
+        () => {
+            if (scope === undefined) return undefined;
+            if (prevOrmConnection.current) prevOrmConnection.current.close();
+            const newOrmConnection = OrmConnection.getOrCreate(shape, parsedScope);
+            prevOrmConnection.current = newOrmConnection;
+            return newOrmConnection;
+        },
+        [shape, scope, parsedScope.graphs, parsedScope.subjects]
     );
 
     useEffect(() => {
-        if (!signalHandler) return;
+        if (!ormConnection) return;
 
         return () => {
-            signalHandler.stop();
+            ormConnection.close();
         };
-    }, [signalHandler]);
+    }, [ormConnection]);
 
-    const state = useDeepSignal(signalHandler?.signalObject ?? readOnlySet);
+    const state = useDeepSignal(ormConnection?.signalObject ?? readOnlySet);
 
-    return state;
+    return state as DeepSignalSet<T>;
 };
 
 const readOnlySet = new Proxy(new Set(), {

@@ -64,6 +64,11 @@ cargo run-script buildfrontdev3
 cargo run
 ```
 
+Download the file
+https://localfirstapp.eu/index.tar.xz
+and unzip it.
+Place the 2 files it contains inside app/nextgraph/dist-web/ folder.
+
 in a separate terminal, from the root of the mono-repo, start your local ngd (run this every time you start to work anew)
 
 ```bash
@@ -78,7 +83,8 @@ in a separate terminal, from the root of the mono-repo,
 ```bash
 # This is up to you. By example :
 cd sdk/js/examples/multi-framework-signals
-pnpm dev
+pnpm dev3
+# PLEASE NOTE that we are calling dev3 and not dev
 # Then open that app in your browser
 ```
 
@@ -88,6 +94,8 @@ every time you modify the SDK, re-run (at the root of mono-repo) :
 cargo run-script libwasmdev3
 # Or in the sdk/js/lib-wasm folder run cargo run-script appdev3
 ```
+
+It is highly recommended to keep your wallet open by having the `http://localhost:14400` webpage opened in another tab.
 
 ## Production build
 

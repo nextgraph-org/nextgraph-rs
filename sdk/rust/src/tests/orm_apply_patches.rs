@@ -8,20 +8,21 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{doc_sparql_select, orm_start, orm_update};
+use crate::local_broker::{doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
-use crate::tests::{assert_json_eq, create_doc_with_data};
+use crate::tests::{assert_json_eq, create_doc_with_data, create_orm_connection};
+use async_std::future::timeout;
 use async_std::stream::StreamExt;
-use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
+use ng_net::app_protocol::{AppResponse, AppResponseV0};
 use ng_net::orm::{
     BasicType, OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate,
     OrmSchemaShape, OrmSchemaValType, OrmShapeType,
 };
-
-use ng_repo::log_info;
+use ng_repo::log::*;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 // Helper: escape a JSON Pointer segment (RFC 6901): ~ -> ~0, / -> ~1
 fn escape_pointer_segment(segment: &str) -> String {
@@ -123,6 +124,12 @@ async fn test_orm_apply_patches() {
 
     // Test 19: Cross-graph object link removal
     test_patch_cross_graph_object_removal(session_id).await;
+
+    // Test 20: Revert patches for invalid schema values
+    test_patch_revert_invalid_schema_value(session_id).await;
+
+    // Test 21: Revert patches for multi-valued set invalid value
+    test_patch_revert_multi_valued_invalid(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -155,7 +162,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -183,17 +190,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state (person without name)
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add name
     let root = root_path(&doc_nuri, "urn:test:person1");
@@ -204,7 +202,7 @@ INSERT DATA {
         value: Some(json!("Alice")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -261,7 +259,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -301,17 +299,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state (person without name)
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Remove name
     let root = root_path(&doc_nuri, "urn:test:person2");
@@ -330,7 +319,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -389,7 +378,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -429,17 +418,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state (person without name)
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Replace name (remove old, add new)
     let root = root_path(&doc_nuri, "urn:test:person3");
@@ -458,7 +438,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -530,7 +510,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -558,17 +538,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state (person without name)
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add hobby
     let root = root_path(&doc_nuri, "urn:test:person4");
@@ -579,7 +550,7 @@ INSERT DATA {
         value: Some(json!("Swimming")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -634,7 +605,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -662,17 +633,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Remove hobby
     let root = root_path(&doc_nuri, "urn:test:person5");
@@ -683,7 +645,7 @@ INSERT DATA {
         value: Some(json!("Swimming")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -749,7 +711,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -795,7 +757,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -835,18 +797,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
-
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
     // Apply ORM patch: Change city in nested address
     let root = root_path(&doc_nuri, "urn:test:person6");
     let diff = vec![OrmPatch {
@@ -856,7 +808,7 @@ INSERT DATA {
         value: Some(json!("Shelbyville")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -944,7 +896,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example-test_patch_multilevel_nested.org/Person".to_string(),
                         )]),
@@ -992,7 +944,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example-test_patch_multilevel_nested.org/Company".to_string(),
                         )]),
@@ -1053,7 +1005,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example-test_patch_multilevel_nested.org/Address".to_string(),
                         )]),
@@ -1093,17 +1045,8 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         schema,
     };
 
-    let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
     let root = root_path(
@@ -1135,7 +1078,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1147,8 +1090,6 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     )
     .await
     .expect("SPARQL query failed");
-
-    log_info!("Quads (test_multilevel_nested): {:?}", quads);
 
     let has_old_street = quads.iter().any(|q| {
         q.predicate.as_str() == "http://example-test_patch_multilevel_nested.org/street"
@@ -1219,7 +1160,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1259,17 +1200,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Create a new object
     let root = root_path(&doc_nuri, "urn:test:person8");
@@ -1326,7 +1258,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1404,7 +1336,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1450,7 +1382,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -1478,17 +1410,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add a second address.
     let root = root_path(&doc_nuri, "urn:test:person9");
@@ -1526,7 +1449,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1605,7 +1528,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1651,7 +1574,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -1679,17 +1602,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Get initial state (no address yet)
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patches to create the single nested Address under person10
     let root = root_path(&doc_nuri, "urn:test:person10");
@@ -1722,7 +1636,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1805,7 +1719,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -1851,7 +1765,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -1879,17 +1793,8 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
-
-    // Drain initial
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply patches to replace the single-nested address with a new subject B
     let root = root_path(&doc_nuri, "urn:test:person12");
@@ -1921,7 +1826,7 @@ INSERT DATA {
         },
     ];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
         .expect("orm_update failed");
 
@@ -1981,7 +1886,7 @@ INSERT DATA {
 
 /// Test replacing object's type invalidating it.
 async fn test_patch_invalidating_object(session_id: u64) {
-    log_info!("\n\n=== TEST: Remove Single Literal ===\n");
+    log_info!("\n\n=== TEST: Patch invalidating object ===\n");
 
     let doc_nuri = create_doc_with_data(
         session_id,
@@ -2009,7 +1914,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2037,17 +1942,16 @@ INSERT DATA {
         schema,
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .expect("orm_start failed");
+    let (receiver, _cancel_fn, subscription_id, initial) = create_orm_connection(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+    )
+    .await;
 
-    // Get initial state (person without name)
-    while let Some(app_response) = receiver.next().await {
-        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
-            break;
-        }
-    }
+    let (mut receiver2, _cancel_fn, subscription_id2, initial2) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Change type to something invalid by schema.
     let root = root_path(&doc_nuri, "urn:test:person2");
@@ -2055,15 +1959,15 @@ INSERT DATA {
         op: OrmPatchOp::add,
         path: format!("{}/type", root),
         valType: None,
-        value: Some(json!("InvalidType")),
+        value: Some(json!("http://example.org/NotAPerson")),
     }];
 
-    orm_update(nuri.clone(), shape_type.shape.clone(), patch, session_id)
+    orm_update(subscription_id, patch, session_id)
         .await
         .expect("orm_update failed");
 
     // Expect delete patch for root object
-    while let Some(app_response) = receiver.next().await {
+    while let Some(app_response) = receiver2.next().await {
         let patches = match app_response {
             AppResponse::V0(v) => match v {
                 AppResponseV0::OrmUpdate(json) => Some(json),
@@ -2124,7 +2028,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2159,7 +2063,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -2186,15 +2090,8 @@ INSERT DATA {
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(app_response) = receiver.next().await {
-        if matches!(app_response, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:personML");
     let child_seg = composite_key(&doc_nuri, "urn:test:a1");
@@ -2204,9 +2101,7 @@ INSERT DATA {
         valType: Some(OrmPatchType::object),
         value: None,
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
 
     let quads = doc_sparql_select(
         session_id,
@@ -2258,7 +2153,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2292,7 +2187,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Address".to_string(),
                         )]),
@@ -2319,15 +2214,8 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(app_response) = receiver.next().await {
-        if matches!(app_response, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:personT");
     let encoded_child_key = format!(
@@ -2366,10 +2254,10 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/street", root, encoded_child_key),
             valType: None,
-            value: Some(json!("Lane")),
+            value: Some(json!("not:iri:Lane")),
         },
     ];
-    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .unwrap();
 
@@ -2385,7 +2273,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
             .to_string()
             .contains("http://example.org/example~Address/seg")
             && q.predicate.as_str() == "http://example.org/street"
-            && q.object.to_string().contains("Lane")
+            && q.object.to_string().contains("not:iri:Lane")
     });
     assert!(
         has_street,
@@ -2418,7 +2306,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2444,15 +2332,10 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
     let root = root_path(&doc_nuri, "urn:test:mv1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
@@ -2460,9 +2343,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
         valType: None,
         value: None,
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2507,7 +2388,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2533,15 +2414,10 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
     let root = root_path(&doc_nuri, "urn:test:idem1");
     let patch = OrmPatch {
         op: OrmPatchOp::add,
@@ -2549,14 +2425,9 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
         valType: Some(OrmPatchType::set),
         value: Some(json!("Reading")),
     };
-    orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
-        vec![patch.clone(), patch],
-        session_id,
-    )
-    .await
-    .unwrap();
+    orm_update(subscription_id, vec![patch.clone(), patch], session_id)
+        .await
+        .unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2608,7 +2479,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2634,15 +2505,10 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
     let root = root_path(&doc_nuri, "urn:test:noopr1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
@@ -2650,9 +2516,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
         valType: None,
         value: Some(json!("Swimming")),
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2704,7 +2568,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2742,15 +2606,10 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
     let root = root_path(&doc_nuri, "urn:test:mix1");
     let patches = vec![
         OrmPatch {
@@ -2772,7 +2631,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
             value: Some(json!("Reading")),
         },
     ];
-    orm_update(nuri.clone(), shape_type.shape.clone(), patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .unwrap();
     let quads = doc_sparql_select(
@@ -2831,7 +2690,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2857,20 +2716,14 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
     let root = root_path(&doc_nuri, "urn:test:rar1");
     // selective remove Reading
     orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
+        subscription_id,
         vec![OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/hobby", root),
@@ -2883,8 +2736,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
     .unwrap();
     // remove_all remaining
     orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
+        subscription_id,
         vec![OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/hobby", root),
@@ -2934,7 +2786,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -2967,7 +2819,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
                 maxCardinality: 1,
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str(
                         "http://example.org/Address".to_string(),
                     )]),
@@ -2980,15 +2832,10 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_from(&doc_nuri).unwrap();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+
+    let (receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
     let root = root_path(&doc_nuri, "urn:test:personDL");
     let child_seg = composite_key(&doc_nuri, "urn:test:addr1");
     let patch = OrmPatch {
@@ -2997,14 +2844,9 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
         valType: Some(OrmPatchType::object),
         value: None,
     };
-    orm_update(
-        nuri.clone(),
-        shape_type.shape.clone(),
-        vec![patch.clone(), patch],
-        session_id,
-    )
-    .await
-    .unwrap();
+    orm_update(subscription_id, vec![patch.clone(), patch], session_id)
+        .await
+        .unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -3058,7 +2900,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
+                        valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -3091,7 +2933,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
                 maxCardinality: 1,
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::literal,
+                    valType: OrmSchemaValType::iri,
                     literals: Some(vec![BasicType::Str(
                         "http://example.org/Address".to_string(),
                     )]),
@@ -3104,15 +2946,10 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let nuri = NuriV0::new_entire_user_site();
-    let (mut rx, _cf) = orm_start(nuri.clone(), shape_type.clone(), session_id)
-        .await
-        .unwrap();
-    while let Some(r) = rx.next().await {
-        if matches!(r, AppResponse::V0(AppResponseV0::OrmInitial(_))) {
-            break;
-        }
-    }
+
+    let (_receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
+
     let root = root_path(&parent_doc, "urn:test:personCR");
     let child_seg = composite_key(&child_doc, "urn:test:child1");
     let diff = vec![OrmPatch {
@@ -3121,9 +2958,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         valType: Some(OrmPatchType::object),
         value: None,
     }];
-    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -3141,4 +2976,219 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         "Cross-graph link should be removed in parent graph"
     );
     log_info!("✓ Test passed: Cross-graph object link removal");
+}
+
+/// Test that invalid schema values trigger revert patches
+/// When a patch contains a value that doesn't match the schema (e.g., non-IRI for IRI-only predicate),
+/// the system should send a revert patch back to the frontend.
+async fn test_patch_revert_invalid_schema_value(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert Patches for Invalid Schema Value ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:personRevert1> a ex:Person ;
+        ex:someResource <http://example.org/resource1> .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define schema with an IRI-only predicate (no string allowed)
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/someResource".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "someResource".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    // Only IRI allowed, no string
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // Send a patch with a plain string, not an IRI.
+    let root = root_path(&doc_nuri, "urn:test:personRevert1");
+    let invalid_diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/someResource", root),
+        valType: None,
+        value: Some(json!("not a valid IRI")),
+    }];
+
+    orm_update(subscription_id, invalid_diff, session_id)
+        .await
+        .expect("orm_update");
+
+    // Wait for revert patch from the receiver.
+    // For single-valued predicates with an existing value, the revert should be
+    // an `add` patch that restores the original value.
+    let revert_received = timeout(Duration::from_secs(1), async {
+        while let Some(response) = receiver.next().await {
+            if let AppResponse::V0(AppResponseV0::OrmUpdate(patches)) = response {
+                // Should receive a revert patch that restores the original value
+                for patch in &patches {
+                    if patch.op == OrmPatchOp::add
+                        && patch.path.contains("someResource")
+                        && patch.value == Some(json!("http://example.org/resource1"))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    })
+    .await;
+
+    assert!(
+        revert_received.unwrap_or(false),
+        "Should receive a revert patch for invalid schema value"
+    );
+
+    log_info!("✓ Test passed: Revert patches for invalid schema value");
+}
+
+/// Test that invalid values in multi-valued sets trigger revert patches
+async fn test_patch_revert_multi_valued_invalid(session_id: u64) {
+    use async_std::future::timeout;
+    use std::time::Duration;
+
+    log_info!("\n\n=== TEST: Revert Patches for Multi-Valued Set Invalid Value ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:personRevert2> a ex:Person ;
+        ex:links <http://example.org/link1> ;
+        ex:links <http://example.org/link2> .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define schema with multi-valued IRI-only predicate
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/links".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "links".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: -1, // Multi-valued
+                    // Only IRI allowed
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // Send a batch with one valid and one invalid add
+    let root = root_path(&doc_nuri, "urn:test:personRevert2");
+    let mixed_diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/links", root),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!(["http://example.org/link3", "invalid plain text"])),
+    }];
+
+    orm_update(subscription_id, mixed_diff, session_id)
+        .await
+        .expect("orm_update should not fail");
+
+    // Wait for revert patch for the invalid value only
+    let revert_received = timeout(Duration::from_secs(1), async {
+        while let Some(response) = receiver.next().await {
+            if let AppResponse::V0(AppResponseV0::OrmUpdate(patches)) = response {
+                log_debug!("got patch: {:?}", patches);
+                for patch in &patches {
+                    if patch.op == OrmPatchOp::remove
+                        && patch.path.contains("links")
+                        && patch.value
+                            == Some(json!(["http://example.org/link3", "invalid plain text"]))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    })
+    .await;
+
+    assert!(
+        revert_received.unwrap_or(false),
+        "Should receive a revert patch for invalid multi-valued set value"
+    );
+
+    log_info!("✓ Test passed: Revert patches for multi-valued set invalid value");
 }

@@ -10,7 +10,6 @@
 
 import ShexJTraverser from "@ldo/traverser-shexj";
 import type { Predicate, DataType, Shape } from "../../types.ts";
-import type { ObjectLiteral } from "../../ShexJTypes.ts";
 
 const rdfDataTypeToBasic = (dataType: string) => {
     switch (dataType) {
@@ -74,7 +73,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
         Shape: { return: Shape };
         EachOf: { return: Shape };
         TripleConstraint: { return: Predicate };
-        NodeConstraint: { return: DataType };
+        NodeConstraint: { return: DataType | DataType[] };
         ShapeOr: { return: DataType[] };
         ShapeAnd: { return: never };
         ShapeNot: { return: never };
@@ -176,27 +175,18 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                     ...commonProperties,
                 };
             } else if (Array.isArray(transformedChildren.valueExpr)) {
+                // DataType[] from ShapeOr or NodeConstraint with mixed types.
                 return {
                     dataTypes: transformedChildren.valueExpr, // DataType[]
                     ...commonProperties,
                 };
             } else {
-                // type or literal
+                // Single DataType from NodeConstraint.
                 const nodeConstraint =
                     transformedChildren.valueExpr as DataType;
 
                 return {
-                    dataTypes: !Array.isArray(nodeConstraint.literals)
-                        ? [
-                              {
-                                  valType: nodeConstraint.valType,
-                                  literals: nodeConstraint.literals,
-                              },
-                          ]
-                        : nodeConstraint.literals.map((lit) => ({
-                              valType: nodeConstraint.valType,
-                              literals: [lit],
-                          })),
+                    dataTypes: [nodeConstraint],
                     ...commonProperties,
                 } as Predicate;
             }
@@ -215,37 +205,73 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 return { valType: "iri" };
             }
             if (nodeConstraint.values) {
-                return {
-                    valType: "literal",
-                    literals: nodeConstraint.values.map(
-                        // TODO: We do not convert them to number or boolean or lang tag.
-                        // And we don't have an annotation of the literal's type.
-                        (valueRecord) => {
-                            // If valueRecord is a string (IRIREF), return it directly
-                            if (typeof valueRecord === "string") {
-                                return valueRecord;
-                            }
-                            // Handle ObjectLiteral (has .value property)
-                            if ("value" in valueRecord) {
-                                return valueRecord.value;
-                            }
-                            // Handle other types with .id property (if any)
-                            if ("id" in valueRecord) {
-                                return (valueRecord as any).id;
-                            }
-                            // Handle Language type (has .languageTag)
-                            if ("languageTag" in valueRecord) {
-                                return valueRecord.languageTag;
-                            }
-                            // Handle stem-based types (IriStem, LiteralStem, LanguageStem)
-                            if ("stem" in valueRecord) {
-                                return valueRecord.stem as string;
-                            }
-                            // Fallback - should not happen in well-formed ShEx
-                            return undefined;
+                // In ShEx, [val1 val2 val3] means "one of these values" (OR semantics).
+                // Each literal value becomes a separate DataType entry.
+                const dataTypes = nodeConstraint.values.map((valueRecord) => {
+                    // If valueRecord is an IRIREF...
+                    if (typeof valueRecord === "string") {
+                        return {
+                            valType: "iri" as const,
+                            literals: [valueRecord],
+                        };
+                    }
+                    // Handle ObjectLiteral (has .value property).
+                    if ("value" in valueRecord) {
+                        const val = valueRecord.value;
+                        // Determine type from datatype if available.
+                        if ("type" in valueRecord && valueRecord.type) {
+                            return {
+                                valType: rdfDataTypeToBasic(
+                                    valueRecord.type
+                                ) as "string" | "number" | "boolean" | "iri",
+                                literals: [val],
+                            };
                         }
-                    ),
-                };
+                        if (typeof val === "number") {
+                            return {
+                                valType: "number" as const,
+                                literals: [val],
+                            };
+                        }
+                        if (typeof val === "boolean") {
+                            return {
+                                valType: "boolean" as const,
+                                literals: [val],
+                            };
+                        }
+                        return {
+                            valType: "string" as const,
+                            literals: [val],
+                        };
+                    }
+                    // Handle other types with .id property (if any).
+                    if ("id" in valueRecord) {
+                        return {
+                            valType: "iri" as const,
+                            literals: [(valueRecord as any).id],
+                        };
+                    }
+                    // Handle language-tagged strings.
+                    if ("languageTag" in valueRecord) {
+                        return {
+                            valType: "string" as const,
+                            literals: [valueRecord.languageTag],
+                        };
+                    }
+                    // Handle stem-based types (IriStem, LiteralStem, LanguageStem).
+                    if ("stem" in valueRecord) {
+                        return {
+                            valType: "string" as const,
+                            literals: [valueRecord.stem as string],
+                        };
+                    }
+                    // Fallback - should not happen in well-formed ShEx
+                    return {
+                        valType: "string" as const,
+                    };
+                }) as DataType[];
+
+                return dataTypes;
             }
 
             // Maybe we should throw instead...
@@ -260,9 +286,12 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
     ShapeOr: {
         transformer: async (shapeOr, getTransformedChildren) => {
             const { shapeExprs } = await getTransformedChildren();
-            // Either a shape IRI, a nested shape or a node CompactSchemaValue (node constraint).
-            return (
-                Array.isArray(shapeExprs) ? shapeExprs : [shapeExprs]
+            // Each shapeExpr can be a shape IRI (string), a nested Shape, a DataType,
+            // or a DataType[] (from NodeConstraint with multiple types).
+            // We need to flatten arrays to get a single DataType[].
+            const exprs = Array.isArray(shapeExprs) ? shapeExprs : [shapeExprs];
+            return exprs.flatMap((expr) =>
+                Array.isArray(expr) ? expr : [expr]
             ) as DataType[];
         },
     },

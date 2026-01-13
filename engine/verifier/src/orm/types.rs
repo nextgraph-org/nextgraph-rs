@@ -136,8 +136,9 @@ pub enum Term {
 #[derive(Debug)]
 pub struct OrmSubscription {
     pub shape_type: OrmShapeType,
-    pub session_id: u64,
-    pub nuri: String,
+    pub subscription_id: u64,
+    pub graph_scope: Vec<String>,
+    pub subject_scope: Vec<String>,
     pub sender: Sender<AppResponse>,
     // Keep private: always use the helper methods below to access/modify
     tracked_orm_objects:
@@ -167,14 +168,16 @@ impl OrmSubscription {
     /// Constructor to create a new subscription with an empty tracked object store.
     pub fn new(
         shape_type: OrmShapeType,
-        session_id: u64,
-        nuri: String,
+        subscription_id: u64,
+        graph_scope: Vec<String>,
+        subject_scope: Vec<String>,
         sender: Sender<AppResponse>,
     ) -> Self {
         Self {
             shape_type,
-            session_id,
-            nuri,
+            subscription_id,
+            graph_scope,
+            subject_scope,
             sender,
             tracked_orm_objects: HashMap::new(),
             tracked_nested_subjects: HashMap::new(),

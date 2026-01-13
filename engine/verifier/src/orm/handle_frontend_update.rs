@@ -8,72 +8,34 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use ng_net::orm::{OrmPatchOp, OrmSchemaPredicate, OrmSchemaShape};
-use ng_oxigraph::oxrdf::Quad;
-use ng_repo::errors::VerifierError;
+use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaPredicate, OrmSchemaShape};
 
 use std::sync::Arc;
-use std::u64;
 
+use futures::SinkExt;
 use ng_net::app_protocol::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
+use ng_oxigraph::oxigraph::sparql::QueryResults;
 use ng_repo::log::*;
+use serde_json::json;
 
+use crate::orm::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::types::*;
-use crate::orm::utils::{decode_json_pointer, json_to_sparql_val, nuri_to_string};
-use crate::types::GraphQuadsPatch;
+use crate::orm::utils::{decode_json_pointer, json_to_sparql_val};
 use crate::verifier::*;
 
 impl Verifier {
-    ///
-    pub(crate) async fn orm_update_self(
-        &mut self,
-        scope: &String,
-        shape_iri: ShapeIri,
-        session_id: u64,
-        _skolemnized_blank_nodes: Vec<Quad>,
-        revert_inserts: Vec<Quad>,
-        revert_removes: Vec<Quad>,
-    ) -> Result<(), VerifierError> {
-        let (_sender, _orm_subscription) =
-            self.get_first_orm_subscription_sender_for(scope, Some(&shape_iri), Some(&session_id))?;
-
-        log_debug!("[orm_update_self] got subscription");
-
-        // Revert changes, if there.
-        if revert_inserts.len() > 0 || revert_removes.len() > 0 {
-            let _revert_changes = GraphQuadsPatch {
-                inserts: revert_removes,
-                removes: revert_inserts,
-            };
-            log_debug!("[orm_update_self] Reverting triples, calling orm_backend_update. TODO");
-            // TODO
-            // self.orm_backend_update(session_id, scope, "", revert_changes);
-            log_debug!("[orm_update_self] Triples reverted.");
-        }
-
-        Ok(())
-    }
-
     /// Handles updates coming from JS-land (JSON patches).
     pub(crate) async fn orm_frontend_update(
         &mut self,
-        session_id: u64,
-        scope: &NuriV0,
-        shape_iri: ShapeIri,
+        subscription_id: u64,
         patches: OrmPatches,
     ) -> Result<(), String> {
-        log_debug!(
-            "[orm_frontend_update] session={} shape={} patches={:?}",
-            session_id,
-            shape_iri,
-            patches
-        );
-
-        let nuri_str = nuri_to_string(scope);
-        let (doc_nuri, sparql_update) = {
-            let orm_subscription =
-                self.get_first_orm_subscription_for(&nuri_str, Some(&shape_iri), Some(&session_id));
+        let (doc_nuri, sparql_update, failed_patches) = {
+            let orm_subscription = self
+                .orm_subscriptions
+                .get(&subscription_id)
+                .ok_or_else(|| format!("Subscription {subscription_id} not found"))?;
 
             // Hack to get any graph used in the patch. We don't need one because all statements are tied to a graph
             // but the subscription.nuri might be a scope, whereas `process_sparql_update` requires a default graph.
@@ -82,12 +44,15 @@ impl Verifier {
             let graph_subj: Vec<String> = patch_strs[1].split('|').map(|s| s.to_string()).collect();
             let doc_nuri = graph_subj[0].clone();
 
-            let sparql_update = create_sparql_update_query_for_patches(orm_subscription, patches);
+            let (sparql_update, failed_patches) =
+                create_sparql_update_query_for_patches(orm_subscription, &patches);
 
-            log_debug!("[orm_frontend_update] SPARQL update:\n{}", sparql_update);
-
-            (doc_nuri, sparql_update)
+            (doc_nuri, sparql_update, failed_patches)
         };
+
+        // Send revert patches for any failed patches (outside the borrow scope so we can query)
+        self.send_revert_patches(subscription_id, failed_patches)
+            .await;
 
         match self
             .process_sparql_update(
@@ -95,12 +60,12 @@ impl Verifier {
                 &sparql_update,
                 &None,
                 self.get_peer_id_for_skolem(),
-                session_id,
+                subscription_id,
             )
             .await
         {
             Err(e) => {
-                log_info!(
+                log_err!(
                     "[orm_frontend_update] query failed: {:?}\nQuery: {}",
                     e,
                     sparql_update
@@ -113,27 +78,177 @@ impl Verifier {
                     || !revert_removes.is_empty()
                     || !skolemnized_blank_nodes.is_empty()
                 {
-                    self.orm_update_self(
-                        &nuri_str,
-                        shape_iri,
-                        session_id,
-                        skolemnized_blank_nodes,
-                        revert_inserts,
-                        revert_removes,
-                    )
-                    .await
-                    .map_err(|e| e.to_string())?;
+                    // TODO: Reverts
                 }
                 Ok(())
             }
         }
     }
+
+    /// Sends revert patches  to the frontend for patches that failed validation.
+    /// Only works for literal values.
+    /// For multi-valued predicates, we simply invert the operation.
+    /// For single-valued predicates, we need to query for the current value first.
+    async fn send_revert_patches(
+        &self,
+        subscription_id: u64,
+        failed_patches: Vec<(OrmPatch, PathTarget)>,
+    ) {
+        if failed_patches.is_empty() {
+            return;
+        }
+
+        let mut fix_patches: Vec<OrmPatch> = vec![];
+
+        // Collect single-valued patches that need fetching (because we don't know their previous value).
+        let mut single_valued_patches: Vec<(OrmPatch, PathTarget)> = vec![];
+
+        for (failed_patch, target) in failed_patches {
+            if target.pred_schema.is_multi() {
+                // Multi-valued: simply invert the operation.
+                if failed_patch.op == OrmPatchOp::add {
+                    fix_patches.push(OrmPatch {
+                        op: OrmPatchOp::remove,
+                        valType: Some(OrmPatchType::set),
+                        path: failed_patch.path,
+                        value: failed_patch.value,
+                    });
+                } else {
+                    // remove operation
+                    if failed_patch.value.is_some() {
+                        fix_patches.push(OrmPatch {
+                            op: OrmPatchOp::add,
+                            valType: Some(OrmPatchType::set),
+                            path: failed_patch.path,
+                            value: failed_patch.value,
+                        });
+                    } else {
+                        // All values from set were deleted and we need to fetch them.
+                        let sparql = format!(
+                            "SELECT ?o WHERE {{ GRAPH <{}> {{ <{}> <{}> ?o }} }}",
+                            target.graph, target.subject, target.predicate_iri
+                        );
+                        match self
+                            .sparql_query(&NuriV0::new_entire_user_site(), sparql, None)
+                            .await
+                        {
+                            Ok(QueryResults::Solutions(solutions)) => {
+                                for solution in solutions.flatten() {
+                                    if let Some(term) = solution.get("o") {
+                                        let json_val = json!(oxrdf_term_to_orm_basic_type(term));
+                                        fix_patches.push(OrmPatch {
+                                            op: OrmPatchOp::add,
+                                            valType: Some(OrmPatchType::set),
+                                            path: failed_patch.path.clone(),
+                                            value: Some(json_val),
+                                        });
+                                    }
+                                }
+                            }
+                            Ok(_) => {
+                                log_err!(
+                                    "[send_revert_patches] Unexpected query result type for multi-valued fetch"
+                                );
+                            }
+                            Err(e) => {
+                                log_err!("[send_revert_patches] Failed to query values: {:?}", e);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Single-valued: need to fetch current value.
+                single_valued_patches.push((failed_patch, target));
+            }
+        }
+
+        // Process single-valued patches: query for current values.
+        for (failed_patch, target) in single_valued_patches {
+            let sparql = format!(
+                "SELECT ?o WHERE {{ GRAPH <{}> {{ <{}> <{}> ?o }} }}",
+                target.graph, target.subject, target.predicate_iri
+            );
+            match self
+                .sparql_query(&NuriV0::new_entire_user_site(), sparql, None)
+                .await
+            {
+                Ok(QueryResults::Solutions(mut solutions)) => {
+                    // Get the first (and should be only) value.
+                    let current_value = solutions
+                        .next()
+                        .and_then(|r| r.ok())
+                        .and_then(|sol| sol.get("o").cloned())
+                        .and_then(|term| Some(json!(oxrdf_term_to_orm_basic_type(&term))));
+
+                    if failed_patch.op == OrmPatchOp::add {
+                        // An add (overwrite) failed - restore the previous value.
+                        if let Some(prev_val) = current_value {
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                valType: None,
+                                path: failed_patch.path,
+                                value: Some(prev_val),
+                            });
+                        } else {
+                            // No previous value existed, so remove the failed add.
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::remove,
+                                valType: None,
+                                path: failed_patch.path,
+                                value: failed_patch.value,
+                            });
+                        }
+                    } else {
+                        // Remove failed.
+                        if let Some(curr_val) = current_value {
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                valType: None,
+                                path: failed_patch.path,
+                                value: Some(curr_val),
+                            });
+                        }
+                    }
+                }
+                Ok(_) => {
+                    log_err!(
+                        "[send_revert_patches] Unexpected query result type for single-valued fetch"
+                    );
+                }
+                Err(e) => {
+                    log_err!(
+                        "[send_revert_patches] Failed to query current value for revert: {:?}",
+                        e
+                    );
+                }
+            }
+        }
+
+        // Send the fix patches to the frontend
+        if !fix_patches.is_empty() {
+            if let Some(orm_subscription) = self.orm_subscriptions.get(&subscription_id) {
+                let _ = orm_subscription
+                    .sender
+                    .clone()
+                    .send(AppResponse::V0(AppResponseV0::OrmUpdate(fix_patches)))
+                    .await;
+            }
+        }
+    }
+}
+
+struct PathTarget {
+    graph: String,
+    subject: String, // IRI string without angle brackets
+    predicate_iri: String,
+    pred_schema: Arc<OrmSchemaPredicate>,
+    child_iri: Option<String>, // IRI of object referenced directly (for link ops)
 }
 
 fn create_sparql_update_query_for_patches(
     orm_subscription: &OrmSubscription,
-    patches: OrmPatches,
-) -> String {
+    patches: &OrmPatches,
+) -> (String, Vec<(OrmPatch, PathTarget)>) {
     use std::collections::HashMap;
 
     // ------------------------- Staged Child Collection -----------------------
@@ -165,15 +280,6 @@ fn create_sparql_update_query_for_patches(
                 .and_modify(|(_, gid)| *gid = str_val.to_string())
                 .or_insert((String::new(), str_val.to_string()));
         }
-    }
-
-    // ------------------------- Path Target Struct ----------------------------
-    struct PathTarget {
-        graph: String,
-        subject: String, // IRI string without angle brackets
-        predicate_iri: String,
-        pred_schema: Arc<OrmSchemaPredicate>,
-        child_iri: Option<String>, // IRI of object referenced directly (for link ops)
     }
 
     // ------------------------- Schema Selection Helper ----------------------
@@ -267,10 +373,6 @@ fn create_sparql_update_query_for_patches(
                 // primitive leaf expected
                 // If more segments follow -> invalid path for primitives
                 if idx != segs.len() {
-                    log_debug!(
-                        "[resolve_path] extra segments after primitive '{}'",
-                        pred_name
-                    );
                     return None;
                 }
 
@@ -479,6 +581,7 @@ fn create_sparql_update_query_for_patches(
     }
 
     let mut builder = SparqlBuilder::new();
+    let mut failed_patches: Vec<(OrmPatch, PathTarget)> = vec![];
 
     // Helper to decode JSON Pointer encoded IRIs that appear in path segments
     // (e.g., http:~1~1example.org~1exampleAddress -> http://example.org/exampleAddress)
@@ -529,10 +632,13 @@ fn create_sparql_update_query_for_patches(
                 } else {
                     match &p.value {
                         None => builder.remove_all(graph, subj, pred),
-                        Some(val) => {
-                            let sparql_val = json_to_sparql_val(val);
-                            builder.remove_value(graph, subj, pred, &sparql_val);
-                        }
+                        Some(val) => match json_to_sparql_val(val, schema) {
+                            Ok(sparql_str) => builder.remove_value(graph, subj, pred, &sparql_str),
+                            Err(err) => {
+                                log_err!("Reverting patch {:?} due to error: {err}", p);
+                                failed_patches.push((p.clone(), target))
+                            }
+                        },
                     }
                 }
             }
@@ -550,12 +656,19 @@ fn create_sparql_update_query_for_patches(
                     }
                 } else {
                     if let Some(val) = &p.value {
-                        let sparql_val = json_to_sparql_val(val);
-                        if sparql_val.len() > 0 {
-                            if schema.is_multi() {
-                                builder.add_value(graph, subj, pred, &sparql_val);
-                            } else {
-                                builder.overwrite_value(graph, subj, pred, &sparql_val);
+                        match json_to_sparql_val(val, schema) {
+                            Ok(sparql_str) => {
+                                if sparql_str.len() > 0 {
+                                    if schema.is_multi() {
+                                        builder.add_value(graph, subj, pred, &sparql_str);
+                                    } else {
+                                        builder.overwrite_value(graph, subj, pred, &sparql_str);
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                log_err!("Reverting patch {:?} due to error: {err}", p);
+                                failed_patches.push((p.clone(), target))
                             }
                         }
                     }
@@ -565,9 +678,6 @@ fn create_sparql_update_query_for_patches(
     }
 
     let result = builder.finish();
-    log_debug!(
-        "[create_sparql_update_query_for_patches] builder produced {} bytes",
-        result.len()
-    );
-    result
+
+    (result, failed_patches)
 }

@@ -8,6 +8,12 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { insertObject } from "@ng-org/orm";
+import {
+    ExpenseCategoryShapeType,
+    ExpenseShapeType,
+} from "../../shapes/orm/expenseShapes.shapeTypes";
+import { sessionPromise } from "../../utils/ngSession";
 import { ExpenseCategories } from "./ExpenseCategories";
 import { Expenses } from "./Expenses";
 
@@ -23,6 +29,23 @@ export function ReactExpenseTracker() {
                     </p>
                 </header>
                 <div className="section-stack">
+                    <button
+                        onClick={async () => {
+                            const session = await sessionPromise;
+
+                            insertObject(ExpenseCategoryShapeType, {
+                                "@type": new Set([
+                                    "http://example.org/expenseCategory",
+                                ]),
+                                "@graph": `did:ng:${session.public_store_id}`,
+                                "@id": "",
+                                categoryName: "react category",
+                                description: "some description",
+                            });
+                        }}
+                    >
+                        Add expense manually
+                    </button>
                     <ExpenseCategories />
                     <Expenses />
                 </div>

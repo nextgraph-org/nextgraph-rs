@@ -112,8 +112,9 @@ pub struct Verifier {
     in_memory_outbox: Vec<EventOutboxStorage>,
     uploads: BTreeMap<u32, RandomAccessFile>,
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
-    pub(crate) orm_subscriptions: HashMap<String, Vec<OrmSubscription>>,
+    pub(crate) orm_subscriptions: HashMap<u64, OrmSubscription>, // subscription id > subscription
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
+    pub(crate) orm_subscription_counter: u64,
 }
 
 impl fmt::Debug for Verifier {
@@ -520,6 +521,7 @@ impl Verifier {
             branch_subscriptions: HashMap::new(),
             orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
+            orm_subscription_counter: 1,
         }
     }
 
@@ -1260,7 +1262,7 @@ impl Verifier {
 
         let user = self.user_id().clone();
         let broker = BROKER.read().await;
-        // log_debug!(
+        // log_info!(
         //     "looping on branches {:?}",
         //     branches
         //         .iter()
@@ -1268,7 +1270,7 @@ impl Verifier {
         //         .collect::<Vec<String>>()
         // );
         for (repo, branch, publisher) in branches {
-            //log_debug!("open_branch_ repo {} branch {}", repo, branch);
+            //log_info!("open_branch_ repo {} branch {}", repo, branch);
             let _e = self
                 .open_branch_(
                     &repo,
@@ -1280,7 +1282,7 @@ impl Verifier {
                     false,
                 )
                 .await;
-            // log_debug!(
+            // log_info!(
             //     "END OF open_branch_ repo {} branch {} with {:?}",
             //     repo,
             //     branch,
@@ -1707,7 +1709,8 @@ impl Verifier {
     }
 
     pub async fn deliver(&mut self, event: Event, overlay: OverlayId) {
-        //let event_str = event.to_string();
+        // let event_str = event.to_string();
+        // log_info!("deliver event {event_str}");
         if let Err(e) = self.deliver_(event, overlay).await {
             log_err!("DELIVERY ERROR {}", e);
         }
@@ -2815,6 +2818,7 @@ impl Verifier {
             branch_subscriptions: HashMap::new(),
             orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
+            orm_subscription_counter: 1,
         };
         // this is important as it will load the last seq from storage
         if verif.config.config_type.should_load_last_seq_num() {
@@ -2831,7 +2835,7 @@ impl Verifier {
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match req {
             AppRequest::V0(v0) => {
-                self.process_stream(&v0.command, &v0.nuri, &v0.payload, v0.session_id)
+                self.process_stream(v0.command, v0.nuri, v0.payload, v0.session_id)
                     .await
             }
         }

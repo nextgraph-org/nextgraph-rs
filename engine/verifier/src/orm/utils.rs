@@ -12,15 +12,17 @@ use ng_oxigraph::oxrdf::{GraphName, Quad, Subject};
 use ng_repo::types::OverlayId;
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use lazy_static::lazy_static;
 use regex::Regex;
 
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
-use ng_net::{app_protocol::*, orm::*};
+use ng_net::{
+    app_protocol::*,
+    orm::{OrmSchemaPredicate, OrmSchemaValType},
+};
 
-use crate::orm::types::{SubjectIri, TrackedOrmObject, TrackedOrmObjectValidity};
+use crate::orm::types::{TrackedOrmObject, TrackedOrmObjectValidity};
 use std::sync::{Arc, RwLock};
 // use ng_oxigraph::oxrdf::Triple;
 
@@ -104,22 +106,71 @@ pub fn is_uri_escaped(iri: &str) -> bool {
     re.is_match(iri)
 }
 
-pub fn json_to_sparql_val(json: &serde_json::Value) -> String {
+pub fn json_to_sparql_val(
+    json: &serde_json::Value,
+    predicate_schema: &OrmSchemaPredicate,
+) -> Result<String, String> {
     match json {
-        serde_json::Value::Array(arr) => arr
-            .iter()
-            .map(|val| json_to_sparql_val(val))
-            .collect::<Vec<String>>()
-            .join(", "),
-        serde_json::Value::Bool(bool) => match bool {
-            true => "true".to_string(),
-            false => "false".to_string(),
-        },
-        serde_json::Value::Number(num) => num.to_string(),
-        serde_json::Value::String(str) => match is_iri(str) {
-            true => format!("<{}>", str),
-            false => format!("\"{}\"", escape_sparql_string(str)),
-        },
+        serde_json::Value::Array(arr) => {
+            if !predicate_schema.is_multi() {
+                Err("Schema does not allow multiple values".into())
+            } else {
+                let results: Result<Vec<String>, String> = arr
+                    .iter()
+                    .map(|val| json_to_sparql_val(val, predicate_schema))
+                    .collect();
+                results.map(|vec| vec.join(", "))
+            }
+        }
+        serde_json::Value::Bool(bool) => {
+            let schema_has_num = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::boolean);
+            if !schema_has_num {
+                Err("Schema does not allow booleans".into())
+            } else {
+                match bool {
+                    true => Ok("true".to_string()),
+                    false => Ok("false".to_string()),
+                }
+            }
+        }
+        serde_json::Value::Number(num) => {
+            let schema_has_num = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::number);
+            if !schema_has_num {
+                Err("Schema does not allow numbers".into())
+            } else {
+                Ok(num.to_string())
+            }
+        }
+        serde_json::Value::String(str) => {
+            let schema_has_string = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::string);
+            let schema_has_iri = predicate_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::iri);
+
+            if !schema_has_string && !schema_has_iri {
+                return Err("Schema does not allow strings".into());
+            }
+
+            let val_is_iri = is_iri(str);
+
+            if val_is_iri && schema_has_iri {
+                Ok(format!("<{}>", str))
+            } else if schema_has_string {
+                Ok(format!("\"{}\"", escape_sparql_string(str)))
+            } else {
+                Err("Value is not an IRI".into())
+            }
+        }
         _ => panic!(),
     }
 }
@@ -130,7 +181,7 @@ pub fn is_iri(s: &str) -> bool {
     lazy_static! {
         static ref IRI_REGEX: Regex = Regex::new(r"^[A-Za-z][A-Za-z0-9+\.\-]{1,12}:").unwrap();
     }
-    IRI_REGEX.is_match(s)
+    IRI_REGEX.is_match(s) && is_uri_escaped(s)
 }
 
 // ===== Child assessment heuristic =====
@@ -294,7 +345,7 @@ pub fn assess_and_rank_children(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ng_net::orm::{OrmSchemaDataType, OrmSchemaShape, OrmSchemaValType};
+    use ng_net::orm::{OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType};
 
     fn mk_shape(iri: &str) -> Arc<OrmSchemaShape> {
         Arc::new(OrmSchemaShape {
