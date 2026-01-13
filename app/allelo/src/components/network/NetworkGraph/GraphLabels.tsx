@@ -74,7 +74,7 @@ export const GraphLabels = ({nodes}: GraphLabelsProps) => {
           >
             {lines.map((line, i) => (
               <tspan
-                key={i}
+                key={"line_" + node.id + i}
                 x={pos.x}
                 dy={i === 0 ? 0 : '1.2em'}
               >

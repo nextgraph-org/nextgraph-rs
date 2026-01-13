@@ -31,12 +31,6 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
     }
   };
 
-  const handleMessage = () => {
-    console.log('Message contact:', displayName, 'ID:', contact['@id']);
-    // Navigate to messages with contact ID
-    window.location.href = `/messages?contactId=${contact['@id']}`;
-  };
-
   return (
     <Box sx={{
       width: '100%',
@@ -131,13 +125,15 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
               cursor: 'not-allowed'
             })
           }}
-          disabled={!phoneNumber}
+          disabled={true}
         >
           <Phone fontSize="small"/>
         </IconButton>
 
         <IconButton
-          onClick={handleMessage}
+          onClick={() => {
+            //TODO: here should be something
+          }}
           sx={{
             bgcolor: '#2e7d32', // Dark green
             color: 'white',
@@ -145,6 +141,7 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
             height: isMobile ? 36 : 44,
             '&:hover': {bgcolor: '#1b5e20'}
           }}
+          disabled={true}
         >
           <Message fontSize="small"/>
         </IconButton>

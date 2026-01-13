@@ -20,8 +20,6 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
   const {session} = useNextGraphAuth() || {} as NextGraphAuth;
   const {rCards} = useGetRCards();
 
-  console.log(rCards);
-
   const {ormContact: contact} = useContactOrm(null, true);
 
   const isProfile: boolean = useMemo<boolean>(() => isNewProfile || profileService.isContactProfile(session, profile),

@@ -358,7 +358,7 @@ export const ClaimIdentityPage = () => {
             value={profileData.bio}
             onChange={handleProfileInputChange('bio')}
             multiline
-            rows={3}
+            maxRows={3}
             sx={{mb: 4}}
             InputProps={{
               startAdornment: (
