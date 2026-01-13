@@ -120,10 +120,10 @@ export const NotificationItem = forwardRef<HTMLLIElement, NotificationItemProps>
                 // alt={notification.fromUserName}
                 sx={{width: 24, height: 24, fontSize: '0.75rem'}}
               >
-                {"notification.fromUserName?.charAt(0)"}
+                {notification.fromUserName?.charAt(0)}
               </Avatar>
               <Typography variant="subtitle2" sx={{fontWeight: 600}}>
-                {"notification.fromUserName"}
+                {notification.fromUserName}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {formatDate(notification.date, {month: "short"})}
