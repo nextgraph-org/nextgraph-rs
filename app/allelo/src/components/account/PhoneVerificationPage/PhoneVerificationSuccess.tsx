@@ -172,7 +172,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
         ) : (
           <Paper variant="outlined" sx={{mb: 3, p: 2}}>
             <Typography variant="h6" gutterBottom sx={{fontWeight: 600, mb: 2}}>
-              Enrich Your Profile with GreenCheck
+              Enrich Your Contacts with GreenCheck
             </Typography>
             <FormGroup sx={{mb: 2}}>
               <FormControlLabel
@@ -206,7 +206,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
               sx={{py: 1.5}}
               startIcon={enrichmentStatus === 'loading' ? <CircularProgress size={20} color="inherit"/> : undefined}
             >
-              {enrichmentStatus === 'loading' ? 'Enriching Profile...' : 'Enrich Profile'}
+              {enrichmentStatus === 'loading' ? 'Enriching Contacts...' : 'Enrich Contacts'}
             </Button>
           </Paper>
         )}
