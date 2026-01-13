@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {MapContainer, TileLayer} from 'react-leaflet';
 import {GlobalStyles} from '@mui/material';
 import L from 'leaflet';
@@ -12,18 +12,31 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.css'
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css'
 
 import MarkerClusterGroup from "react-leaflet-cluster";
+import {ShortSocialContact} from "@/.orm/shapes/shortcontact.typings.ts";
+import {getObjects} from "../../../../../sdk/js/orm";
+import {ShortSocialContactShapeType} from "@/.orm/shapes/shortcontact.shapeTypes.ts";
 
-export const ContactMap = ({contacts, onContactClick}: ContactMapProps) => {
+export const ContactMap = ({contactNuris, onContactClick}: ContactMapProps) => {
   const mapRef = useRef<L.Map>(null);
 
   useEffect(() => {
     initializeLeafletIcons();
   }, []);
 
+  const [contacts, setContacts] = useState<ShortSocialContact[]>([]);
+
+  useEffect(() => {
+    const loadContacts = async () => {
+      const contactsSet = await getObjects(ShortSocialContactShapeType, {graphs: contactNuris});
+      return [...contactsSet ?? []];
+    };
+
+    loadContacts().then((contactsArray) => setContacts(contactsArray));
+  }, [contactNuris]);
+
   if (contacts.length === 0) {
     return <EmptyState/>;
   }
-
   return (
     <>
       <GlobalStyles
