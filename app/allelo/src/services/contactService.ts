@@ -4,7 +4,7 @@ import {Photo, SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {imageService} from "@/services/imageService.ts";
 import {socialContactSetProperties, SocialContactSetPropertyName} from "@/.orm/utils/contact.utils.ts";
 import {persistProperty} from "@/utils/orm/ormUtils.ts";
-import {resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {getContactGraph, resolveContactName} from "@/utils/socialContact/contactUtilsOrm.ts";
 
 class ContactService {
   private static instance: ContactService;
@@ -29,13 +29,13 @@ class ContactService {
                       orderBy?: SortParams[], filterParams?: Map<string, string>) {
     const sparql = this.getAllContactIdsQuery(session, "vcard:Individual", limit, offset, orderBy, filterParams);
 
-    return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
+    return await session.ng!.sparql_query(session.sessionId!, sparql, base, nuri);
   }
 
   async getContactsCount(session: NextGraphSession, filterParams?: Map<string, string>) {
     const sparql = this.getCountQuery("vcard:Individual", session, filterParams);
 
-    return await session.ng!.sparql_query(session.sessionId, sparql);
+    return await session.ng!.sparql_query(session.sessionId!, sparql);
   };
 
   async getAllLinkedinAccountsByContact(session: NextGraphSession) {
@@ -54,11 +54,12 @@ class ContactService {
   }
   GROUP BY ?contactUri
 `;
-    const result = await session.ng!.sparql_query(session.sessionId, sparql);
+    const result = await session.ng!.sparql_query(session.sessionId!, sparql);
     const record: Record<string, string> = {};
 
     result.results?.bindings?.forEach(binding => {
-      record[binding.contactUri.value] = binding.linkedinAccount.value;
+      const graph = getContactGraph(binding.contactUri.value, session);
+      record[graph] = binding.linkedinAccount.value;
     });
 
     return record;
@@ -129,7 +130,7 @@ class ContactService {
         FILTER(?subPropertyUri != "rdf:type")
       }`;
 
-    return await session.ng!.sparql_query(session.sessionId, sparql);
+    return await session.ng!.sparql_query(session.sessionId!, sparql);
   }
 
   async getContactPropertiesList(session: NextGraphSession, nuri: string, property?: string) {
@@ -223,6 +224,10 @@ WHERE {
         return value === "true" ? [
           `FILTER EXISTS { ?contactUri ngcontact:address ?addressNode }`
         ] : [];
+      case "hasNetworkCentrality":
+        return value === "true" ? [
+          `FILTER EXISTS { ?contactUri ngcontact:centralityScore ?centralityScore }`
+        ] : [];
       case "account":
         return [`
           ?contactUri ngcontact:${key} ?${key}Node .
@@ -308,10 +313,11 @@ WHERE {
 
     for (const key in updateData) {
       const propertyKey = key as keyof SocialContact;
+      if (["@id", "@graph", "@type"].includes(propertyKey)) continue;
       try {
         if (propertyKey === "photo" && updateData.photo) {
           for (const el of updateData.photo) {
-            await this.downloadAndUploadPhoto(el, contact["@id"]!, session.sessionId);
+            await this.downloadAndUploadPhoto(el, contact["@id"]!, session.sessionId!);
           }
         }
       } catch (e: any) {
@@ -323,7 +329,7 @@ WHERE {
 
   async updateContactDocHeader(contact: SocialContact, session: NextGraphSession) {
     const contactName = resolveContactName(contact) || 'Unknown Contact';
-    await session!.ng!.update_header(session.sessionId, contact["@graph"], contactName);
+    await session!.ng!.update_header(session.sessionId!, contact["@graph"], contactName);
   }
 
   async getDraftContactId(session: NextGraphSession): Promise<string | undefined> {
@@ -337,7 +343,7 @@ WHERE {
       }
     `;
 
-    const result = await session.ng!.sparql_query(session.sessionId, sparql);
+    const result = await session.ng!.sparql_query(session.sessionId!, sparql);
 
     return (result.results?.bindings ?? [])[0]?.contactUri.value;
   }

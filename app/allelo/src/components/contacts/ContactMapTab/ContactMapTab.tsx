@@ -71,6 +71,7 @@ export const ContactMapTab = () => {
           )}
         </Box>
         <ContactMap
+          isNuriLoading={isLoading}
           contactNuris={contactNuris}
           onContactClick={(contact) => {
             navigate(`/contacts/${contact["@graph"]}`);

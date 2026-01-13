@@ -157,6 +157,7 @@ const GroupDetailPage = () => {
               height: {xs: "320px", md: "500px"}
             }}>
               <ContactMap
+                isNuriLoading={false}
                 contactNuris={contactNuris}
                 onContactClick={(contact) => {
                   navigate(`/contacts/${contact["@id"]}`);

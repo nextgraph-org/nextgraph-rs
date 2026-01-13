@@ -8,12 +8,37 @@ import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 import {profileService} from "@/services/profileService.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 interface UpdatePermissionReturn {
   updatePermissionsNode: (propertyKey: ContactSetProperties, propertyNuri?: string) => void;
-  updatePermission: <K extends keyof RCardPermission>(permission: RCardPermission, propertyKey: K, value: RCardPermission[K]) => void;
   isProfile: boolean;
-  updateProfilePermissionNodes: (newProfile?: SocialContact) => void
+  updateProfilePermissionNodes: (newProfile?: SocialContact) => void;
+  removePermissionNode: (propertyNuri?: string) => void;
+}
+
+function filterBy<T extends Record<string, any>>(
+  propertyKey: ContactSetProperties,
+  items: T[],
+  filterParams?: Partial<T>
+) {
+  if (!filterParams) return items;
+  return items.filter(item =>
+    Object.entries(filterParams).every(
+      ([key, expected]) => {
+        let itemValue = item[key as keyof T] as string;
+        if (contactDictMapper.isDictProperty(propertyKey, key)) {
+          itemValue = contactDictMapper.removePrefix(itemValue);
+        }
+
+        if (typeof expected === "object") {
+          return !expected.notIn.includes(itemValue);
+        }
+
+        return itemValue === expected
+      }
+    )
+  );
 }
 
 export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boolean = false): UpdatePermissionReturn => {
@@ -25,44 +50,53 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
   const isProfile: boolean = useMemo<boolean>(() => isNewProfile || profileService.isContactProfile(session, profile),
     [profile, session, isNewProfile]);
 
-  const addPermissionsWithNodes = useCallback(async (rCard: RCard, permission: RCardPermission, nuris: string[]) => {
-    if (!nuris.length) return;
-
-    nuris.forEach(propertyNuri => {
-      rCard.permission!.add({
-        "@graph": "",
-        "@id": "",
-        node: propertyNuri,
-        firstLevel: permission.firstLevel,
-        secondLevel: permission.secondLevel,
-        selector: permission.selector,
-        isPermissionGiven: false,
-        zone: permission.zone,
-        order: permission.order,
-        isMultiple: permission.isMultiple,
-      })
+  const addPermissionWithNode = useCallback((rCard: RCard, permission: RCardPermission, propertyNuri: string) => {
+    rCard.permission!.add({
+      "@graph": "",
+      "@id": "",
+      node: propertyNuri,
+      firstLevel: permission.firstLevel,
+      secondLevel: permission.secondLevel,
+      selector: permission.selector,
+      isPermissionGiven: false,
+      zone: permission.zone,
+      order: permission.order,
+      isMultiple: permission.isMultiple,
     })
   }, []);
 
+  const addPermissionsWithNodes = useCallback((rCard: RCard, permission: RCardPermission, nuris: string[]) => {
+    nuris.forEach((nuri) => addPermissionWithNode(rCard, permission, nuri));
+  }, [addPermissionWithNode]);
 
-  const updatePermission = useCallback(<K extends keyof RCardPermission>(
-    permission: RCardPermission, propertyKey: K, value: RCardPermission[K]) => {
-    permission[propertyKey] = value;
-  }, []);
+  const removePermissionNode = useCallback((
+    propertyNuri?: string
+  ) => {
+    [...rCards].forEach(rCard => {
+      if (!rCard.permission) return;
+      const allPermissions = [...rCard.permission];
+      const permissions = allPermissions.filter(permission => permission.node === propertyNuri);
+      permissions.forEach(permission => {
+        const permissionId = getPermissionId(permission);
+        const similarPermission = allPermissions.find(permission =>
+          getPermissionId(permission) === permissionId && permission.node !== propertyNuri);
+        if (similarPermission) {
+          rCard.permission!.delete(permission);
+        } else {
+          permission.node = "";
+        }
+      });
+    });
+  }, [rCards]);
 
-  const updatePermissionsNode = useCallback(async (
+  const updatePermissionsNode = useCallback((
     propertyKey: ContactSetProperties,
     propertyNuri?: string,
     newProfile?: SocialContact
   ) => {
     if (!isProfile) return;
-    let allNuris: string[] = [];
-    if (!propertyNuri) {
-      if (!contact && (!isNewProfile || !newProfile)) return;
-      const properties = (contact ?? newProfile)[propertyKey];
-      allNuris = [...properties ?? []].map(r => r["@id"]);
-      if (!allNuris.length) return;
-    }
+    const properties = [...(contact ?? newProfile)[propertyKey] ?? []];
+    if (!propertyNuri && !properties.length) return;
 
     [...rCards].forEach(rCard => {
       if (!rCard.permission) return;
@@ -76,24 +110,28 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
         if (foundPermissions.includes(permissionId)) return;
         foundPermissions.push(permissionId);
         const permissionConfig = getPermissionConfig(permission);
+        const filteredProperties  = filterBy(propertyKey, properties, permissionConfig.filterParams);
+        const allNuris: string[] = filteredProperties.map(prop => prop["@id"]);
+
         if (permissionConfig.isMultiple) {
-          if (permission.node) {
+          function getMissingNuris(): string[] {
+            if (propertyNuri) return [propertyNuri];
             const allNodes = permissions
               .map(p => getPermissionId(p) === permissionId && p.node)
               .filter(Boolean);
-            const missingNuris = allNuris.filter(nuri => !allNodes.includes(nuri)) as string[];
-            addPermissionsWithNodes(rCard, permission, missingNuris);
-          } else {
-            permission.node = propertyNuri ?? allNuris[0];
+            return allNuris.filter(nuri => !allNodes.includes(nuri));
           }
+          const missingNuris = getMissingNuris();
+          permission.node ??= missingNuris.shift();
+          addPermissionsWithNodes(rCard, permission, missingNuris);
         } else {
           permission.node = propertyNuri ?? allNuris[0];
         }
       });
     })
-  }, [isProfile, rCards, contact, isNewProfile, addPermissionsWithNodes]);
+  }, [isProfile, rCards, contact, addPermissionsWithNodes]);
 
-  const updateProfilePermissionNodes = useCallback(async (newProfile?: SocialContact) => {
+  const updateProfilePermissionNodes = useCallback((newProfile?: SocialContact) => {
     const propertyKeys = Object.keys(rCardPermissionConfig) as ContactSetProperties[];
     propertyKeys.forEach(propertyKey => {
       updatePermissionsNode(propertyKey, undefined, newProfile);
@@ -102,8 +140,8 @@ export const useUpdatePermission = (profile?: SocialContact, isNewProfile: boole
 
   return {
     updatePermissionsNode,
-    updatePermission,
     isProfile,
-    updateProfilePermissionNodes
+    updateProfilePermissionNodes,
+    removePermissionNode
   }
 }

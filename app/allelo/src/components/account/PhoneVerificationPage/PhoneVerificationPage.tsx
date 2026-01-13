@@ -14,6 +14,8 @@ import PhoneVerificationSuccess from "./PhoneVerificationSuccess";
 import {useParams} from "react-router-dom";
 import {useSettings} from "@/hooks/useSettings.ts";
 import {useGreenCheck} from "@/hooks/useGreenCheck.ts";
+import {mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper.ts";
+import {useUpdateProfile} from "@/hooks/profile/useUpdateProfile.ts";
 
 interface PhoneVerificationProps {
   onError?: (error: Error) => void;
@@ -35,6 +37,7 @@ export const PhoneVerificationPage = ({
   const [error, setError] = useState<string | null>(null);
   const {verified} = useGreenCheck();
   const [claimOtherPlatforms, setClaimOtherPlatforms] = useState(true);
+  const {updateProfile} = useUpdateProfile();
 
   const token =
     import.meta.env.VITE_GREENCHECK_TOKEN
@@ -113,6 +116,14 @@ export const PhoneVerificationPage = ({
 
       if (claimOtherPlatforms) {
         const userClaims = await client.getClaims(authSession.authToken);
+
+        await Promise.all(
+          userClaims.map(async (claim) => {
+            const socialContact = mapGreenCheckClaimToSocialContact(claim);
+            await updateProfile(socialContact);
+          })
+        );
+
         setClaims(userClaims);
       }
       setState('success');
@@ -123,7 +134,7 @@ export const PhoneVerificationPage = ({
     } finally {
       setIsLoading(false);
     }
-  }, [verificationCode, client, phoneNumber, claimOtherPlatforms, updateSettings, onError]);
+  }, [verificationCode, client, phoneNumber, updateSettings, claimOtherPlatforms, updateProfile, onError]);
 
   const handleStartOver = useCallback(() => {
     setState('phone-input');
@@ -177,7 +188,7 @@ export const PhoneVerificationPage = ({
         />
       )}
 
-      {state === 'phone-input' && <Paper variant="outlined" sx={{mt: 1, p: 1}}>
+      {state === 'phone-input' && <Paper variant="outlined" sx={{mt: 1, p: 1, maxWidth: 500, mx: 'auto'}} >
         <FormControlLabel
           control={
             <Switch

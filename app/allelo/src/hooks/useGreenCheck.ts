@@ -4,7 +4,7 @@ import {getPropsByFilter} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {useNavigate} from "react-router-dom";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 
-export const useGreenCheck = () => {
+export const useGreenCheck = (onlyRedirect?: boolean) => {
   const {settings} = useSettings();
   const navigate = useNavigate();
   const [showGreencheckDialog, setShowGreencheckDialog] = useState(false);
@@ -15,10 +15,12 @@ export const useGreenCheck = () => {
   const handleGreencheckConnect = useCallback(() => {
     if (verified && phones?.length > 0) {
       navigate('/verify-phone/' + phones[0].value);
+    } else if (onlyRedirect) {
+      navigate('/verify-phone/+');
     } else {
       setShowGreencheckDialog(true);
     }
-  }, [navigate, phones, verified]);
+  }, [navigate, onlyRedirect, phones, verified]);
   return {
     showGreencheckDialog,
     handleGreencheckConnect,

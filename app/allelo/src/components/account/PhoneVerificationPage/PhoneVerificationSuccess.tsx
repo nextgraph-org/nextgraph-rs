@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from "react";
+import React, {useCallback, useState} from "react";
 import {
   Box,
   Typography,
@@ -23,10 +23,11 @@ import {
   CheckCircle,
 } from "@mui/icons-material";
 import {GreenCheckClaim, IGreenCheckClient, isAccountClaim} from "@/lib/greencheck-api-client/types";
-import {useUpdateProfile} from "@/hooks/profile/useUpdateProfile";
-import {mapCentralityResponseToSocialContacts, mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper";
-import {useLinkedinAccountPerContact} from "@/hooks/contacts/useLinkedinAccountPerContact.ts";
-import {useUpdateContact} from "@/hooks/contacts/useUpdateContact.ts";
+import {mapCentralityResponseToSocialContacts} from "@/utils/greenCheckMapper";
+import {useUpdateContacts} from "@/hooks/contacts/useUpdateContacts.ts";
+import {contactService} from "@/services/contactService.ts";
+import {useNextGraphAuth} from "@/lib/nextgraph.ts";
+import {NextGraphAuth} from "@/types/nextgraph.ts";
 
 interface PhoneVerificationSuccessProps {
   phoneNumber: string;
@@ -35,46 +36,24 @@ interface PhoneVerificationSuccessProps {
   client: IGreenCheckClient;
 }
 
-const processedKeys = new Set<string>();
-
 const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
                                                                              phoneNumber,
                                                                              greenCheckId,
                                                                              claims,
                                                                              client
                                                                            }) => {
-  const {updateProfile} = useUpdateProfile();
-  const accounts = useLinkedinAccountPerContact();
-  const {updateContact} = useUpdateContact();
+  const {updateContacts} = useUpdateContacts();
 
   const [retrieveNetworkCentrality, setRetrieveNetworkCentrality] = useState(true);
   const [retrieveProfileDetails, setRetrieveProfileDetails] = useState(true);
   const [enrichmentStatus, setEnrichmentStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
-  useEffect(() => {
-    if (claims.length === 0) return;
-
-    const key = greenCheckId;
-    if (!key || processedKeys.has(key)) return;
-
-    processedKeys.add(key);
-
-    (async () => {
-      try {
-        await Promise.all(
-          claims.map(async (claim) => {
-            const socialContact = mapGreenCheckClaimToSocialContact(claim);
-            await updateProfile(socialContact);
-          })
-        );
-      } catch (err) {
-        console.error("Failed to update profile with claim:", err);
-      }
-    })();
-  }, [claims, greenCheckId, updateProfile]);
+  const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
+  const {session} = nextGraphAuth;
 
   const handleEnrichProfile = useCallback(async () => {
+    const accounts = await contactService.getAllLinkedinAccountsByContact(session);
     if (accounts && Object.keys(accounts).length > 0 && client.authToken) {
       setEnrichmentStatus('loading');
       setErrorMessage('');
@@ -85,9 +64,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
             Object.entries(accounts).map(([key, value]) => [value, key])
           );
           const updContacts = await mapCentralityResponseToSocialContacts(resp, inverted, retrieveNetworkCentrality, retrieveProfileDetails);
-          for (const i in updContacts) {
-            await updateContact(i, updContacts[i]);
-          }
+          await updateContacts(updContacts);
           setEnrichmentStatus('success');
         } else {
           setEnrichmentStatus('error');
@@ -99,7 +76,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
         setErrorMessage(e instanceof Error ? e.message : 'An unexpected error occurred. Please try again.');
       }
     }
-  }, [accounts, client, retrieveNetworkCentrality, retrieveProfileDetails, updateContact]);
+  }, [client, retrieveNetworkCentrality, retrieveProfileDetails, session, updateContacts]);
 
   return (
     <Card sx={{maxWidth: 600, mx: 'auto', mt: 4}}>

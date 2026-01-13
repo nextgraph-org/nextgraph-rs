@@ -50,11 +50,12 @@ export const RCardProperty = ({
   }, [item.labelToShow, item.label]);
 
   const getIcon = useCallback(() => {
-    if (item.propertyConfig.type) {
-      return typeIconMapper[item.propertyConfig.type];
-    } else if (item.label === "account" && item.propertyConfig.filterParams?.protocol) {
-      return AccountRegistry.getIcon(item.propertyConfig.filterParams.protocol)
-        ?? item.propertyConfig.filterParams?.protocol;
+    const filterParams = item.propertyConfig.filterParams ?? {};
+    if (filterParams.type) {
+      return typeIconMapper[filterParams.type];
+    } else if (item.label === "account" && filterParams.protocol) {
+      return AccountRegistry.getIcon(filterParams.protocol)
+        ?? filterParams.protocol;
     }
   }, [item]);
 
@@ -103,22 +104,29 @@ export const RCardProperty = ({
   ), [isPermissionGiven]);
 
   const getPropertyTypography = useCallback((value: string) => (
-    <Typography
-      variant={variant}
-      sx={{
-        color: isPermissionGiven ? '#000000' : '#C4C4C4',
-        display: 'block',
-        width: '100%',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        maxWidth: '100%',
-        minWidth: 0,
-      }}
+    <Tooltip
       title={value}
+      placement="top"
+      enterTouchDelay={100}
+      leaveTouchDelay={4000}
+      arrow
     >
-      {value}
-    </Typography>
+      <Typography
+        variant={variant}
+        sx={{
+          color: isPermissionGiven ? '#000000' : '#C4C4C4',
+          display: 'block',
+          width: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: '100%',
+          minWidth: 0,
+        }}
+      >
+        {value}
+      </Typography>
+    </Tooltip>
   ), [isPermissionGiven, variant]);
 
   const getAccount = useCallback((value: string) => {
@@ -183,9 +191,10 @@ export const RCardProperty = ({
             <MissingIcon size="18"/>
           </Box>
         </Tooltip>
+        {content}
       </Box>
     );
-  }, [item.value, item.label, item.isValueMissing, getAccount, getPropertyLink, getPropertyImage, getPropertyTypography, missingTooltip]);
+  }, [item, missingTooltip, getAccount, getPropertyLink, getPropertyImage, getPropertyTypography]);
 
   const getLabel = useCallback(() => {
     let label = item.labelToShow!;
@@ -195,15 +204,24 @@ export const RCardProperty = ({
     if (item.value || item.valueList.length) {
       label = `${label}`;
     }
-    return <Typography
-      variant={"subtitle2"}
-      sx={{
-        color: isPermissionGiven ? '#000000' : '#C4C4C4',
-      }}
+
+    return <Tooltip
       title={label}
+      placement="top"
+      enterTouchDelay={100}
+      leaveTouchDelay={4000}
+      arrow
     >
-      {label}
-    </Typography>
+      <Typography
+        variant={"subtitle2"}
+        sx={{
+          color: isPermissionGiven ? '#000000' : '#C4C4C4',
+        }}
+      >
+        {label}
+      </Typography>
+    </Tooltip>;
+
   }, [isPermissionGiven, item]);
 
   const getPropertyRow = useCallback((value?: string) => {
@@ -214,7 +232,6 @@ export const RCardProperty = ({
       sx={{
         display: "flex",
         flexDirection: "row",
-        gap: 2,
         width: "100%",
         px: 2,
         flex: 1,
@@ -235,7 +252,7 @@ export const RCardProperty = ({
         position: 'relative',
         alignItems: "start",
         justifyContent: "start",
-
+        mr: 1
       }}>
         {getIcon()}
         {getProperty(value)}
