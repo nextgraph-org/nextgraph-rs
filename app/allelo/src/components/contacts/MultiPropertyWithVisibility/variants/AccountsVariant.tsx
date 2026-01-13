@@ -12,6 +12,7 @@ import React, {useCallback, useState} from 'react';
 import {setUpdatedTime} from "@/utils/socialContact/contactUtilsOrm.ts";
 import {MultiPropertyItem} from "@/components/contacts/MultiPropertyWithVisibility/MultiPropertyItem.tsx";
 import {Account, SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 
 interface AccountsVariantProps {
   visibleItems: any[];
@@ -32,24 +33,25 @@ interface AccountsVariantProps {
 }
 
 export const AccountsVariant = ({
-                                                           visibleItems,
-                                                           isEditing,
-                                                           editingValues,
-                                                           isAddingNew,
-                                                           newItemValue,
-                                                           placeholder,
-                                                           label,
-                                                           propertyKey,
-                                                           onInputChange,
-                                                           onBlur,
-                                                           onAddNewItem,
-                                                           onNewItemValueChange,
-                                                           setIsAddingNew,
-                                                           setNewItemValue,
-                                                           contact,
-                                                         }: AccountsVariantProps) => {
+                                  visibleItems,
+                                  isEditing,
+                                  editingValues,
+                                  isAddingNew,
+                                  newItemValue,
+                                  placeholder,
+                                  label,
+                                  propertyKey,
+                                  onInputChange,
+                                  onBlur,
+                                  onAddNewItem,
+                                  onNewItemValueChange,
+                                  setIsAddingNew,
+                                  setNewItemValue,
+                                  contact,
+                                }: AccountsVariantProps) => {
   const [newItemProtocol, setNewItemProtocol] = useState('linkedin');
   const availableAccountTypes = AccountRegistry.getAllAccountTypes();
+  const {removePermissionNode, updatePermissionsNode} = useUpdatePermission(contact);
 
   const persistProtocolChange = useCallback((itemId: string, protocol: string) => {
     if (!contact) return;
@@ -66,21 +68,11 @@ export const AccountsVariant = ({
         }
       }
 
-      if (targetItem) {
-        if (targetItem.source === "user") {
-          targetItem.protocol = protocol;
-        } else {
-          // Create copy with user source for non-user sources
-          const newEntry = {
-            "@graph": "",
-            "@id": "",
-            value: targetItem["value"] || '',
-            protocol: protocol,
-            source: "user",
-            hidden: false,
-          };
-          fieldSet.add(newEntry);
-        }
+      if (targetItem?.source === "user") {
+        const propertyNuri = targetItem["@id"];
+        removePermissionNode(propertyNuri);
+        targetItem!.protocol = protocol;
+        updatePermissionsNode(propertyKey);
       }
 
       setUpdatedTime(contactObj);
@@ -88,7 +80,7 @@ export const AccountsVariant = ({
     };
 
     updateProtocolWithUserSource(contact);
-  }, [contact, propertyKey]);
+  }, [contact, propertyKey, removePermissionNode, updatePermissionsNode]);
 
   const renderEditingItem = (item: any, index: number) => {
     const itemId = item['@id'] || `${propertyKey}_${index}`;
