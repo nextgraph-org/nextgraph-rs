@@ -145,7 +145,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
               Contacts enriched successfully!
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Your contacts has been updated with data from GreenCheck.
+              Your contacts have been updated with data from GreenCheck.
             </Typography>
           </Alert>
         ) : enrichmentStatus === 'error' ? (
