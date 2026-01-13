@@ -49,7 +49,7 @@ class MergeContactService {
     if (!session) return [];
     const sparql = this.getDuplicatedContactsSparql();
 
-    const data = await session.ng!.sparql_query(session.sessionId, sparql);
+    const data = await session.ng!.sparql_query(session.sessionId!, sparql);
     const duplicatesList: string[][] = data.results?.bindings?.map(binding =>
       binding.duplicateContacts.value.split(",").map(contactId => getContactGraph("did:ng:o:" + contactId, session))) ?? [];
 
@@ -122,7 +122,7 @@ class MergeContactService {
         }
       `;
 
-      await session.ng.sparql_update(session.sessionId, sparql, contactId);
+      await session.ng.sparql_update(session.sessionId!, sparql, contactId);
     }
   }
 }
