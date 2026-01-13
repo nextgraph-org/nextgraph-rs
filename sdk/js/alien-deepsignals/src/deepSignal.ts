@@ -715,10 +715,23 @@ const objectHandlers: ProxyHandler<any> = {
         const hasAccessor =
             !!desc &&
             (typeof desc.get === "function" || typeof desc.set === "function");
+
         const { raw, proxied } = ensureValueForWrite(value, receiver, key);
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
 
+        const shouldManuallyTrimLength =
+            Array.isArray(target) && key === "length" && value < target.length;
+
+        // If `length` is used to reduce the size of the array, delete the overflowing slots
+        // manually so that existing delete reactivity emits the patches and clears signals.
+        if (shouldManuallyTrimLength) {
+            for (let i = target.length - 1; i >= value; i -= 1) {
+                delete receiver[i];
+            }
+        }
+
         const result = Reflect.set(target, key, raw, receiver);
+
         if (!hasAccessor) {
             const signals = ensureSignalMap(target);
             setSignalValue(signals, key, proxied);
@@ -727,6 +740,12 @@ const objectHandlers: ProxyHandler<any> = {
         if (meta && path && typeof raw === "object") {
             initializeObjectTreeIfNoListeners(meta, path, raw, false);
         }
+
+        // Modifications to the length should not emit patches
+        if (Array.isArray(target) && key === "length") {
+            return result;
+        }
+
         schedulePatch(meta, () => {
             const resolvedPath = path ?? buildPath(meta, key);
             if (!hadKey || typeof raw === "object") {
@@ -739,6 +758,7 @@ const objectHandlers: ProxyHandler<any> = {
                 value: raw,
             };
         });
+
         return result;
     },
     deleteProperty(target, key) {
