@@ -274,6 +274,16 @@ export class OrmConnection<T extends BaseType> {
     };
 
     public commitTransaction = async () => {
+        if (!this.pendingPatches) {
+            throw new Error(
+                "No transaction is open. Call `beginTransaction` first."
+            );
+        }
+
+        if (this.pendingPatches.length == 0) {
+            return;
+        }
+
         this.inTransaction = false;
         const { ng, session } = await ngSession;
         await this.readyPromise;

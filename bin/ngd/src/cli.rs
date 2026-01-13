@@ -132,4 +132,7 @@ pub(crate) struct Cli {
     pub print_config: bool,
     //TODO: to switch lang of error messages and CLI interface
     // pub lang: Option<String>,
+    /// Prints PeerId in JSON format
+    #[arg(long)]
+    pub json: bool,
 }
