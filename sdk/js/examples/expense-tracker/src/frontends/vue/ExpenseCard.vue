@@ -55,17 +55,20 @@ const totalPriceDisplay = computed(() =>
 
 
 
-function toggleCategory(category: ExpenseCategory, checked: boolean) {
-    if (checked) {
-        expense.expenseCategory.add(category["@id"]);
-    } else {
-        expense.expenseCategory.delete(category["@id"]);
-    }
-}
+const isCategorySelected = (category: ExpenseCategory) =>
+    !!expense.expenseCategory?.has(category["@id"]);
 
-function isCategorySelected(category: ExpenseCategory) {
-    return expense.expenseCategory.has(category["@id"])
-}
+const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
+    if (checked) {
+        if (!expense.expenseCategory) {
+            expense.expenseCategory = new Set([category["@id"]]) as DeepSignalSet<string>;
+        } else {
+            expense.expenseCategory.add(category["@id"]);
+        }
+    } else {
+        expense.expenseCategory?.delete(category["@id"]);
+    }
+};
 
 function nameOfCategory(categoryIri: string) {
     return props.availableCategories.find(c => c["@id"] === categoryIri)?.categoryName;
@@ -186,7 +189,7 @@ function categoryKey(category: ExpenseCategory) {
                 </p>
             </template>
             <template v-else>
-                <div v-if="expense.expenseCategory.size" class="chip-list">
+                <div v-if="expense.expenseCategory?.size" class="chip-list">
                     <span
                         v-for="category in expense.expenseCategory"
                         :key="category"
