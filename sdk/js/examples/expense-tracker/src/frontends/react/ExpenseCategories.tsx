@@ -34,31 +34,6 @@ export function ExpenseCategories() {
 
     return (
         <section className="panel">
-            <button
-                onClick={async () => {
-                    const session = await sessionPromise;
-                    const oneObject = expenseCategories.first()!;
-                    const objects = await getObjects(ExpenseCategoryShapeType, {
-                        graphs: [oneObject["@graph"]],
-                        subjects: [oneObject["@id"]],
-                    });
-                    console.debug("get some object:", objects);
-                }}
-            >
-                Get some object
-            </button>
-            <button
-                onClick={async () => {
-                    const session = await sessionPromise;
-                    const oneObject = expenseCategories.first()!;
-                    const objects = await getObjects(ExpenseCategoryShapeType, {
-                        graphs: [oneObject["@graph"]],
-                    });
-                    console.log("got some objects", objects);
-                }}
-            >
-                Get all public objects
-            </button>
             <header className="panel-header">
                 <div>
                     <p className="label-accent">Categories</p>
