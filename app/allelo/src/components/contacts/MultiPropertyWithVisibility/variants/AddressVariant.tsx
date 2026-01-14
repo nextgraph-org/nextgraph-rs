@@ -1,9 +1,10 @@
-import {Box, Button, Chip, IconButton} from '@mui/material';
+import {Box, Button, Chip, IconButton, Typography} from '@mui/material';
 import {
   UilPlus as Add,
   UilAngleUp as ExpandLess,
   UilAngleDown as ExpandMore,
-  UilStar as Star
+  UilStar as Star,
+  UilCrosshairs as LocationPin
 } from '@iconscout/react-unicons';
 import {MultiPropertyItem} from "@/components/contacts/MultiPropertyWithVisibility/MultiPropertyItem.tsx";
 import {ValidationType} from "@/hooks/useFieldValidation";
@@ -13,6 +14,7 @@ import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import React from 'react';
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
 import {ContactSetItem} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {geoApiService} from "@/services/geoApiService.ts";
 
 interface AddressVariantProps {
   visibleItems: any[];
@@ -81,6 +83,24 @@ export const AddressVariant = ({
           label={"Unstructured address"}
         />
         <IconButton
+          className="address-locate"
+          sx={{
+            padding: 0,
+            ml: 1,
+            color: 'text.primary',
+            '&:hover': {
+              backgroundColor: 'transparent',
+              color: 'primary.main',
+            }
+          }}
+          onClick={() => {
+            geoApiService.initContactGeoCodes(contact, true);
+          }}
+          disableRipple
+        >
+          <LocationPin size="24"/>
+        </IconButton>
+        <IconButton
           className="address-caret"
           sx={{
             padding: 0,
@@ -97,7 +117,7 @@ export const AddressVariant = ({
         </IconButton>
       </Box>
     </>
-  }, [editingValues, onBlur, onInputChange, propertyKey, showAddressDetails, subKey, validateType]);
+  }, [contact, editingValues, onBlur, onInputChange, propertyKey, showAddressDetails, subKey, validateType]);
 
   const renderDisplayItem = useCallback((item: Record<string, string>, index: number) => {
     let chipLabel = item[subKey];
@@ -199,6 +219,7 @@ export const AddressVariant = ({
                   isEditing={isEditing}
                   currentItem={item}
                 />
+                <Typography variant={"subtitle2"}>Lat: {item.coordLat ?? 0} Lng: {item.coordLng ?? 0}</Typography>
               </React.Fragment>
             );
           })}

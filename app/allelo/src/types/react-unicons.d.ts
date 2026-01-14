@@ -141,4 +141,5 @@ declare module '@iconscout/react-unicons' {
   export const UilCommentAltQuestion: UniconComponent;
   export const UilWallet: UniconComponent;
   export const UilLayerGroup: UniconComponent;
+  export const UilCrosshairs: UniconComponent;
 }

@@ -29,6 +29,7 @@ import {ValidationType} from "@/hooks/useFieldValidation";
 import {AddressVariant} from "@/components/contacts/MultiPropertyWithVisibility/variants/AddressVariant.tsx";
 import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {geoApiService} from "@/services/geoApiService.ts";
 
 type ResolvableKey = ContactKeysWithHidden;
 
@@ -218,14 +219,24 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     }
   }, [isEditing, contact, allItems, subKey]);
 
+  // Handle in-app navigation - call geoAPI when component unmounts
+  useEffect(() => {
+    return () => {
+      //TODO: make it less invasive
+      if (isEditing && variant === "addresses" && contact) {
+        geoApiService.initContactGeoCodes(contact, true);
+      }
+    };
+  }, [isEditing, variant, contact]);
+
   // Handle page navigation/unload to persist any unsaved changes
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (isEditing && Object.keys(editingValues).length > 0) {
-        Object.entries(editingValues).forEach(([itemId, value]) => {
-          persistFieldChange(itemId, value);
-        });
-      }
+          Object.entries(editingValues).forEach(([itemId, value]) => {
+            persistFieldChange(itemId, value);
+          });
+        }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
