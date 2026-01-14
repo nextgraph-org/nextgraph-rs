@@ -10,7 +10,9 @@
 
 use crate::local_broker::{doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
-use crate::tests::{assert_json_eq, create_doc_with_data, create_orm_connection};
+use crate::tests::{
+    assert_json_eq, await_app_response, create_doc_with_data, create_orm_connection,
+};
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0};
@@ -130,6 +132,9 @@ async fn test_orm_apply_patches() {
 
     // Test 21: Revert patches for multi-valued set invalid value
     test_patch_revert_multi_valued_invalid(session_id).await;
+
+    // Test 22: Allow EXTRA values
+    test_patch_add_extra_value(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -3191,4 +3196,114 @@ INSERT DATA {
     );
 
     log_info!("✓ Test passed: Revert patches for multi-valued set invalid value");
+}
+
+/// Test adding an extra value to a cardinality restricted literal.
+async fn test_patch_add_extra_value(session_id: u64) {
+    log_info!("\n\n=== TEST: Add Extra Value ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person1>
+        a ex:Person;
+        ex:name "Bob" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(true),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    extra: Some(false),
+                    iri: "http://example.org/name".to_string(),
+                    readablePredicate: "name".to_string(),
+                    minCardinality: 1,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let (receiver, _cancel_fn, subscription_id, initial) = create_orm_connection(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+    )
+    .await;
+
+    let (mut receiver2, _cancel_fn, subscription_id_2, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // Apply ORM patch: Add name
+    let root = root_path(&doc_nuri, "urn:test:person1");
+    let patches = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/type", root),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!("http://example.org/Human")),
+    }];
+
+    graph_orm_update(subscription_id, patches, session_id)
+        .await
+        .expect("graph_orm_update failed");
+
+    let patches = await_app_response(&mut receiver2).await;
+    // Only an add patch should be generated. The object is not deleted
+    assert!(patches.len() == 1, "Expected single patch");
+
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+            && q.object.to_string().contains("http://example.org/Human")
+            && quad_has_graph(q, &doc_nuri)
+    });
+    assert!(
+        has_name,
+        "Name was not added to the graph with correct graph IRI"
+    );
+
+    log_info!("✓ Test passed: Add extra value");
 }
