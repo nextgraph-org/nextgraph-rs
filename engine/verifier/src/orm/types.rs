@@ -22,8 +22,14 @@ pub struct DiscreteOrmSubscription {
     pub branch_id: BranchId,
     pub subscription_id: u64,
     pub sender: Sender<AppResponse>,
+    pub crdt_details: SubscriptionCrdtDetails,
 }
 
+#[derive(Debug)]
+pub enum SubscriptionCrdtDetails {
+    YRS(yrs::Doc),
+    None,
+}
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
 #[derive(Clone, Debug)]

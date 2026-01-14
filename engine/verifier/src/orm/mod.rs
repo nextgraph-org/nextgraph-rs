@@ -8,6 +8,7 @@
 // according to those terms.
 
 pub mod add_remove_quads;
+pub mod discrete;
 pub mod handle_backend_update;
 pub mod handle_frontend_update;
 pub mod initialize;
