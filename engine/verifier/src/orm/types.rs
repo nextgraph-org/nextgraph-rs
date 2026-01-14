@@ -11,8 +11,18 @@
 use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;
+use ng_net::app_protocol::NuriV0;
 use ng_net::{orm::*, utils::Sender};
+use ng_repo::types::BranchId;
 use std::sync::{RwLock, Weak};
+
+#[derive(Debug)]
+pub struct DiscreteOrmSubscription {
+    pub nuri: NuriV0,
+    pub branch_id: BranchId,
+    pub subscription_id: u64,
+    pub sender: Sender<AppResponse>,
+}
 
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
