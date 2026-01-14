@@ -15,7 +15,6 @@ import {
 import type {ContactsFilters} from '@/hooks/contacts/useContacts';
 import {SortMenu} from './SortMenu';
 import {SearchFilter} from './SearchFilter';
-import {RCardsMobileWidget} from "@/components/rcards/RCardsSideWidget";
 import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 
 interface MobileFiltersProps {
@@ -76,14 +75,6 @@ export const ContactFiltersMobile = ({
 
   return (
     <>
-      {/* Category Sidebar */}
-      {inManageMode && <Box sx={{flex: 1, minWidth: 0, overflow: 'hidden'}}>
-        <RCardsMobileWidget
-          filters={filters}
-          onAddFilter={onAddFilter}
-        />
-      </Box>}
-
       {!inManageMode && <Box sx={{
         display: 'flex',
         gap: 1,

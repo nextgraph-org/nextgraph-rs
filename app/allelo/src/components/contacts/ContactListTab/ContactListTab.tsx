@@ -4,17 +4,16 @@ import {useMergeContacts} from "@/hooks/contacts/useMergeContacts.ts";
 import {useCallback, useEffect, useState} from "react";
 import {useContacts} from "@/hooks/contacts/useContacts.ts";
 import {ContactGrid, MergeDialogs} from "@/components/contacts";
-import {DragEndEvent, DragOverlay, DragStartEvent, useDndMonitor} from "@dnd-kit/core";
-import {ContactCard} from "@/components/contacts/ContactCard";
 import {useNavigate} from "react-router-dom";
-import {useSearchParams} from "react-router-dom";
+import {useContactActions} from "@/hooks/contacts/useContactActions";
+import {AssignRCardDialog} from "@/components/contacts/AssignRCardDialog/AssignRCardDialog";
 
 export const ContactListTab = ({
-  manageMode,
-  setManageMode,
-  onSelectionChange,
-  forGroup
-}: {
+                                 manageMode,
+                                 setManageMode,
+                                 onSelectionChange,
+                                 forGroup
+                               }: {
   manageMode: boolean;
   setManageMode: any;
   onSelectionChange?: (selectedContacts: string[]) => void;
@@ -33,27 +32,19 @@ export const ContactListTab = ({
     totalCount,
     setIconFilter,
     reloadContacts,
-    handleContactsCategorized
+    handleContactsCategorized,
   } = useContacts({limit: 10});
 
   const {getDuplicatedContacts, mergeContacts} = useMergeContacts();
 
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+  const [isAssignRCardDialogOpen, setIsAssignRCardDialogOpen] = useState(false);
   const [useAI, setUseAI] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [mergeProgress, setMergeProgress] = useState(0);
   const [noDuplicatesFound, setNoDuplicatesFound] = useState(false);
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
-  const mode = searchParams.get('mode');
-  const isSelectionMode = mode === 'select' || mode === 'create-group';
-
-
-  const returnTo = searchParams.get('returnTo');
-  const groupId = searchParams.get('groupId');
 
   // Notify parent when selection changes
   useEffect(() => {
@@ -61,56 +52,16 @@ export const ContactListTab = ({
   }, [selectedContacts, onSelectionChange]);
 
   //TODO: @mkslanc uncomment when invite works
-/*  useEffect(() => {
-    if (forGroup) {
-      addFilter("naoStatusFilter", "member");
-    }
-  }, [addFilter, forGroup]);*/
+  /*  useEffect(() => {
+      if (forGroup) {
+        addFilter("naoStatusFilter", "member");
+      }
+    }, [addFilter, forGroup]);*/
 
   // Clear selections when filters change
   useEffect(() => {
     setSelectedContacts([]);
   }, [filters]);
-
-
-  const handleSelectContact = useCallback((nuri: string) => {
-    if (mode === 'invite' && returnTo === 'group-info' && groupId) {
-      const inviteParams = new URLSearchParams();
-      inviteParams.set('groupId', groupId);
-      inviteParams.set('inviteeNuri', nuri);
-      inviteParams.set('inviterName', 'Oli S-B');
-      navigate(`/invite?${inviteParams.toString()}`);
-    } else {
-      handleToggleContactSelection(nuri);
-    }
-
-    if (returnTo === 'group-invite' && groupId) {
-      navigate(`/groups/${groupId}?selectedContactNuri=${encodeURIComponent(nuri)}`);
-      return;
-    }
-
-    if (returnTo === 'group-info' && groupId) {
-      navigate(`/groups/${groupId}/info?selectedContactNuri=${encodeURIComponent(nuri)}`);
-    }
-  }, [groupId, mode, navigate, returnTo]);
-
-  const handleContactClick = useCallback((contactId: string) => {
-    if (manageMode) {
-      return handleSelectContact(contactId);
-    }
-
-    if (isSelectionMode) return;
-    if (mode === 'invite' && returnTo === 'group-info' && groupId) {
-      const inviteParams = new URLSearchParams();
-      inviteParams.set('groupId', groupId);
-      inviteParams.set('inviteeNuri', contactId);
-      inviteParams.set('inviterName', 'Oli S-B');
-      navigate(`/invite?${inviteParams.toString()}`);
-    } else {
-      navigate(`/contacts/${contactId}`);
-    }
-  }, [groupId, handleSelectContact, isSelectionMode, manageMode, mode, navigate, returnTo]);
-
 
   const handleToggleContactSelection = useCallback((contact: string) => {
     setSelectedContacts(prev => {
@@ -122,43 +73,14 @@ export const ContactListTab = ({
     });
   }, []);
 
+  const handleContactClick = useCallback((contactId: string) => {
+    if (manageMode) {
+      return handleToggleContactSelection(contactId);
+    }
+    navigate(`/contacts/${contactId}`);
+  }, [handleToggleContactSelection, manageMode, navigate]);
+
   const hasSelection = selectedContacts.length > 0;
-
-  const handleDragEndEvent = useCallback((event: DragEndEvent) => {
-    const activeType = event.active.data?.current?.type;
-    const overType = event.over?.data?.current?.type;
-
-    if (activeType === 'contact' && overType === 'rcard') {
-      const rcardId = event.over?.data?.current?.rcardId as string | undefined;
-
-      if (!rcardId) {
-        return;
-      }
-
-      const contactIds = event.active.data?.current?.contactIds as string[] | undefined;
-      const ids = contactIds && contactIds.length > 0 ? contactIds : [String(event.active.id)];
-      const uniqueIds = Array.from(new Set(ids));
-
-      handleContactsCategorized(uniqueIds, rcardId).then(() => setSelectedContacts([]));
-    }
-
-  }, [handleContactsCategorized]);
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    if (event.active.data?.current?.type === 'contact') {
-      setActiveDragId(String(event.active.id));
-    }
-  }, []);
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    handleDragEndEvent(event);
-    setActiveDragId(null);
-  }, [handleDragEndEvent]);
-
-  useDndMonitor({
-    onDragStart: handleDragStart,
-    onDragEnd: handleDragEnd,
-  });
 
   const handleSelectAll = useCallback(() => {
     if (hasSelection) {
@@ -172,12 +94,35 @@ export const ContactListTab = ({
     return selectedContacts.some(c => c === nuri);
   }, [selectedContacts]);
 
-  const handleMergeContacts = useCallback(() => setIsMergeDialogOpen(true), []);
-
   const handleCloseMergeDialog = useCallback(() => {
     setIsMergeDialogOpen(false);
     setUseAI(false);
   }, []);
+
+  const handleCloseAssignRCardDialog = useCallback(() => {
+    setIsAssignRCardDialogOpen(false);
+  }, []);
+
+  const handleAssignRCardToContacts = useCallback(async (rcardId: string) => {
+    await handleContactsCategorized(selectedContacts, rcardId);
+    setIsAssignRCardDialogOpen(false);
+    setSelectedContacts([]);
+  }, [selectedContacts, handleContactsCategorized]);
+
+  const clearSelectedContacts = useCallback(() => {
+    setSelectedContacts([]);
+  }, []);
+
+  const {
+    handleAutomaticDeduplication,
+    handleMergeSelectedContacts,
+    handleAssignRCard
+  } = useContactActions({
+    selectedContacts,
+    setIsMergeDialogOpen,
+    setIsAssignRCardDialogOpen,
+    clearSelectedContacts,
+  });
 
   const autoMerge = useCallback(() => {
     setIsMerging(true);
@@ -242,8 +187,9 @@ export const ContactListTab = ({
       hasSelection={hasSelection}
       totalCount={totalCount}
       contactCount={contactNuris.length}
-      onMergeContacts={handleMergeContacts}
-      isSelectionMode={isSelectionMode}
+      onMergeContacts={handleMergeSelectedContacts}
+      onAutomaticDeduplication={handleAutomaticDeduplication}
+      onAssignRCard={handleAssignRCard}
     />
 
     {error ? (
@@ -264,7 +210,7 @@ export const ContactListTab = ({
         py: 8,
         gap: 2
       }}>
-        <CircularProgress size={48} />
+        <CircularProgress size={48}/>
         <Typography variant="h6" color="text.secondary" gutterBottom>
           Loading contacts...
         </Typography>
@@ -299,10 +245,9 @@ export const ContactListTab = ({
           isLoadingMore={isLoadingMore}
           onLoadMore={loadMore}
           hasMore={hasMore}
-          isSelectionMode={isSelectionMode}
           filters={filters}
           onContactClick={handleContactClick}
-          onSelectContact={handleSelectContact}
+          onSelectContact={handleToggleContactSelection}
           isContactSelected={isContactSelected}
           selectedContacts={selectedContacts}
           onSetIconFilter={setIconFilter}
@@ -323,17 +268,11 @@ export const ContactListTab = ({
       onSetUseAI={setUseAI}
     />
 
-    {!forGroup && <DragOverlay dropAnimation={null}>
-      {activeDragId ? (
-        <ContactCard
-          nuri={activeDragId}
-          isSelectionMode={false}
-          onContactClick={() => {
-          }}
-          onSetIconFilter={() => {
-          }}
-        />
-      ) : null}
-    </DragOverlay> }
+    <AssignRCardDialog
+      open={isAssignRCardDialogOpen}
+      selectedContactsCount={selectedContacts.length}
+      onClose={handleCloseAssignRCardDialog}
+      onAssign={handleAssignRCardToContacts}
+    />
   </>
 }

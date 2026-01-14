@@ -33,8 +33,9 @@ export const ContactMapTab = () => {
       onAddFilter={addFilter}
       onClearFilters={clearFilters}
       showFilters={false}
-      onMergeContacts={() => {
-      }}
+      onMergeContacts={() => {}}
+      onAutomaticDeduplication={() => {}}
+      onAssignRCard={() => {}}
     />
     {error ? (
       <Box sx={{textAlign: 'center', py: 8}}>
@@ -48,7 +49,7 @@ export const ContactMapTab = () => {
     ) : !isLoading && contactNuris.length === 0 ? (
       <Box sx={{textAlign: 'center', py: 8}}>
         <Typography variant="h6" color="text.secondary" gutterBottom>
-          No contacts to display on map
+          No contacts with coordinates to display on map
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Import some contacts to see your map!
