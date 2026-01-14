@@ -92,7 +92,11 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
   }, []);
 
   const loadNextGraphContacts = useCallback(async (page: number): Promise<string[]> => {
+    const startTime = performance.now();
+    console.warn('loadNextGraphContacts: Starting...');
+
     if (!session || !session.ng) {
+      console.log('loadNextGraphContacts: No session, returning empty array');
       return [];
     }
 
@@ -138,10 +142,17 @@ export const useContacts = ({limit = 10, initialFilters}: UseContactsParams = {}
 
     setTotalCount(totalContactsInDB);
     // @ts-expect-error TODO output format of ng sparql query
-    return contactIDsResult.results.bindings.map(
+    const result = contactIDsResult.results.bindings.map(
       (binding) => getContactGraph(binding.contactUri.value, session)
     );
+
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+    console.warn(`loadNextGraphContacts: Completed in ${duration.toFixed(2)}ms`);
+
+    return result;
   }, [session, filters, limit]);
+
 
   const addFilter = useCallback((key: keyof ContactsFilters, value: ContactsFilters[keyof ContactsFilters]) => {
     setFilters(prevFilters => ({

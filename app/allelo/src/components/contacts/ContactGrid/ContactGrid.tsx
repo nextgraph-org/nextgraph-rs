@@ -1,4 +1,3 @@
-import {useCallback} from 'react';
 import {Box, Grid, Checkbox, Typography, CircularProgress} from '@mui/material';
 import {ContactCard} from '@/components/contacts/ContactCard';
 import type {ContactsFilters, iconFilter} from '@/hooks/contacts/useContacts';
@@ -8,7 +7,6 @@ interface ContactGridProps {
   contactNuris: string[];
   isLoading: boolean;
   error: Error | null;
-  isSelectionMode: boolean;
   filters: ContactsFilters;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -25,7 +23,6 @@ export const ContactGrid = ({
                               contactNuris,
                               isLoading,
                               error,
-                              isSelectionMode,
                               filters,
                               onLoadMore,
                               hasMore,
@@ -34,15 +31,8 @@ export const ContactGrid = ({
                               onSelectContact,
                               onSetIconFilter,
                               isContactSelected,
-                              selectedContacts,
                               inManageMode
                             }: ContactGridProps) => {
-  const getDragContactIds = useCallback((nuri: string) => {
-    if (selectedContacts.includes(nuri) && selectedContacts.length > 1) {
-      return selectedContacts;
-    }
-    return [nuri];
-  }, [selectedContacts]);
   if (error) {
     return (
       <Box sx={{textAlign: 'center', py: 8}}>
@@ -136,10 +126,8 @@ export const ContactGrid = ({
 
                 <ContactCard
                   nuri={nuri}
-                  isSelectionMode={isSelectionMode}
                   onContactClick={onContactClick}
                   onSetIconFilter={onSetIconFilter}
-                  getDragContactIds={getDragContactIds}
                   inManageMode={inManageMode}
                 />
               </Box>

@@ -24,7 +24,7 @@ WHERE {
   FILTER (?cardId = "${cardId}")
 }
 `;
-    const sparqlResult = await session.ng!.sparql_query(session.sessionId, sparql);
+    const sparqlResult = await session.ng!.sparql_query(session.sessionId!, sparql);
     return (sparqlResult?.results?.bindings ?? [])[0]?.rcardUri?.value;
   }
 
@@ -39,7 +39,7 @@ WHERE {
 }
 ORDER BY ASC(?order) ASC(?rcardUri)
 `;
-    const sparqlResult = await session.ng!.sparql_query(session.sessionId, sparql);
+    const sparqlResult = await session.ng!.sparql_query(session.sessionId!, sparql);
     return sparqlResult?.results?.bindings?.map(
       (binding) => binding.rcardUri.value
     ) ?? [];
