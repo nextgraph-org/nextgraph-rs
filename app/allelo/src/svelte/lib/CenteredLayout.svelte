@@ -35,7 +35,7 @@
 
     const displayToS = async (e) => {
         e.preventDefault()
-        await displayPopup("https://account.allelo.eco/#/create", "NextGraph.org Privacy Policy");
+        await displayPopup("https://pnm.allelo.eco/#/privacy-policy", "Allelo PNM prototype - Privacy Policy");
     };
 
 </script>
@@ -52,7 +52,7 @@
       >
         <LogoSimple/> &nbsp;{$t("common.about_nextgraph")}
       </Button>
-      <a href="https://account.allelo.eco/#/create">
+      <a href="https://pnm.allelo.eco/#/privacy-policy">
         <Button
             variant="outlined"
             onclick={displayToS}

@@ -8,6 +8,7 @@ import type {NextGraphAuth} from '@/types/nextgraph';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import {GroupJoinPage} from '@/components/groups/GroupJoinPage';
 import {SocialContractAgreementPage} from '@/components/auth/SocialContractAgreementPage';
+import {PrivacyPolicy} from '@/components/auth/PrivacyPolicy';
 import {ClaimIdentityPage} from '@/components/auth/ClaimIdentityPage';
 import {AcceptConnectionPage} from '@/components/auth/AcceptConnectionPage';
 import {WelcomeToVaultPage} from '@/components/auth/WelcomeToVaultPage';
@@ -90,6 +91,7 @@ const RoutesWithAuth = () => {
         <Route path="/scanqr" element={<ReactScanQr/>}/>
         <Route path="/wallet/login-qr" element={<ReactWalletLoginQr/>}/>
         <Route path="/wallet/login-text-code" element={<ReactWalletLoginTextCode/>}/>
+        <Route path="/privacy-policy" element={<PrivacyPolicy/>}/>
         
 
         <Route path="/onboarding/welcome" element={
