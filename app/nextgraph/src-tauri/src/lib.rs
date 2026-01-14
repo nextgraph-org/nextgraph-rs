@@ -591,6 +591,14 @@ async fn new_orm_start(
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn new_orm_start_discrete(nuri: String, session_id: u64) -> Result<AppRequest, String> {
+    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of nuri".to_string())?;
+    let mut req = AppRequest::new_orm_start_discrete(nuri);
+    req.set_session_id(session_id);
+    Ok(req)
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn new_file_get(
     session_id: u64,
     nuri: String,
@@ -1189,6 +1197,7 @@ impl AppBuilder {
                 discrete_update,
                 app_request_stream,
                 new_orm_start,
+                new_orm_start_discrete,
                 new_file_get,
                 //file_get,
                 file_save_to_downloads,

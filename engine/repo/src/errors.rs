@@ -401,6 +401,7 @@ pub enum VerifierError {
     OrmSubjectNotFound,
     OrmPredicateNotFound,
     OrmSubscriptionNotFound,
+    NotDiscrete,
 }
 
 impl Error for VerifierError {}

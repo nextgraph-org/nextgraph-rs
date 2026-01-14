@@ -176,6 +176,7 @@ impl Verifier {
         branch_id: &BranchId,
         commit_id: ObjectId,
         commit_info: CommitInfoJs,
+        subscription_id: u64,
     ) -> Result<(), VerifierError> {
         let new_state = if let Ok(state) = self
             .user_storage
@@ -234,6 +235,9 @@ impl Verifier {
                 return Err(VerifierError::InvalidCommit);
             }
         };
+        self.push_orm_discrete_update(&patch, subscription_id, branch_id)
+            .await;
+
         self.push_app_response(
             branch_id,
             AppResponse::V0(AppResponseV0::Patch(AppPatch {
@@ -245,6 +249,7 @@ impl Verifier {
             })),
         )
         .await;
+
         Ok(())
     }
 
@@ -301,7 +306,7 @@ impl Verifier {
         if body.discrete.is_some() {
             let patch = body.discrete.unwrap();
             let crdt = &repo.branch(branch_id)?.crdt.clone();
-            self.update_discrete(patch, &crdt, branch_id, commit_id, commit_info)
+            self.update_discrete(patch, &crdt, branch_id, commit_id, commit_info, 0)
                 .await?;
         }
 
