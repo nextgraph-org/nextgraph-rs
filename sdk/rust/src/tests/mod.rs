@@ -12,7 +12,7 @@ use async_std::future::timeout;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
-use ng_net::orm::OrmShapeType;
+use ng_net::orm::{OrmPatch, OrmShapeType};
 use serde_json::Value;
 use std::time::Duration;
 
@@ -132,4 +132,22 @@ async fn create_orm_connection(
     }
 
     return (receiver, cancel_fn, subscription_id, initial_value);
+}
+
+async fn await_app_response(receiver: &mut UnboundedReceiver<AppResponse>) -> Vec<OrmPatch> {
+    loop {
+        let res = timeout(Duration::from_secs(1), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => panic!("Timed out waiting for GraphOrmInitial response (1 second)"),
+        };
+        match opt {
+            Some(app_response) => {
+                if let AppResponse::V0(AppResponseV0::GraphOrmUpdate(patches)) = app_response {
+                    return patches;
+                }
+            }
+            None => panic!("ORM receiver closed before initial response"),
+        }
+    }
 }
