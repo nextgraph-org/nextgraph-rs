@@ -31,6 +31,10 @@ impl Verifier {
         subscription_id: u64,
         patches: OrmPatches,
     ) -> Result<(), String> {
+        if patches.len() == 0 {
+            return Ok(());
+        }
+
         let (doc_nuri, sparql_update, failed_patches) = {
             let orm_subscription = self
                 .orm_subscriptions
