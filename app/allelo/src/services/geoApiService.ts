@@ -49,12 +49,12 @@ class GeoApiService {
     }
   }
 
-  public async initContactGeoCodes(contact: Partial<SocialContact>) {
-    if (!contact.address)
+  public async initContactGeoCodes(contact: Partial<SocialContact> | undefined, force?: boolean) {
+    if (!contact || !contact.address)
       return;
 
     for (const address of contact.address) {
-      if (address.coordLat && address.coordLng) {
+      if (!force && address.coordLat && address.coordLng) {
         continue;
       }
       let geoCode = await this.getGeoCode(address);

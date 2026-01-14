@@ -2,7 +2,7 @@ import {Box, Button, useMediaQuery, useTheme} from '@mui/material';
 import type {ContactsFilters} from '@/hooks/contacts/useContacts';
 import {ContactFiltersDesktop} from './ContactFiltersDesktop';
 import {ContactFiltersMobile} from './ContactFiltersMobile';
-import {UilCodeBranch} from "@iconscout/react-unicons";
+import {ContactActionsMenu} from './ContactActionsMenu';
 
 interface ContactFiltersProps {
   filters: ContactsFilters;
@@ -16,7 +16,8 @@ interface ContactFiltersProps {
   contactCount?: number;
   totalCount?: number;
   onMergeContacts: () => void;
-  isSelectionMode?: boolean;
+  onAutomaticDeduplication: () => void;
+  onAssignRCard: () => void;
 }
 
 export const ContactFilters = ({
@@ -30,7 +31,8 @@ export const ContactFilters = ({
                                  hasSelection = false,
                                  totalCount,
                                  onMergeContacts,
-                                 isSelectionMode
+                                 onAutomaticDeduplication,
+                                 onAssignRCard,
                                }: ContactFiltersProps) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -41,7 +43,7 @@ export const ContactFilters = ({
     (filters.searchQuery || "").length > 0;
 
   return (
-    <Box sx={{px: 0,mt: 1, flexShrink: 0, position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'white'}}>
+    <Box sx={{px: 0, mt: 1, flexShrink: 0, position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'white'}}>
       {isMobile ? (
         <ContactFiltersMobile
           filters={filters}
@@ -74,7 +76,7 @@ export const ContactFilters = ({
             flexShrink: 0,
           }}>
             {/* Select All Button - left aligned with checkboxes */}
-            {onSelectAll && (
+            {onSelectAll && hasSelection ? (
               <Button
                 variant="text"
                 onClick={onSelectAll}
@@ -89,9 +91,9 @@ export const ContactFilters = ({
                   height: "10px"
                 }}
               >
-                {hasSelection ? 'Deselect All' : 'Select All'}
+                Clear Selection
               </Button>
-            )}
+            ) : <Box/>}
 
             {/* Actions */}
             <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
@@ -106,25 +108,12 @@ export const ContactFilters = ({
             >
               {contactCount} of {totalCount} contacts
             </Typography>*/}
-              {!isSelectionMode && (
-                <Button
-                  variant="text"
-                  startIcon={<UilCodeBranch size="18"/>}
-                  onClick={onMergeContacts}
-                  size="small"
-                  sx={{
-                    fontSize: '0.75rem',
-                    textTransform: 'none',
-                    color: 'primary.main',
-                    fontWeight: 500,
-                    minWidth: 'auto',
-                    width: 'auto',
-                    height: "10px"
-                  }}
-                >
-                  Merge Contacts
-                </Button>
-              )}
+              <ContactActionsMenu
+                hasSelection={hasSelection}
+                onAutomaticDeduplication={onAutomaticDeduplication}
+                onMergeContacts={onMergeContacts}
+                onAssignRCard={onAssignRCard}
+              />
             </Box>
 
           </Box>

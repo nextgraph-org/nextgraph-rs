@@ -22,7 +22,7 @@ class ProfileService {
         INSERT DATA {
             <> a vcard:Individual . 
             <> a ngc:Me . }`;
-    const res = await session.ng!.sparql_update(session.sessionId, sparql, protectedStoreId);
+    const res = await session.ng!.sparql_update(session.sessionId!, sparql, protectedStoreId);
     if (!Array.isArray(res)) {
       throw new Error(`Failed to create profile on ${protectedStoreId}`);
     }
@@ -35,7 +35,7 @@ class ProfileService {
       PREFIX ngc: <did:ng:x:contact:class#>
       ASK { <> a ngc:Me . }`;
 
-    return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
+    return await session.ng!.sparql_query(session.sessionId!, sparql, base, nuri);
   }
 
   getProfileNuri = (session: NextGraphSession) => ("did:ng:" + session.protectedStoreId).substring(0, 53);

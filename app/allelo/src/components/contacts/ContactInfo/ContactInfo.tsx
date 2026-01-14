@@ -8,7 +8,7 @@ import {
   UilEnvelope as Email,
   UilPhone as Phone,
   UilBriefcase as Business,
-  UilUserSquare as AccountBox,
+  UilUserSquare as AccountBox, UilMapMarker,
 } from '@iconscout/react-unicons';
 import {MultiPropertyWithVisibility} from '../MultiPropertyWithVisibility';
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
@@ -49,6 +49,16 @@ export const ContactInfo = forwardRef<HTMLDivElement, ContactInfoProps>(
             placeholder={"Phone number"}
             validateType={"phone"}
             required={false}
+          />
+
+          <MultiPropertyWithVisibility
+            label={"Locations"}
+            icon={<UilMapMarker/>}
+            propertyKey={"address"}
+            contact={contact}
+            isEditing={isEditing}
+            validateType={"text"}
+            variant={"addresses"}
           />
 
           <PropertyWithSources

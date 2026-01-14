@@ -1,4 +1,4 @@
-import {forwardRef, MutableRefObject, useCallback, useMemo} from 'react';
+import {forwardRef} from 'react';
 import {Card, CardContent, useTheme} from '@mui/material';
 import {
   UilCheckCircle,
@@ -7,51 +7,23 @@ import {
 } from '@iconscout/react-unicons';
 import {ContactCardDetailed} from './ContactCardDetailed';
 import {iconFilter} from "@/hooks/contacts/useContacts";
-import {useDraggable} from "@dnd-kit/core";
 import {useResolvedContact} from "@/hooks/contacts/useResolvedContact.ts";
 
 export interface ContactCardProps {
   nuri: string;
-  isSelectionMode: boolean;
   onContactClick: (contactId: string) => void;
   onSetIconFilter: (key: iconFilter, value: string) => void;
-  getDragContactIds?: (primaryContact: string) => string[];
   inManageMode?: boolean;
 }
 
 export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
   ({
      nuri,
-     isSelectionMode,
      onContactClick,
      onSetIconFilter,
-     getDragContactIds,
-     inManageMode
-   }, ref) => {
+   }) => {
     const theme = useTheme();
     const {ormContact, name} = useResolvedContact(nuri);
-    const draggedContactIds = useMemo(
-      () => (getDragContactIds ? getDragContactIds(nuri) : [nuri]),
-      [getDragContactIds, nuri]
-    );
-
-    const {attributes, listeners, setNodeRef, isDragging} = useDraggable({
-      id: nuri,
-      disabled: !inManageMode,
-      data: {
-        type: 'contact',
-        contactIds: draggedContactIds,
-      },
-    });
-
-    const handleRef = useCallback((node: HTMLDivElement | null) => {
-      setNodeRef(node);
-      if (typeof ref === 'function') {
-        ref(node);
-      } else if (ref) {
-        (ref as MutableRefObject<HTMLDivElement | null>).current = node;
-      }
-    }, [ref, setNodeRef]);
 
     const getNaoStatusIcon = (naoStatus?: string) => {
       switch (naoStatus) {
@@ -71,7 +43,6 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
 
     return (
       <Card
-        ref={handleRef} {...(!isSelectionMode ? listeners : {})} {...(!isSelectionMode ? attributes : {})}
         onClick={() => {
           onContactClick(ormContact["@graph"]);
         }}
@@ -79,7 +50,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
           border: 1,
           borderColor: 'divider',
           width: '100%',
-          opacity: isDragging ? 0.3 : 1,
+          opacity: 1,
           boxShadow: theme.shadows[1],
           cursor: 'pointer'
         }}

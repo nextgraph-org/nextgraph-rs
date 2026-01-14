@@ -6,8 +6,8 @@ import {
   CentralityResponse
 } from '@/lib/greencheck-api-client/types';
 import {SocialContact, Photo} from '@/.orm/shapes/contact.typings';
-import {mapBoxSearchService} from "@/services/mapBoxSearchService.ts";
 import {contactDictMapper} from "@/utils/dictMappers.ts";
+import {geoApiService} from "@/services/geoApiService.ts";
 
 export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Partial<SocialContact> {
   const contact: Partial<SocialContact> = {
@@ -182,8 +182,7 @@ export async function mapCentralityResponseToSocialContacts(
           value: data.loc,
           source: source
         }]);
-        //TODO: this is fallback for coordinates via paid API
-        await mapBoxSearchService.initContactGeoCodes(contact);
+        await geoApiService.initContactGeoCodes(contact);
       }
     }
     contacts[contactNuri] = contact;

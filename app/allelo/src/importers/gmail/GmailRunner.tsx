@@ -20,7 +20,6 @@ import {
   Birthday,
   Biography,
   Event,
-  Gender,
   Nickname,
   Occupation,
   Relation,
@@ -185,14 +184,19 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
         type: contactDictMapper.appendPrefixToDictValue("event", "type", ev?.type),
         source: src,
       })) ?? []),
-
-    gender: new Set(googleResult?.genders?.map((gender): Gender => ({
-        "@graph": "",
-        "@id": "",
-        valueIRI: contactDictMapper.appendPrefixToDictValue("gender", "valueIRI", gender?.value),
-        addressMeAs: gender?.addressMeAs ?? undefined,
-        source: src,
-      })) ?? []),
+    //@ts-expect-error this is ok
+    gender: new Set(googleResult?.genders?.map((gender) => {
+      const dictGender = contactDictMapper.appendPrefixToDictValue("gender", "valueIRI", gender?.value);
+      if (dictGender) {
+        return {
+          "@graph": "",
+          "@id": "",
+          valueIRI: dictGender,
+          addressMeAs: gender?.addressMeAs ?? undefined,
+          source: src,
+        }
+      }
+    }).filter(Boolean) ?? []),
 
     nickname: new Set(googleResult?.nicknames?.map((nickname): Nickname => ({
         "@graph": "",

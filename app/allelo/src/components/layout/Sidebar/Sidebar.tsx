@@ -2,8 +2,6 @@ import {forwardRef} from 'react';
 import {Box} from '@mui/material';
 import {NavigationMenu} from '../NavigationMenu';
 import type {SidebarProps} from './types';
-import {RCardsSideWidget} from "@/components/rcards/RCardsSideWidget";
-import {useDashboardStore} from "@/stores/dashboardStore";
 
 export const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
   ({
@@ -12,11 +10,7 @@ export const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
      isActiveRoute,
      onToggleExpanded,
      onNavigation,
-     currentPath,
    }, ref) => {
-    const {showRCardsWidget} = useDashboardStore();
-    const showCategories = currentPath === '/contacts' && showRCardsWidget;
-
     return (
       <Box
         ref={ref}
@@ -31,7 +25,6 @@ export const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
           onNavigation={onNavigation}
         />
 
-        {showCategories && <RCardsSideWidget/>}
       </Box>
     );
   }
