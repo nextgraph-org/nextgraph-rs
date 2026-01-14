@@ -8,12 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { insertObject } from "@ng-org/orm";
-import {
-    ExpenseCategoryShapeType,
-    ExpenseShapeType,
-} from "../../shapes/orm/expenseShapes.shapeTypes";
-import { sessionPromise } from "../../utils/ngSession";
 import { ExpenseCategories } from "./ExpenseCategories";
 import { Expenses } from "./Expenses";
 
