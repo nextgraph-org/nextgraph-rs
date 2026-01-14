@@ -38,26 +38,4 @@ export const dataService = {
   async getGroup(id: string): Promise<Group | undefined> {
     return;
   },
-
-  async acceptConnectionRequest(
-    notificationId: string,
-    selectedRCardId: string,
-  ): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log(`✅ Accepted connection request ${notificationId} with rCard ${selectedRCardId}`);
-        // Note: The actual contact ID would be passed from the notification service
-        // For now, the notification service should call updateContactStatus directly
-        // since it has access to the notification metadata with contactId
-        resolve();
-      }, 300);
-    });
-  },
-
-  async rejectConnectionRequest(
-    notificationId: string,
-    contactId: string,
-  ): Promise<void> {
-    return;
-  },
 };

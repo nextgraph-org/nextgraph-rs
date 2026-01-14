@@ -34,12 +34,12 @@ class GroupService {
     filterParams?: Map<string, string>
   ) {
     const sparql = this.getAllGroupIdsQuery("nggroup:Group", limit, offset, orderBy, filterParams);
-    return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
+    return await session.ng!.sparql_query(session.sessionId!, sparql, base, nuri);
   }
 
   async getGroupsCount(session: NextGraphSession, filterParams?: Map<string, string>) {
     const sparql = this.getCountQuery("nggroup:Group", filterParams);
-    return await session.ng!.sparql_query(session.sessionId, sparql);
+    return await session.ng!.sparql_query(session.sessionId!, sparql);
   }
 
   getAllGroupIdsQuery(
