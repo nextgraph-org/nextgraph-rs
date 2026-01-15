@@ -18,8 +18,10 @@ import {
 import { useAI } from '@/hooks/useAI';
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {resolveFrom} from "@/utils/socialContact/contactUtilsOrm.ts";
+import {useIsOnline} from "@/hooks/useIsOnline.ts";
 
 const HomePage = () => {
+  const isOnline = useIsOnline();
   const theme = useTheme();
   // const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [query, setQuery] = useState('');
@@ -1304,7 +1306,7 @@ const HomePage = () => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Type anything"
             variant="outlined"
-            disabled={isLoading}
+            disabled={isLoading || !isOnline}
             sx={{
               '& .MuiOutlinedInput-root': {
                 fontSize: '1.125rem',
@@ -1318,7 +1320,7 @@ const HomePage = () => {
                     onClick={() => setAiEnabled(!aiEnabled)}
                     edge="start"
                     sx={{ ml: -0.5 }}
-                    disabled={isLoading}
+                    disabled={isLoading || !isOnline}
                   >
                     {aiEnabled ? <UilBolt size="24" /> : <UilSearch size="24" />}
                   </IconButton>

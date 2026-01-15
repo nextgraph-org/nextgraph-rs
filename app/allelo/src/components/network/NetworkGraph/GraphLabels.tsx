@@ -66,6 +66,7 @@ export const GraphLabels = ({nodes}: GraphLabelsProps) => {
           return <text
             x={pos.x}
             y={pos.y}
+            key={"text_" + node.id}
             textAnchor={node.isCentered ? 'start' : 'middle'}
             fill={theme.palette.text.primary}
             fontSize={node.isCentered ? 16 : 12}

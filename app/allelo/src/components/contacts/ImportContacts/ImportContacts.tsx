@@ -16,9 +16,11 @@ import {ImportSourceRegistry} from "@/importers/importSourceRegistry";
 import {useNavigate} from "react-router-dom";
 import {ImportingOverlay} from "@/components/contacts/ImportContacts/ImportingOverlay.tsx";
 import {SocialContact} from "@/.orm/shapes/contact.typings.ts";
+import {useIsOnline} from "@/hooks/useIsOnline.ts";
 
 export const ImportContacts = () => {
   const navigate = useNavigate();
+  const isOnline = useIsOnline();
 
   const onImportDone = useCallback(() => {
     navigate('/contacts');
@@ -132,7 +134,7 @@ export const ImportContacts = () => {
                   <Button
                     variant="contained"
                     onClick={() => handleImportClick(source)}
-                    disabled={!source.isAvailable}
+                    disabled={!source.isAvailable || !isOnline}
                     startIcon={<UilCloudDownload size="20"/>}
                     sx={{borderRadius: 2}}
                   >

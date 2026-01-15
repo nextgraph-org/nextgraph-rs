@@ -4,6 +4,7 @@ import {useNextGraphAuth} from '@/lib/nextgraph';
 import {NextGraphAuth} from "@/types/nextgraph.ts";
 import { WS_AI_URL, schemaStructure } from '@/config/aiApi.ts';
 import {contactService} from "@/services/contactService.ts";
+import {useIsOnline} from "@/hooks/useIsOnline.ts";
 
 interface UseAIReturn {
   promptNonStream: (messages: ChatCompletionMessageParam[]) => Promise<string>;
@@ -21,6 +22,7 @@ export function useAI(isMock?: boolean): UseAIReturn {
   const [isLoading] = useState(false);
   const [error] = useState<string | null>(null);
   const [client, setClient] = useState<WSClient | null>(null);
+  const isOnline = useIsOnline();
 
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth as any as NextGraphAuth;
@@ -140,8 +142,11 @@ export function useAI(isMock?: boolean): UseAIReturn {
   }, [client]);
 
   useEffect(() => {
-    setupClient();
-  }, [setupClient]);
+    if (isOnline) {
+      setupClient();
+    }
+    
+  }, [isOnline, setupClient]);
 
   return {
     promptNonStream,

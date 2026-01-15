@@ -21,7 +21,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
      nuri,
      onContactClick,
      onSetIconFilter,
-   }) => {
+   }, ref) => {
     const theme = useTheme();
     const {ormContact, name} = useResolvedContact(nuri);
 
@@ -43,6 +43,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
 
     return (
       <Card
+        ref={ref}
         onClick={() => {
           onContactClick(ormContact["@graph"]);
         }}
