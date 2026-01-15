@@ -60,7 +60,9 @@ const mapping = {
     fetch_header: ["session_id", "nuri"],
     retrieve_ng_bootstrap: ["location"],
     upload_start: ["session_id", "nuri", "mimetype"],
-    upload_done: ["upload_id", "session_id", "nuri", "filename"]
+    upload_done: ["upload_id", "session_id", "nuri", "filename"],
+    graph_orm_update: ["subscription_id", "diff", "session_id"],
+    discrete_orm_update: ["subscription_id", "diff", "session_id"]
 };
 
 let lastStreamId = 0;
@@ -207,7 +209,7 @@ const tauri_handler = {
             } else if (
                 path[0] === "app_request_stream" ||
                 path[0] === "doc_subscribe" ||
-                path[0] === "orm_start" ||
+                path[0] === "orm_start_graph" ||
                 path[0] === "orm_start_discrete" ||
                 path[0] === "file_get"
             ) {
@@ -223,8 +225,8 @@ const tauri_handler = {
                     request = await invoke("doc_fetch_repo_subscribe", { repo_o: args[0] });
                     request.V0.session_id = args[1];
                     callback = args[2];
-                } else if (path[0] === "orm_start") {
-                    request = await invoke("new_orm_start", {
+                } else if (path[0] === "orm_start_graph") {
+                    request = await invoke("new_orm_start_graph", {
                         graph_scope: args[0],
                         subject_scope: args[1],
                         shape_type: args[2],

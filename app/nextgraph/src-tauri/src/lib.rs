@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fs::write;
 
 use async_std::stream::StreamExt;
+use ng_net::orm::OrmPatches;
 use oxrdf::Triple;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -455,6 +456,36 @@ async fn app_request_stream(
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn graph_orm_update(
+    subscription_id: u64,
+    diff: OrmPatches,
+    session_id: u64,
+) -> Result<(), String> {
+    let mut request = AppRequest::new_orm_update(subscription_id, diff);
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn discrete_orm_update(
+    subscription_id: u64,
+    diff: OrmPatches,
+    session_id: u64,
+) -> Result<(), String> {
+    let mut request = AppRequest::new_orm_discrete_update(subscription_id, diff);
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn discrete_update(
     session_id: u64,
     update: serde_bytes::ByteBuf,
@@ -563,7 +594,7 @@ async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> 
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn new_graph_orm_start(
+async fn new_orm_start_graph(
     graph_scope: Vec<String>,
     subject_scope: Vec<String>,
     shape_type: ng_net::orm::OrmShapeType,
@@ -585,7 +616,7 @@ async fn new_graph_orm_start(
         graph_nuris
     };
 
-    let mut req = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
+    let mut req = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type);
     req.set_session_id(session_id);
     Ok(req)
 }
@@ -1196,8 +1227,10 @@ impl AppBuilder {
                 cancel_stream,
                 discrete_update,
                 app_request_stream,
-                new_orm_start,
+                new_orm_start_graph,
                 new_orm_start_discrete,
+                graph_orm_update,
+                discrete_orm_update,
                 new_file_get,
                 //file_get,
                 file_save_to_downloads,

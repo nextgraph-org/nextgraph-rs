@@ -355,6 +355,7 @@ pub enum VerifierError {
     MissingCommitInDag,
     CommitBodyNotFound,
     InvalidKey,
+    InvalidArgument,
     SerializationError,
     OtherError(String),
     CommitLoadError(CommitLoadError),
@@ -401,6 +402,7 @@ pub enum VerifierError {
     OrmSubjectNotFound,
     OrmPredicateNotFound,
     OrmSubscriptionNotFound,
+    OrmStateNotFound,
     NotDiscrete,
 }
 

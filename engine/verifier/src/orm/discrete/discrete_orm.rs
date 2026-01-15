@@ -22,9 +22,9 @@ use ng_repo::types::*;
 use serde_json::{json, Value};
 use yrs::types::{Change, EntryChange, Events, PathSegment, ToJson};
 use yrs::updates::decoder::Decode;
-use yrs::{Any, Array, DeepObservable, Map, Out, Transact};
+use yrs::{Any, Array, DeepObservable, Map, Out, ReadTxn, Transact};
 
-use crate::orm::types::{DiscreteOrmSubscription, SubscriptionCrdtDetails};
+use crate::orm::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::utils::decode_json_pointer;
 use crate::types::{CancelFn, DiscreteTransaction};
 
@@ -49,47 +49,55 @@ impl Verifier {
 
         self.discrete_orm_subscription_counter += 1;
 
-        let mut orm_subscription = DiscreteOrmSubscription {
+        let orm_subscription = DiscreteOrmSubscription {
             nuri,
             branch_id,
             subscription_id: self.discrete_orm_subscription_counter,
             sender: tx.clone(),
-            crdt_details: SubscriptionCrdtDetails::None,
         };
 
-        let state = match self
-            .user_storage
-            .as_ref()
-            .unwrap()
-            .branch_get_discrete_state(&branch_id)
-        {
-            Ok(state) => Some(match crdt {
-                BranchCrdt::Automerge(_) => DiscreteState::Automerge(state),
-                BranchCrdt::YArray(_) => DiscreteState::YArray(state),
-                BranchCrdt::YMap(_) => DiscreteState::YMap(state),
-                BranchCrdt::YText(_) => DiscreteState::YText(state),
-                BranchCrdt::YXml(_) => DiscreteState::YXml(state),
-                _ => return Err(VerifierError::InvalidBranch),
-            }),
-            Err(StorageError::NoDiscreteState) => None,
-            Err(e) => return Err(e.into()),
-        };
-
-        let orm_object = if let Some(discrete_state) = state {
-            let (value, crdt_details) = convert_discrete_blob_to_orm_object(discrete_state)?;
-            orm_subscription.crdt_details = crdt_details;
-            value
+        let orm_object = if let Some(state) = self.discrete_orm_states.get(&branch_id) {
+            convert_discrete_state_to_orm_object(state)
         } else {
-            match crdt {
-                BranchCrdt::Automerge(_) | BranchCrdt::YMap(_) => {
-                    serde_json::Value::Object(serde_json::map::Map::new())
+            let state = match self
+                .user_storage
+                .as_ref()
+                .unwrap()
+                .branch_get_discrete_state(&branch_id)
+            {
+                Ok(state) => Some(match crdt {
+                    BranchCrdt::Automerge(_) => DiscreteState::Automerge(state),
+                    BranchCrdt::YArray(_) => DiscreteState::YArray(state),
+                    BranchCrdt::YMap(_) => DiscreteState::YMap(state),
+                    BranchCrdt::YText(_) => DiscreteState::YText(state),
+                    BranchCrdt::YXml(_) => DiscreteState::YXml(state),
+                    _ => return Err(VerifierError::InvalidBranch),
+                }),
+                Err(StorageError::NoDiscreteState) => None,
+                Err(e) => return Err(e.into()),
+            };
+
+            let (orm_object, backend_state) = if let Some(discrete_state) = state {
+                convert_discrete_blob_to_orm_object(discrete_state)?
+            } else {
+                match crdt {
+                    BranchCrdt::YMap(_) => (
+                        serde_json::Value::Object(serde_json::map::Map::new()),
+                        BackendDiscreteState::YMap(yrs::Doc::new()),
+                    ),
+                    BranchCrdt::YArray(_) => (
+                        serde_json::Value::Array(vec![]),
+                        BackendDiscreteState::YArray(yrs::Doc::new()),
+                    ),
+                    BranchCrdt::Automerge(_) | BranchCrdt::YText(_) | BranchCrdt::YXml(_) => {
+                        return Err(VerifierError::NotImplemented)
+                    }
+                    _ => return Err(VerifierError::InvalidBranch),
                 }
-                BranchCrdt::YArray(_) => serde_json::Value::Array(vec![]),
-                BranchCrdt::YText(_) | BranchCrdt::YXml(_) => {
-                    return Err(VerifierError::NotImplemented)
-                }
-                _ => return Err(VerifierError::InvalidBranch),
-            }
+            };
+
+            self.discrete_orm_states.insert(branch_id, backend_state);
+            orm_object
         };
 
         let _ = tx
@@ -112,19 +120,22 @@ impl Verifier {
 
     pub(crate) async fn push_orm_discrete_update(
         &mut self,
-        patch: &DiscretePatch,
+        orm_patches: Vec<OrmPatch>,
         subscription_id: u64,
         branch_id: &BranchId,
     ) -> Result<(), VerifierError> {
-        // then: Clean up and remove old subscriptions
+        // Clean up and remove old subscriptions
         self.discrete_orm_subscriptions
             .retain(|_k, sub| !sub.sender.is_closed());
 
-        for (id, sub) in self.discrete_orm_subscriptions.iter_mut() {
-            let orm_patches = convert_and_apply_discrete_blob_patches(patch, &sub.crdt_details)?;
+        if orm_patches.is_empty() {
+            return Ok(());
+        }
 
-            if *id != subscription_id && sub.branch_id == *branch_id && orm_patches.len() > 0 {
-                let update = AppResponse::V0(AppResponseV0::DiscreteOrmUpdate(orm_patches));
+        let update = AppResponse::V0(AppResponseV0::DiscreteOrmUpdate(orm_patches));
+
+        for (id, sub) in self.discrete_orm_subscriptions.iter_mut() {
+            if *id != subscription_id && sub.branch_id == *branch_id {
                 let _ = sub.sender.send(update.clone()).await;
             }
         }
@@ -141,66 +152,180 @@ impl Verifier {
             return Ok(());
         };
 
-        let orm_subscription = if let Some(orm_subscription) =
-            self.discrete_orm_subscriptions.get_mut(&subscription_id)
-        {
-            orm_subscription
-        } else {
-            return Err(VerifierError::OrmSubscriptionNotFound);
-        };
+        let (transaction, resulting_orm_patches, nuri, branch_id, full_state) = {
+            let orm_subscription = self
+                .discrete_orm_subscriptions
+                .get_mut(&subscription_id)
+                .ok_or(VerifierError::OrmSubscriptionNotFound)?;
 
-        let (update_bytes, is_array) = match &orm_subscription.crdt_details {
-            SubscriptionCrdtDetails::YMap(doc) | SubscriptionCrdtDetails::YArray(doc) => {
-                let is_array = matches!(
-                    &orm_subscription.crdt_details,
-                    SubscriptionCrdtDetails::YArray(_)
-                );
-                let mut tx = doc.transact_mut();
+            let backend_state = self
+                .discrete_orm_states
+                .get(&orm_subscription.branch_id)
+                .ok_or(VerifierError::OrmStateNotFound)?;
 
-                for patch in patches {
-                    let parsed_path: Vec<String> = patch
-                        .path
-                        .split('/')
-                        .skip(1)
-                        .map(|segment| decode_json_pointer(&segment.to_string()))
-                        .collect();
+            let (BackendDiscreteState::YMap(doc) | BackendDiscreteState::YArray(doc)) =
+                backend_state;
 
-                    if patch.op == OrmPatchOp::add {
-                        let value = match &patch.value {
-                            Some(v) => json_value_to_yrs_any(v),
-                            None => {
-                                log_warn!("Add patch without value, skipping");
-                                continue;
-                            }
-                        };
+            let is_array = matches!(backend_state, BackendDiscreteState::YArray(_));
+            let mut tx = doc.transact_mut();
+            let resulting_orm_patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
 
-                        // Navigate to parent and insert/update the final key
-                        apply_yrs_add_patch(&mut tx, doc, &parsed_path, value, is_array)?;
-                    } else {
-                        // patch.op == OrmPatchOp::remove
-                        apply_yrs_remove_patch(&mut tx, doc, &parsed_path, is_array)?;
-                    }
+            let observation = if is_array {
+                let array_ref = doc.get_or_insert_array("ng");
+                let patches_clone = Rc::clone(&resulting_orm_patches);
+                array_ref.observe_deep(move |tx, ev| {
+                    yrs_mutation_callback(tx, ev, &patches_clone);
+                })
+            } else {
+                let map_ref = doc.get_or_insert_map("ng");
+                let patches_clone = Rc::clone(&resulting_orm_patches);
+                map_ref.observe_deep(move |tx, ev| {
+                    yrs_mutation_callback(tx, ev, &patches_clone);
+                })
+            };
+
+            for patch in patches {
+                let parsed_path: Vec<String> = patch
+                    .path
+                    .split('/')
+                    .skip(1)
+                    .map(|segment| decode_json_pointer(&segment.to_string()))
+                    .collect();
+
+                if patch.op == OrmPatchOp::add {
+                    let value = match &patch.value {
+                        Some(v) => json_value_to_yrs_any(v),
+                        None => {
+                            log_warn!("Add patch without value, skipping");
+                            continue;
+                        }
+                    };
+
+                    // Navigate to parent and insert/update the final key
+                    apply_yrs_add_patch(&mut tx, doc, &parsed_path, value, is_array)?;
+                } else {
+                    // patch.op == OrmPatchOp::remove
+                    apply_yrs_remove_patch(&mut tx, doc, &parsed_path, is_array)?;
                 }
-
-                // Encode only the changes made in this transaction
-                (tx.encode_update_v1(), is_array)
             }
-            SubscriptionCrdtDetails::None => return Err(VerifierError::NotImplemented),
+
+            drop(observation);
+
+            let resulting_orm_patches = Rc::try_unwrap(resulting_orm_patches)
+                .expect("reference count should be 1")
+                .into_inner();
+
+            // Encode only the changes made in this transaction
+            let update_bytes = tx.encode_update_v1();
+            drop(tx);
+
+            // obtain the full dump of state
+            let empty_state_vector = yrs::StateVector::default();
+            let transac = doc.transact();
+            let full_state = transac.encode_state_as_update_v1(&empty_state_vector);
+
+            let transaction = if is_array {
+                DiscreteTransaction::YArray(update_bytes)
+            } else {
+                DiscreteTransaction::YMap(update_bytes)
+            };
+
+            let nuri = orm_subscription.nuri.clone();
+            let branch_id = orm_subscription.branch_id;
+
+            (
+                transaction,
+                resulting_orm_patches,
+                nuri,
+                branch_id,
+                full_state,
+            )
         };
 
-        let transaction = if is_array {
-            DiscreteTransaction::YArray(update_bytes)
-        } else {
-            DiscreteTransaction::YMap(update_bytes)
-        };
+        self.push_orm_discrete_update(resulting_orm_patches, subscription_id, &branch_id)
+            .await?;
+        //TODO: deal with cases when the resulting_orm_patches is different from patches (received). We need to send the diff to subscription_id
 
-        let nuri = orm_subscription.nuri.clone();
-        drop(orm_subscription);
-
-        self.process_discrete_transaction(transaction, &nuri, subscription_id)
+        self.create_discrete_transaction(transaction, &nuri, Some(full_state))
             .await?;
 
         Ok(())
+    }
+
+    pub(crate) fn apply_discrete_transaction_gen_orm_patches(
+        &self,
+        branch_id: &BranchId,
+        patch: &DiscreteTransaction,
+    ) -> Result<(Vec<u8>, Vec<OrmPatch>), VerifierError> {
+        match patch {
+            DiscreteTransaction::YMap(_) => {
+                self.apply_discrete_yjs_transaction_gen_orm_patches(branch_id, patch)
+            }
+            DiscreteTransaction::YArray(_) => {
+                self.apply_discrete_yjs_transaction_gen_orm_patches(branch_id, patch)
+            }
+            DiscreteTransaction::YXml(_) => {
+                log_warn!("Discrete patch type YXml not implemented.");
+                return Err(VerifierError::NotImplemented);
+            }
+            DiscreteTransaction::YText(_) => {
+                log_warn!("Discrete patch type YText not implemented.");
+                return Err(VerifierError::NotImplemented);
+            }
+            DiscreteTransaction::Automerge(_) => {
+                log_warn!("Discrete patch type Automerge not implemented.");
+                return Err(VerifierError::NotImplemented);
+            }
+        }
+    }
+
+    fn apply_discrete_yjs_transaction_gen_orm_patches(
+        &self,
+        branch_id: &BranchId,
+        patch: &DiscreteTransaction,
+    ) -> Result<(Vec<u8>, Vec<OrmPatch>), VerifierError> {
+        let backend_state = self
+            .discrete_orm_states
+            .get(branch_id)
+            .ok_or(VerifierError::OrmStateNotFound)?;
+
+        let (BackendDiscreteState::YMap(doc) | BackendDiscreteState::YArray(doc)) = backend_state;
+
+        let is_array = matches!(backend_state, BackendDiscreteState::YArray(_));
+        let mut tx = doc.transact_mut();
+        let resulting_orm_patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
+
+        let observation = if is_array {
+            let array_ref = doc.get_or_insert_array("ng");
+            let patches_clone = Rc::clone(&resulting_orm_patches);
+            array_ref.observe_deep(move |tx, ev| {
+                yrs_mutation_callback(tx, ev, &patches_clone);
+            })
+        } else {
+            let map_ref = doc.get_or_insert_map("ng");
+            let patches_clone = Rc::clone(&resulting_orm_patches);
+            map_ref.observe_deep(move |tx, ev| {
+                yrs_mutation_callback(tx, ev, &patches_clone);
+            })
+        };
+
+        let update = yrs::Update::decode_v1(patch.as_slice())
+            .map_err(|e| VerifierError::YrsError(e.to_string()))?;
+        tx.apply_update(update);
+        tx.commit();
+        drop(tx);
+        drop(observation);
+
+        // obtain the full dump of state
+        let empty_state_vector = yrs::StateVector::default();
+        let transac = doc.transact();
+        let full_state = transac.encode_state_as_update_v1(&empty_state_vector);
+
+        let resulting_orm_patches = Rc::try_unwrap(resulting_orm_patches)
+            .expect("reference count should be 1")
+            .into_inner();
+
+        Ok((full_state, resulting_orm_patches))
     }
 }
 
@@ -448,42 +573,30 @@ fn apply_yrs_remove_patch(
     Ok(())
 }
 
-fn convert_and_apply_discrete_blob_patches(
-    patch: &DiscretePatch,
-    crdt_details: &SubscriptionCrdtDetails,
-) -> Result<Vec<OrmPatch>, VerifierError> {
-    match patch {
-        DiscretePatch::YMap(bytes) => {
-            convert_and_apply_discrete_blob_patches_yrs(patch, crdt_details)
+fn convert_discrete_state_to_orm_object(discrete_state: &BackendDiscreteState) -> Value {
+    match discrete_state {
+        BackendDiscreteState::YArray(doc) => {
+            let txn = doc.transact();
+            let root = doc.get_or_insert_array("ng");
+            json!(root.to_json(&txn))
         }
-        DiscretePatch::YArray(bytes) => {
-            convert_and_apply_discrete_blob_patches_yrs(patch, crdt_details)
-        }
-        DiscretePatch::YXml(bytes) => {
-            log_warn!("Discrete patch type YXml not implemented.");
-            return Err(VerifierError::NotImplemented);
-        }
-        DiscretePatch::YText(bytes) => {
-            log_warn!("Discrete patch type YText not implemented.");
-            return Err(VerifierError::NotImplemented);
-        }
-        DiscretePatch::Automerge(bytes) => {
-            log_warn!("Discrete patch type Automerge not implemented.");
-            return Err(VerifierError::NotImplemented);
+        BackendDiscreteState::YMap(doc) => {
+            let txn = doc.transact();
+            let root = doc.get_or_insert_map("ng");
+            json!(root.to_json(&txn))
         }
     }
 }
 
 fn convert_discrete_blob_to_orm_object(
     discrete_state: DiscreteState,
-) -> Result<(Value, SubscriptionCrdtDetails), VerifierError> {
+) -> Result<(Value, BackendDiscreteState), VerifierError> {
     match discrete_state {
         DiscreteState::YMap(bytes) => {
             let doc = yrs::Doc::new();
 
-            let update = yrs::Update::decode_v1(&bytes).or(Err(VerifierError::YrsError(
-                "Could not decode_v1 YRS document".into(),
-            )))?;
+            let update = yrs::Update::decode_v1(&bytes)
+                .map_err(|e| VerifierError::YrsError(e.to_string()))?;
             let mut txn = doc.transact_mut();
             txn.apply_update(update);
 
@@ -491,21 +604,21 @@ fn convert_discrete_blob_to_orm_object(
             let root_json = json!(root.to_json(&txn));
             drop(txn);
 
-            return Ok((root_json, SubscriptionCrdtDetails::YMap(doc)));
+            return Ok((root_json, BackendDiscreteState::YMap(doc)));
         }
         DiscreteState::YArray(bytes) => {
             let doc = yrs::Doc::new();
 
-            let update = yrs::Update::decode_v1(&bytes).or(Err(VerifierError::YrsError(
-                "Could not decode_v1 YRS document".into(),
-            )))?;
+            let update = yrs::Update::decode_v1(&bytes)
+                .map_err(|e| VerifierError::YrsError(e.to_string()))?;
             let mut tx = doc.transact_mut();
             tx.apply_update(update);
 
-            let parsed = doc.to_json(&tx);
+            let root = doc.get_or_insert_array("ng");
+            let root_json = json!(root.to_json(&tx));
             drop(tx);
 
-            return Ok((json!(parsed), SubscriptionCrdtDetails::YArray(doc)));
+            return Ok((root_json, BackendDiscreteState::YArray(doc)));
         }
         DiscreteState::YXml(bytes) => {
             log_warn!("YXml not implemented.");
@@ -532,142 +645,92 @@ fn yrs_out_to_json(value: &Out) -> serde_json::Value {
     }
 }
 
-fn convert_and_apply_discrete_blob_patches_yrs(
-    patch: &DiscretePatch,
-    crdt_details: &SubscriptionCrdtDetails,
-) -> Result<Vec<OrmPatch>, VerifierError> {
-    let doc = match crdt_details {
-        SubscriptionCrdtDetails::YArray(doc) | SubscriptionCrdtDetails::YMap(doc) => doc,
-        _ => return Err(VerifierError::InternalError),
-    };
-    let patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
+pub(crate) fn yrs_mutation_callback(
+    tx: &yrs::TransactionMut<'_>,
+    update_event: &Events,
+    patches: &Rc<RefCell<Vec<OrmPatch>>>,
+) {
+    let mut patches = patches.borrow_mut();
+    for event in update_event.iter() {
+        let base_path = format!(
+            "/{}",
+            event
+                .path()
+                .iter()
+                .map(|p| match p {
+                    PathSegment::Index(i) => i.to_string(),
+                    PathSegment::Key(key) => key.to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join("/")
+        );
 
-    fn mutation_callback(
-        tx: &yrs::TransactionMut<'_>,
-        update_event: &Events,
-        patches: &Rc<RefCell<Vec<OrmPatch>>>,
-    ) {
-        let mut patches = patches.borrow_mut();
-        for event in update_event.iter() {
-            let base_path = format!(
-                "/{}",
-                event
-                    .path()
-                    .iter()
-                    .map(|p| match p {
-                        PathSegment::Index(i) => i.to_string(),
-                        PathSegment::Key(key) => key.to_string(),
-                    })
-                    .collect::<Vec<_>>()
-                    .join("/")
-            );
-
-            match event {
-                yrs::types::Event::Map(map_event) => {
-                    for (key, change) in map_event.keys(tx).iter() {
-                        match change {
-                            EntryChange::Inserted(new_val) => {
+        match event {
+            yrs::types::Event::Map(map_event) => {
+                for (key, change) in map_event.keys(tx).iter() {
+                    match change {
+                        EntryChange::Inserted(new_val) => {
+                            patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                path: format!("{base_path}/{key}"),
+                                valType: None,
+                                value: Some(yrs_out_to_json(new_val)),
+                            });
+                        }
+                        EntryChange::Removed(removed) => {
+                            patches.push(OrmPatch {
+                                op: OrmPatchOp::remove,
+                                path: format!("{base_path}/{key}"),
+                                valType: None,
+                                value: None,
+                            });
+                        }
+                        EntryChange::Updated(old_val, new_val) => {
+                            patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                path: format!("{base_path}/{key}"),
+                                valType: None,
+                                value: Some(yrs_out_to_json(new_val)),
+                            });
+                        }
+                    }
+                }
+            }
+            yrs::types::Event::Array(array_event) => {
+                let mut pos = 0;
+                for delta in array_event.delta(tx).iter() {
+                    match delta {
+                        Change::Added(added) => {
+                            for new_val in added {
                                 patches.push(OrmPatch {
                                     op: OrmPatchOp::add,
-                                    path: format!("{base_path}/{key}"),
-                                    valType: None,
+                                    path: format!("{base_path}/{pos}"),
                                     value: Some(yrs_out_to_json(new_val)),
+                                    valType: None,
                                 });
+                                pos += 1;
                             }
-                            EntryChange::Removed(removed) => {
+                        }
+                        Change::Removed(removed) => {
+                            for _i in pos..(pos + removed) {
                                 patches.push(OrmPatch {
                                     op: OrmPatchOp::remove,
-                                    path: format!("{base_path}/{key}"),
+                                    path: format!("{base_path}/{pos}"),
                                     valType: None,
                                     value: None,
                                 });
                             }
-                            EntryChange::Updated(old_val, new_val) => {
-                                patches.push(OrmPatch {
-                                    op: OrmPatchOp::add,
-                                    path: format!("{base_path}/{key}"),
-                                    valType: None,
-                                    value: Some(yrs_out_to_json(new_val)),
-                                });
-                            }
+                        }
+                        Change::Retain(retain) => {
+                            pos += retain;
                         }
                     }
                 }
-                yrs::types::Event::Array(array_event) => {
-                    let mut pos = 0;
-                    for delta in array_event.delta(tx).iter() {
-                        match delta {
-                            Change::Added(added) => {
-                                for new_val in added {
-                                    patches.push(OrmPatch {
-                                        op: OrmPatchOp::add,
-                                        path: format!("{base_path}/{pos}"),
-                                        value: Some(yrs_out_to_json(new_val)),
-                                        valType: None,
-                                    });
-                                    pos += 1;
-                                }
-                            }
-                            Change::Removed(removed) => {
-                                for _i in pos..(pos + removed) {
-                                    patches.push(OrmPatch {
-                                        op: OrmPatchOp::remove,
-                                        path: format!("{base_path}/{pos}"),
-                                        valType: None,
-                                        value: None,
-                                    });
-                                }
-                            }
-                            Change::Retain(retain) => {
-                                pos += retain;
-                            }
-                        }
-                    }
-                }
-                // TODO: Event::Text ?
-                _other => {
-                    // return VerifierError::YrsError("Expected map or array change".into());
-                }
-            };
-        }
+            }
+            // TODO: Event::Text ?
+            _other => {
+                // return VerifierError::YrsError("Expected map or array change".into());
+            }
+        };
     }
-
-    match patch {
-        DiscretePatch::YMap(bytes) => {
-            let map_ref = doc.get_or_insert_map("ng");
-            let update = yrs::Update::decode_v1(bytes).or(Err(VerifierError::YrsError(
-                "Could not decode_v1 YMap patch".into(),
-            )))?;
-
-            let patches_clone = Rc::clone(&patches);
-            let observation = map_ref.observe_deep(move |tx, ev| {
-                mutation_callback(tx, ev, &patches_clone);
-            });
-            let mut tx = doc.transact_mut();
-
-            // Apply update (triggering the callback that creates the orm patches).
-            tx.apply_update(update);
-
-            drop(observation);
-        }
-        DiscretePatch::YArray(bytes) => {
-            let array_ref = doc.get_or_insert_array("ng");
-            let update = yrs::Update::decode_v1(bytes).or(Err(VerifierError::YrsError(
-                "Could not decode_v1 YArray patch".into(),
-            )))?;
-            let patches_clone = Rc::clone(&patches);
-            let observation = array_ref.observe_deep(move |tx, ev| {
-                mutation_callback(tx, ev, &patches_clone);
-            });
-            let mut tx = doc.transact_mut();
-            tx.apply_update(update);
-
-            drop(observation);
-        }
-        _ => unreachable!(),
-    };
-
-    return Ok(Rc::try_unwrap(patches)
-        .expect("reference count should be 1")
-        .into_inner());
 }

@@ -51,9 +51,9 @@ async fn main() -> std::io::Result<()> {
     println!("Creating the wallet. this will take some time...");
 
     let wallet_result = wallet_create_v0(CreateWalletV0 {
-        security_img,
+        security_img: Some(security_img),
         security_txt: "know yourself".to_string(),
-        pin: [1, 2, 1, 2],
+        pin: Some([1, 2, 1, 2]),
         pazzle_length: 9,
         send_bootstrap: false,
         send_wallet: false,
@@ -65,28 +65,35 @@ async fn main() -> std::io::Result<()> {
         additional_bootstrap: None,
         pdf: false,
         device_name: "test".to_string(),
+        password: None,
+        mnemonic: false,
     })
     .await?;
 
     println!("Your wallet name is : {}", wallet_result.wallet_name);
 
-    let pazzle = display_pazzle(&wallet_result.pazzle);
     let mut pazzle_words = vec![];
-    println!("Your pazzle is: {:?}", wallet_result.pazzle);
-    for emoji in pazzle {
-        println!(
-            "\t{}:\t{}{}",
-            emoji.0,
-            if emoji.0.len() > 12 { "" } else { "\t" },
-            emoji.1
-        );
-        pazzle_words.push(emoji.1.to_string());
+    if let Some(pazzle) = &wallet_result.pazzle {
+        let pazzle = display_pazzle(pazzle);
+
+        println!("Your pazzle is: {:?}", wallet_result.pazzle);
+        for emoji in pazzle {
+            println!(
+                "\t{}:\t{}{}",
+                emoji.0,
+                if emoji.0.len() > 12 { "" } else { "\t" },
+                emoji.1
+            );
+            pazzle_words.push(emoji.1.to_string());
+        }
     }
-    println!("Your mnemonic is:");
-    display_mnemonic(&wallet_result.mnemonic)
-        .iter()
-        .for_each(|word| print!("{} ", word.as_str()));
-    println!("");
+    if let Some(mnemonic) = wallet_result.mnemonic {
+        println!("Your mnemonic is:");
+        display_mnemonic(&mnemonic)
+            .iter()
+            .for_each(|word| print!("{} ", word.as_str()));
+        println!("");
+    }
 
     // A session has been opened for you and you can directly use it without the need to call [wallet_was_opened] nor [session_start].
     let user_id = wallet_result.personal_identity();

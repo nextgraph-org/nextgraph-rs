@@ -825,7 +825,7 @@ impl AppRequest {
         })
     }
 
-    pub fn new_orm_start(
+    pub fn new_orm_start_graph(
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,

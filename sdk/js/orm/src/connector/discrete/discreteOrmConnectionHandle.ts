@@ -69,7 +69,7 @@ export class DiscreteOrmConnection {
 
         ngSession.then(async ({ ng, session }) => {
             try {
-                this.closeOrmConnection = await ng.discrete_orm_start(
+                this.closeOrmConnection = await ng.orm_start_discrete(
                     documentId,
                     session.session_id,
                     this.onBackendMessage

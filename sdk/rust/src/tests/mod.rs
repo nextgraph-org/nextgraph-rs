@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use ng_repo::log::*;
 
-use crate::local_broker::{doc_create, doc_sparql_update, graph_orm_start, orm_start_discrete};
+use crate::local_broker::{doc_create, doc_sparql_update, orm_start_discrete, orm_start_graph};
 
 #[doc(hidden)]
 pub mod orm_creation;
@@ -108,9 +108,9 @@ async fn create_orm_connection(
         .iter()
         .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
         .collect();
-    let (mut receiver, cancel_fn) = graph_orm_start(nuris, subjects, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id)
         .await
-        .expect("graph_orm_start failed");
+        .expect("orm_start_graph failed");
 
     // Get initial state with timeout
     let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
@@ -171,7 +171,7 @@ async fn create_ymap_doc(session_id: u64) -> (u64, UnboundedReceiver<AppResponse
 
     let (mut receiver, _cancel_fn) = orm_start_discrete(nuri.clone(), session_id)
         .await
-        .expect("graph_orm_start failed");
+        .expect("orm_start_graph failed");
 
     let (_initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
         AppResponseV0::DiscreteOrmInitial(sub, val) => Some((sub, val)),
@@ -188,7 +188,7 @@ async fn create_discrete_subscription(
 ) -> (Value, UnboundedReceiver<AppResponse>, u64) {
     let (mut receiver, _cancel_fn) = orm_start_discrete(nuri.clone(), session_id)
         .await
-        .expect("graph_orm_start failed");
+        .expect("orm_start_graph failed");
 
     let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
         AppResponseV0::DiscreteOrmInitial(sub, val) => Some((sub, val)),

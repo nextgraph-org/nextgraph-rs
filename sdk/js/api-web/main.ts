@@ -100,7 +100,7 @@ export const worker_ready = new Promise<void>((resolve) => {
 //TODO: add all the streamed functions
 const streamed_api: Record<string, number> = {
     doc_subscribe: 2,
-    orm_start: 4,
+    orm_start_graph: 4,
     orm_start_discrete: 2,
     file_get: 3,
     app_request_stream: 1,

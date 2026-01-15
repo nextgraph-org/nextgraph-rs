@@ -65,6 +65,7 @@ use ng_net::{
 };
 
 use crate::commits::*;
+use crate::orm::types::BackendDiscreteState;
 use crate::orm::types::DiscreteOrmSubscription;
 use crate::orm::types::OrmSubscription;
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
@@ -115,7 +116,8 @@ pub struct Verifier {
     pub(crate) orm_subscriptions: HashMap<u64, OrmSubscription>, // subscription id > subscription
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
     pub(crate) orm_subscription_counter: u64,
-    pub(crate) discrete_orm_subscriptions: HashMap<u64, DiscreteOrmSubscription>, // subscription id > subscription
+    pub(crate) discrete_orm_subscriptions: HashMap<u64, DiscreteOrmSubscription>, // subscription id > Subscription
+    pub(crate) discrete_orm_states: HashMap<BranchId, BackendDiscreteState>, // branch_id > BackendDiscreteState
     pub(crate) discrete_orm_subscription_counter: u64,
 }
 
@@ -526,6 +528,7 @@ impl Verifier {
             orm_subscription_counter: 1,
             discrete_orm_subscription_counter: 1,
             discrete_orm_subscriptions: HashMap::new(),
+            discrete_orm_states: HashMap::new(),
         }
     }
 
@@ -2825,6 +2828,7 @@ impl Verifier {
             orm_subscription_counter: 1,
             discrete_orm_subscription_counter: 1,
             discrete_orm_subscriptions: HashMap::new(),
+            discrete_orm_states: HashMap::new(),
         };
         // this is important as it will load the last seq from storage
         if verif.config.config_type.should_load_last_seq_num() {

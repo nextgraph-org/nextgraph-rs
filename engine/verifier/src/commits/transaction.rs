@@ -169,58 +169,83 @@ impl Verifier {
             .map_err(|e| VerifierError::OxigraphError(e.to_string()))
     }
 
-    pub(crate) async fn update_discrete(
+    pub(crate) async fn process_discrete(
         &mut self,
         patch: DiscreteTransaction,
         crdt: &BranchCrdt,
         branch_id: &BranchId,
         commit_id: ObjectId,
         commit_info: CommitInfoJs,
-        subscription_id: u64,
+        from_orm: Option<Vec<u8>>,
     ) -> Result<(), VerifierError> {
-        let new_state = if let Ok(state) = self
-            .user_storage
-            .as_ref()
-            .unwrap()
-            .branch_get_discrete_state(branch_id)
-        {
-            match crdt {
-                BranchCrdt::Automerge(_) => {
-                    let mut doc = automerge::Automerge::load(&state)
-                        .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
-                    let _ = doc
-                        .load_incremental(patch.as_slice())
-                        .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
-                    doc.save()
-                }
-                BranchCrdt::YArray(_)
-                | BranchCrdt::YMap(_)
-                | BranchCrdt::YText(_)
-                | BranchCrdt::YXml(_) => {
-                    let doc = yrs::Doc::new();
-                    {
-                        let mut txn = doc.transact_mut();
-                        let update = yrs::Update::decode_v1(&state)
-                            .map_err(|e| VerifierError::YrsError(e.to_string()))?;
-                        txn.apply_update(update);
-                        let update = yrs::Update::decode_v1(patch.as_slice())
-                            .map_err(|e| VerifierError::YrsError(e.to_string()))?;
-                        txn.apply_update(update);
-                        txn.commit();
-                    }
-                    let empty_state_vector = yrs::StateVector::default();
-                    let transac = doc.transact();
-                    transac.encode_state_as_update_v1(&empty_state_vector)
-                }
-                _ => return Err(VerifierError::InvalidBranch),
-            }
+        let new_state = if let Some(full_state) = from_orm {
+            full_state
         } else {
-            patch.to_vec()
+            // check if we have some ORM subscriber
+            let has_orm = self
+                .discrete_orm_subscriptions
+                .iter()
+                .any(|(_, sub)| sub.branch_id == *branch_id && !sub.sender.is_closed());
+
+            if has_orm {
+                let (full_state, resulting_orm_patches) =
+                    self.apply_discrete_transaction_gen_orm_patches(branch_id, &patch)?;
+
+                self.push_orm_discrete_update(resulting_orm_patches, 0, branch_id)
+                    .await?;
+
+                full_state
+            } else {
+                if let Ok(state) = self
+                    .user_storage
+                    .as_ref()
+                    .unwrap()
+                    .branch_get_discrete_state(branch_id)
+                {
+                    match crdt {
+                        BranchCrdt::Automerge(_) => {
+                            let mut doc = automerge::Automerge::load(&state)
+                                .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
+                            let _ = doc
+                                .load_incremental(patch.as_slice())
+                                .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
+                            doc.save()
+                        }
+                        BranchCrdt::YArray(_)
+                        | BranchCrdt::YMap(_)
+                        | BranchCrdt::YText(_)
+                        | BranchCrdt::YXml(_) => {
+                            let doc = yrs::Doc::new();
+                            {
+                                let mut txn = doc.transact_mut();
+                                let update = yrs::Update::decode_v1(&state)
+                                    .map_err(|e| VerifierError::YrsError(e.to_string()))?;
+                                txn.apply_update(update);
+                                let update = yrs::Update::decode_v1(patch.as_slice())
+                                    .map_err(|e| VerifierError::YrsError(e.to_string()))?;
+                                txn.apply_update(update);
+                                txn.commit();
+                            }
+                            let empty_state_vector = yrs::StateVector::default();
+                            let transac = doc.transact();
+                            transac.encode_state_as_update_v1(&empty_state_vector)
+                        }
+                        _ => return Err(VerifierError::InvalidBranch),
+                    }
+                } else {
+                    patch.to_vec()
+                }
+            }
         };
+
+        // SAVING NEW STATE
+
         self.user_storage
             .as_ref()
             .unwrap()
             .branch_set_discrete_state(*branch_id, new_state)?;
+
+        // PUSH BINARY UPDATE TO SUBSCRIBERS
 
         let patch = match (crdt, patch) {
             (BranchCrdt::Automerge(_), DiscreteTransaction::Automerge(v)) => {
@@ -235,8 +260,6 @@ impl Verifier {
                 return Err(VerifierError::InvalidCommit);
             }
         };
-        self.push_orm_discrete_update(&patch, subscription_id, branch_id)
-            .await;
 
         self.push_app_response(
             branch_id,
@@ -306,7 +329,7 @@ impl Verifier {
         if body.discrete.is_some() {
             let patch = body.discrete.unwrap();
             let crdt = &repo.branch(branch_id)?.crdt.clone();
-            self.update_discrete(patch, &crdt, branch_id, commit_id, commit_info, 0)
+            self.process_discrete(patch, &crdt, branch_id, commit_id, commit_info, None)
                 .await?;
         }
 

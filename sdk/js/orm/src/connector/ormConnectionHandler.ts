@@ -100,7 +100,7 @@ export class OrmConnection<T extends BaseType> {
 
         ngSession.then(async ({ ng, session }) => {
             try {
-                this.closeOrmConnection = await ng.graph_orm_start(
+                this.closeOrmConnection = await ng.orm_start_graph(
                     scope.graphs ?? ["did:ng:i"],
                     scope.subjects ?? [],
                     shapeType,
