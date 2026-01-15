@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_net::orm::{OrmPatch, OrmPatchOp};
-use ng_repo::{log_debug, log_info};
+use ng_repo::log::*;
 use serde_json::{json, Value};
 
 use crate::{
@@ -111,7 +111,7 @@ async fn test_y_map(session_id: u64) {
             op: OrmPatchOp::add,
             path: format!("/someArray/3"),
             valType: None,
-            value: Some(json!({stringInArrayInObject: "in object in array"})), // Object in array
+            value: Some(json!({"stringInArrayInObject": "in object in array"})), // Object in array
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -191,7 +191,7 @@ async fn test_y_map(session_id: u64) {
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
     assert_json_eq(&mut expected_json, &mut got_json);
 
-    let (initial_value_3, mut receiver_3, subscription_id_3) =
+    let (mut initial_value_3, mut receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(
@@ -240,7 +240,7 @@ async fn test_y_map(session_id: u64) {
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
     assert_json_eq(&mut expected_json, &mut got_json);
 
-    let (initial_value_4, mut receiver_4, subscription_id_4) =
+    let (mut initial_value_4, mut receiver_4, subscription_id_4) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(&mut json!({}), &mut initial_value_4);
@@ -295,7 +295,7 @@ async fn test_y_array(session_id: u64) {
             op: OrmPatchOp::add,
             path: format!("/5"),
             valType: None,
-            value: Some(json!({someString: "some string"})),
+            value: Some(json!({"someString": "some string"})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -345,11 +345,11 @@ async fn test_y_array(session_id: u64) {
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
     assert_json_eq(&mut expected_json, &mut got_json);
 
-    let (initial_value_3, mut receiver_3, subscription_id_3) =
+    let (mut initial_value_3, mut receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(
-        &mut json!([0,1.0,2,3,"4", {someString: "some string", someNumber: 42}, [6], false, Value::Null]),
+        &mut json!([0,1.0,2,3,"4", {"someString": "some string", "someNumber": 42}, [6], false, Value::Null]),
         &mut initial_value_3,
     );
 
@@ -372,7 +372,7 @@ async fn test_y_array(session_id: u64) {
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
     assert_json_eq(&mut expected_json, &mut got_json);
 
-    let (initial_value_4, mut receiver_4, subscription_id_4) =
+    let (mut initial_value_4, mut receiver_4, subscription_id_4) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(&mut json!([]), &mut initial_value_4);
@@ -410,10 +410,13 @@ async fn test_y_map_wrong_assignment(session_id: u64) {
 
     assert!(update_res.is_err());
 
-    let (initial_value_2, mut receiver_3, subscription_id_3) =
+    let (mut initial_value_2, mut receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
-    assert_json_eq(&mut json!({someValue: "some value"}), &mut initial_value_2);
+    assert_json_eq(
+        &mut json!({"someValue": "some value"}),
+        &mut initial_value_2,
+    );
 }
 
 async fn test_y_array_wrong_assignment(session_id: u64) {
@@ -448,7 +451,7 @@ async fn test_y_array_wrong_assignment(session_id: u64) {
 
     assert!(update_res.is_err());
 
-    let (initial_value_2, mut receiver_3, subscription_id_3) =
+    let (mut initial_value_2, mut receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
     // Object should be as before

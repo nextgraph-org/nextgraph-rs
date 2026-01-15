@@ -167,22 +167,28 @@ impl Verifier {
                 backend_state;
 
             let is_array = matches!(backend_state, BackendDiscreteState::YArray(_));
-            let mut tx = doc.transact_mut();
-            let resulting_orm_patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
 
-            let observation = if is_array {
+            let resulting_orm_patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
+            let (observation, root) = if is_array {
                 let array_ref = doc.get_or_insert_array("ng");
                 let patches_clone = Rc::clone(&resulting_orm_patches);
-                array_ref.observe_deep(move |tx, ev| {
-                    yrs_mutation_callback(tx, ev, &patches_clone);
-                })
+                (
+                    array_ref.observe_deep(move |tx, ev| {
+                        yrs_mutation_callback(tx, ev, &patches_clone);
+                    }),
+                    YrsTarget::Array(array_ref),
+                )
             } else {
                 let map_ref = doc.get_or_insert_map("ng");
                 let patches_clone = Rc::clone(&resulting_orm_patches);
-                map_ref.observe_deep(move |tx, ev| {
-                    yrs_mutation_callback(tx, ev, &patches_clone);
-                })
+                (
+                    map_ref.observe_deep(move |tx, ev| {
+                        yrs_mutation_callback(tx, ev, &patches_clone);
+                    }),
+                    YrsTarget::Map(map_ref),
+                )
             };
+            let mut tx = doc.transact_mut();
 
             for patch in patches {
                 let parsed_path: Vec<String> = patch
@@ -202,10 +208,10 @@ impl Verifier {
                     };
 
                     // Navigate to parent and insert/update the final key
-                    apply_yrs_add_patch(&mut tx, doc, &parsed_path, value, is_array)?;
+                    apply_yrs_add_patch(&mut tx, &parsed_path, value, is_array, &root)?;
                 } else {
                     // patch.op == OrmPatchOp::remove
-                    apply_yrs_remove_patch(&mut tx, doc, &parsed_path, is_array)?;
+                    apply_yrs_remove_patch(&mut tx, &parsed_path, is_array, &root)?;
                 }
             }
 
@@ -292,9 +298,7 @@ impl Verifier {
         let (BackendDiscreteState::YMap(doc) | BackendDiscreteState::YArray(doc)) = backend_state;
 
         let is_array = matches!(backend_state, BackendDiscreteState::YArray(_));
-        let mut tx = doc.transact_mut();
         let resulting_orm_patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
-
         let observation = if is_array {
             let array_ref = doc.get_or_insert_array("ng");
             let patches_clone = Rc::clone(&resulting_orm_patches);
@@ -308,7 +312,7 @@ impl Verifier {
                 yrs_mutation_callback(tx, ev, &patches_clone);
             })
         };
-
+        let mut tx = doc.transact_mut();
         let update = yrs::Update::decode_v1(patch.as_slice())
             .map_err(|e| VerifierError::YrsError(e.to_string()))?;
         tx.apply_update(update);
@@ -365,10 +369,19 @@ enum YrsTarget {
     Array(yrs::ArrayRef),
 }
 
+impl Clone for YrsTarget {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Map(m) => Self::Map(m.clone()),
+            Self::Array(m) => Self::Array(m.clone()),
+        }
+    }
+}
+
 /// Navigates to the parent container at the given path and returns it along with the final key.
 fn navigate_to_parent_from_target(
     txn: &mut yrs::TransactionMut,
-    root: YrsTarget,
+    root: &YrsTarget,
     path: &[String],
 ) -> Result<(YrsTarget, String), VerifierError> {
     if path.is_empty() {
@@ -380,13 +393,13 @@ fn navigate_to_parent_from_target(
 
     if parent_path.is_empty() {
         // The parent is the root.
-        return Ok((root, final_key));
+        return Ok((root.clone(), final_key));
     }
 
     // Navigate through the path to find the parent container.
     let mut current: Out = match root {
-        YrsTarget::Map(m) => Out::YMap(m),
-        YrsTarget::Array(a) => Out::YArray(a),
+        YrsTarget::Map(m) => Out::YMap(m.clone()),
+        YrsTarget::Array(a) => Out::YArray(a.clone()),
     };
 
     for (i, segment) in parent_path.iter().enumerate() {
@@ -439,10 +452,10 @@ fn navigate_to_parent_from_target(
 /// Applies an add/replace patch to the YRS document.
 fn apply_yrs_add_patch(
     txn: &mut yrs::TransactionMut,
-    doc: &yrs::Doc,
     path: &[String],
     value: Any,
     is_array: bool,
+    root: &YrsTarget,
 ) -> Result<(), VerifierError> {
     // Handle empty path - replace at root level
     if path.is_empty() {
@@ -453,14 +466,17 @@ fn apply_yrs_add_patch(
                 ));
             }
 
-            let arr = doc.get_or_insert_array("ng");
-            // Clear existing content.
-            let len = arr.len(txn);
-            if len > 0 {
-                arr.remove_range(txn, 0, len);
-            }
-            if let Any::Array(items) = value {
-                arr.insert_range(txn, 0, items.iter().cloned());
+            if let YrsTarget::Array(arr) = root {
+                // Clear existing content.
+                let len = arr.len(txn);
+                if len > 0 {
+                    arr.remove_range(txn, 0, len);
+                }
+                if let Any::Array(items) = value {
+                    arr.insert_range(txn, 0, items.iter().cloned());
+                }
+            } else {
+                return Err(VerifierError::YrsError("root is not an array".into()));
             }
         } else {
             if !matches!(value, Any::Map(_)) {
@@ -470,26 +486,24 @@ fn apply_yrs_add_patch(
             }
 
             // Clear all items...
-            let map = doc.get_or_insert_map("ng");
-            map.clear(txn);
-            // ...and insert new ones.
-            if let Any::Map(entries) = value {
-                for (k, v) in entries.iter() {
-                    map.insert(txn, k.clone(), v.clone());
+            if let YrsTarget::Map(map) = root {
+                map.clear(txn);
+                // ...and insert new ones.
+                if let Any::Map(entries) = value {
+                    for (k, v) in entries.iter() {
+                        map.insert(txn, k.clone(), v.clone());
+                    }
                 }
+            } else {
+                return Err(VerifierError::YrsError("root is not a map".into()));
             }
         }
         return Ok(());
     }
 
     // Get the root container
-    let root_ref = if is_array {
-        YrsTarget::Array(doc.get_or_insert_array("ng"))
-    } else {
-        YrsTarget::Map(doc.get_or_insert_map("ng"))
-    };
 
-    let (parent, key) = navigate_to_parent_from_target(txn, root_ref, path)?;
+    let (parent, key) = navigate_to_parent_from_target(txn, root, path)?;
 
     match parent {
         YrsTarget::Map(map) => {
@@ -523,33 +537,32 @@ fn apply_yrs_add_patch(
 /// Applies a remove patch to the YRS document.
 fn apply_yrs_remove_patch(
     txn: &mut yrs::TransactionMut,
-    doc: &yrs::Doc,
     path: &[String],
     is_array: bool,
+    root: &YrsTarget,
 ) -> Result<(), VerifierError> {
     // Handle empty path - clear the root
     if path.is_empty() {
         if is_array {
-            let arr = doc.get_or_insert_array("ng");
-            let len = arr.len(txn);
-            if len > 0 {
-                arr.remove_range(txn, 0, len);
+            if let YrsTarget::Array(arr) = root {
+                let len = arr.len(txn);
+                if len > 0 {
+                    arr.remove_range(txn, 0, len);
+                }
+            } else {
+                return Err(VerifierError::YrsError("root is not an array".into()));
             }
         } else {
-            let map = doc.get_or_insert_map("ng");
-            map.clear(txn);
+            if let YrsTarget::Map(map) = root {
+                map.clear(txn);
+            } else {
+                return Err(VerifierError::YrsError("root is not a map".into()));
+            }
         }
         return Ok(());
     }
 
-    // Get the root container
-    let root_ref = if is_array {
-        YrsTarget::Array(doc.get_or_insert_array("ng"))
-    } else {
-        YrsTarget::Map(doc.get_or_insert_map("ng"))
-    };
-
-    let (parent, key) = navigate_to_parent_from_target(txn, root_ref, path)?;
+    let (parent, key) = navigate_to_parent_from_target(txn, root, path)?;
 
     match parent {
         YrsTarget::Map(map) => {
@@ -576,13 +589,13 @@ fn apply_yrs_remove_patch(
 fn convert_discrete_state_to_orm_object(discrete_state: &BackendDiscreteState) -> Value {
     match discrete_state {
         BackendDiscreteState::YArray(doc) => {
-            let txn = doc.transact();
             let root = doc.get_or_insert_array("ng");
+            let txn = doc.transact();
             json!(root.to_json(&txn))
         }
         BackendDiscreteState::YMap(doc) => {
-            let txn = doc.transact();
             let root = doc.get_or_insert_map("ng");
+            let txn = doc.transact();
             json!(root.to_json(&txn))
         }
     }
@@ -594,13 +607,12 @@ fn convert_discrete_blob_to_orm_object(
     match discrete_state {
         DiscreteState::YMap(bytes) => {
             let doc = yrs::Doc::new();
-
+            let root = doc.get_or_insert_map("ng");
             let update = yrs::Update::decode_v1(&bytes)
                 .map_err(|e| VerifierError::YrsError(e.to_string()))?;
             let mut txn = doc.transact_mut();
             txn.apply_update(update);
 
-            let root = doc.get_or_insert_map("ng");
             let root_json = json!(root.to_json(&txn));
             drop(txn);
 
@@ -608,13 +620,12 @@ fn convert_discrete_blob_to_orm_object(
         }
         DiscreteState::YArray(bytes) => {
             let doc = yrs::Doc::new();
-
+            let root = doc.get_or_insert_array("ng");
             let update = yrs::Update::decode_v1(&bytes)
                 .map_err(|e| VerifierError::YrsError(e.to_string()))?;
             let mut tx = doc.transact_mut();
             tx.apply_update(update);
 
-            let root = doc.get_or_insert_array("ng");
             let root_json = json!(root.to_json(&tx));
             drop(tx);
 

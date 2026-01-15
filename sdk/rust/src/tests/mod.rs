@@ -174,7 +174,7 @@ async fn create_discrete_doc(
 
     let (mut receiver, _cancel_fn) = orm_start_discrete(nuri.clone(), session_id)
         .await
-        .expect("orm_start_graph failed");
+        .expect("orm_start_discrete failed");
 
     let (_initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
         AppResponseV0::DiscreteOrmInitial(sub, val) => Some((sub, val)),
@@ -191,7 +191,7 @@ async fn create_discrete_subscription(
 ) -> (Value, UnboundedReceiver<AppResponse>, u64) {
     let (mut receiver, _cancel_fn) = orm_start_discrete(nuri.clone(), session_id)
         .await
-        .expect("orm_start_graph failed");
+        .expect("orm_start_discrete failed");
 
     let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
         AppResponseV0::DiscreteOrmInitial(sub, val) => Some((sub, val)),
