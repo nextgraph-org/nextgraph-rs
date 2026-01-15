@@ -604,7 +604,7 @@ export class WSClient {
 	private sendToolResults(sessionId: string, results: ToolResult[]): void {
 		this.log('info', `Sending tool results for session ${sessionId}: ${results.length} results`);
 
-		console.log(`[ws-client] Sending tool results: ${JSON.stringify(results)}`);
+		//console.log(`[ws-client] Sending tool results: ${JSON.stringify(results)}`);
 		const message: ClientInboundMessage = {
 			type: 'client/tool_result',
 			sessionId,
