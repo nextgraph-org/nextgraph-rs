@@ -23,11 +23,11 @@ use crate::local_broker::{doc_create, doc_sparql_update, graph_orm_start, orm_st
 #[doc(hidden)]
 pub mod orm_creation;
 
-#[doc(hidden)]
-pub mod discrete_orm;
 pub mod orm_apply_patches;
 #[doc(hidden)]
 pub mod orm_create_patches;
+#[doc(hidden)]
+pub mod orm_discrete_patches;
 
 #[doc(hidden)]
 pub mod create_or_open_wallet;

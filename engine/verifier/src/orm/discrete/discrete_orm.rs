@@ -14,7 +14,6 @@ use std::rc::Rc;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use ng_net::orm::{OrmPatchOp, OrmPatches};
-use ng_net::types;
 use ng_net::utils::Receiver;
 use ng_net::{app_protocol::*, orm::OrmPatch};
 use ng_repo::errors::{StorageError, VerifierError};
@@ -76,7 +75,6 @@ impl Verifier {
             Err(e) => return Err(e.into()),
         };
 
-        // do your magic here, depending on state.
         let orm_object = if let Some(discrete_state) = state {
             let (value, crdt_details) = convert_discrete_blob_to_orm_object(discrete_state)?;
             orm_subscription.crdt_details = crdt_details;
@@ -629,30 +627,33 @@ fn convert_and_apply_discrete_blob_patches_yrs(
         DiscretePatch::YMap(bytes) => {
             let map_ref = doc.get_or_insert_map("ng");
             let update = yrs::Update::decode_v1(bytes).or(Err(VerifierError::YrsError(
-                "Could not decode_v1 YRS patch".into(),
+                "Could not decode_v1 YMap patch".into(),
             )))?;
 
             let patches_clone = Rc::clone(&patches);
-            let observation_key = map_ref.observe_deep(move |tx, ev| {
+            let observation = map_ref.observe_deep(move |tx, ev| {
                 mutation_callback(tx, ev, &patches_clone);
             });
             let mut tx = doc.transact_mut();
 
             // Apply update (triggering the callback that creates the orm patches).
             tx.apply_update(update);
-            map_ref.unobserve_deep(observation_key);
+
+            drop(observation);
         }
         DiscretePatch::YArray(bytes) => {
             let array_ref = doc.get_or_insert_array("ng");
             let update = yrs::Update::decode_v1(bytes).or(Err(VerifierError::YrsError(
-                "Could not decode_v1 YRS patch".into(),
+                "Could not decode_v1 YArray patch".into(),
             )))?;
             let patches_clone = Rc::clone(&patches);
-            array_ref.observe_deep(move |tx, ev| {
+            let observation = array_ref.observe_deep(move |tx, ev| {
                 mutation_callback(tx, ev, &patches_clone);
             });
             let mut tx = doc.transact_mut();
             tx.apply_update(update);
+
+            drop(observation);
         }
         _ => unreachable!(),
     };

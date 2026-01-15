@@ -585,7 +585,7 @@ async fn new_graph_orm_start(
         graph_nuris
     };
 
-    let mut req = AppRequest::new_graph_orm_start(graph_nuris, subject_scope, shape_type);
+    let mut req = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
     req.set_session_id(session_id);
     Ok(req)
 }

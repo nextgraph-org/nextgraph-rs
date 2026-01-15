@@ -1956,13 +1956,13 @@ pub async fn orm_start(
         graph_nuris
     };
 
-    let mut request = AppRequest::new_graph_orm_start(graph_nuris, subject_scope, shape_type);
+    let mut request = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }
 
 #[wasm_bindgen]
-pub async fn graph_orm_update(
+pub async fn orm_update(
     subscription_id: JsValue,
     diff: JsValue,
     session_id: JsValue,
@@ -1977,12 +1977,14 @@ pub async fn graph_orm_update(
     let session_id: u64 =
         serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
             format!(
-                "Deserialization error of session_id {:?} graph_orm_start"
+                "Deserialization error of session_id {:?} graph_orm_start",
+                session_id
+            )
         })?;
     let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
 
-    let mut request = AppRequest::new_graph_orm_update(subscription_id, diff);
+    let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
 
     let response = nextgraph::local_broker::app_request(request)
