@@ -224,7 +224,7 @@ export const NetworkGraph = ({ backgroundColor = '#F7F3EA', contacts }: NetworkG
         alignItems: 'center',
         justifyContent: 'center',
         m: 0,
-        p: 1,
+        p: 0,
       }}
     >
 
