@@ -30,7 +30,7 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
       "@graph": "",
       "@id": "",
       source: "user",
-      valueIRI: getTagValueIri(tag)
+      valueIRI: getTagValueIri(tag)!
     }
 
     contact.tag ??= new Set<Tag>();

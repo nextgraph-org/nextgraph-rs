@@ -2784,7 +2784,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#humaneTech"],
+            literals: ["did:ng:k:contact:tag#humane-tech"],
           },
           {
             valType: "iri",
@@ -2828,7 +2828,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#socialImpact"],
+            literals: ["did:ng:k:contact:tag#social-impact"],
           },
           {
             valType: "iri",
@@ -2848,7 +2848,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#digitalCredentials"],
+            literals: ["did:ng:k:contact:tag#digital-credentials"],
           },
           {
             valType: "iri",
@@ -2884,11 +2884,11 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#ventureCapital"],
+            literals: ["did:ng:k:contact:tag#venture-capital"],
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#deepTech"],
+            literals: ["did:ng:k:contact:tag#deep-tech"],
           },
           {
             valType: "iri",
@@ -2920,7 +2920,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#careerDevelopment"],
+            literals: ["did:ng:k:contact:tag#career-development"],
           },
           {
             valType: "iri",
@@ -5777,7 +5777,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#humaneTech"],
+            literals: ["did:ng:k:contact:tag#humane-tech"],
           },
           {
             valType: "iri",
@@ -5821,7 +5821,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#socialImpact"],
+            literals: ["did:ng:k:contact:tag#social-impact"],
           },
           {
             valType: "iri",
@@ -5841,7 +5841,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#digitalCredentials"],
+            literals: ["did:ng:k:contact:tag#digital-credentials"],
           },
           {
             valType: "iri",
@@ -5877,11 +5877,11 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#ventureCapital"],
+            literals: ["did:ng:k:contact:tag#venture-capital"],
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#deepTech"],
+            literals: ["did:ng:k:contact:tag#deep-tech"],
           },
           {
             valType: "iri",
@@ -5913,7 +5913,7 @@ export const contactSchema: Schema = {
           },
           {
             valType: "iri",
-            literals: ["did:ng:k:contact:tag#careerDevelopment"],
+            literals: ["did:ng:k:contact:tag#career-development"],
           },
           {
             valType: "iri",

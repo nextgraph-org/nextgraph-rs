@@ -40,47 +40,19 @@ export class DictMapper<
   }
 
   /**
-   * Append prefix to a dictionary value with validation
+   * Get the prefix for a specific property
    * @param property - The parent property name (e.g., "phoneNumber", "email")
    * @param subProperty - The nested property name (e.g., "type", "valueIRI")
-   * @param value - The value to append the prefix to
    */
-  appendPrefixToDictValue<
+  getPrefix<
     P extends keyof DictMap,
     SP extends DictMap[P]
   >(
     property: P,
-    subProperty: SP,
-    value?: string | null
-  ): DictValue<P, SP> | undefined {
-    if (!value) {
-      return;
-    }
-
+    subProperty: SP
+  ): string {
     const dictKey = `${String(property)}.${String(subProperty)}`;
-    const prefix = this.prefixes[dictKey as keyof DictPrefixes];
-
-    if (!prefix) {
-      return value as DictValue<P, SP>;
-    }
-
-    const dictionary = this.getDictValues(property, subProperty);
-    if (!dictionary || !dictionary.includes(value)) {
-      console.log("Unknown value: " + value, " dictionary: " + dictKey);
-      value = "other";
-    }
-
-    return (prefix + value) as DictValue<P, SP>;
-  }
-
-  /**
-   * Remove prefix from a dictionary value
-   */
-  removePrefix(value?: string): string {
-    if (!value) {
-      return "";
-    }
-    return value.split("#")[1] ?? "";
+    return this.prefixes[dictKey as keyof DictPrefixes] || "";
   }
 
   /**
@@ -102,18 +74,43 @@ export class DictMapper<
   }
 
   /**
-   * Get the prefix for a specific property
+   * Append prefix to a dictionary value with validation
    * @param property - The parent property name (e.g., "phoneNumber", "email")
    * @param subProperty - The nested property name (e.g., "type", "valueIRI")
+   * @param value - The value to append the prefix to
    */
-  getPrefix<
+  appendPrefixToDictValue<
     P extends keyof DictMap,
     SP extends DictMap[P]
   >(
     property: P,
-    subProperty: SP
-  ): string {
-    const dictKey = `${String(property)}.${String(subProperty)}`;
-    return this.prefixes[dictKey as keyof DictPrefixes] || "";
+    subProperty: SP,
+    value?: string | null
+  ): DictValue<P, SP> | undefined {
+    if (!value) {
+      return;
+    }
+
+    const prefix = this.getPrefix(property, subProperty);
+    if (!prefix) {
+      return;
+    }
+
+    if (!this.isValidValue(property, subProperty, value)) {
+      console.log("Unknown value: " + value, " property: " + `${String(property)}.${String(subProperty)}`);
+      value = "other";
+    }
+
+    return (prefix + value) as DictValue<P, SP>;
+  }
+
+  /**
+   * Remove prefix from a dictionary value
+   */
+  removePrefix(value?: string): string {
+    if (!value) {
+      return "";
+    }
+    return value.split("#")[1] ?? "";
   }
 }

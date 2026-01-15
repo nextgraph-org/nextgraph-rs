@@ -1,6 +1,6 @@
 import {useShape} from "@ng-org/orm/react";
 import {SocialGroupShapeType} from "@/.orm/shapes/group.shapeTypes.ts";
-import {useCallback, useMemo} from "react";
+import {useCallback} from "react";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {useNextGraphAuth} from "@/lib/nextgraph.ts";
 import {NextGraphAuth} from "@/types/nextgraph.ts";
@@ -22,11 +22,7 @@ export const useGroupData = (nuri: string | null | undefined) => {
   const {ormContact} = useContactOrm(undefined, true);
 
 
-  const isAdmin = useMemo(() => {
-    if (ormContact && ormContact['@id'])
-      return Boolean([...group?.hasMember ?? []].find((el => el.contactId === ormContact['@id'] && el.isAdmin)));
-    return false;
-  }, [group?.hasMember, ormContact]);
+  const isAdmin = ormContact && ormContact['@id'] && Boolean([...group?.hasMember ?? []].find((el => el.contactId === ormContact['@id'] && el.isAdmin)));
 
   const addMembers = useCallback(async (contactsNuris: string[]) => {
     if (contactsNuris.length === 0 || !group) return;
