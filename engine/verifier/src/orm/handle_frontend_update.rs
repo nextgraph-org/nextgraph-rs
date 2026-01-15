@@ -22,9 +22,32 @@ use serde_json::json;
 use crate::orm::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::types::*;
 use crate::orm::utils::{decode_json_pointer, json_to_sparql_val};
+use crate::types::DiscreteTransaction;
 use crate::verifier::*;
 
 impl Verifier {
+    /// Handles discrete updates coming from JS-land (JSON patches).
+    pub(crate) async fn orm_frontend_discrete_update(
+        &mut self,
+        subscription_id: u64,
+        patches: OrmPatches,
+    ) -> Result<(), String> {
+        let nuri =
+            if let Some(orm_subscription) = self.discrete_orm_subscriptions.get(&subscription_id) {
+                &orm_subscription.nuri.clone()
+            } else {
+                return Err("invalid subscription_id".to_string());
+            };
+
+        let blob_from_yrs_lib = vec![];
+        let transaction = DiscreteTransaction::YMap(blob_from_yrs_lib);
+
+        self.process_discrete_transaction(transaction, &nuri, subscription_id)
+            .await;
+
+        Ok(())
+    }
+
     /// Handles updates coming from JS-land (JSON patches).
     pub(crate) async fn orm_frontend_update(
         &mut self,

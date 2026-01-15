@@ -66,6 +66,7 @@ use ng_net::{
 };
 
 use crate::commits::*;
+use crate::orm::types::DiscreteOrmSubscription;
 use crate::orm::types::OrmSubscription;
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
@@ -115,6 +116,8 @@ pub struct Verifier {
     pub(crate) orm_subscriptions: HashMap<u64, OrmSubscription>, // subscription id > subscription
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
     pub(crate) orm_subscription_counter: u64,
+    pub(crate) discrete_orm_subscriptions: HashMap<u64, DiscreteOrmSubscription>, // subscription id > subscription
+    pub(crate) discrete_orm_subscription_counter: u64,
 }
 
 impl fmt::Debug for Verifier {
@@ -261,6 +264,28 @@ impl Verifier {
         }
     }
 
+    pub(crate) async fn push_orm_discrete_update(
+        &mut self,
+        patch: &DiscretePatch,
+        subscription_id: u64,
+        branch_id: &BranchId,
+    ) {
+        // TODO: convert_discrete_blob_to_json_patches(patch)
+        let orm_patches = vec![];
+
+        // then: Clean up and remove old subscriptions
+        self.discrete_orm_subscriptions
+            .retain(|_k, sub| !sub.sender.is_closed());
+
+        let update = AppResponse::V0(AppResponseV0::OrmUpdate(orm_patches));
+
+        for (id, sub) in self.discrete_orm_subscriptions.iter_mut() {
+            if *id != subscription_id && sub.branch_id == *branch_id {
+                let _ = sub.sender.send(update.clone()).await;
+            }
+        }
+    }
+
     fn branch_get_tab_info(
         &self,
         repo: &Repo,
@@ -343,6 +368,75 @@ impl Verifier {
             },
             header_branch_info.map(|i| i.id),
         ))
+    }
+
+    pub(crate) async fn start_discrete_orm(
+        &mut self,
+        nuri: NuriV0,
+    ) -> Result<(Receiver<AppResponse>, CancelFn), VerifierError> {
+        let (repo_id, branch_id, store_repo) = self.open_for_target(&nuri.target, false).await?;
+        let repo = self.get_repo(&repo_id, &store_repo)?;
+        let branch = repo.branch(&branch_id)?;
+
+        let crdt = branch.crdt.clone();
+
+        if crdt.is_graph() {
+            return Err(VerifierError::NotDiscrete);
+        }
+
+        let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
+
+        self.discrete_orm_subscription_counter += 1;
+
+        let orm_subscription = DiscreteOrmSubscription {
+            nuri,
+            branch_id,
+            subscription_id: self.discrete_orm_subscription_counter,
+            sender: tx.clone(),
+        };
+
+        let state = match self
+            .user_storage
+            .as_ref()
+            .unwrap()
+            .branch_get_discrete_state(&branch_id)
+        {
+            Ok(state) => Some(match crdt {
+                BranchCrdt::Automerge(_) => DiscreteState::Automerge(state),
+                BranchCrdt::YArray(_) => DiscreteState::YArray(state),
+                BranchCrdt::YMap(_) => DiscreteState::YMap(state),
+                BranchCrdt::YText(_) => DiscreteState::YText(state),
+                BranchCrdt::YXml(_) => DiscreteState::YXml(state),
+                _ => return Err(VerifierError::InvalidBranch),
+            }),
+            Err(StorageError::NoDiscreteState) => None,
+            Err(e) => return Err(e.into()),
+        };
+
+        // do your magic here, depending on state.
+        let orm_object = if let Some(discrete_state) = state {
+            //TODO: convert_discrete_blob_to_orm_object
+            serde_json::Value::Null
+        } else {
+            serde_json::Value::Null
+        };
+
+        let _ = tx
+            .send(AppResponse::V0(AppResponseV0::OrmInitial(
+                orm_object,
+                orm_subscription.subscription_id,
+            )))
+            .await;
+
+        self.discrete_orm_subscriptions
+            .insert(orm_subscription.subscription_id, orm_subscription);
+
+        let close = Box::new(move || {
+            if !tx.is_closed() {
+                tx.close_channel();
+            }
+        });
+        Ok((rx, close))
     }
 
     pub(crate) async fn create_branch_subscription(
@@ -522,6 +616,8 @@ impl Verifier {
             orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
             orm_subscription_counter: 1,
+            discrete_orm_subscription_counter: 1,
+            discrete_orm_subscriptions: HashMap::new(),
         }
     }
 
@@ -2815,6 +2911,8 @@ impl Verifier {
             orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
             orm_subscription_counter: 1,
+            discrete_orm_subscription_counter: 1,
+            discrete_orm_subscriptions: HashMap::new(),
         };
         // this is important as it will load the last seq from storage
         if verif.config.config_type.should_load_last_seq_num() {

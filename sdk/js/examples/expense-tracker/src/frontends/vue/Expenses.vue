@@ -7,7 +7,6 @@ import {
 } from "../../shapes/orm/expenseShapes.shapeTypes";
 import type {
     Expense,
-    ExpenseCategory,
 } from "../../shapes/orm/expenseShapes.typings";
 import { sessionPromise } from "../../utils/ngSession";
 import ExpenseCard from "./ExpenseCard.vue";

@@ -189,7 +189,7 @@ const tauri_handler = {
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 arg.update = Array.from(new Uint8Array(arg.update));
                 return await invoke(path[0],arg)
-            } else if (path[0] === "app_request_stream" || path[0] === "doc_subscribe" || path[0] === "orm_start" || path[0] === "file_get") {
+            } else if (path[0] === "app_request_stream" || path[0] === "doc_subscribe" || path[0] === "orm_start" || path[0] === "orm_start_discrete" || path[0] === "file_get") {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);
                 //let session_id = args[0];
@@ -197,6 +197,7 @@ const tauri_handler = {
                 if (path[0] === "app_request_stream") { request = args[0]; callback = args[1]; }
                 else if (path[0] === "doc_subscribe") { request = await invoke("doc_fetch_repo_subscribe", {repo_o:args[0]}); request.V0.session_id = args[1]; callback = args[2]; }
                 else if (path[0] === "orm_start") { request = await invoke("new_orm_start", {graph_scope:args[0], subject_scope: args[1], shape_type:args[2], session_id:args[3] }); callback = args[4]; }
+                else if (path[0] === "orm_start_discrete") { request = await invoke("new_orm_start_discrete", {nuri:args[0], session_id:args[1] }); callback = args[2]; }
                 else if (path[0] === "file_get") { request = await invoke("new_file_get", {nuri:args[1], branch_nuri:args[2], session_id:args[0] }); callback = args[3]; }
 
                 let unlisten = await getCurrentWindow().listen(stream_id, async (event) => {

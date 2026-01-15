@@ -65,6 +65,9 @@ impl Verifier {
                 }
                 _ => return Err(NgError::InvalidArgument),
             },
+            AppRequestCommandV0::OrmStartDiscrete => {
+                self.start_discrete_orm(nuri).await.map_err(|e| e.into())
+            }
             AppRequestCommandV0::Fetch(fetch) => match fetch {
                 AppFetchContentV0::Subscribe => {
                     let (repo_id, branch_id, store_repo) =
@@ -901,6 +904,51 @@ impl Verifier {
         Ok(res)
     }
 
+    pub(crate) async fn process_discrete_transaction(
+        &mut self,
+        patch: DiscreteTransaction,
+        nuri: &NuriV0,
+        subscription_id: u64,
+    ) -> Result<(), NgError> {
+        let (repo_id, branch_id, store_repo) = self.resolve_target(&nuri.target)?;
+
+        let transac = TransactionBody {
+            body_type: TransactionBodyType::Discrete,
+            graph: None,
+            discrete: Some(patch.clone()),
+        };
+
+        let transaction_commit_body =
+            CommitBodyV0::AsyncTransaction(Transaction::V0(serde_bare::to_vec(&transac)?));
+
+        let commit = self
+            .new_transaction_commit(
+                transaction_commit_body,
+                &repo_id,
+                &branch_id,
+                &store_repo,
+                vec![], //TODO deps
+                vec![],
+            )
+            .await?;
+
+        let repo = self.get_repo(&repo_id, &store_repo)?;
+        let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
+
+        let crdt: &BranchCrdt = &repo.branch(&branch_id)?.crdt.clone();
+        self.update_discrete(
+            patch,
+            &crdt,
+            &branch_id,
+            commit.id().unwrap(),
+            commit_info,
+            subscription_id,
+        )
+        .await?;
+
+        Ok(())
+    }
+
     pub(crate) async fn process(
         &mut self,
         command: &AppRequestCommandV0,
@@ -921,6 +969,24 @@ impl Verifier {
                 }
                 _ => {
                     log_err!("orm update has wrong payload: {:?}", payload);
+                    return Err(NgError::InvalidArgument);
+                }
+            },
+            AppRequestCommandV0::OrmDiscreteUpdate => match payload {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmDiscreteUpdate((
+                    patches,
+                    subscription_id,
+                )))) => {
+                    return match self
+                        .orm_frontend_discrete_update(subscription_id, patches)
+                        .await
+                    {
+                        Err(e) => Ok(AppResponse::error(e)),
+                        Ok(()) => Ok(AppResponse::ok()),
+                    }
+                }
+                _ => {
+                    log_err!("orm discrete update has wrong payload: {:?}", payload);
                     return Err(NgError::InvalidArgument);
                 }
             },
@@ -1257,47 +1323,11 @@ impl Verifier {
                         //TODO: deal with update.graph
                         //TODO: verify that update.heads are the same as what the Verifier knows
                         if let Some(discrete) = update.discrete {
-                            let (repo_id, branch_id, store_repo) =
-                                match self.resolve_target(&nuri.target) {
-                                    Err(e) => return Ok(AppResponse::error(e.to_string())),
-                                    Ok(a) => a,
-                                };
-
                             let patch: DiscreteTransaction = discrete.into();
-
-                            let transac = TransactionBody {
-                                body_type: TransactionBodyType::Discrete,
-                                graph: None,
-                                discrete: Some(patch.clone()),
+                            return match self.process_discrete_transaction(patch, &nuri, 0).await {
+                                Err(e) => Ok(AppResponse::error(e.to_string())),
+                                Ok(_) => Ok(AppResponse::ok()),
                             };
-
-                            let transaction_commit_body = CommitBodyV0::AsyncTransaction(
-                                Transaction::V0(serde_bare::to_vec(&transac)?),
-                            );
-
-                            let commit = self
-                                .new_transaction_commit(
-                                    transaction_commit_body,
-                                    &repo_id,
-                                    &branch_id,
-                                    &store_repo,
-                                    vec![], //TODO deps
-                                    vec![],
-                                )
-                                .await?;
-
-                            let repo = self.get_repo(&repo_id, &store_repo)?;
-                            let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
-
-                            let crdt: &BranchCrdt = &repo.branch(&branch_id)?.crdt.clone();
-                            self.update_discrete(
-                                patch,
-                                &crdt,
-                                &branch_id,
-                                commit.id().unwrap(),
-                                commit_info,
-                            )
-                            .await?;
                         }
 
                         Ok(AppResponse::ok())

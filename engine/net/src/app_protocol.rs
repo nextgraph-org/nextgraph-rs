@@ -723,14 +723,19 @@ pub enum AppRequestCommandV0 {
     QrCodeProfile,
     QrCodeProfileImport,
     OrmStart,
+    OrmStartDiscrete,
     OrmUpdate,
+    OrmDiscreteUpdate,
     OrmStop,
 }
 
 impl AppRequestCommandV0 {
     pub fn is_stream(&self) -> bool {
         match self {
-            Self::Fetch(AppFetchContentV0::Subscribe) | Self::FileGet | Self::OrmStart => true,
+            Self::Fetch(AppFetchContentV0::Subscribe)
+            | Self::FileGet
+            | Self::OrmStart
+            | Self::OrmStartDiscrete => true,
             _ => false,
         }
     }
@@ -836,6 +841,10 @@ impl AppRequest {
         )
     }
 
+    pub fn new_orm_start_discrete(nuri: NuriV0) -> Self {
+        AppRequest::new(AppRequestCommandV0::OrmStartDiscrete, nuri, None)
+    }
+
     pub fn new_orm_update(subscription_id: u64, diff: OrmPatches) -> Self {
         AppRequest::new(
             AppRequestCommandV0::OrmUpdate,
@@ -844,6 +853,16 @@ impl AppRequest {
                 diff,
                 subscription_id,
             )))),
+        )
+    }
+
+    pub fn new_orm_discrete_update(subscription_id: u64, diff: OrmPatches) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::OrmDiscreteUpdate,
+            NuriV0::new_empty(),
+            Some(AppRequestPayload::V0(
+                AppRequestPayloadV0::OrmDiscreteUpdate((diff, subscription_id)),
+            )),
         )
     }
 
@@ -1077,7 +1096,8 @@ pub enum AppRequestPayloadV0 {
     QrCodeProfile(u32),
     QrCodeProfileImport(String),
     OrmStart((OrmShapeType, Vec<NuriV0>, Vec<String>)),
-    OrmUpdate((OrmPatches, u64)), // subscription id
+    OrmUpdate((OrmPatches, u64)),         // subscription id,
+    OrmDiscreteUpdate((OrmPatches, u64)), // subscription id
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -2885,12 +2885,32 @@ pub async fn orm_start(
     app_request_stream(request).await
 }
 
+pub async fn orm_start_discrete(
+    nuri: NuriV0,
+    session_id: u64,
+) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+    let mut request = AppRequest::new_orm_start_discrete(nuri);
+    request.set_session_id(session_id);
+    app_request_stream(request).await
+}
+
 pub async fn orm_update(
     subscription_id: u64,
     diff: OrmPatches,
     session_id: u64,
 ) -> Result<(), NgError> {
     let mut request = AppRequest::new_orm_update(subscription_id, diff);
+    request.set_session_id(session_id);
+    app_request(request).await?;
+    Ok(())
+}
+
+pub async fn orm_discrete_update(
+    subscription_id: u64,
+    diff: OrmPatches,
+    session_id: u64,
+) -> Result<(), NgError> {
+    let mut request = AppRequest::new_orm_discrete_update(subscription_id, diff);
     request.set_session_id(session_id);
     app_request(request).await?;
     Ok(())

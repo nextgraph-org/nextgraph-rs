@@ -1925,6 +1925,26 @@ pub async fn doc_subscribe(
 }
 
 #[wasm_bindgen]
+pub async fn orm_start_discrete(
+    nuri: String,
+    session_id: JsValue,
+    callback: &js_sys::Function,
+) -> Result<JsValue, String> {
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} orm_start_discrete",
+                session_id
+            )
+        })?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of nuri".to_string())?;
+
+    let mut request = AppRequest::new_orm_start_discrete(nuri);
+    request.set_session_id(session_id);
+    app_request_stream_(request, callback).await
+}
+
+#[wasm_bindgen]
 pub async fn orm_start(
     graph_scope: Array,
     subject_scope: Array,
@@ -1978,14 +1998,14 @@ pub async fn orm_update(
     let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
         .map_err(|_| {
             format!(
-                "Deserialization error of subscription_id {:?} orm_start",
+                "Deserialization error of subscription_id {:?} orm_update",
                 subscription_id
             )
         })?;
     let session_id: u64 =
         serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
             format!(
-                "Deserialization error of session_id {:?} orm_start",
+                "Deserialization error of session_id {:?} orm_update",
                 session_id
             )
         })?;
@@ -1995,6 +2015,39 @@ pub async fn orm_update(
 
     let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    Ok(())
+}
+
+#[wasm_bindgen]
+pub async fn orm_discrete_update(
+    subscription_id: JsValue,
+    diff: JsValue,
+    session_id: JsValue,
+) -> Result<(), String> {
+    let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
+        .map_err(|_| {
+            format!(
+                "Deserialization error of subscription_id {:?} orm_discrete_update",
+                subscription_id
+            )
+        })?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} orm_discrete_update",
+                session_id
+            )
+        })?;
+
+    let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
+        .map_err(|e| format!("Deserialization error of diff {e}"))?;
+
+    let mut request = AppRequest::new_orm_discrete_update(subscription_id, diff);
+    request.set_session_id(session_id);
+
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;

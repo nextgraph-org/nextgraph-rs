@@ -46,13 +46,17 @@ export function ExpenseCard({
         `${category["@graph"]}|${category["@id"]}`;
 
     const isCategorySelected = (category: ExpenseCategory) =>
-        expense.expenseCategory.has(category["@id"]);
+        !!expense.expenseCategory?.has(category["@id"]);
 
     const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
         if (checked) {
-            expense.expenseCategory.add(category["@id"]);
+            if (!expense.expenseCategory) {
+                expense.expenseCategory = new Set([category["@id"]]);
+            } else {
+                expense.expenseCategory.add(category["@id"]);
+            }
         } else {
-            expense.expenseCategory.delete(category["@id"]);
+            expense.expenseCategory?.delete(category["@id"]);
         }
     };
 
@@ -209,7 +213,7 @@ export function ExpenseCard({
                             above.
                         </p>
                     )
-                ) : expense.expenseCategory.size ? (
+                ) : expense.expenseCategory?.size ? (
                     <div className="chip-list">
                         {[...expense.expenseCategory].map((categoryIri) => (
                             <span className="chip" key={categoryIri}>

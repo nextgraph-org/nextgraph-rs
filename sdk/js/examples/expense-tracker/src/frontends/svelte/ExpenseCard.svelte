@@ -38,17 +38,20 @@
     return `${category["@graph"]}|${category["@id"]}`;
   };
 
-  function toggleCategory(category: ExpenseCategory, checked: boolean) {
-    if (checked) {
-      expense.expenseCategory.add(category["@id"]);
-    } else {
-      expense.expenseCategory.delete(category["@id"]);
-    }
-  }
+  const isCategorySelected = (category: ExpenseCategory) =>
+    !!expense.expenseCategory?.has(category["@id"]);
 
-  function isCategorySelected(category: ExpenseCategory) {
-    return expense.expenseCategory.has(category["@id"]);
-  }
+  const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
+    if (checked) {
+      if (!expense.expenseCategory) {
+        expense.expenseCategory = new Set([category["@id"]]);
+      } else {
+        expense.expenseCategory.add(category["@id"]);
+      }
+    } else {
+      expense.expenseCategory?.delete(category["@id"]);
+    }
+  };
 
   function nameOfCategory(categoryIri: string) {
     return availableCategories.values().find((c) => c["@id"] === categoryIri)
@@ -183,7 +186,7 @@
         <p class="muted">No categories available yet. Create one above.</p>
       {/if}
     {:else}
-      {#if expense.expenseCategory.size}
+      {#if expense.expenseCategory?.size}
         <div class="chip-list">
           {#each expense.expenseCategory as categoryIri}
             <span class="chip">{nameOfCategory(categoryIri) || "Unnamed"}</span>
