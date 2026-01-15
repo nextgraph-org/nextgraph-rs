@@ -2899,7 +2899,7 @@ pub async fn orm_update(
     diff: OrmPatches,
     session_id: u64,
 ) -> Result<(), NgError> {
-    let mut request = AppRequest::new_orm_graph_update(subscription_id, diff);
+    let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
     app_request(request).await?;
     Ok(())

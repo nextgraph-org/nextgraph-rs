@@ -27,7 +27,8 @@ pub struct DiscreteOrmSubscription {
 
 #[derive(Debug)]
 pub enum SubscriptionCrdtDetails {
-    YRS(yrs::Doc),
+    YMap(yrs::Doc),
+    YArray(yrs::Doc),
     None,
 }
 /// A struct for recording the state of subjects and its predicates

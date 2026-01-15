@@ -14,6 +14,7 @@ use std::rc::Rc;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use ng_net::orm::{OrmPatchOp, OrmPatches};
+use ng_net::types;
 use ng_net::utils::Receiver;
 use ng_net::{app_protocol::*, orm::OrmPatch};
 use ng_repo::errors::{StorageError, VerifierError};
@@ -85,7 +86,7 @@ impl Verifier {
         };
 
         let _ = tx
-            .send(AppResponse::V0(AppResponseV0::OrmInitial(
+            .send(AppResponse::V0(AppResponseV0::DiscreteOrmInitial(
                 orm_object,
                 orm_subscription.subscription_id,
             )))
@@ -116,7 +117,7 @@ impl Verifier {
             let orm_patches = convert_and_apply_discrete_blob_patches(patch, &sub.crdt_details)?;
 
             if *id != subscription_id && sub.branch_id == *branch_id && orm_patches.len() > 0 {
-                let update = AppResponse::V0(AppResponseV0::OrmUpdate(orm_patches));
+                let update = AppResponse::V0(AppResponseV0::DiscreteOrmUpdate(orm_patches));
                 let _ = sub.sender.send(update.clone()).await;
             }
         }
@@ -141,11 +142,13 @@ impl Verifier {
             return Err(VerifierError::OrmSubscriptionNotFound);
         };
 
-        let update_bytes = match &orm_subscription.crdt_details {
-            SubscriptionCrdtDetails::YRS(doc) => {
+        let (update_bytes, is_array) = match &orm_subscription.crdt_details {
+            SubscriptionCrdtDetails::YMap(doc) | SubscriptionCrdtDetails::YArray(doc) => {
+                let is_array = matches!(
+                    &orm_subscription.crdt_details,
+                    SubscriptionCrdtDetails::YArray(_)
+                );
                 let mut tx = doc.transact_mut();
-                // Get the root container - we use "ng" as the root key
-                let map_ref = doc.get_or_insert_map("ng");
 
                 for patch in patches {
                     let parsed_path: Vec<String> = patch
@@ -154,11 +157,6 @@ impl Verifier {
                         .skip(1)
                         .map(|segment| decode_json_pointer(&segment.to_string()))
                         .collect();
-
-                    if parsed_path.is_empty() {
-                        log_warn!("Empty patch path, skipping");
-                        continue;
-                    }
 
                     if patch.op == OrmPatchOp::add {
                         let value = match &patch.value {
@@ -170,21 +168,24 @@ impl Verifier {
                         };
 
                         // Navigate to parent and insert/update the final key
-                        apply_yrs_add_patch(&mut tx, &map_ref, &parsed_path, value)?;
+                        apply_yrs_add_patch(&mut tx, doc, &parsed_path, value, is_array)?;
                     } else {
                         // patch.op == OrmPatchOp::remove
-                        apply_yrs_remove_patch(&mut tx, &map_ref, &parsed_path)?;
+                        apply_yrs_remove_patch(&mut tx, doc, &parsed_path, is_array)?;
                     }
                 }
 
                 // Encode only the changes made in this transaction
-                tx.encode_update_v1()
+                (tx.encode_update_v1(), is_array)
             }
             SubscriptionCrdtDetails::None => return Err(VerifierError::NotImplemented),
         };
 
-        // TODO: Determine if we need YMap or YArray based on crdt type
-        let transaction = DiscreteTransaction::YMap(update_bytes);
+        let transaction = if is_array {
+            DiscreteTransaction::YArray(update_bytes)
+        } else {
+            DiscreteTransaction::YMap(update_bytes)
+        };
 
         let nuri = orm_subscription.nuri.clone();
         drop(orm_subscription);
@@ -233,9 +234,9 @@ enum YrsTarget {
 }
 
 /// Navigates to the parent container at the given path and returns it along with the final key.
-fn navigate_to_parent(
-    tx: &mut yrs::TransactionMut,
-    root: &yrs::MapRef,
+fn navigate_to_parent_from_target(
+    txn: &mut yrs::TransactionMut,
+    root: YrsTarget,
     path: &[String],
 ) -> Result<(YrsTarget, String), VerifierError> {
     if path.is_empty() {
@@ -246,21 +247,25 @@ fn navigate_to_parent(
     let parent_path = &path[..path.len() - 1];
 
     if parent_path.is_empty() {
-        // The parent is the root map
-        return Ok((YrsTarget::Map(root.clone()), final_key));
+        // The parent is the root.
+        return Ok((root, final_key));
     }
 
-    // Navigate through the path to find the parent container
-    let mut current: Out = Out::YMap(root.clone());
+    // Navigate through the path to find the parent container.
+    let mut current: Out = match root {
+        YrsTarget::Map(m) => Out::YMap(m),
+        YrsTarget::Array(a) => Out::YArray(a),
+    };
 
     for (i, segment) in parent_path.iter().enumerate() {
         current = match current {
-            Out::YMap(map) => match map.get(tx, segment) {
+            Out::YMap(map) => match map.get(txn, segment) {
                 Some(child) => child,
                 None => {
-                    // Create nested map if it doesn't exist
-                    let new_map = map.insert(tx, segment.clone(), yrs::MapPrelim::default());
-                    Out::YMap(new_map)
+                    return Err(VerifierError::YrsError("Path does not exist".into()));
+                    // // Create nested map if it doesn't exist.
+                    // let new_map = map.insert(txn, segment.clone(), yrs::MapPrelim::default());
+                    // Out::YMap(new_map)
                 }
             },
             Out::YArray(arr) => {
@@ -270,7 +275,7 @@ fn navigate_to_parent(
                         segment, i
                     ))
                 })?;
-                match arr.get(tx, index) {
+                match arr.get(txn, index) {
                     Some(child) => child,
                     None => {
                         return Err(VerifierError::YrsError(format!(
@@ -301,31 +306,82 @@ fn navigate_to_parent(
 
 /// Applies an add/replace patch to the YRS document.
 fn apply_yrs_add_patch(
-    tx: &mut yrs::TransactionMut,
-    root: &yrs::MapRef,
+    txn: &mut yrs::TransactionMut,
+    doc: &yrs::Doc,
     path: &[String],
     value: Any,
+    is_array: bool,
 ) -> Result<(), VerifierError> {
-    let (parent, key) = navigate_to_parent(tx, root, path)?;
+    // Handle empty path - replace at root level
+    if path.is_empty() {
+        if is_array {
+            if !matches!(value, Any::Array(_)) {
+                return Err(VerifierError::YrsError(
+                    "Cannot apply non-array to a YArray".into(),
+                ));
+            }
+
+            let arr = doc.get_or_insert_array("ng");
+            // Clear existing content.
+            let len = arr.len(txn);
+            if len > 0 {
+                arr.remove_range(txn, 0, len);
+            }
+            if let Any::Array(items) = value {
+                arr.insert_range(txn, 0, items.iter().cloned());
+            }
+        } else {
+            if !matches!(value, Any::Map(_)) {
+                return Err(VerifierError::YrsError(
+                    "Cannot apply non-array to a YArray".into(),
+                ));
+            }
+
+            // Clear all items...
+            let map = doc.get_or_insert_map("ng");
+            map.clear(txn);
+            // ...and insert new ones.
+            if let Any::Map(entries) = value {
+                for (k, v) in entries.iter() {
+                    map.insert(txn, k.clone(), v.clone());
+                }
+            }
+        }
+        return Ok(());
+    }
+
+    // Get the root container
+    let root_ref = if is_array {
+        YrsTarget::Array(doc.get_or_insert_array("ng"))
+    } else {
+        YrsTarget::Map(doc.get_or_insert_map("ng"))
+    };
+
+    let (parent, key) = navigate_to_parent_from_target(txn, root_ref, path)?;
 
     match parent {
         YrsTarget::Map(map) => {
-            // Insert or replace the value in the map
-            map.insert(tx, key, value);
+            // Insert or replace the value in the map.
+            map.insert(txn, key, value);
         }
         YrsTarget::Array(arr) => {
-            let index: u32 = key
-                .parse()
-                .map_err(|_| VerifierError::YrsError(format!("Invalid array index '{}'", key)))?;
-            let len = arr.len(tx);
+            let len = arr.len(txn);
+            // If key is `-`, that means that we append.
+            let index: u32 = if key == "-" {
+                len
+            } else {
+                key.parse().map_err(|_| {
+                    VerifierError::YrsError(format!("Invalid array index '{}'", key))
+                })?
+            };
             if index > len {
                 return Err(VerifierError::YrsError(format!(
                     "Array index {} out of bounds (len: {})",
                     index, len
                 )));
             }
-            // Insert at the specified index
-            arr.insert(tx, index, value);
+            // Insert at the specified index.
+            arr.insert(txn, index, value);
         }
     }
 
@@ -334,28 +390,51 @@ fn apply_yrs_add_patch(
 
 /// Applies a remove patch to the YRS document.
 fn apply_yrs_remove_patch(
-    tx: &mut yrs::TransactionMut,
-    root: &yrs::MapRef,
+    txn: &mut yrs::TransactionMut,
+    doc: &yrs::Doc,
     path: &[String],
+    is_array: bool,
 ) -> Result<(), VerifierError> {
-    let (parent, key) = navigate_to_parent(tx, root, path)?;
+    // Handle empty path - clear the root
+    if path.is_empty() {
+        if is_array {
+            let arr = doc.get_or_insert_array("ng");
+            let len = arr.len(txn);
+            if len > 0 {
+                arr.remove_range(txn, 0, len);
+            }
+        } else {
+            let map = doc.get_or_insert_map("ng");
+            map.clear(txn);
+        }
+        return Ok(());
+    }
+
+    // Get the root container
+    let root_ref = if is_array {
+        YrsTarget::Array(doc.get_or_insert_array("ng"))
+    } else {
+        YrsTarget::Map(doc.get_or_insert_map("ng"))
+    };
+
+    let (parent, key) = navigate_to_parent_from_target(txn, root_ref, path)?;
 
     match parent {
         YrsTarget::Map(map) => {
-            map.remove(tx, &key);
+            map.remove(txn, &key);
         }
         YrsTarget::Array(arr) => {
             let index: u32 = key
                 .parse()
                 .map_err(|_| VerifierError::YrsError(format!("Invalid array index '{}'", key)))?;
-            let len = arr.len(tx);
+            let len = arr.len(txn);
             if index >= len {
                 return Err(VerifierError::YrsError(format!(
                     "Array index {} out of bounds for removal (len: {})",
                     index, len
                 )));
             }
-            arr.remove(tx, index);
+            arr.remove(txn, index);
         }
     }
 
@@ -398,14 +477,14 @@ fn convert_discrete_blob_to_orm_object(
             let update = yrs::Update::decode_v1(&bytes).or(Err(VerifierError::YrsError(
                 "Could not decode_v1 YRS document".into(),
             )))?;
-            let mut tx = doc.transact_mut();
-            tx.apply_update(update);
+            let mut txn = doc.transact_mut();
+            txn.apply_update(update);
 
-            let parsed = doc.to_json(&tx);
-            drop(tx);
+            let root = doc.get_or_insert_map("ng");
+            let root_json = json!(root.to_json(&txn));
+            drop(txn);
 
-            // TODO: Return this or parsed["ng"]?
-            return Ok((json!(parsed), SubscriptionCrdtDetails::YRS(doc)));
+            return Ok((root_json, SubscriptionCrdtDetails::YMap(doc)));
         }
         DiscreteState::YArray(bytes) => {
             let doc = yrs::Doc::new();
@@ -419,7 +498,7 @@ fn convert_discrete_blob_to_orm_object(
             let parsed = doc.to_json(&tx);
             drop(tx);
 
-            return Ok((json!(parsed), SubscriptionCrdtDetails::YRS(doc)));
+            return Ok((json!(parsed), SubscriptionCrdtDetails::YArray(doc)));
         }
         DiscreteState::YXml(bytes) => {
             log_warn!("YXml not implemented.");
@@ -451,7 +530,7 @@ fn convert_and_apply_discrete_blob_patches_yrs(
     crdt_details: &SubscriptionCrdtDetails,
 ) -> Result<Vec<OrmPatch>, VerifierError> {
     let doc = match crdt_details {
-        SubscriptionCrdtDetails::YRS(doc) => doc,
+        SubscriptionCrdtDetails::YArray(doc) | SubscriptionCrdtDetails::YMap(doc) => doc,
         _ => return Err(VerifierError::InternalError),
     };
     let patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
@@ -554,13 +633,14 @@ fn convert_and_apply_discrete_blob_patches_yrs(
             )))?;
 
             let patches_clone = Rc::clone(&patches);
-            map_ref.observe_deep(move |tx, ev| {
+            let observation_key = map_ref.observe_deep(move |tx, ev| {
                 mutation_callback(tx, ev, &patches_clone);
             });
             let mut tx = doc.transact_mut();
 
             // Apply update (triggering the callback that creates the orm patches).
             tx.apply_update(update);
+            map_ref.unobserve_deep(observation_key);
         }
         DiscretePatch::YArray(bytes) => {
             let array_ref = doc.get_or_insert_array("ng");

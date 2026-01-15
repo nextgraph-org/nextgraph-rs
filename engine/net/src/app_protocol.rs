@@ -847,11 +847,12 @@ impl AppRequest {
 
     pub fn new_orm_update(subscription_id: u64, diff: OrmPatches) -> Self {
         AppRequest::new(
-            AppRequestCommandV0::GraphOrmUpdate,
+            AppRequestCommandV0::OrmUpdate,
             NuriV0::new_empty(),
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::GraphOrmUpdate(
-                (diff, subscription_id),
-            ))),
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
+                diff,
+                subscription_id,
+            )))),
         )
     }
 

@@ -11,7 +11,7 @@
 use crate::local_broker::{doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, await_app_response, create_doc_with_data, create_orm_connection,
+    assert_json_eq, await_graph_patches, create_doc_with_data, create_orm_connection,
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
@@ -3282,7 +3282,7 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    let patches = await_app_response(&mut receiver2).await;
+    let patches = await_graph_patches(&mut receiver2).await;
     // Only an add patch should be generated. The object is not deleted
     assert!(patches.len() == 1, "Expected single patch");
 

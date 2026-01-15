@@ -957,8 +957,8 @@ impl Verifier {
         session_id: u64,
     ) -> Result<AppResponse, NgError> {
         match command {
-            AppRequestCommandV0::GraphOrmUpdate => match payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::GraphOrmUpdate((
+            AppRequestCommandV0::OrmUpdate => match payload {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
                     patches,
                     subscription_id,
                 )))) => {
@@ -981,7 +981,7 @@ impl Verifier {
                         .orm_frontend_discrete_update(subscription_id, patches)
                         .await
                     {
-                        Err(e) => Ok(AppResponse::error(e)),
+                        Err(e) => Ok(AppResponse::error(format!("Error: {:?}", e))),
                         Ok(()) => Ok(AppResponse::ok()),
                     }
                 }
