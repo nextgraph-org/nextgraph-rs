@@ -46,7 +46,7 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
 
   const [retrieveNetworkCentrality, setRetrieveNetworkCentrality] = useState(true);
   const [retrieveProfileDetails, setRetrieveProfileDetails] = useState(true);
-  const [enrichmentStatus, setEnrichmentStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [enrichmentStatus, setEnrichmentStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'empty'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
@@ -75,6 +75,8 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
         setEnrichmentStatus('error');
         setErrorMessage(e instanceof Error ? e.message : 'An unexpected error occurred. Please try again.');
       }
+    } else {
+      setEnrichmentStatus('empty');
     }
   }, [client, retrieveNetworkCentrality, retrieveProfileDetails, session, updateContacts]);
 
@@ -146,6 +148,15 @@ const PhoneVerificationSuccess: React.FC<PhoneVerificationSuccessProps> = ({
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Your contacts have been updated with data from GreenCheck.
+            </Typography>
+          </Alert>
+        ) : enrichmentStatus === 'empty' ? (
+          <Alert severity="error" sx={{mb: 3}}>
+            <Typography variant="body1" sx={{fontWeight: 600}}>
+              Enrichment Failed
+            </Typography>
+            <Typography variant="body2">
+              We couldn’t find any LinkedIn accounts in your network. To continue with enrichment, please add at least one LinkedIn account and try again.
             </Typography>
           </Alert>
         ) : enrichmentStatus === 'error' ? (
