@@ -209,8 +209,8 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         const flattened = patches.flat();
         expect(flattened).toEqual([
-            { op: "add", path: ["root", "child"], type: "object" },
-            { op: "add", path: ["root", "child", "level"], type: "object" },
+            { op: "add", path: ["root", "child"], value: {} },
+            { op: "add", path: ["root", "child", "level"], value: {} },
             {
                 op: "add",
                 path: ["root", "child", "level", "value"],
@@ -279,14 +279,14 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         const flattened = patches.flat();
         expect(flattened).toEqual([
-            { op: "add", path: ["data"], type: "object" },
-            { op: "add", path: ["data", "users"], type: "object" },
-            { op: "add", path: ["data", "users", 0], type: "object" },
+            { op: "add", path: ["data"], value: {} },
+            { op: "add", path: ["data", "users"], value: {} },
+            { op: "add", path: ["data", "users", 0], value: {} },
             { op: "add", path: ["data", "users", 0, "id"], value: 1 },
             {
                 op: "add",
                 path: ["data", "users", 0, "profile"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
@@ -296,19 +296,19 @@ describe("watch (patch mode)", () => {
             {
                 op: "add",
                 path: ["data", "users", 0, "profile", "settings"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["data", "users", 0, "profile", "settings", "theme"],
                 value: "dark",
             },
-            { op: "add", path: ["data", "users", 1], type: "object" },
+            { op: "add", path: ["data", "users", 1], value: {} },
             { op: "add", path: ["data", "users", 1, "id"], value: 2 },
             {
                 op: "add",
                 path: ["data", "users", 1, "profile"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
@@ -318,14 +318,14 @@ describe("watch (patch mode)", () => {
             {
                 op: "add",
                 path: ["data", "users", 1, "profile", "settings"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["data", "users", 1, "profile", "settings", "theme"],
                 value: "light",
             },
-            { op: "add", path: ["data", "meta"], type: "object" },
+            { op: "add", path: ["data", "meta"], value: {} },
             { op: "add", path: ["data", "meta", "count"], value: 2 },
             { op: "add", path: ["data", "meta", "active"], value: true },
         ]);
@@ -352,34 +352,34 @@ describe("watch (patch mode)", () => {
         const flattened = patches.flat();
         expect(flattened).toEqual([
             { op: "add", path: ["container", "items"], type: "set", value: [] },
-            { op: "add", path: ["container", "items", "a"], type: "object" },
+            { op: "add", path: ["container", "items", "a"], value: {} },
             { op: "add", path: ["container", "items", "a", "id"], value: "a" },
             {
                 op: "add",
                 path: ["container", "items", "a", "data"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["container", "items", "a", "data", "nested"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["container", "items", "a", "data", "nested", "value"],
                 value: 1,
             },
-            { op: "add", path: ["container", "items", "b"], type: "object" },
+            { op: "add", path: ["container", "items", "b"], value: {} },
             { op: "add", path: ["container", "items", "b", "id"], value: "b" },
             {
                 op: "add",
                 path: ["container", "items", "b", "data"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["container", "items", "b", "data", "nested"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
@@ -1049,7 +1049,7 @@ describe("watch (patch mode)", () => {
             // 2. Individual "add" patches for each element
             //
             // This was the bug reported: replacing a Set emitted patches like:
-            // [{ path: [..., "setProperty"], op: "add", type: "object" },
+            // [{ path: [..., "setProperty"], op: "add", value: {} },
             //  { path: [..., "setProperty", 4], op: "add", value: 4 },
             //  { path: [..., "setProperty", 5], op: "add", value: 5 }]
             //

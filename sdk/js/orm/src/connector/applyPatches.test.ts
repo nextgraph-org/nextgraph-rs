@@ -69,7 +69,7 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
         const diff: Patch[] = [
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("urn:person1", "children"),
             },
         ];
@@ -83,7 +83,7 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
             // First patch creates the object in the Set
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("urn:person1", "children", "urn:child1"),
             },
             // Second patch adds the @graph property (optional, for context)
@@ -114,7 +114,7 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
             // First patch creates the object in the Set
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("urn:graph1|urn:root1"),
             },
             // Second patch adds the @graph property (optional, for context)
@@ -210,12 +210,12 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
         const diff: Patch[] = [
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("root", "parents", "urn:parent1", "children"),
             },
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p(
                     "root",
                     "parents",
@@ -260,7 +260,7 @@ describe("applyDiff - object & literal operations", () => {
     test("create single object (with @id)", () => {
         const state: any = { "urn:person1": {} };
         const diff: Patch[] = [
-            { op: "add", path: p("urn:person1", "address"), valType: "object" },
+            { op: "add", path: p("urn:person1", "address"), value: {} },
             {
                 op: "add",
                 path: p("urn:person1", "address", "@graph"),
@@ -284,7 +284,7 @@ describe("applyDiff - object & literal operations", () => {
             {
                 op: "add",
                 path: p("urn:person1", "addresses"),
-                valType: "object",
+                value: {},
             },
         ];
         applyPatches(state, diff);
@@ -294,7 +294,7 @@ describe("applyDiff - object & literal operations", () => {
     test("add object (create empty object with @id)", () => {
         const state: any = {};
         const diff: Patch[] = [
-            { op: "add", path: p("address"), valType: "object" },
+            { op: "add", path: p("address"), value: {} },
             { op: "add", path: p("address", "@graph"), value: "urn:graph1" },
             { op: "add", path: p("address", "@id"), value: "urn:addr1" },
         ];
@@ -306,7 +306,7 @@ describe("applyDiff - object & literal operations", () => {
     test("add nested object path with ensurePathExists and @id", () => {
         const state: any = {};
         const diff: Patch[] = [
-            { op: "add", path: p("a", "b", "c"), valType: "object" },
+            { op: "add", path: p("a", "b", "c"), value: {} },
             {
                 op: "add",
                 path: p("a", "b", "c", "@graph"),
@@ -361,12 +361,12 @@ describe("applyDiff - multiple mixed patches in a single diff", () => {
             // Create multi-object Set
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("urn:person1", "addresses"),
             },
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("urn:person1", "addresses", "urn:addr1"),
             },
             {
@@ -385,7 +385,7 @@ describe("applyDiff - multiple mixed patches in a single diff", () => {
                 value: "Main St",
             },
             // Create single object
-            { op: "add", path: p("profile"), valType: "object" },
+            { op: "add", path: p("profile"), value: {} },
             { op: "add", path: p("profile", "@graph"), value: "urn:graph2" },
             { op: "add", path: p("profile", "@id"), value: "urn:profile1" },
             { op: "add", path: p("profile", "name"), value: "Alice" },
@@ -410,7 +410,7 @@ describe("applyDiff - multiple mixed patches in a single diff", () => {
         const state: any = {};
         const diff: Patch[] = [
             // Create b as a single object (with @id)
-            { op: "add", path: p("a", "b"), valType: "object" },
+            { op: "add", path: p("a", "b"), value: {} },
             { op: "add", path: p("a", "b", "@graph"), value: "urn:graph1" },
             { op: "add", path: p("a", "b", "@id"), value: "urn:b1" },
             { op: "add", path: p("a", "b", "c"), value: 1 },
@@ -440,7 +440,7 @@ describe("applyDiff - complete workflow example", () => {
         const state: any = {};
         const diff: Patch[] = [
             // Create root person object
-            { op: "add", path: p("urn:person1"), valType: "object" },
+            { op: "add", path: p("urn:person1"), value: {} },
             {
                 op: "add",
                 path: p("urn:person1", "@graph"),
@@ -450,7 +450,7 @@ describe("applyDiff - complete workflow example", () => {
             { op: "add", path: p("urn:person1", "name"), value: "John" },
 
             // Add single address object
-            { op: "add", path: p("urn:person1", "address"), valType: "object" },
+            { op: "add", path: p("urn:person1", "address"), value: {} },
             {
                 op: "add",
                 path: p("urn:person1", "address", "@graph"),
@@ -476,14 +476,14 @@ describe("applyDiff - complete workflow example", () => {
             {
                 op: "add",
                 path: p("urn:person1", "children"),
-                valType: "object",
+                value: {},
             },
 
             // Add first child
             {
                 op: "add",
                 path: p("urn:person1", "children", "urn:child1"),
-                valType: "object",
+                value: {},
             },
             {
                 op: "add",
@@ -505,7 +505,7 @@ describe("applyDiff - complete workflow example", () => {
             {
                 op: "add",
                 path: p("urn:person1", "children", "urn:child2"),
-                valType: "object",
+                value: {},
             },
             {
                 op: "add",
@@ -641,7 +641,7 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             // So "children" should be created as a Set
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("parent", "children", "urn:graph1|urn:child1"),
             },
             {
@@ -713,7 +713,7 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             // - emp1: object in Set (next is "name")
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("org", "departments", "urn:g1|dept1"),
             },
             {
@@ -728,7 +728,7 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             },
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p(
                     "org",
                     "departments",
@@ -806,7 +806,7 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             // First child
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("family", "children", "urn:g1|child1"),
             },
             {
@@ -827,7 +827,7 @@ describe("applyDiff - ensurePathExists with Set detection", () => {
             // Second child
             {
                 op: "add",
-                valType: "object",
+                value: {},
                 path: p("family", "children", "urn:g1|child2"),
             },
             {

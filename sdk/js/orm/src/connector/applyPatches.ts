@@ -15,13 +15,7 @@ export type Patch = {
     path: string;
     valType?: string & {};
     value?: unknown;
-} & (
-    | SetAddPatch
-    | SetRemovePatch
-    | ObjectAddPatch
-    | RemovePatch
-    | LiteralAddPatch
-);
+} & (SetAddPatch | SetRemovePatch | RemovePatch | LiteralAddPatch);
 
 export interface SetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
@@ -44,13 +38,12 @@ export interface SetRemovePatch {
      *  - A single primitive
      *  - An array of primitives
      */
-    value: number | string | boolean | (number | string | boolean)[];
-}
-
-export interface ObjectAddPatch {
-    /** Mutation kind applied at the resolved `path`. */
-    op: "add";
-    valType: "object";
+    value:
+        | number
+        | string
+        | boolean
+        | object
+        | (number | string | boolean | object)[];
 }
 
 export interface RemovePatch {
@@ -62,7 +55,7 @@ export interface LiteralAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
     /** The literal value to be added at the resolved `path` */
-    value: string | number | boolean;
+    value: string | number | boolean | object;
 }
 
 function isPrimitive(v: unknown): v is string | number | boolean {
@@ -254,7 +247,11 @@ export function applyPatches(
             const targetObj = findInSetBySegment(parentVal, key);
 
             // Handle object creation in a Set
-            if (patch.op === "add" && patch.valType === "object") {
+            if (
+                patch.op === "add" &&
+                typeof patch.value === "object" &&
+                patch.value !== null
+            ) {
                 if (!targetObj) {
                     // Determine if this will be a single object or nested Set
                     const hasId = patches[patchIndex + 2]?.path.endsWith("@id");
@@ -344,7 +341,11 @@ export function applyPatches(
         // Distinguish between single objects and multi-object containers:
         // - If an @id patch follows for this path, it's a single object -> create {}
         // - If no @id patch follows, it's a container for multi-valued objects -> create set.
-        if (patch.op === "add" && patch.valType === "object") {
+        if (
+            patch.op === "add" &&
+            typeof patch.value === "object" &&
+            patch.value !== null
+        ) {
             const leafVal = parentVal[key];
             const hasId = patches.at(patchIndex + 2)?.path.endsWith("@id");
 

@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{doc_sparql_select, graph_orm_update};
+use crate::local_broker::{doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
     assert_json_eq, await_app_response, create_doc_with_data, create_orm_connection,
@@ -207,9 +207,9 @@ INSERT DATA {
         value: Some(json!("Alice")),
     }];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -324,9 +324,9 @@ INSERT DATA {
         },
     ];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -443,9 +443,9 @@ INSERT DATA {
         },
     ];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -555,9 +555,9 @@ INSERT DATA {
         value: Some(json!("Swimming")),
     }];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -650,9 +650,9 @@ INSERT DATA {
         value: Some(json!("Swimming")),
     }];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -813,9 +813,9 @@ INSERT DATA {
         value: Some(json!("Shelbyville")),
     }];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -1083,9 +1083,9 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         },
     ];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -1214,16 +1214,16 @@ INSERT DATA {
         OrmPatch {
             op: OrmPatchOp::add,
             path: root.clone(),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             // This does nothing as it does not represent a triple.
             // A subject is created when inserting data.
             op: OrmPatchOp::add,
             path: format!("{}/@id", root),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -1263,9 +1263,9 @@ INSERT DATA {
         },
     ];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -1425,8 +1425,8 @@ INSERT DATA {
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}", root, child),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -1454,9 +1454,9 @@ INSERT DATA {
         },
     ];
 
-    graph_orm_update(subscription_id, patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -1641,9 +1641,9 @@ INSERT DATA {
         },
     ];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the change was applied using SPARQL SELECT to check graph IRI
     let quads = doc_sparql_select(
@@ -1831,9 +1831,9 @@ INSERT DATA {
         },
     ];
 
-    graph_orm_update(subscription_id, diff, session_id)
+    orm_update(subscription_id, diff, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Verify the link now points to the new address and not the old one using SPARQL SELECT
     let quads = doc_sparql_select(
@@ -1967,9 +1967,9 @@ INSERT DATA {
         value: Some(json!("http://example.org/NotAPerson")),
     }];
 
-    graph_orm_update(subscription_id, patch, session_id)
+    orm_update(subscription_id, patch, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     // Expect delete patch for root object
     while let Some(app_response) = receiver2.next().await {
@@ -1989,7 +1989,7 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "remove",
-                "valType": "object",
+                "value": {},
                 "path": root,
             },
         ]);
@@ -2103,12 +2103,10 @@ INSERT DATA {
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/address/{}", root, child_seg),
-        valType: Some(OrmPatchType::object),
+        valType: None,
         value: None,
     }];
-    graph_orm_update(subscription_id, diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
 
     let quads = doc_sparql_select(
         session_id,
@@ -2236,8 +2234,8 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}", root, encoded_child_key),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -2264,7 +2262,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
             value: Some(json!("not:iri:Lane")),
         },
     ];
-    graph_orm_update(subscription_id, patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .unwrap();
 
@@ -2350,9 +2348,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
         valType: None,
         value: None,
     }];
-    graph_orm_update(subscription_id, diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2434,7 +2430,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
         valType: Some(OrmPatchType::set),
         value: Some(json!("Reading")),
     };
-    graph_orm_update(subscription_id, vec![patch.clone(), patch], session_id)
+    orm_update(subscription_id, vec![patch.clone(), patch], session_id)
         .await
         .unwrap();
     let quads = doc_sparql_select(
@@ -2525,9 +2521,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
         valType: None,
         value: Some(json!("Swimming")),
     }];
-    graph_orm_update(subscription_id, diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -2642,7 +2636,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
             value: Some(json!("Reading")),
         },
     ];
-    graph_orm_update(subscription_id, patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
         .unwrap();
     let quads = doc_sparql_select(
@@ -2733,7 +2727,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
 
     let root = root_path(&doc_nuri, "urn:test:rar1");
     // selective remove Reading
-    graph_orm_update(
+    orm_update(
         subscription_id,
         vec![OrmPatch {
             op: OrmPatchOp::remove,
@@ -2746,7 +2740,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
     .await
     .unwrap();
     // remove_all remaining
-    graph_orm_update(
+    orm_update(
         subscription_id,
         vec![OrmPatch {
             op: OrmPatchOp::remove,
@@ -2852,10 +2846,10 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
     let patch = OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/address/{}", root, child_seg),
-        valType: Some(OrmPatchType::object),
-        value: None,
+        valType: None,
+        value: Some(json!({})),
     };
-    graph_orm_update(subscription_id, vec![patch.clone(), patch], session_id)
+    orm_update(subscription_id, vec![patch.clone(), patch], session_id)
         .await
         .unwrap();
     let quads = doc_sparql_select(
@@ -2966,12 +2960,10 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/address/{}", root, child_seg),
-        valType: Some(OrmPatchType::object),
+        valType: None,
         value: None,
     }];
-    graph_orm_update(subscription_id, diff, session_id)
-        .await
-        .unwrap();
+    orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
         session_id,
         "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
@@ -3065,9 +3057,9 @@ INSERT DATA {
         value: Some(json!("not a valid IRI")),
     }];
 
-    graph_orm_update(subscription_id, invalid_diff, session_id)
+    orm_update(subscription_id, invalid_diff, session_id)
         .await
-        .expect("graph_orm_update");
+        .expect("orm_update");
 
     // Wait for revert patch from the receiver.
     // For single-valued predicates with an existing value, the revert should be
@@ -3174,9 +3166,9 @@ INSERT DATA {
         value: Some(json!(["http://example.org/link3", "invalid plain text"])),
     }];
 
-    graph_orm_update(subscription_id, mixed_diff, session_id)
+    orm_update(subscription_id, mixed_diff, session_id)
         .await
-        .expect("graph_orm_update should not fail");
+        .expect("orm_update should not fail");
 
     // Wait for revert patch for the invalid value only
     let revert_received = timeout(Duration::from_secs(1), async {
@@ -3286,9 +3278,9 @@ INSERT DATA {
         value: Some(json!("http://example.org/Human")),
     }];
 
-    graph_orm_update(subscription_id, patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
     let patches = await_app_response(&mut receiver2).await;
     // Only an add patch should be generated. The object is not deleted

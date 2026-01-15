@@ -196,7 +196,7 @@ INSERT DATA {
 
         // We expect at least the object creation and its @id and @graph under members
         let mut expected = json!([
-            { "op": "add", "valType": "object", "path": "/urn:test:project1/members/urn:test:personX" },
+            { "op": "add", "value": {}, "path": "/urn:test:project1/members/urn:test:personX" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/@id", "value": "urn:test:personX" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/name", "value": "Xavier" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/type", "value": "http://example.org/Person" },
@@ -373,7 +373,7 @@ INSERT DATA {
             },
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:numArrayObj4",
             },
             {
@@ -749,7 +749,7 @@ INSERT DATA {
             },
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:oj1/multiNest/urn:test:multiNested4",
             },
             {
@@ -1095,7 +1095,7 @@ INSERT DATA {
             // Bob gets a cat
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person2/cat",
             },
             {
@@ -1116,7 +1116,7 @@ INSERT DATA {
             // Bob's cat gets a toy (multi-valued): object container for specific toy subject
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2",
             },
             {
@@ -1137,7 +1137,7 @@ INSERT DATA {
             // New person Charlie with cat
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3",
             },
             {
@@ -1157,7 +1157,7 @@ INSERT DATA {
             },
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3/cat",
             },
             {
@@ -1178,7 +1178,7 @@ INSERT DATA {
             // Charlie's cat gets a toy (multi-valued)
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3",
             },
             {
@@ -1282,7 +1282,7 @@ INSERT DATA {
             // Alice loses her cat
             {
                 "op": "remove",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person1/cat",
             },
             // Bob's cat name changes
@@ -1300,7 +1300,7 @@ INSERT DATA {
             // Charlie and his cat are removed
             {
                 "op": "remove",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3",
             },
         ]);
@@ -1711,7 +1711,7 @@ DELETE DATA {{
 
         // We expect at least the object creation and its @id and @graph under members
         let mut expected = json!([
-            { "op": "add", "valType": "object", "path": "/urn:test:project1/members/urn:test:personX0" },
+            { "op": "add", "value": {}, "path": "/urn:test:project1/members/urn:test:personX0" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/@id", "value": "urn:test:personX0" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/name", "value": "Xavier" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/type", "value": "http://example.org/Person" },

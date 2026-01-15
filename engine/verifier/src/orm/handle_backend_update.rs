@@ -35,7 +35,7 @@ use std::sync::Arc;
 /// Represents a diff operation with all its components.
 /// Encapsulates: operation type, patch type, value, and optional IRI.
 #[derive(Clone, Debug)]
-struct DiffOperation {
+struct PatchOperation {
     op: OrmPatchOp,
     val_type: Option<OrmPatchType>,
     value: Option<Value>,
@@ -182,43 +182,6 @@ impl Verifier {
         for (shape_iri, graph_changes) in orm_changes.iter() {
             for (graph_iri, subject_changes) in graph_changes.iter() {
                 for (subject_iri, change) in subject_changes {
-                    // log_info!(
-                    //     "[PATCH TRACE] Begin subject changes: subject='{}' graph='{}' shape='{}' #changed_preds={}",
-                    //     subject_iri,
-                    //     graph_iri,
-                    //     shape_iri,
-                    //     change.predicates.len()
-                    // );
-
-                    // Log changes
-                    for (_pred_iri, pred_change) in &change.predicates {
-                        let tracked_predicate = pred_change.tracked_predicate.read().unwrap();
-                        let Some(schema_arc) = tracked_predicate.schema_arc() else {
-                            continue;
-                        };
-                        let pred_name = schema_arc.readablePredicate.clone();
-
-                        // Log all added/removed values for this predicate change
-                        // if !pred_change.values_added.is_empty() {
-                        //     for v in &pred_change.values_added {
-                        //         log_info!(
-                        //             "[PATCH TRACE]    + Added value for pred='{}': {:?}",
-                        //             pred_name,
-                        //             v
-                        //         );
-                        //     }
-                        // }
-                        // if !pred_change.values_removed.is_empty() {
-                        //     for v in &pred_change.values_removed {
-                        //         log_info!(
-                        //             "[PATCH TRACE]    - Removed value for pred='{}': {:?}",
-                        //             pred_name,
-                        //             v
-                        //         );
-                        //     }
-                        // }
-                    }
-
                     // Get the tracked orm object for this (subject, shape) pair
                     let Some(tracked_orm_object_arc) =
                         orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
@@ -258,10 +221,10 @@ impl Verifier {
                                 &tracked_orm_object,
                                 &orm_subscription.shape_type.shape,
                                 &mut path,
-                                DiffOperation {
+                                PatchOperation {
                                     op: OrmPatchOp::remove,
-                                    val_type: Some(OrmPatchType::object),
-                                    value: None,
+                                    val_type: None,
+                                    value: Some(json!({})),
                                 },
                                 &mut patches,
                                 &mut objects_to_create,
@@ -292,6 +255,7 @@ impl Verifier {
                             &tracked_orm_object,
                             &orm_subscription.shape_type.shape,
                             orm_changes,
+                            &mut objects_to_create,
                         );
 
                         // Add object patches directly to the main patches list
@@ -360,14 +324,6 @@ impl Verifier {
             let mut dependent: Vec<OrmPatch> = Vec::new();
 
             for p in patches.into_iter() {
-                // If this patch targets a created object path exactly and is an object-add, drop it (duplicate)
-                let is_duplicate_object_add =
-                    p.valType == Some(OrmPatchType::object) && created_paths.contains(&p.path);
-
-                if is_duplicate_object_add {
-                    continue;
-                }
-
                 // Check if under any created path (prefix match)
                 let is_dependent = created_paths
                     .iter()
@@ -477,9 +433,9 @@ fn create_object_and_graph_and_id_patches(
         // Always create the object itself.
         patches.push(OrmPatch {
             op: OrmPatchOp::add,
-            valType: Some(OrmPatchType::object),
+            valType: None,
             path: json_pointer.clone(),
-            value: None,
+            value: Some(json!({})),
         });
 
         // If this object has an IRI (it's a real subject), add the graph then id fields
@@ -722,7 +678,7 @@ fn build_path_to_root_and_create_patches(
     tracked_orm_object: &TrackedOrmObject,
     root_shape: &String,
     path: &mut Vec<String>,
-    diff_op: DiffOperation,
+    diff_op: PatchOperation,
     patches: &mut Vec<OrmPatch>,
     objects_to_create: &mut HashSet<(Vec<String>, Option<(SubjectIri, GraphIri)>)>,
     prev_valid: &TrackedOrmObjectValidity,
@@ -810,20 +766,18 @@ fn build_path_to_root_and_create_patches(
 /// Checks if a subject is valid for creating a patch in this context.
 fn is_valid_for_patch_creation(
     tracked_orm_object: &TrackedOrmObject,
-    diff_op: &DiffOperation,
+    diff_op: &PatchOperation,
 ) -> bool {
     // If the tracked orm object is not valid, we don't create patches for it
-    // EXCEPT when we're removing the object itself (indicated by op == remove and valType == object)
-    let is_delete_op =
-        diff_op.op == OrmPatchOp::remove && diff_op.val_type == Some(OrmPatchType::object);
-    tracked_orm_object.valid == TrackedOrmObjectValidity::Valid || is_delete_op
+    // EXCEPT when we're removing the object itself.
+    tracked_orm_object.valid == TrackedOrmObjectValidity::Valid || diff_op.op == OrmPatchOp::remove
 }
 
 /// Handles the case when we've reached the root of the hierarchy.
 fn handle_root_reached(
     tracked_orm_object: &TrackedOrmObject,
     path_segments: &[String],
-    diff_op: &DiffOperation,
+    patch: &PatchOperation,
     patches: &mut Vec<OrmPatch>,
     objects_to_create: &mut HashSet<(Vec<String>, Option<(SubjectIri, GraphIri)>)>,
     prev_valid: &TrackedOrmObjectValidity,
@@ -847,23 +801,21 @@ fn handle_root_reached(
         root_path_segment.clone()
     };
 
-    // Create the patch for the actual value change
-    // log_info!(
-    //     "[PATCH TRACE]  handle_root_reached: root='{}|{}' full_path='{}' op={:?} valType={:?} value_present={} prev_valid={:?}",
-    //     tracked_orm_object.graph_iri,
-    //     tracked_orm_object.subject_iri,
-    //     path_str,
-    //     diff_op.op,
-    //     diff_op.val_type,
-    //     diff_op.value.is_some(),
-    //     prev_valid
-    // );
-    patches.push(OrmPatch {
-        op: diff_op.op.clone(),
-        valType: diff_op.val_type.clone(),
-        path: path_str.clone(),
-        value: diff_op.value.clone(),
-    });
+    // Create the patch for the actual value change unless this is a freshly created object.
+    // In that case the object creation patches (object_create_patches) already add the container.
+    let is_object_op = patch.value.as_ref().map_or(false, |val| val.is_object());
+
+    if !(is_object_op
+        && patch.op == OrmPatchOp::add
+        && *prev_valid != TrackedOrmObjectValidity::Valid)
+    {
+        patches.push(OrmPatch {
+            op: patch.op.clone(),
+            valType: patch.val_type.clone(),
+            path: path_str.clone(),
+            value: patch.value.clone(),
+        });
+    }
 
     // If the subject is newly valid, queue creation of the CHILD object at its object path
     if *prev_valid != TrackedOrmObjectValidity::Valid {
@@ -873,11 +825,10 @@ fn handle_root_reached(
         let mut object_path_segments: Vec<String> = path_segments.to_vec();
 
         // If the operation targets a primitive value or a set, the last segment is a property name.
-        // Drop it so we create the object at the subject/composite-key or the container level.
-        let is_object_op = diff_op.val_type == Some(OrmPatchType::object);
+        // Drop it so we create the object at the composite-key or at the container level.
         // For any non-object operation (including sets and plain values),
         // drop the trailing property segment so we create the object at the
-        // subject/composite-key or container level, not at the property path.
+        // composite-key or container level, not at the property path.
         if !is_object_op {
             if let Some(last) = object_path_segments.last() {
                 // Only drop if it's not a composite key segment (which contains a '|')
@@ -920,7 +871,8 @@ fn create_patches_for_predicate_change(
     tracked_orm_object: &TrackedOrmObject,
     sub_shape: &String,
     orm_changes: &OrmChanges,
-) -> (Vec<OrmPatch>, Vec<DiffOperation>) {
+    objects_to_create: &mut HashSet<(Vec<String>, Option<(SubjectIri, GraphIri)>)>,
+) -> (Vec<OrmPatch>, Vec<PatchOperation>) {
     let tracked_predicate = pred_change.tracked_predicate.read().unwrap();
     let Some(schema_arc) = tracked_predicate.schema_arc() else {
         //log_info!("[PATCH TRACE]   Skipping predicate change: schema dropped");
@@ -969,23 +921,21 @@ fn create_patches_for_predicate_change(
 
                     // Build patches starting from the child up to the root
                     let mut path: Vec<String> = Vec::new();
-                    let diff_op = DiffOperation {
+                    let diff_op = PatchOperation {
                         op: OrmPatchOp::add,
-                        val_type: Some(OrmPatchType::object),
-                        value: None,
+                        val_type: None,
+                        value: Some(json!({})),
                     };
 
                     // Force creation regardless of child's previous validity
                     let forced_prev = TrackedOrmObjectValidity::Invalid;
-                    let mut objects_to_create = HashSet::new();
-
                     build_path_to_root_and_create_patches(
                         &child,
                         sub_shape,
                         &mut path,
                         diff_op,
                         &mut patches,
-                        &mut objects_to_create,
+                        objects_to_create,
                         &forced_prev,
                         orm_changes,
                         &(child.subject_iri.clone(), child.graph_iri.clone()),
@@ -1042,9 +992,9 @@ fn create_patches_for_predicate_change(
                         // Add object creation patch and @graph/@id
                         patches.push(OrmPatch {
                             op: OrmPatchOp::add,
-                            valType: Some(OrmPatchType::object),
+                            valType: None,
                             path: final_path.clone(),
-                            value: None,
+                            value: Some(json!({})),
                         });
                         patches.push(OrmPatch {
                             op: OrmPatchOp::add,
@@ -1087,7 +1037,7 @@ fn create_patches_for_predicate_change(
             //     schema_arc.readablePredicate,
             //     pred_change.values_added[0]
             // );
-            ops.push(DiffOperation {
+            ops.push(PatchOperation {
                 op: OrmPatchOp::add,
                 val_type: None,
                 value: Some(json!(pred_change.values_added[0])),
@@ -1100,7 +1050,7 @@ fn create_patches_for_predicate_change(
             //     tracked_orm_object.graph_iri,
             //     schema_arc.readablePredicate
             // );
-            ops.push(DiffOperation {
+            ops.push(PatchOperation {
                 op: OrmPatchOp::remove,
                 val_type: None,
                 value: None,
@@ -1116,7 +1066,7 @@ fn create_patches_for_predicate_change(
             //     schema_arc.readablePredicate,
             //     pred_change.values_added
             // );
-            ops.push(DiffOperation {
+            ops.push(PatchOperation {
                 op: OrmPatchOp::add,
                 val_type: Some(OrmPatchType::set),
                 value: Some(json!(pred_change.values_added)),
@@ -1130,7 +1080,7 @@ fn create_patches_for_predicate_change(
             //     schema_arc.readablePredicate,
             //     pred_change.values_removed
             // );
-            ops.push(DiffOperation {
+            ops.push(PatchOperation {
                 op: OrmPatchOp::remove,
                 val_type: Some(OrmPatchType::set),
                 value: Some(json!(pred_change.values_removed)),
