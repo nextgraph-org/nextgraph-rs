@@ -155,10 +155,13 @@ where
     }
 }
 
-async fn create_ymap_doc(session_id: u64) -> (u64, UnboundedReceiver<AppResponse>, NuriV0) {
+async fn create_discrete_doc(
+    session_id: u64,
+    crdt: String,
+) -> (u64, UnboundedReceiver<AppResponse>, NuriV0) {
     let nuri_str = doc_create(
         session_id,
-        "YMap".to_string(),
+        crdt,
         "test_orm_query".to_string(),
         "store".to_string(),
         None,
