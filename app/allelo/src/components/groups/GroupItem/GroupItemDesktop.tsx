@@ -5,6 +5,7 @@ import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
 import {useMemo} from "react";
 import {SocialPost} from "@/.orm/shapes/group.typings.ts";
 import {usePostData} from "@/hooks/posts/usePostData.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 export const GroupItemDesktop = ({nuri, onGroupClick}: { nuri: string, onGroupClick: (id: string) => void }) => {
   const {group} = useGroupData(nuri);
@@ -81,7 +82,7 @@ export const GroupItemDesktop = ({nuri, onGroupClick}: { nuri: string, onGroupCl
           {[...group.tag ?? []]?.slice(0, 3).map((tag) => (
             <Chip
               key={tag}
-              label={tag}
+              label={contactDictMapper.removePrefix(tag)}
               size="small"
               variant="outlined"
               sx={{

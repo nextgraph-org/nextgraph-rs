@@ -1,6 +1,6 @@
 import {UilPlus, UilTimes} from "@iconscout/react-unicons";
 import {Box, Chip, Autocomplete, TextField, Popper, useTheme, useMediaQuery, SxProps, Theme} from "@mui/material";
-import {camelCaseToWords, wordsToCamelCase} from "@/utils/stringHelpers.ts";
+import {camelCaseToWords, kebabCaseToWords, wordsToCamelCase, wordsToKebabCase} from "@/utils/stringHelpers.ts";
 import {useCallback, useState} from "react";
 
 export interface TagsProps {
@@ -10,16 +10,16 @@ export interface TagsProps {
   disabled?: boolean;
   handleTagAdd?: (tag: string) => void;
   handleTagRemove?: (tag: string) => void;
-  useCamelCase?: boolean;
   sx?: SxProps<Theme>;
   variant?: 'filled' | 'outlined';
+  namingConvention?: 'camelCase' | 'kebabCase' | 'snakeCase' | 'none';
 }
 
 export const Tags = (
   {
     existingTags,
     availableTags = [],
-    useCamelCase = true,
+    namingConvention = 'kebabCase',
     disabled = false,
     handleTagAdd,
     handleTagRemove,
@@ -40,6 +40,28 @@ export const Tags = (
 
   const availableOptions = availableTags.filter(tag => !existingTags.includes(tag));
 
+  const convertTagToWords = useCallback((tag: string): string => {
+    switch (namingConvention) {
+      case "camelCase":
+        return camelCaseToWords(tag);
+      case "kebabCase":
+        return kebabCaseToWords(tag);
+      default:
+        return tag;
+    }
+  }, [namingConvention]);
+  
+  const getTagId = useCallback((tag: string): string => {
+    switch (namingConvention) {
+      case "camelCase":
+        return wordsToCamelCase(tag);
+      case "kebabCase":
+        return wordsToKebabCase(tag);
+      default:
+        return tag;
+    }
+  }, [namingConvention])
+
   const closeTagEditor = useCallback(() => {
     setInputValue("");
     setIsAddingTag(false);
@@ -48,12 +70,12 @@ export const Tags = (
 
   const addTag = useCallback((value: string) => {
     const tag = value.trim();
-    const tagId = useCamelCase ? wordsToCamelCase(value) : tag;
+    const tagId = getTagId(tag);
     if (handleTagAdd && tag && !existingTags.includes(tagId) && (allowNewTag || !availableTags.length || availableOptions.includes(tagId))) {
       handleTagAdd(tagId);
       closeTagEditor();
     }
-  }, [availableOptions, closeTagEditor, existingTags, handleTagAdd, useCamelCase, allowNewTag, availableTags]);
+  }, [getTagId, handleTagAdd, existingTags, allowNewTag, availableTags.length, availableOptions, closeTagEditor]);
 
   handleTagRemove ??= () => {};
 
@@ -67,7 +89,7 @@ export const Tags = (
       {existingTags?.map((tag) => (
         <Chip
           key={tag}
-          label={useCamelCase ? camelCaseToWords(tag) : tag}
+          label={convertTagToWords(tag)}
           size="small"
           variant={variant}
           onDelete={!disabled ? () => handleTagRemove!(tag) : undefined}
@@ -83,7 +105,7 @@ export const Tags = (
           open={autocompleteOpen}
           onOpen={() => setAutocompleteOpen(true)}
           onClose={() => setAutocompleteOpen(false)}
-          options={useCamelCase ? availableOptions.map(camelCaseToWords) : availableOptions}
+          options={availableOptions.map(convertTagToWords)}
           inputValue={inputValue}
           onInputChange={(_, newInputValue) => {
             setInputValue(newInputValue);

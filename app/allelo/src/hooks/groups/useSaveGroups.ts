@@ -65,6 +65,7 @@ export function useSaveGroups(): UseSaveGroupsReturn {
         "description": group.description,
         "hasMember": new Set(members),
         "tag": group.tag,
+        "createdAt": (new Date()).toISOString()
       }
 
       await insertObject(SocialGroupShapeType, groupObj);

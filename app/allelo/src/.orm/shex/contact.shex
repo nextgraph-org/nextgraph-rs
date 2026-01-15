@@ -560,16 +560,16 @@ ngc:Membership {
 
 ngc:Tag {
   ngcore:valueIRI [ ngktag:ai ngktag:technology ngktag:leadership ngktag:design
-    ngktag:creative ngktag:branding ngktag:humaneTech ngktag:ethics
+    ngktag:creative ngktag:branding ngktag:humane-tech ngktag:ethics
     ngktag:networking ngktag:golang ngktag:infrastructure ngktag:blockchain
     ngktag:protocols ngktag:p2p ngktag:entrepreneur ngktag:climate
-    ngktag:agriculture ngktag:socialImpact ngktag:investing ngktag:ventures
-    ngktag:identity ngktag:trust ngktag:digitalCredentials ngktag:crypto
+    ngktag:agriculture ngktag:social-impact ngktag:investing ngktag:ventures
+    ngktag:identity ngktag:trust ngktag:digital-credentials ngktag:crypto
     ngktag:organizations ngktag:transformation ngktag:author ngktag:cognition
-    ngktag:research ngktag:futurism ngktag:writing ngktag:ventureCapital
-    ngktag:deepTech ngktag:startups ngktag:sustainability ngktag:environment
+    ngktag:research ngktag:futurism ngktag:writing ngktag:venture-capital
+    ngktag:deep-tech ngktag:startups ngktag:sustainability ngktag:environment
     ngktag:healthcare ngktag:policy ngktag:medicare ngktag:education
-    ngktag:careerDevelopment ngktag:openai ngktag:decentralized ngktag:database
+    ngktag:career-development ngktag:openai ngktag:decentralized ngktag:database
     ngktag:forestry ngktag:biotech ngktag:mrna ngktag:vaccines ngktag:fintech
     ngktag:product ngktag:ux ]
     // rdfs:comment "The value of the miscellaneous keyword/tag" ;

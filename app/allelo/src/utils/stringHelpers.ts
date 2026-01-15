@@ -9,3 +9,11 @@ export function wordsToCamelCase(str: string) {
     .map((w, i) => (i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)))
     .join('');
 }
+
+export function kebabCaseToWords(str: string) {
+  return str.replace(/-/g, " ").trim();
+}
+
+export function wordsToKebabCase(str: string) {
+  return str.replace(/\s+/g, "-").trim();
+}
