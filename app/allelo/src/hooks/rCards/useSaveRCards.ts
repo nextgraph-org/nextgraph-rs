@@ -61,9 +61,7 @@ export const useSaveRCards = (): SaveRCardsReturn => {
     for (const category of relationshipCategories) {
       i++;
       try {
-        const permissions = category.permissions;
-        permissions.forEach((permission) => permission.isPermissionGiven = true);
-        await createRCard(category.id, i, permissions);
+        await createRCard(category.id, i, category.permissions);
       } catch (error) {
         console.log(error);
       }

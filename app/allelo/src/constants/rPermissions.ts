@@ -63,10 +63,17 @@ export const rCardPermissionConfig: ContactPermissionsConfig = {
   organization: {
     value: {displayProp: "value"},
     domain: {displayProp: "domain"},
-    location: {displayProp: "location"},
+    location: {
+      label: "organization location",
+      displayProp: "location"
+    },
   },
   url: {
-    value: {displayProp: "value", isMultiple: true, filterParams: {type: {notIn: ["linkedin", "blog", "homepage", "work", "other"]}}},
+    value: {
+      displayProp: "value",
+      isMultiple: true,
+      filterParams: {type: {notIn: ["linkedin", "blog", "homepage", "work", "other"]}}
+    },
     "value^linkedin": {displayProp: "value", filterParams: {type: "linkedin"}, isMultiple: true},
     "value^blog": {displayProp: "value", filterParams: {type: "blog"}, isMultiple: true},
     "value^homepage": {displayProp: "value", filterParams: {type: "homepage"}, isMultiple: true},
@@ -137,14 +144,15 @@ export function getPermissionId(permission: RCardPermission) {
   return `${permission.firstLevel}-${permission.secondLevel}-${permission.selector ?? ""}`;
 }
 
-function getPermission(firstLevel: ContactSetProperties, secondLevel: string, zone?: rCardZones, selector?: string): RCardPermission {
+function getPermission(firstLevel: ContactSetProperties, secondLevel: string, zone: rCardZones, isPermissionGiven: boolean = true, selector?: string): RCardPermission {
   const permission: RCardPermission = {
     "@graph": "",
     "@id": "",
     firstLevel,
     secondLevel,
     selector,
-    zone: rCardDictMapper.appendPrefixToDictValue("permission", "zone", zone ?? "middle")
+    isPermissionGiven,
+    zone: rCardDictMapper.appendPrefixToDictValue("permission", "zone", zone)!
   };
   const config = getPermissionConfig(permission);
 
@@ -157,9 +165,9 @@ function getPermission(firstLevel: ContactSetProperties, secondLevel: string, zo
   return permission;
 }
 
-function getAccountPermissions(zone?: rCardZones): RCardPermission[] {
+function getAccountPermissions(zone: rCardZones): RCardPermission[] {
   return AccountRegistry.getAllProtocols().map(protocol =>
-    getPermission("account", "value", zone, protocol)
+    getPermission("account", "value", zone, true,  protocol)
   );
 }
 
@@ -169,22 +177,22 @@ function getAccountPermissions(zone?: rCardZones): RCardPermission[] {
  */
 export const defaultPermissions: RCardPermission[] = [
   getPermission("name", "value", "top"),
-  getPermission("name", "firstName", "top"),
-  getPermission("name", "familyName", "top"),
-  getPermission("name", "honorificPrefix", "middle"),
-  getPermission("name", "honorificSuffix", "middle"),
-  getPermission("phoneNumber", "value", "top", "mobile"),
+  getPermission("name", "firstName", "top", false),
+  getPermission("name", "familyName", "top", false),
+  getPermission("name", "honorificPrefix", "middle", false),
+  getPermission("name", "honorificSuffix", "middle", false),
+  getPermission("phoneNumber", "value", "top", true, "mobile"),
   getPermission("phoneNumber", "value", "middle"),
   getPermission("email", "value", "middle"),
   getPermission("address", "value", "top"),
-  getPermission("address", "city", "top"),
-  getPermission("address", "country", "top"),
-  getPermission("nickname", "value", "middle"),
-  getPermission("organization", "value", "top"),
+  getPermission("address", "city", "top", false),
+  getPermission("address", "country", "top", false),
+  getPermission("nickname", "value", "middle", false),
+  getPermission("organization", "value", "top", false),
   getPermission("url", "value", "middle"),
-  getPermission("url", "value", "middle", "linkedin"),
-  getPermission("url", "value", "middle", "blog"),
-  getPermission("url", "value", "middle", "homepage"),
+  getPermission("url", "value", "middle", true, "linkedin"),
+  getPermission("url", "value", "middle", true, "blog"),
+  getPermission("url", "value", "middle", true, "homepage"),
   getPermission("biography", "value", "middle"),
   getPermission("headline", "value", "top"),
   getPermission("photo", "value", "middle"),
@@ -199,24 +207,24 @@ export const defaultPermissions: RCardPermission[] = [
  */
 export const friendsPermissions: RCardPermission[] = [
   getPermission("name", "value", "top"),
-  getPermission("name", "firstName", "middle"),
-  getPermission("name", "familyName", "middle"),
-  getPermission("name", "honorificSuffix", "middle"),
-  getPermission("name", "maidenName", "middle"),
+  getPermission("name", "firstName", "middle", false),
+  getPermission("name", "familyName", "middle", false),
+  getPermission("name", "honorificSuffix", "middle", false),
+  getPermission("name", "maidenName", "middle", false),
   getPermission("phoneNumber", "value", "top"),
-  getPermission("phoneNumber", "value", "top", "mobile"),
+  getPermission("phoneNumber", "value", "top", true, "mobile"),
   getPermission("email", "value", "top"),
-  getPermission("email", "value", "bottom", "home"),
-  getPermission("email", "value", "bottom", "work"),
+  getPermission("email", "value", "bottom", true, "home"),
+  getPermission("email", "value", "bottom", true, "work"),
   getPermission("address", "value", "bottom"),
-  getPermission("address", "extendedAddress", "bottom"),
-  getPermission("address", "city", "bottom"),
-  getPermission("address", "postalCode", "bottom"),
+  getPermission("address", "extendedAddress", "bottom", false),
+  getPermission("address", "city", "bottom", false),
+  getPermission("address", "postalCode", "bottom", false),
   getPermission("nickname", "value", "top"),
   getPermission("url", "value", "bottom"),
-  getPermission("url", "value", "bottom", "homepage"),
-  getPermission("url", "value", "middle", "blog"),
-  getPermission("url", "value", "middle", "other"),
+  getPermission("url", "value", "bottom", true, "homepage"),
+  getPermission("url", "value", "middle", true, "blog"),
+  getPermission("url", "value", "middle", true, "other"),
   getPermission("birthday", "valueDate", "top"),
   getPermission("headline", "value", "middle"),
   getPermission("photo", "value", "top"),
@@ -230,26 +238,26 @@ export const friendsPermissions: RCardPermission[] = [
  */
 export const familyPermissions: RCardPermission[] = [
   getPermission("name", "value", "top"),
-  getPermission("name", "firstName", "middle"),
-  getPermission("name", "familyName", "middle"),
-  getPermission("name", "honorificSuffix", "middle"),
-  getPermission("name", "maidenName", "middle"),
+  getPermission("name", "firstName", "middle", false),
+  getPermission("name", "familyName", "middle", false),
+  getPermission("name", "honorificSuffix", "middle", false),
+  getPermission("name", "maidenName", "middle", false),
   getPermission("phoneNumber", "value", "top"),
-  getPermission("phoneNumber", "value", "top", "mobile"),
+  getPermission("phoneNumber", "value", "top", true, "mobile"),
   getPermission("email", "value", "top"),
-  getPermission("email", "value", "top", "home"),
-  getPermission("email", "value", "middle", "work"),
+  getPermission("email", "value", "top", true, "home"),
+  getPermission("email", "value", "middle", true, "work"),
   getPermission("address", "value", "middle"),
-  getPermission("address", "extendedAddress", "middle"),
-  getPermission("address", "city", "middle"),
-  getPermission("address", "postalCode", "middle"),
+  getPermission("address", "extendedAddress", "middle", false),
+  getPermission("address", "city", "middle", false),
+  getPermission("address", "postalCode", "middle", false),
   getPermission("headline", "value", "middle"),
   getPermission("nickname", "value", "top"),
   getPermission("birthday", "valueDate", "top"),
   getPermission("url", "value", "middle"),
-  getPermission("url", "value", "middle", "homepage"),
-  getPermission("url", "value", "bottom", "blog"),
-  getPermission("url", "value", "middle", "other"),
+  getPermission("url", "value", "middle", true, "homepage"),
+  getPermission("url", "value", "bottom", true, "blog"),
+  getPermission("url", "value", "middle", true, "other"),
   getPermission("photo", "value", "top"),
   getPermission("interest", "value", "middle"),
   ...getAccountPermissions("top"),
@@ -261,14 +269,14 @@ export const familyPermissions: RCardPermission[] = [
  */
 export const communityPermissions: RCardPermission[] = [
   getPermission("name", "value", "top"),
-  getPermission("name", "firstName", "top"),
-  getPermission("name", "familyName", "top"),
-  getPermission("name", "honorificSuffix", "middle"),
+  getPermission("name", "firstName", "top", false),
+  getPermission("name", "familyName", "top", false),
+  getPermission("name", "honorificSuffix", "middle", false),
   getPermission("email", "value", "top"),
   getPermission("nickname", "value", "middle"),
   getPermission("phoneNumber", "value", "top"),
   getPermission("url", "value", "bottom"),
-  getPermission("url", "value", "bottom", "linkedin"),
+  getPermission("url", "value", "bottom", true, "linkedin"),
   getPermission("headline", "value", "top"),
   getPermission("education", "value", "middle"),
   getPermission("language", "valueIRI", "middle"),
@@ -283,27 +291,27 @@ export const communityPermissions: RCardPermission[] = [
  */
 export const businessPermissions: RCardPermission[] = [
   getPermission("name", "value", "top"),
-  getPermission("name", "firstName", "top"),
-  getPermission("name", "familyName", "top"),
-  getPermission("name", "honorificPrefix", "middle"),
-  getPermission("name", "honorificSuffix", "middle"),
-  getPermission("name", "phoneticFullName", "middle"),
+  getPermission("name", "firstName", "top", false),
+  getPermission("name", "familyName", "top", false),
+  getPermission("name", "honorificPrefix", "middle", false),
+  getPermission("name", "honorificSuffix", "middle", false),
+  getPermission("name", "phoneticFullName", "middle", false),
   getPermission("phoneNumber", "value", "top"),
-  getPermission("phoneNumber", "value", "top", "other"),
-  getPermission("phoneNumber", "value", "middle", "work"),
+  getPermission("phoneNumber", "value", "top", true, "other"),
+  getPermission("phoneNumber", "value", "middle", true, "work"),
   getPermission("email", "value", "top"),
-  getPermission("email", "value", "top", "other"),
-  getPermission("email", "value", "top", "work"),
+  getPermission("email", "value", "top", true, "other"),
+  getPermission("email", "value", "top", true, "work"),
   getPermission("organization", "domain", "top"),
   getPermission("organization", "location", "bottom"),
-  getPermission("address", "value", "bottom"),
-  getPermission("address", "extendedAddress", "bottom"),
-  getPermission("address", "city", "bottom"),
-  getPermission("address", "postalCode", "bottom"),
-  getPermission("address", "country", "bottom"),
+  getPermission("address", "value", "bottom", false),
+  getPermission("address", "extendedAddress", "bottom", false),
+  getPermission("address", "city", "bottom", false),
+  getPermission("address", "postalCode", "bottom", false),
+  getPermission("address", "country", "bottom", false),
   getPermission("url", "value", "top"),
-  getPermission("url", "value", "top", "linkedin"),
-  getPermission("url", "value", "bottom", "work"),
+  getPermission("url", "value", "top", true, "linkedin"),
+  getPermission("url", "value", "bottom", true, "work"),
   getPermission("headline", "value", "top"),
   getPermission("industry", "value", "middle"),
   getPermission("education", "value", "middle"),
