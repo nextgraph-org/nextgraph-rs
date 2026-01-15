@@ -80,7 +80,16 @@ impl Verifier {
             orm_subscription.crdt_details = crdt_details;
             value
         } else {
-            serde_json::Value::Null
+            match crdt {
+                BranchCrdt::Automerge(_) | BranchCrdt::YMap(_) => {
+                    serde_json::Value::Object(serde_json::map::Map::new())
+                }
+                BranchCrdt::YArray(_) => serde_json::Value::Array(vec![]),
+                BranchCrdt::YText(_) | BranchCrdt::YXml(_) => {
+                    return Err(VerifierError::NotImplemented)
+                }
+                _ => return Err(VerifierError::InvalidBranch),
+            }
         };
 
         let _ = tx
