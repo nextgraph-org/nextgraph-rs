@@ -6,8 +6,8 @@ import type { Schema } from "@ng-org/shex-orm";
  * =============================================================================
  */
 export const expenseShapesSchema: Schema = {
-  "http://example.org/Expense": {
-    iri: "http://example.org/Expense",
+  "http://example.org/ExpenseShape": {
+    iri: "http://example.org/ExpenseShape",
     predicates: [
       {
         dataTypes: [
