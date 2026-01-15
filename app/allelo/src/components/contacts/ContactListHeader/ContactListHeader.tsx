@@ -3,47 +3,36 @@ import {Button} from '@/components/ui';
 import {
   UilPlus,
   UilCloudDownload,
-  UilQrcodeScan,
   UilAngleDown,
   UilSetting,
   UilArrowLeft,
   UilCheck
 } from '@iconscout/react-unicons';
 import {useNavigate} from 'react-router-dom';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {useIsMobile} from "@/hooks/useIsMobile.ts";
 import {useDashboardStore} from "@/stores/dashboardStore";
-import {GreenCheckConnectionDialog} from "@/components/account/GreenCheckConnectionDialog";
-import {useGreenCheck} from "@/hooks/useGreenCheck.ts";
 
 interface ContactListHeaderProps {
   mode?: string | null;
   manageMode?: boolean;
   setManageMode?: (value: boolean) => void;
   currentTab: number;
+  handleGreencheckConnect: () => void;
 }
 
 export const ContactListHeader = ({
                                     mode,
                                     manageMode,
                                     setManageMode,
-                                    currentTab
+                                    currentTab,
+                                    handleGreencheckConnect
                                   }: ContactListHeaderProps) => {
   const navigate = useNavigate();
   const {setShowRCardsWidget} = useDashboardStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const isMobile = useIsMobile();
-  const {handleGreencheckConnect, showGreencheckDialog, setShowGreencheckDialog} = useGreenCheck();
-  const greencheckButton = useMemo(() => {
-    if (currentTab === 0) {
-      return "Claim accounts"
-    }
-    if (currentTab === 1) {
-      return "Get Network"
-    }
-  }, [currentTab]);
-
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -63,10 +52,10 @@ export const ContactListHeader = ({
     navigate('/import');
   }, [handleClose, navigate]);
 
-  const handleInvite = useCallback(() => {
-    handleClose();
-    navigate('/invite');
-  }, [handleClose, navigate]);
+  // const handleInvite = useCallback(() => {
+  //   handleClose();
+  //   navigate('/invite');
+  // }, [handleClose, navigate]);
 
   const handleManageClick = useCallback(() => {
     if (setManageMode) {
@@ -136,38 +125,32 @@ export const ContactListHeader = ({
           {getTitle()}
         </Typography>
       </Box>
-      {!manageMode && mode !== 'invite' && (
-        <Box sx={{
-          display: 'flex',
-          gap: 1,
-          justifyContent: 'flex-end',
-        }}>
-          {currentTab === 0 && <Button
-              variant="contained"
-              onClick={handleManageClick}
-              sx={{p: 1, minWidth: "26px"}}
-          >
-            {isMobile ? <UilSetting size="20" sx={{p: 0}}/> : <><UilSetting size="20" sx={{p: 0, mr: 1}}/>Manage</>}
-          </Button>}
-          <Button
-            variant="contained"
-            endIcon={!isMobile && <UilAngleDown size="20"/>}
-            onClick={handleClick}
-            sx={{p: 1, minWidth: "26px"}}
-          >
-            {isMobile ? <UilPlus size="20" sx={{p: 0}}/> : <><UilPlus size="20" sx={{p: 0, mr: 1}}/>Add</>}
-          </Button>
-        </Box>
-      )}
-      {(manageMode || currentTab === 1) && <Button
+      {(currentTab === 1) && <Button
           variant="contained"
           size="small"
           onClick={handleGreencheckConnect}
           sx={{p: 1, minWidth: "26px"}}
       >
-        {isMobile ? <><UilCheck size="20" sx={{p: 0}}/>{greencheckButton}</> : <><UilCheck size="20" sx={{p: 0, mr: 1}}/>{greencheckButton}</>}
-
+          <UilCheck size="20" sx={{p: 0, mr: {xs: 0, md: 1}}}/>
+          Get Network
       </Button>}
+      {mode !== 'invite' && (<>
+        {currentTab === 0 && !manageMode && <Button
+            variant="contained"
+            onClick={handleManageClick}
+            sx={{p: 1, minWidth: "26px"}}
+        >
+          {isMobile ? <UilSetting size="20" sx={{p: 0}}/> : <><UilSetting size="20" sx={{p: 0, mr: 1}}/>Manage</>}
+        </Button>}
+        {(currentTab !== 0 || !manageMode) && <Button
+            variant="contained"
+            endIcon={!isMobile && <UilAngleDown size="20"/>}
+            onClick={handleClick}
+            sx={{p: 1, minWidth: "26px"}}
+        >
+          {isMobile ? <UilPlus size="20" sx={{p: 0}}/> : <><UilPlus size="20" sx={{p: 0, mr: 1}}/>Add</>}
+        </Button>}
+      </>)}
 
       {/* Dropdown Menu */}
       <Menu
@@ -202,7 +185,6 @@ export const ContactListHeader = ({
           <ListItemText>Invite</ListItemText>
         </MenuItem> */}
       </Menu>
-      <GreenCheckConnectionDialog show={showGreencheckDialog} setShow={setShowGreencheckDialog}/>
     </Box>
 
   );

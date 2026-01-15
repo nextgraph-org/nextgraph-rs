@@ -15,6 +15,7 @@ interface ContactFiltersProps {
   hasSelection?: boolean;
   contactCount?: number;
   totalCount?: number;
+  onClaimAccounts: () => void;
   onMergeContacts: () => void;
   onAutomaticDeduplication: () => void;
   onAssignRCard: () => void;
@@ -30,6 +31,7 @@ export const ContactFilters = ({
                                  onSelectAll,
                                  hasSelection = false,
                                  totalCount,
+                                 onClaimAccounts,
                                  onMergeContacts,
                                  onAutomaticDeduplication,
                                  onAssignRCard,
@@ -110,6 +112,7 @@ export const ContactFilters = ({
             </Typography>*/}
               <ContactActionsMenu
                 hasSelection={hasSelection}
+                onClaimAccounts={onClaimAccounts}
                 onAutomaticDeduplication={onAutomaticDeduplication}
                 onMergeContacts={onMergeContacts}
                 onAssignRCard={onAssignRCard}

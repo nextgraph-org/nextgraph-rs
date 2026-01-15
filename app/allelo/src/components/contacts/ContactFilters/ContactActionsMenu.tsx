@@ -4,22 +4,24 @@ import {
   UilCodeBranch,
   UilLayerGroup,
   UilUserCheck,
-  UilAngleDown
+  UilAngleDown, UilCheck
 } from '@iconscout/react-unicons';
 
 interface ContactActionsMenuProps {
   hasSelection?: boolean;
+  onClaimAccounts: () => void;
   onAutomaticDeduplication: () => void;
   onMergeContacts: () => void;
   onAssignRCard: () => void;
 }
 
 export const ContactActionsMenu = ({
-  hasSelection = false,
-  onAutomaticDeduplication,
-  onMergeContacts,
-  onAssignRCard,
-}: ContactActionsMenuProps) => {
+                                     hasSelection = false,
+                                     onClaimAccounts,
+                                     onAutomaticDeduplication,
+                                     onMergeContacts,
+                                     onAssignRCard,
+                                   }: ContactActionsMenuProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -29,6 +31,11 @@ export const ContactActionsMenu = ({
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleClaimAccounts = () => {
+    onClaimAccounts();
+    handleClose();
   };
 
   const handleAutomaticDeduplication = () => {
@@ -71,6 +78,10 @@ export const ContactActionsMenu = ({
         open={open}
         onClose={handleClose}
       >
+        <MenuItem onClick={handleClaimAccounts}>
+          <ListItemIcon><UilCheck size="20"/></ListItemIcon>
+          <ListItemText>Claim accounts</ListItemText>
+        </MenuItem>
         <MenuItem onClick={handleAutomaticDeduplication}>
           <ListItemIcon><UilLayerGroup size="20"/></ListItemIcon>
           <ListItemText>Automatic deduplication</ListItemText>
