@@ -12,12 +12,14 @@ export const ContactListTab = ({
                                  manageMode,
                                  setManageMode,
                                  onSelectionChange,
-                                 forGroup
+                                 forGroup,
+                                 handleGreencheckConnect
                                }: {
   manageMode: boolean;
   setManageMode: any;
   onSelectionChange?: (selectedContacts: string[]) => void;
   forGroup?: boolean;
+  handleGreencheckConnect: () => void
 }) => {
   const {
     contactNuris,
@@ -187,6 +189,7 @@ export const ContactListTab = ({
       hasSelection={hasSelection}
       totalCount={totalCount}
       contactCount={contactNuris.length}
+      onClaimAccounts={handleGreencheckConnect}
       onMergeContacts={handleMergeSelectedContacts}
       onAutomaticDeduplication={handleAutomaticDeduplication}
       onAssignRCard={handleAssignRCard}

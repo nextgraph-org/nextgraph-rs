@@ -9,10 +9,13 @@ import {useSearchParams} from 'react-router-dom';
 import {TabItem, TabManager} from "@/components/ui/TabManager/TabManager.tsx";
 import {Box, List} from '@mui/material';
 import {Hub, Map} from '@mui/icons-material';
+import {useGreenCheck} from "@/hooks/useGreenCheck.ts";
+import {GreenCheckConnectionDialog} from "@/components/account/GreenCheckConnectionDialog";
 
 const ContactListPage = () => {
   const [manageMode, setManageMode] = useState(false);
   const [searchParams] = useSearchParams();
+  const {handleGreencheckConnect, showGreencheckDialog, setShowGreencheckDialog} = useGreenCheck();
 
   const mode = searchParams.get('mode');
 
@@ -20,11 +23,12 @@ const ContactListPage = () => {
 
   const tabItems = useMemo<TabItem[]>(
     () => [
-      {label: "List", icon: <List/>, content: <ContactListTab manageMode={manageMode} setManageMode={setManageMode}/>},
+      {label: "List", icon: <List/>, content: 
+          <ContactListTab handleGreencheckConnect={handleGreencheckConnect} manageMode={manageMode} setManageMode={setManageMode}/>},
       {label: "Network", icon: <Hub/>, content: <ContactNetworkTab/>},
       {label: "Map", icon: <Map/>, content: <ContactMapTab/>},
     ],
-    [manageMode, setManageMode]
+    [handleGreencheckConnect, manageMode]
   );
   return <Box sx={{
     width: '100%',
@@ -36,16 +40,18 @@ const ContactListPage = () => {
     flexDirection: 'column',
     overflow: 'auto',
   }}>
-      <ContactListHeader
-        mode={mode}
-        manageMode={manageMode}
-        setManageMode={setManageMode}
-        currentTab={tabValue}
-      />
-      <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        <TabManager tabItems={tabItems} onChange={setTabValue}/>
-      </Box>
+    <ContactListHeader
+      mode={mode}
+      manageMode={manageMode}
+      setManageMode={setManageMode}
+      currentTab={tabValue}
+      handleGreencheckConnect={handleGreencheckConnect}
+    />
+    <Box sx={{flex: 1, minHeight: 0, display: "flex", flexDirection: "column"}}>
+      <TabManager tabItems={tabItems} onChange={setTabValue}/>
     </Box>
+    <GreenCheckConnectionDialog show={showGreencheckDialog} setShow={setShowGreencheckDialog}/>
+  </Box>
 };
 
 export default ContactListPage;
