@@ -198,6 +198,7 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 #[include = "*.sha256"]
 #[include = "*.gzip"]
 #[include = "*.ttf"]
+#[include = "*.html"]
 struct App;
 
 #[derive(RustEmbed)]
@@ -280,6 +281,18 @@ fn upgrade_ws_or_serve_app(
                 let res = Response::builder()
                     .status(StatusCode::OK)
                     .header("Content-Type", "font/ttf")
+                    .header("Cache-Control", "max-age=3600, must-revalidate")
+                    .body(Some(file.data.to_vec()))
+                    .unwrap();
+                return Err(res);
+            } else {
+                return Err(make_error(StatusCode::NOT_FOUND));
+            }
+        } else if uri.path().ends_with(".html") && !std::env::var("NG_DEV3").is_ok() {
+            if let Some(file) = App::get(uri.path().get(1..).unwrap()) {
+                let res = Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "text/html")
                     .header("Cache-Control", "max-age=3600, must-revalidate")
                     .body(Some(file.data.to_vec()))
                     .unwrap();
