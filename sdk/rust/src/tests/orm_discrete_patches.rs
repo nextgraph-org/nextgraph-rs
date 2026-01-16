@@ -31,10 +31,16 @@ async fn test_orm_apply_patches() {
 
     log_info!("=== Testing YArray ===");
     test_y_array(session_id).await;
+
+    log_info!("=== Testing YArray wrong assignment ===");
+    test_y_map_wrong_assignment(session_id).await;
+
+    log_info!("=== Testing YMap wrong assignment ===");
+    test_y_array_wrong_assignment(session_id).await;
 }
 
 async fn test_y_map(session_id: u64) {
-    let (subscription_id_1, mut receiver_1, nuri) =
+    let (subscription_id_1, receiver_1, nuri) =
         create_discrete_doc(session_id, "YMap".into()).await;
 
     let (initial_value_1, mut receiver_2, subscription_id_2) =
@@ -111,11 +117,17 @@ async fn test_y_map(session_id: u64) {
             op: OrmPatchOp::add,
             path: format!("/someArray/3"),
             valType: None,
-            value: Some(json!({"stringInArrayInObject": "in object in array"})), // Object in array
+            value: Some(json!({})), // Object in array
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: format!("/someArray/3/someInteger"), // Target object in array
+            path: format!("/someArray/3/stringInArrayInObject"),
+            valType: None,
+            value: Some(json!("in object in array")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("/someArray/3/someInteger"),
             valType: None,
             value: Some(json!(42)),
         },
@@ -187,11 +199,68 @@ async fn test_y_map(session_id: u64) {
 
     let got_patches = await_discrete_patches(&mut receiver_2).await;
 
-    let mut expected_json = serde_json::to_value(&applied_patches).unwrap();
+    let expected_emitted = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/someNull".into(),
+            valType: None,
+            value: Some(Value::Null),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/someInteger".into(),
+            valType: None,
+            value: Some(json!(-25)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/someArray".into(),
+            valType: None,
+            value: Some(json!([
+                -1,
+                1,
+                "2",
+                {"stringInArrayInObject": "in object in array", "someInteger": 42},
+                [1]
+            ])),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/someBoolean".into(),
+            valType: None,
+            value: Some(json!(true)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/toOverwrite".into(),
+            valType: None,
+            value: Some(json!("overwritten")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/someFloat".into(),
+            valType: None,
+            value: Some(json!(0.1)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/someString".into(),
+            valType: None,
+            value: Some(json!("root string")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/someObject".into(),
+            valType: None,
+            value: Some(json!({"someString": "nested string"})),
+        },
+    ];
+
+    let mut expected_json = serde_json::to_value(&expected_emitted).unwrap();
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
     assert_json_eq(&mut expected_json, &mut got_json);
 
-    let (mut initial_value_3, mut receiver_3, subscription_id_3) =
+    let (mut initial_value_3, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(
@@ -221,7 +290,9 @@ async fn test_y_map(session_id: u64) {
         &mut initial_value_3,
     );
 
+    //
     log_info!("=== Test replacing YMap at root ===");
+    //
 
     let applied_patches = vec![OrmPatch {
         op: OrmPatchOp::add,
@@ -235,19 +306,37 @@ async fn test_y_map(session_id: u64) {
         .expect("orm_update failed");
 
     let got_patches = await_discrete_patches(&mut receiver_2).await;
+    let expected_patches = vec![
+        "/someArray",
+        "/someBoolean",
+        "/someFloat",
+        "/someInteger",
+        "/someNull",
+        "/someObject",
+        "/someString",
+        "/toOverwrite",
+    ]
+    .into_iter()
+    .map(|path| OrmPatch {
+        op: OrmPatchOp::remove,
+        path: path.into(),
+        valType: None,
+        value: None,
+    })
+    .collect::<Vec<_>>();
 
-    let mut expected_json = serde_json::to_value(&applied_patches).unwrap();
-    let mut got_json = serde_json::to_value(&got_patches).unwrap();
-    assert_json_eq(&mut expected_json, &mut got_json);
+    let mut expected_patches_json = serde_json::to_value(&expected_patches).unwrap();
+    let mut got_patches_json = serde_json::to_value(&got_patches).unwrap();
+    assert_json_eq(&mut expected_patches_json, &mut got_patches_json);
 
-    let (mut initial_value_4, mut receiver_4, subscription_id_4) =
+    let (mut initial_value_4, receiver_4, subscription_id_4) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(&mut json!({}), &mut initial_value_4);
 }
 
 async fn test_y_array(session_id: u64) {
-    let (subscription_id_1, mut receiver_1, nuri) =
+    let (subscription_id_1, receiver_1, nuri) =
         create_discrete_doc(session_id, "YArray".into()).await;
 
     let (initial_value_1, mut receiver_2, subscription_id_2) =
@@ -283,7 +372,7 @@ async fn test_y_array(session_id: u64) {
             op: OrmPatchOp::add,
             path: format!("/1"),
             valType: None,
-            value: Some(json!(1.0)),
+            value: Some(json!(1)),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -295,7 +384,13 @@ async fn test_y_array(session_id: u64) {
             op: OrmPatchOp::add,
             path: format!("/5"),
             valType: None,
-            value: Some(json!({"someString": "some string"})),
+            value: Some(json!({})),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("/5/someString"),
+            valType: None,
+            value: Some(json!("some string")),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -307,7 +402,7 @@ async fn test_y_array(session_id: u64) {
             op: OrmPatchOp::add,
             path: format!("/6"),
             valType: None,
-            value: Some(json!([6])),
+            value: Some(json!([])),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -341,15 +436,72 @@ async fn test_y_array(session_id: u64) {
 
     let got_patches = await_discrete_patches(&mut receiver_2).await;
 
-    let mut expected_json = serde_json::to_value(&applied_patches).unwrap();
-    let mut got_json = serde_json::to_value(&got_patches).unwrap();
-    assert_json_eq(&mut expected_json, &mut got_json);
+    let expected_patches = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/0".into(),
+            valType: None,
+            value: Some(json!(0)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/1".into(),
+            valType: None,
+            value: Some(json!(1)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/2".into(),
+            valType: None,
+            value: Some(json!(2)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/3".into(),
+            valType: None,
+            value: Some(json!(3)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/4".into(),
+            valType: None,
+            value: Some(json!("4")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/5".into(),
+            valType: None,
+            value: Some(json!({"someString": "some string", "someNumber": 42})),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/6".into(),
+            valType: None,
+            value: Some(json!([])),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/7".into(),
+            valType: None,
+            value: Some(json!(false)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "/8".into(),
+            valType: None,
+            value: Some(Value::Null),
+        },
+    ];
 
-    let (mut initial_value_3, mut receiver_3, subscription_id_3) =
+    let mut expected_patches_json = serde_json::to_value(&expected_patches).unwrap();
+    let mut got_patches_json = serde_json::to_value(&got_patches).unwrap();
+    assert_json_eq(&mut expected_patches_json, &mut got_patches_json);
+
+    let (mut initial_value_3, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(
-        &mut json!([0,1.0,2,3,"4", {"someString": "some string", "someNumber": 42}, [6], false, Value::Null]),
+        &mut json!([0,1,2,3,"4", {"someString": "some string", "someNumber": 42}, [], false, Value::Null]),
         &mut initial_value_3,
     );
 
@@ -368,18 +520,27 @@ async fn test_y_array(session_id: u64) {
 
     let got_patches = await_discrete_patches(&mut receiver_2).await;
 
-    let mut expected_json = serde_json::to_value(&applied_patches).unwrap();
+    let expected_emitted = (0..9)
+        .map(|_| OrmPatch {
+            op: OrmPatchOp::remove,
+            path: "/0".into(),
+            valType: None,
+            value: None,
+        })
+        .collect::<Vec<_>>();
+
+    let mut expected_json = serde_json::to_value(&expected_emitted).unwrap();
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
     assert_json_eq(&mut expected_json, &mut got_json);
 
-    let (mut initial_value_4, mut receiver_4, subscription_id_4) =
+    let (mut initial_value_4, receiver_4, subscription_id_4) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(&mut json!([]), &mut initial_value_4);
 }
 
 async fn test_y_map_wrong_assignment(session_id: u64) {
-    let (subscription_id_1, mut receiver_1, nuri) =
+    let (subscription_id_1, receiver_1, nuri) =
         create_discrete_doc(session_id, "YMap".into()).await;
 
     // Initialize object with `{someString: "some string"}`.
@@ -395,7 +556,7 @@ async fn test_y_map_wrong_assignment(session_id: u64) {
     )
     .await;
 
-    let (initial_value_1, mut receiver_2, subscription_id_2) =
+    let (initial_value_1, receiver_2, subscription_id_2) =
         create_discrete_subscription(session_id, &nuri).await;
 
     let applied_patches = vec![OrmPatch {
@@ -410,17 +571,17 @@ async fn test_y_map_wrong_assignment(session_id: u64) {
 
     assert!(update_res.is_err());
 
-    let (mut initial_value_2, mut receiver_3, subscription_id_3) =
+    let (mut initial_value_2, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
     assert_json_eq(
-        &mut json!({"someValue": "some value"}),
+        &mut json!({"someString": "some string"}),
         &mut initial_value_2,
     );
 }
 
 async fn test_y_array_wrong_assignment(session_id: u64) {
-    let (subscription_id_1, mut receiver_1, nuri) =
+    let (subscription_id_1, receiver_1, nuri) =
         create_discrete_doc(session_id, "YArray".into()).await;
 
     // Initialize object with {someString: "some string"}.
@@ -436,7 +597,7 @@ async fn test_y_array_wrong_assignment(session_id: u64) {
     )
     .await;
 
-    let (initial_value_1, mut receiver_2, subscription_id_2) =
+    let (initial_value_1, receiver_2, subscription_id_2) =
         create_discrete_subscription(session_id, &nuri).await;
 
     let applied_patches = vec![OrmPatch {
@@ -451,7 +612,7 @@ async fn test_y_array_wrong_assignment(session_id: u64) {
 
     assert!(update_res.is_err());
 
-    let (mut initial_value_2, mut receiver_3, subscription_id_3) =
+    let (mut initial_value_2, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
     // Object should be as before

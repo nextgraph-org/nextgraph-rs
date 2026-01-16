@@ -119,6 +119,7 @@ impl Verifier {
         Ok((rx, close))
     }
 
+    /// Sends patches to fronend if they don't originate from the same subscriber.
     pub(crate) async fn push_orm_discrete_update(
         &mut self,
         orm_patches: Vec<OrmPatch>,
@@ -190,7 +191,6 @@ impl Verifier {
                 )
             };
             let mut tx: yrs::TransactionMut<'_> = doc.transact_mut();
-            log_info!("original_orm_patches {:?}", patches);
             for patch in patches {
                 log_info!("*** processing patch {:?}", patch);
                 let parsed_path: Vec<String> = patch
@@ -261,6 +261,7 @@ impl Verifier {
         Ok(())
     }
 
+    /// Handles changes coming from CRDT transaction.
     pub(crate) fn apply_discrete_transaction_gen_orm_patches(
         &self,
         branch_id: &BranchId,
@@ -352,17 +353,18 @@ fn json_value_to_yrs_any(value: &serde_json::Value) -> In {
             }
         }
         Value::String(s) => In::Any(Any::String(s.as_str().into())),
+        // ATTENTION: We do not support nested values,
+        // patches coming from js-land are atomic.
         Value::Array(_arr) => {
-            //let items: Vec<Any> = arr.iter().map(json_value_to_yrs_any).collect();
-            //Any::Array(items.into())
+            // let prelim_items = _arr.iter().map(json_value_to_yrs_any).collect::<Vec<_>>();
+            // In::Array(ArrayPrelim::from(prelim_items))
             In::Array(ArrayPrelim::default())
         }
         Value::Object(_obj) => {
-            // let map: std::collections::HashMap<String, Any> = obj
+            // let prelim_entries = _obj
             //     .iter()
-            //     .map(|(k, v)| (k.clone(), json_value_to_yrs_any(v)))
-            //     .collect();
-            // Any::Map(std::sync::Arc::new(map))
+            //     .map(|(k, v)| (k.clone(), json_value_to_yrs_any(v)));
+            // In::Map(MapPrelim::from_iter(prelim_entries))
             In::Map(MapPrelim::default())
         }
     }
@@ -656,11 +658,11 @@ fn convert_discrete_blob_to_orm_object(
     }
 }
 
-fn yrs_out_to_json(value: &Out) -> serde_json::Value {
+fn yrs_out_to_json(tx: &yrs::TransactionMut<'_>, value: &Out) -> serde_json::Value {
     match value {
         Out::Any(value) => json!(value),
-        Out::YMap(_) => serde_json::Value::Object(serde_json::map::Map::new()),
-        Out::YArray(_) => serde_json::Value::Array(vec![]),
+        Out::YMap(map) => json!(map.to_json(tx)),
+        Out::YArray(array) => json!(array.to_json(tx)),
         _ => {
             log_err!("[yrs_out_to_json] Could not deserialize patch value");
             Value::Null
@@ -673,22 +675,25 @@ pub(crate) fn yrs_mutation_callback(
     update_event: &Events,
     patches: &Rc<RefCell<Vec<OrmPatch>>>,
 ) {
-    log_info!(">>>> mutations");
     let mut patches = patches.borrow_mut();
     for event in update_event.iter() {
-        log_info!(">>>> mutation {:?} {:?}", event.path(), event.target());
-        let base_path = format!(
-            "/{}",
-            event
-                .path()
-                .iter()
-                .map(|p| match p {
-                    PathSegment::Index(i) => i.to_string(),
-                    PathSegment::Key(key) => key.to_string(),
-                })
-                .collect::<Vec<_>>()
-                .join("/")
-        );
+        let path = event.path();
+        let base_path = if path.is_empty() {
+            "".to_string() // If path is root, `/` is prepended below already.
+        } else {
+            format!(
+                "/{}",
+                event
+                    .path()
+                    .iter()
+                    .map(|p| match p {
+                        PathSegment::Index(i) => i.to_string(),
+                        PathSegment::Key(key) => key.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("/")
+            )
+        };
 
         match event {
             yrs::types::Event::Map(map_event) => {
@@ -699,10 +704,10 @@ pub(crate) fn yrs_mutation_callback(
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
                                 valType: None,
-                                value: Some(yrs_out_to_json(new_val)),
+                                value: Some(yrs_out_to_json(tx, new_val)),
                             });
                         }
-                        EntryChange::Removed(removed) => {
+                        EntryChange::Removed(_removed) => {
                             patches.push(OrmPatch {
                                 op: OrmPatchOp::remove,
                                 path: format!("{base_path}/{key}"),
@@ -710,12 +715,12 @@ pub(crate) fn yrs_mutation_callback(
                                 value: None,
                             });
                         }
-                        EntryChange::Updated(old_val, new_val) => {
+                        EntryChange::Updated(_old_val, new_val) => {
                             patches.push(OrmPatch {
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
                                 valType: None,
-                                value: Some(yrs_out_to_json(new_val)),
+                                value: Some(yrs_out_to_json(tx, new_val)),
                             });
                         }
                     }
@@ -730,7 +735,7 @@ pub(crate) fn yrs_mutation_callback(
                                 patches.push(OrmPatch {
                                     op: OrmPatchOp::add,
                                     path: format!("{base_path}/{pos}"),
-                                    value: Some(yrs_out_to_json(new_val)),
+                                    value: Some(yrs_out_to_json(tx, new_val)),
                                     valType: None,
                                 });
                                 pos += 1;
@@ -754,7 +759,7 @@ pub(crate) fn yrs_mutation_callback(
             }
             // TODO: Event::Text ?
             _other => {
-                // return VerifierError::YrsError("Expected map or array change".into());
+                log_err!("[yrs_mutation_callback] Expected map or array change");
             }
         };
     }
