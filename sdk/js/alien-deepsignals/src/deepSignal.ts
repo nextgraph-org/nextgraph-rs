@@ -591,8 +591,8 @@ function emitPatchesForNew(
         {
             path: basePath,
             op: "add",
+            value: value instanceof Set || Array.isArray(value) ? [] : {},
             type: value instanceof Set ? "set" : undefined,
-            value: value instanceof Set ? [] : {},
         },
     ];
 

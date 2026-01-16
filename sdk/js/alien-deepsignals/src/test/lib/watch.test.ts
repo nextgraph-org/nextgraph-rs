@@ -279,14 +279,24 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         const flattened = patches.flat();
         expect(flattened).toEqual([
-            { op: "add", path: ["data"], value: {} },
-            { op: "add", path: ["data", "users"], value: {} },
-            { op: "add", path: ["data", "users", 0], value: {} },
-            { op: "add", path: ["data", "users", 0, "id"], value: 1 },
+            { op: "add", path: ["data"], value: {}, type: undefined },
+            { op: "add", path: ["data", "users"], value: [], type: undefined },
+            {
+                op: "add",
+                path: ["data", "users", 0],
+                value: {},
+                type: undefined,
+            },
+            {
+                op: "add",
+                path: ["data", "users", 0, "id"],
+                value: 1,
+            },
             {
                 op: "add",
                 path: ["data", "users", 0, "profile"],
                 value: {},
+                type: undefined,
             },
             {
                 op: "add",
@@ -297,18 +307,25 @@ describe("watch (patch mode)", () => {
                 op: "add",
                 path: ["data", "users", 0, "profile", "settings"],
                 value: {},
+                type: undefined,
             },
             {
                 op: "add",
                 path: ["data", "users", 0, "profile", "settings", "theme"],
                 value: "dark",
             },
-            { op: "add", path: ["data", "users", 1], value: {} },
+            {
+                op: "add",
+                path: ["data", "users", 1],
+                value: {},
+                type: undefined,
+            },
             { op: "add", path: ["data", "users", 1, "id"], value: 2 },
             {
                 op: "add",
                 path: ["data", "users", 1, "profile"],
                 value: {},
+                type: undefined,
             },
             {
                 op: "add",
@@ -319,13 +336,14 @@ describe("watch (patch mode)", () => {
                 op: "add",
                 path: ["data", "users", 1, "profile", "settings"],
                 value: {},
+                type: undefined,
             },
             {
                 op: "add",
                 path: ["data", "users", 1, "profile", "settings", "theme"],
                 value: "light",
             },
-            { op: "add", path: ["data", "meta"], value: {} },
+            { op: "add", path: ["data", "meta"], value: {}, type: undefined },
             { op: "add", path: ["data", "meta", "count"], value: 2 },
             { op: "add", path: ["data", "meta", "active"], value: true },
         ]);
@@ -915,6 +933,25 @@ describe("watch (patch mode)", () => {
                 { path: ["0"], op: "add", value: 0 },
                 { path: ["1"], op: "add", value: 1 },
                 { path: ["2"], op: "add", value: 3 },
+            ]);
+
+            stop();
+        });
+        it("emits patches adding new array", async () => {
+            const obj = deepSignal({});
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(obj, ({ patches }) => {
+                batches.push(patches);
+            });
+
+            (obj as any).arr = [1, 2, 3];
+
+            await Promise.resolve();
+            expect(batches[0]).toEqual([
+                { path: ["arr"], op: "add", value: [] },
+                { path: ["arr", 0], op: "add", value: 1 },
+                { path: ["arr", 1], op: "add", value: 2 },
+                { path: ["arr", 2], op: "add", value: 3 },
             ]);
 
             stop();
