@@ -217,6 +217,9 @@ impl Verifier {
                 }
             }
 
+            // Encode only the changes made in this transaction
+            let update_bytes = tx.encode_update_v1();
+            drop(tx);
             drop(observation);
 
             let resulting_orm_patches = Rc::try_unwrap(resulting_orm_patches)
@@ -224,10 +227,6 @@ impl Verifier {
                 .into_inner();
 
             log_info!("resulting_orm_patches {:?}", resulting_orm_patches);
-
-            // Encode only the changes made in this transaction
-            let update_bytes = tx.encode_update_v1();
-            drop(tx);
 
             // obtain the full dump of state
             let empty_state_vector = yrs::StateVector::default();
@@ -660,6 +659,8 @@ fn convert_discrete_blob_to_orm_object(
 fn yrs_out_to_json(value: &Out) -> serde_json::Value {
     match value {
         Out::Any(value) => json!(value),
+        Out::YMap(_) => serde_json::Value::Object(serde_json::map::Map::new()),
+        Out::YArray(_) => serde_json::Value::Array(vec![]),
         _ => {
             log_err!("[yrs_out_to_json] Could not deserialize patch value");
             Value::Null
