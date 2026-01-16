@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -23,14 +23,12 @@ use serde_json::{json, Map as JsonMap, Value};
 use yrs::types::{Change, EntryChange, Events, PathSegment};
 use yrs::updates::decoder::Decode;
 use yrs::{
-    Any, Array, ArrayPrelim, DeepObservable, In, IndexedSequence, Map, MapPrelim, Out, ReadTxn,
-    Transact,
+    Any, Array, ArrayPrelim, BranchID, DeepObservable, In, Map, MapPrelim, Out, ReadTxn, Transact,
 };
 
 use crate::orm::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::utils::decode_json_pointer;
 use crate::types::{CancelFn, DiscreteTransaction};
-use yrs::ArrayRef;
 
 use crate::verifier::Verifier;
 
@@ -122,7 +120,7 @@ impl Verifier {
         Ok((rx, close))
     }
 
-    /// Sends patches to fronend if they don't originate from the same subscriber.
+    /// Sends patches to frontend if they don't originate from the same subscriber.
     pub(crate) async fn push_orm_discrete_update(
         &mut self,
         orm_patches: Vec<OrmPatch>,
@@ -137,23 +135,60 @@ impl Verifier {
             return Ok(());
         }
 
+        let mut orm_patches_for_ids: Option<Vec<OrmPatch>> = if subscription_id != 0 {
+            let mut patches: Vec<_> = vec![];
+            // orm_patches
+            //     .iter()
+            //     .filter(|p| p.op == OrmPatchOp::add && p.path.ends_with("/@id"))
+            //     .cloned()
+            //     .collect();
+            for p in orm_patches.iter() {
+                if p.op == OrmPatchOp::add && p.value.is_some() {
+                    let v = p.value.as_ref().unwrap();
+                    if v.is_array() {
+                        for (index, o) in v.as_array().unwrap().iter().enumerate() {
+                            if o.is_object() {
+                                if let Some(id) = o.as_object().unwrap().get("@id") {
+                                    patches.push(OrmPatch {
+                                        op: OrmPatchOp::add,
+                                        valType: None,
+                                        path: format!("{}/{}/@id", p.path, index),
+                                        value: Some(id.clone()),
+                                    })
+                                }
+                            }
+                        }
+                    } else if v.is_object() {
+                        if let Some(id) = v.as_object().unwrap().get("@id") {
+                            patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                valType: None,
+                                path: format!("{}/@id", p.path),
+                                value: Some(id.clone()),
+                            })
+                        }
+                    }
+                }
+            }
+            Some(patches)
+        } else {
+            None
+        };
+        log_info!("orm_patches_for_ids {:?}", orm_patches_for_ids);
+
         let update = AppResponse::V0(AppResponseV0::DiscreteOrmUpdate(orm_patches));
 
         for (id, sub) in self.discrete_orm_subscriptions.iter_mut() {
-            if *id != subscription_id && sub.branch_id == *branch_id {
-                let _ = sub.sender.send(update.clone()).await;
-            } else {
+            if *id == subscription_id {
                 // Send auto-generated @id patches back to the origin subscriber.
-                let id_patches: Vec<OrmPatch> = orm_patches
-                    .iter()
-                    .filter(|p| p.op == OrmPatchOp::add)
-                    .filter(|p| p.path.ends_with("/@id"))
-                    .cloned()
-                    .collect();
-                if !id_patches.is_empty() {
-                    let update = AppResponse::V0(AppResponseV0::DiscreteOrmUpdate(id_patches));
+                let orm_patches = orm_patches_for_ids.take();
+                if orm_patches.is_some() && !orm_patches.as_ref().unwrap().is_empty() {
+                    let update =
+                        AppResponse::V0(AppResponseV0::DiscreteOrmUpdate(orm_patches.unwrap()));
                     let _ = sub.sender.send(update.clone()).await;
                 }
+            } else if sub.branch_id == *branch_id {
+                let _ = sub.sender.send(update.clone()).await;
             }
         }
         Ok(())
@@ -218,7 +253,7 @@ impl Verifier {
 
                 if patch.op == OrmPatchOp::add {
                     let value = match &patch.value {
-                        Some(v) => json_value_to_yrs_any(v),
+                        Some(v) => json_value_to_yrs_in(v),
                         None => {
                             log_warn!("Add patch without value, skipping");
                             continue;
@@ -273,7 +308,7 @@ impl Verifier {
 
         //TODO: deal with cases when the resulting_orm_patches is different from patches (received). We need to send the diff to subscription_id
 
-        // == Record change ==
+        // == Record change (create a Commit, and process it) ==
         self.create_discrete_transaction(transaction, &nuri, Some(full_state))
             .await?;
 
@@ -365,7 +400,7 @@ impl Verifier {
 }
 
 /// Converts a serde_json::Value to a yrs::Any value.
-fn json_value_to_yrs_any(value: &serde_json::Value) -> In {
+fn json_value_to_yrs_in(value: &serde_json::Value) -> In {
     match value {
         Value::Null => In::Any(Any::Null),
         Value::Bool(b) => In::Any(Any::Bool(*b)),
@@ -383,14 +418,14 @@ fn json_value_to_yrs_any(value: &serde_json::Value) -> In {
         // ATTENTION: We do not support nested values,
         // patches coming from js-land are atomic.
         Value::Array(_arr) => {
-            // let prelim_items = _arr.iter().map(json_value_to_yrs_any).collect::<Vec<_>>();
+            // let prelim_items = _arr.iter().map(json_value_to_yrs_in).collect::<Vec<_>>();
             // In::Array(ArrayPrelim::from(prelim_items))
             In::Array(ArrayPrelim::default())
         }
         Value::Object(_obj) => {
             // let prelim_entries = _obj
             //     .iter()
-            //     .map(|(k, v)| (k.clone(), json_value_to_yrs_any(v)));
+            //     .map(|(k, v)| (k.clone(), json_value_to_yrs_in(v)));
             // In::Map(MapPrelim::from_iter(prelim_entries))
             In::Map(MapPrelim::default())
         }
@@ -631,16 +666,16 @@ fn convert_discrete_state_to_orm_object(
 ) -> Value {
     match discrete_state {
         BackendDiscreteState::YArray(doc) => {
-            let mut txn = doc.transact_mut();
             let root = doc.get_or_insert_array("ng");
-            let val = yrs_out_to_json(&mut txn, &Out::YArray(root), nuri, None);
+            let txn = doc.transact_mut();
+            let val = yrs_out_to_json(&txn, &Out::YArray(root), nuri, false);
             drop(txn);
             val
         }
         BackendDiscreteState::YMap(doc) => {
-            let mut txn = doc.transact_mut();
             let root = doc.get_or_insert_map("ng");
-            let val = yrs_out_to_json(&txn, &Out::YMap(root), nuri, None);
+            let txn = doc.transact_mut();
+            let val = yrs_out_to_json(&txn, &Out::YMap(root), nuri, false);
             drop(txn);
             val
         }
@@ -662,7 +697,7 @@ fn convert_discrete_blob_to_orm_object(
             let mut txn = doc.transact_mut();
             txn.apply_update(update);
 
-            let root_json = yrs_out_to_json(&txn, &Out::YMap(root), nuri, None);
+            let root_json = yrs_out_to_json(&txn, &Out::YMap(root), nuri, false);
             drop(txn);
 
             return Ok((root_json, BackendDiscreteState::YMap(doc)));
@@ -675,7 +710,7 @@ fn convert_discrete_blob_to_orm_object(
             let mut txn = doc.transact_mut();
             txn.apply_update(update);
 
-            let root_json = yrs_out_to_json(&txn, &Out::YArray(root), nuri, None);
+            let root_json = yrs_out_to_json(&txn, &Out::YArray(root), nuri, false);
             drop(txn);
 
             return Ok((root_json, BackendDiscreteState::YArray(doc)));
@@ -699,27 +734,24 @@ fn yrs_out_to_json(
     txn: &yrs::TransactionMut<'_>,
     value: &Out,
     nuri: &NuriV0,
-    parent_arr: Option<(u32, ArrayRef)>,
+    parent_arr: bool,
 ) -> serde_json::Value {
     match value {
         Out::Any(value) => json!(value),
         Out::YMap(map) => {
             let mut v_map = JsonMap::new();
             for (k, v) in map.iter(txn) {
-                v_map.insert(k.to_string(), yrs_out_to_json(txn, &v, nuri, None));
+                v_map.insert(k.to_string(), yrs_out_to_json(txn, &v, nuri, false));
             }
-            if let Some((idx, parent_arr)) = parent_arr {
-                if !map.contains_key(txn, "@id") {
-                    // Create a mutable transaction for sticky_index
-                    let mut txn_mut = txn.doc().transact_mut();
-                    if let Some(sticky_id) = parent_arr
-                        .sticky_index(&mut txn_mut, idx, yrs::Assoc::Before)
-                        .and_then(|s| s.id().cloned())
-                    {
-                        let iri = nuri.discrete_resource_yjs(sticky_id.client, sticky_id.clock);
-                        v_map.insert("@id".into(), json!(iri));
-                    }
-                    drop(txn_mut);
+            if parent_arr {
+                let id = if let BranchID::Nested(id) = map.as_ref().id() {
+                    Some((id.client, id.clock))
+                } else {
+                    None
+                };
+                if let Some((client, clock)) = id {
+                    let iri = nuri.discrete_resource_yjs(client, clock);
+                    v_map.insert("@id".into(), json!(iri));
                 }
             }
             Value::Object(v_map)
@@ -727,8 +759,7 @@ fn yrs_out_to_json(
         Out::YArray(array) => Value::Array(
             array
                 .iter(txn)
-                .enumerate()
-                .map(|(idx, el)| yrs_out_to_json(txn, &el, nuri, Some((idx as u32, array.clone()))))
+                .map(|el| yrs_out_to_json(txn, &el, nuri, true))
                 .collect(),
         ),
         _ => {
@@ -775,7 +806,7 @@ fn yrs_mutation_callback(
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
                                 valType: None,
-                                value: Some(yrs_out_to_json(txn, new_val, nuri, None)),
+                                value: Some(yrs_out_to_json(txn, new_val, nuri, false)),
                             });
                         }
                         EntryChange::Removed(_removed) => {
@@ -791,7 +822,7 @@ fn yrs_mutation_callback(
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
                                 valType: None,
-                                value: Some(yrs_out_to_json(txn, new_val, nuri, None)),
+                                value: Some(yrs_out_to_json(txn, new_val, nuri, false)),
                             });
                         }
                     }
@@ -806,12 +837,7 @@ fn yrs_mutation_callback(
                                 patches.push(OrmPatch {
                                     op: OrmPatchOp::add,
                                     path: format!("{base_path}/{pos}"),
-                                    value: Some(yrs_out_to_json(
-                                        txn,
-                                        new_val,
-                                        nuri,
-                                        Some((pos as u32, array_event.target().clone())),
-                                    )),
+                                    value: Some(yrs_out_to_json(txn, new_val, nuri, true)),
                                     valType: None,
                                 });
                                 pos += 1;

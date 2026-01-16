@@ -202,13 +202,10 @@ async fn test_y_map(session_id: u64) {
     // Patch creator should get only the enriched @id patch back.
     let origin_id_patches = await_discrete_patches(&mut receiver_1).await;
     assert_eq!(origin_id_patches.len(), 1);
-    assert_eq!(origin_id_patches[0].path, "/someArray");
+    assert_eq!(origin_id_patches[0].path, "/someArray/3/@id");
     let origin_id = origin_id_patches[0]
         .value
         .as_ref()
-        .and_then(|v| v.as_array())
-        .and_then(|arr| arr.get(3))
-        .and_then(|obj| obj.get("@id"))
         .and_then(|v| v.as_str())
         .expect("@id missing in origin patch");
     assert!(origin_id.starts_with("did:ng:o"));
@@ -461,12 +458,10 @@ async fn test_y_array(session_id: u64) {
 
     let origin_id_patches = await_discrete_patches(&mut receiver_1).await;
     assert_eq!(origin_id_patches.len(), 1);
-    assert_eq!(origin_id_patches[0].path, "/5");
+    assert_eq!(origin_id_patches[0].path, "/5/@id");
     let origin_id = origin_id_patches[0]
         .value
         .as_ref()
-        .and_then(|v| v.as_object())
-        .and_then(|obj| obj.get("@id"))
         .and_then(|v| v.as_str())
         .expect("@id missing in origin patch");
     assert!(origin_id.starts_with("did:ng:o"));
