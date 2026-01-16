@@ -23,7 +23,10 @@ use ng_repo::types::*;
 use serde_json::{json, Value};
 use yrs::types::{Change, EntryChange, Events, PathSegment, ToJson};
 use yrs::updates::decoder::Decode;
-use yrs::{Any, Array, ArrayPrelim, DeepObservable, In, Map, MapPrelim, Out, ReadTxn, Transact};
+use yrs::{
+    Any, Array, ArrayPrelim, ArrayRef, DeepObservable, In, IndexedSequence, Map, MapPrelim, Out,
+    ReadTxn, Transact,
+};
 
 use crate::orm::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::utils::decode_json_pointer;
@@ -613,13 +616,15 @@ fn convert_discrete_state_to_orm_object(discrete_state: &BackendDiscreteState) -
     }
 }
 
+/// Materializes blob to json
 fn convert_discrete_blob_to_orm_object(
     discrete_state: DiscreteState,
 ) -> Result<(Value, BackendDiscreteState), VerifierError> {
     match discrete_state {
         DiscreteState::YMap(bytes) => {
             let doc = yrs::Doc::new();
-            let root = doc.get_or_insert_map("ng");
+            let root = doc.get_or_insert_map("ng"); // Ref is always stored under "ng".
+
             let update = yrs::Update::decode_v1(&bytes)
                 .map_err(|e| VerifierError::YrsError(e.to_string()))?;
             let mut txn = doc.transact_mut();
@@ -658,11 +663,41 @@ fn convert_discrete_blob_to_orm_object(
     }
 }
 
-fn yrs_out_to_json(tx: &yrs::TransactionMut<'_>, value: &Out) -> serde_json::Value {
+fn yrs_out_to_json(
+    txn: &mut yrs::TransactionMut<'_>,
+    value: &Out,
+    nuri: &NuriV0,
+    parentArr: Option<(u32, &ArrayRef)>,
+) -> serde_json::Value {
     match value {
         Out::Any(value) => json!(value),
-        Out::YMap(map) => json!(map.to_json(tx)),
-        Out::YArray(array) => json!(array.to_json(tx)),
+        Out::YMap(map) => {
+            let mut hmap = HashMap::new();
+            for (k, v) in map.iter(txn) {
+                hmap.insert(k.to_string(), yrs_out_to_json(txn, &v, nuri, None));
+            }
+            let val = Value::Object(hmap);
+
+            if let Some((idx, parentArr)) = parentArr {
+                if !map.contains_key("@id") {
+                    let sticky_id = parentArr
+                        .sticky_index(txn, idx, yrs::Assoc::Before)
+                        .unwrap()
+                        .id()
+                        .unwrap();
+                    let iri = nuri.discrete_resource_yjs(sticky_id.client, sticky_id.clock);
+
+                    val.as_object().unwrap.insert("@id".into(), iri);
+                }
+            }
+            val
+        }
+        Out::YArray(array) => Value::Array(
+            array
+                .iter(txn)
+                .enumerate()
+                .map(|idx, el| yrs_out_to_json(txn, el, docId, Some((idx, array)))),
+        ),
         _ => {
             log_err!("[yrs_out_to_json] Could not deserialize patch value");
             Value::Null
@@ -670,7 +705,9 @@ fn yrs_out_to_json(tx: &yrs::TransactionMut<'_>, value: &Out) -> serde_json::Val
     }
 }
 
-pub(crate) fn yrs_mutation_callback(
+/// Called when changes to a yrs document are made
+/// which this callback translates to OrmPatches for sending to the client.
+fn yrs_mutation_callback(
     tx: &yrs::TransactionMut<'_>,
     update_event: &Events,
     patches: &Rc<RefCell<Vec<OrmPatch>>>,
