@@ -985,7 +985,7 @@ impl Verifier {
                         .orm_frontend_discrete_update(subscription_id, patches)
                         .await
                     {
-                        Err(e) => Ok(AppResponse::error(format!("Error: {:?}", e))),
+                        Err(e) => Ok(AppResponse::error(e.to_string())),
                         Ok(()) => Ok(AppResponse::ok()),
                     }
                 }

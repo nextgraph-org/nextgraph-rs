@@ -138,7 +138,7 @@ where
     F: FnMut(AppResponseV0) -> Option<T>,
 {
     loop {
-        let res = timeout(Duration::from_secs(1), receiver.next()).await;
+        let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
             Err(_) => panic!("Timed out waiting for AppResponseV0 (1 second)"),

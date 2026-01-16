@@ -189,8 +189,9 @@ impl Verifier {
                 )
             };
             let mut tx = doc.transact_mut();
-
+            log_info!("original_orm_patches {:?}", patches);
             for patch in patches {
+                log_info!("*** processing patch {:?}", patch);
                 let parsed_path: Vec<String> = patch
                     .path
                     .split('/')
@@ -221,6 +222,8 @@ impl Verifier {
                 .expect("reference count should be 1")
                 .into_inner();
 
+            log_info!("resulting_orm_patches {:?}", resulting_orm_patches);
+
             // Encode only the changes made in this transaction
             let update_bytes = tx.encode_update_v1();
             drop(tx);
@@ -247,7 +250,7 @@ impl Verifier {
                 full_state,
             )
         };
-
+        log_info!("pushing to {} {}", subscription_id, branch_id);
         self.push_orm_discrete_update(resulting_orm_patches, subscription_id, &branch_id)
             .await?;
         //TODO: deal with cases when the resulting_orm_patches is different from patches (received). We need to send the diff to subscription_id
@@ -364,6 +367,7 @@ fn json_value_to_yrs_any(value: &serde_json::Value) -> Any {
 }
 
 /// Represents a target location in the YRS document tree.
+#[derive(Debug)]
 enum YrsTarget {
     Map(yrs::MapRef),
     Array(yrs::ArrayRef),
@@ -402,7 +406,9 @@ fn navigate_to_parent_from_target(
         YrsTarget::Array(a) => Out::YArray(a.clone()),
     };
 
+    log_info!("parent_path {:?}", parent_path);
     for (i, segment) in parent_path.iter().enumerate() {
+        log_info!("processing path {segment}");
         current = match current {
             Out::YMap(map) => match map.get(txn, segment) {
                 Some(child) => child,
@@ -438,7 +444,7 @@ fn navigate_to_parent_from_target(
             }
         };
     }
-
+    log_info!("end of loop {:?}", current);
     // Convert the final current value to a YrsTarget
     match current {
         Out::YMap(map) => Ok((YrsTarget::Map(map), final_key)),
@@ -504,6 +510,8 @@ fn apply_yrs_add_patch(
     // Get the root container
 
     let (parent, key) = navigate_to_parent_from_target(txn, root, path)?;
+
+    log_info!("found {:?} {}", parent, key);
 
     match parent {
         YrsTarget::Map(map) => {
