@@ -194,6 +194,11 @@ pub struct NuriV0 {
     pub locator: Option<Locator>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+enum DiscreteResourceId {
+    YjsV1(u64, u32),
+}
+
 impl NuriV0 {
     pub fn new_empty() -> Self {
         NuriV0 {
@@ -280,6 +285,16 @@ impl NuriV0 {
 
     pub fn repo(&self) -> String {
         Self::repo_id(self.target.repo_id())
+    }
+
+    pub fn discrete_resource_yjs(&self, client_id: u64, clock: u32) -> String {
+        Self::discrete_resource_id_yjs(self.target.repo_id(), client_id, clock)
+    }
+
+    pub fn discrete_resource_id_yjs(repo_id: &RepoId, client_id: u64, clock: u32) -> String {
+        let id = DiscreteResourceId::YjsV1(client_id, clock);
+        let buf = serde_bare::to_vec(&id).unwrap();
+        format!("{DID_PREFIX}:o:{}:d:{}", repo_id, base64_url::encode(&buf))
     }
 
     pub fn repo_id(repo_id: &RepoId) -> String {
@@ -1371,5 +1386,17 @@ impl AppResponse {
     }
     pub fn text(text: String) -> Self {
         AppResponse::V0(AppResponseV0::Text(text))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::NuriV0;
+    use ng_repo::utils::generate_keypair;
+
+    #[test]
+    fn test_discrete_id() {
+        let (_, pubkey) = generate_keypair();
+        println!("{}", NuriV0::discrete_resource_id_yjs(&pubkey, 10, 100));
     }
 }
