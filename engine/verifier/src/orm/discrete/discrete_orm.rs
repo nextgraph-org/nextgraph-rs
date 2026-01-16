@@ -9,6 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use futures::channel::mpsc;
@@ -22,7 +23,7 @@ use ng_repo::types::*;
 use serde_json::{json, Value};
 use yrs::types::{Change, EntryChange, Events, PathSegment, ToJson};
 use yrs::updates::decoder::Decode;
-use yrs::{Any, Array, DeepObservable, Map, Out, ReadTxn, Transact};
+use yrs::{Any, Array, ArrayPrelim, DeepObservable, In, Map, MapPrelim, Out, ReadTxn, Transact};
 
 use crate::orm::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::utils::decode_json_pointer;
@@ -188,7 +189,7 @@ impl Verifier {
                     YrsTarget::Map(map_ref),
                 )
             };
-            let mut tx = doc.transact_mut();
+            let mut tx: yrs::TransactionMut<'_> = doc.transact_mut();
             log_info!("original_orm_patches {:?}", patches);
             for patch in patches {
                 log_info!("*** processing patch {:?}", patch);
@@ -337,31 +338,33 @@ impl Verifier {
 }
 
 /// Converts a serde_json::Value to a yrs::Any value.
-fn json_value_to_yrs_any(value: &serde_json::Value) -> Any {
+fn json_value_to_yrs_any(value: &serde_json::Value) -> In {
     match value {
-        Value::Null => Any::Null,
-        Value::Bool(b) => Any::Bool(*b),
+        Value::Null => In::Any(Any::Null),
+        Value::Bool(b) => In::Any(Any::Bool(*b)),
         Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 // Use BigInt for integers that fit
-                Any::BigInt(i)
+                In::Any(Any::BigInt(i))
             } else if let Some(f) = n.as_f64() {
-                Any::Number(f)
+                In::Any(Any::Number(f))
             } else {
-                Any::Null
+                In::Any(Any::Null)
             }
         }
-        Value::String(s) => Any::String(s.as_str().into()),
-        Value::Array(arr) => {
-            let items: Vec<Any> = arr.iter().map(json_value_to_yrs_any).collect();
-            Any::Array(items.into())
+        Value::String(s) => In::Any(Any::String(s.as_str().into())),
+        Value::Array(_arr) => {
+            //let items: Vec<Any> = arr.iter().map(json_value_to_yrs_any).collect();
+            //Any::Array(items.into())
+            In::Array(ArrayPrelim::default())
         }
-        Value::Object(obj) => {
-            let map: std::collections::HashMap<String, Any> = obj
-                .iter()
-                .map(|(k, v)| (k.clone(), json_value_to_yrs_any(v)))
-                .collect();
-            Any::Map(std::sync::Arc::new(map))
+        Value::Object(_obj) => {
+            // let map: std::collections::HashMap<String, Any> = obj
+            //     .iter()
+            //     .map(|(k, v)| (k.clone(), json_value_to_yrs_any(v)))
+            //     .collect();
+            // Any::Map(std::sync::Arc::new(map))
+            In::Map(MapPrelim::default())
         }
     }
 }
@@ -459,14 +462,14 @@ fn navigate_to_parent_from_target(
 fn apply_yrs_add_patch(
     txn: &mut yrs::TransactionMut,
     path: &[String],
-    value: Any,
+    value: In,
     is_array: bool,
     root: &YrsTarget,
 ) -> Result<(), VerifierError> {
     // Handle empty path - replace at root level
     if path.is_empty() {
         if is_array {
-            if !matches!(value, Any::Array(_)) {
+            if !matches!(value, In::Array(_)) {
                 return Err(VerifierError::YrsError(
                     "Cannot apply non-array to a YArray".into(),
                 ));
@@ -478,16 +481,16 @@ fn apply_yrs_add_patch(
                 if len > 0 {
                     arr.remove_range(txn, 0, len);
                 }
-                if let Any::Array(items) = value {
-                    arr.insert_range(txn, 0, items.iter().cloned());
-                }
+                // if let In::Array(items) = value {
+                //     arr.insert_range(txn, 0, items.iter().cloned());
+                // }
             } else {
                 return Err(VerifierError::YrsError("root is not an array".into()));
             }
         } else {
-            if !matches!(value, Any::Map(_)) {
+            if !matches!(value, In::Map(_)) {
                 return Err(VerifierError::YrsError(
-                    "Cannot apply non-array to a YArray".into(),
+                    "Cannot apply non-map to a YMap".into(),
                 ));
             }
 
@@ -495,7 +498,7 @@ fn apply_yrs_add_patch(
             if let YrsTarget::Map(map) = root {
                 map.clear(txn);
                 // ...and insert new ones.
-                if let Any::Map(entries) = value {
+                if let In::Map(entries) = value {
                     for (k, v) in entries.iter() {
                         map.insert(txn, k.clone(), v.clone());
                     }
@@ -669,8 +672,10 @@ pub(crate) fn yrs_mutation_callback(
     update_event: &Events,
     patches: &Rc<RefCell<Vec<OrmPatch>>>,
 ) {
+    log_info!(">>>> mutations");
     let mut patches = patches.borrow_mut();
     for event in update_event.iter() {
+        log_info!(">>>> mutation {:?} {:?}", event.path(), event.target());
         let base_path = format!(
             "/{}",
             event
