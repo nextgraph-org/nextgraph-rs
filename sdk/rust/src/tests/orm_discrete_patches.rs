@@ -40,7 +40,7 @@ async fn test_orm_apply_patches() {
 }
 
 async fn test_y_map(session_id: u64) {
-    let (subscription_id_1, receiver_1, nuri) =
+    let (subscription_id_1, mut receiver_1, nuri) =
         create_discrete_doc(session_id, "YMap".into()).await;
 
     let (initial_value_1, mut receiver_2, subscription_id_2) =
@@ -199,6 +199,20 @@ async fn test_y_map(session_id: u64) {
 
     let got_patches = await_discrete_patches(&mut receiver_2).await;
 
+    // Patch creator should get only the enriched @id patch back.
+    let origin_id_patches = await_discrete_patches(&mut receiver_1).await;
+    assert_eq!(origin_id_patches.len(), 1);
+    assert_eq!(origin_id_patches[0].path, "/someArray");
+    let origin_id = origin_id_patches[0]
+        .value
+        .as_ref()
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.get(3))
+        .and_then(|obj| obj.get("@id"))
+        .and_then(|v| v.as_str())
+        .expect("@id missing in origin patch");
+    assert!(origin_id.starts_with("did:ng:o"));
+
     let expected_emitted = vec![
         OrmPatch {
             op: OrmPatchOp::add,
@@ -220,7 +234,7 @@ async fn test_y_map(session_id: u64) {
                 -1,
                 1,
                 "2",
-                {"stringInArrayInObject": "in object in array", "someInteger": 42},
+                {"stringInArrayInObject": "in object in array", "someInteger": 42, "@id": origin_id},
                 [1]
             ])),
         },
@@ -263,6 +277,14 @@ async fn test_y_map(session_id: u64) {
     let (mut initial_value_3, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
+    let initial_id = initial_value_3
+        .get("someArray")
+        .and_then(|arr| arr.get(3))
+        .and_then(|obj| obj.get("@id"))
+        .and_then(|v| v.as_str())
+        .expect("@id missing in initial snapshot");
+    assert!(initial_id.starts_with("did:ng:o"));
+
     assert_json_eq(
         &mut json!({
           "someString": "root string",
@@ -272,18 +294,19 @@ async fn test_y_map(session_id: u64) {
           "someObject": {
             "someString": "nested string"
           },
-          "someArray": [
+        "someArray": [
             -1,
             1,
             "2",
             {
-              "stringInArrayInObject": "in object in array",
-              "someInteger": 42
+                "stringInArrayInObject": "in object in array",
+                "someInteger": 42,
+                "@id": initial_id
             },
             [
-              1
+                1
             ]
-          ],
+        ],
           "toOverwrite": "overwritten",
           "someNull": null
         }),
@@ -336,7 +359,7 @@ async fn test_y_map(session_id: u64) {
 }
 
 async fn test_y_array(session_id: u64) {
-    let (subscription_id_1, receiver_1, nuri) =
+    let (subscription_id_1, mut receiver_1, nuri) =
         create_discrete_doc(session_id, "YArray".into()).await;
 
     let (initial_value_1, mut receiver_2, subscription_id_2) =
@@ -436,6 +459,18 @@ async fn test_y_array(session_id: u64) {
 
     let got_patches = await_discrete_patches(&mut receiver_2).await;
 
+    let origin_id_patches = await_discrete_patches(&mut receiver_1).await;
+    assert_eq!(origin_id_patches.len(), 1);
+    assert_eq!(origin_id_patches[0].path, "/5");
+    let origin_id = origin_id_patches[0]
+        .value
+        .as_ref()
+        .and_then(|v| v.as_object())
+        .and_then(|obj| obj.get("@id"))
+        .and_then(|v| v.as_str())
+        .expect("@id missing in origin patch");
+    assert!(origin_id.starts_with("did:ng:o"));
+
     let expected_patches = vec![
         OrmPatch {
             op: OrmPatchOp::add,
@@ -471,7 +506,7 @@ async fn test_y_array(session_id: u64) {
             op: OrmPatchOp::add,
             path: "/5".into(),
             valType: None,
-            value: Some(json!({"someString": "some string", "someNumber": 42})),
+            value: Some(json!({"someString": "some string", "someNumber": 42, "@id": origin_id})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -500,8 +535,16 @@ async fn test_y_array(session_id: u64) {
     let (mut initial_value_3, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
+    let initial_id = initial_value_3
+        .as_array()
+        .and_then(|arr| arr.get(5))
+        .and_then(|obj| obj.get("@id"))
+        .and_then(|v| v.as_str())
+        .expect("@id missing in initial snapshot");
+    assert!(initial_id.starts_with("did:ng:o"));
+
     assert_json_eq(
-        &mut json!([0,1,2,3,"4", {"someString": "some string", "someNumber": 42}, [], false, Value::Null]),
+        &mut json!([0,1,2,3,"4", {"someString": "some string", "someNumber": 42, "@id": initial_id}, [], false, Value::Null]),
         &mut initial_value_3,
     );
 

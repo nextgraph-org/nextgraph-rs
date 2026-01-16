@@ -9,7 +9,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use futures::channel::mpsc;
@@ -20,17 +19,18 @@ use ng_net::{app_protocol::*, orm::OrmPatch};
 use ng_repo::errors::{StorageError, VerifierError};
 use ng_repo::log::*;
 use ng_repo::types::*;
-use serde_json::{json, Value};
-use yrs::types::{Change, EntryChange, Events, PathSegment, ToJson};
+use serde_json::{json, Map as JsonMap, Value};
+use yrs::types::{Change, EntryChange, Events, PathSegment};
 use yrs::updates::decoder::Decode;
 use yrs::{
-    Any, Array, ArrayPrelim, ArrayRef, DeepObservable, In, IndexedSequence, Map, MapPrelim, Out,
-    ReadTxn, Transact,
+    Any, Array, ArrayPrelim, DeepObservable, In, IndexedSequence, Map, MapPrelim, Out, ReadTxn,
+    Transact,
 };
 
 use crate::orm::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::utils::decode_json_pointer;
 use crate::types::{CancelFn, DiscreteTransaction};
+use yrs::ArrayRef;
 
 use crate::verifier::Verifier;
 
@@ -61,7 +61,7 @@ impl Verifier {
         };
 
         let orm_object = if let Some(state) = self.discrete_orm_states.get(&branch_id) {
-            convert_discrete_state_to_orm_object(state)
+            convert_discrete_state_to_orm_object(state, &orm_subscription.nuri)
         } else {
             let state = match self
                 .user_storage
@@ -82,7 +82,7 @@ impl Verifier {
             };
 
             let (orm_object, backend_state) = if let Some(discrete_state) = state {
-                convert_discrete_blob_to_orm_object(discrete_state)?
+                convert_discrete_blob_to_orm_object(discrete_state, &orm_subscription.nuri)?
             } else {
                 match crdt {
                     BranchCrdt::YMap(_) => (
@@ -142,6 +142,18 @@ impl Verifier {
         for (id, sub) in self.discrete_orm_subscriptions.iter_mut() {
             if *id != subscription_id && sub.branch_id == *branch_id {
                 let _ = sub.sender.send(update.clone()).await;
+            } else {
+                // Send auto-generated @id patches back to the origin subscriber.
+                let id_patches: Vec<OrmPatch> = orm_patches
+                    .iter()
+                    .filter(|p| p.op == OrmPatchOp::add)
+                    .filter(|p| p.path.ends_with("/@id"))
+                    .cloned()
+                    .collect();
+                if !id_patches.is_empty() {
+                    let update = AppResponse::V0(AppResponseV0::DiscreteOrmUpdate(id_patches));
+                    let _ = sub.sender.send(update.clone()).await;
+                }
             }
         }
         Ok(())
@@ -174,12 +186,13 @@ impl Verifier {
             let is_array = matches!(backend_state, BackendDiscreteState::YArray(_));
 
             let resulting_orm_patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
+            let nuri_clone = orm_subscription.nuri.clone();
             let (observation, root) = if is_array {
                 let array_ref = doc.get_or_insert_array("ng");
                 let patches_clone = Rc::clone(&resulting_orm_patches);
                 (
                     array_ref.observe_deep(move |tx, ev| {
-                        yrs_mutation_callback(tx, ev, &patches_clone);
+                        yrs_mutation_callback(tx, ev, &patches_clone, &nuri_clone);
                     }),
                     YrsTarget::Array(array_ref),
                 )
@@ -188,7 +201,7 @@ impl Verifier {
                 let patches_clone = Rc::clone(&resulting_orm_patches);
                 (
                     map_ref.observe_deep(move |tx, ev| {
-                        yrs_mutation_callback(tx, ev, &patches_clone);
+                        yrs_mutation_callback(tx, ev, &patches_clone, &nuri_clone);
                     }),
                     YrsTarget::Map(map_ref),
                 )
@@ -253,11 +266,14 @@ impl Verifier {
                 full_state,
             )
         };
-        log_info!("pushing to {} {}", subscription_id, branch_id);
+
+        // == Send updates to other subscribers ==
         self.push_orm_discrete_update(resulting_orm_patches, subscription_id, &branch_id)
             .await?;
+
         //TODO: deal with cases when the resulting_orm_patches is different from patches (received). We need to send the diff to subscription_id
 
+        // == Record change ==
         self.create_discrete_transaction(transaction, &nuri, Some(full_state))
             .await?;
 
@@ -302,21 +318,29 @@ impl Verifier {
             .get(branch_id)
             .ok_or(VerifierError::OrmStateNotFound)?;
 
+        let nuri = self
+            .discrete_orm_subscriptions
+            .values()
+            .find(|sub| sub.branch_id == *branch_id && !sub.sender.is_closed())
+            .map(|sub| sub.nuri.clone())
+            .ok_or(VerifierError::OrmSubscriptionNotFound)?;
+
         let (BackendDiscreteState::YMap(doc) | BackendDiscreteState::YArray(doc)) = backend_state;
 
         let is_array = matches!(backend_state, BackendDiscreteState::YArray(_));
         let resulting_orm_patches: Rc<RefCell<Vec<OrmPatch>>> = Rc::new(RefCell::new(vec![]));
+        let nuri_clone = nuri.clone();
         let observation = if is_array {
             let array_ref = doc.get_or_insert_array("ng");
             let patches_clone = Rc::clone(&resulting_orm_patches);
-            array_ref.observe_deep(move |tx, ev| {
-                yrs_mutation_callback(tx, ev, &patches_clone);
+            array_ref.observe_deep(move |mut txn, ev| {
+                yrs_mutation_callback(&mut txn, ev, &patches_clone, &nuri_clone);
             })
         } else {
             let map_ref = doc.get_or_insert_map("ng");
             let patches_clone = Rc::clone(&resulting_orm_patches);
-            map_ref.observe_deep(move |tx, ev| {
-                yrs_mutation_callback(tx, ev, &patches_clone);
+            map_ref.observe_deep(move |mut tx, ev| {
+                yrs_mutation_callback(&mut tx, ev, &patches_clone, &nuri_clone);
             })
         };
         let mut tx = doc.transact_mut();
@@ -601,17 +625,24 @@ fn apply_yrs_remove_patch(
     Ok(())
 }
 
-fn convert_discrete_state_to_orm_object(discrete_state: &BackendDiscreteState) -> Value {
+fn convert_discrete_state_to_orm_object(
+    discrete_state: &BackendDiscreteState,
+    nuri: &NuriV0,
+) -> Value {
     match discrete_state {
         BackendDiscreteState::YArray(doc) => {
+            let mut txn = doc.transact_mut();
             let root = doc.get_or_insert_array("ng");
-            let txn = doc.transact();
-            json!(root.to_json(&txn))
+            let val = yrs_out_to_json(&mut txn, &Out::YArray(root), nuri, None);
+            drop(txn);
+            val
         }
         BackendDiscreteState::YMap(doc) => {
+            let mut txn = doc.transact_mut();
             let root = doc.get_or_insert_map("ng");
-            let txn = doc.transact();
-            json!(root.to_json(&txn))
+            let val = yrs_out_to_json(&txn, &Out::YMap(root), nuri, None);
+            drop(txn);
+            val
         }
     }
 }
@@ -619,6 +650,7 @@ fn convert_discrete_state_to_orm_object(discrete_state: &BackendDiscreteState) -
 /// Materializes blob to json
 fn convert_discrete_blob_to_orm_object(
     discrete_state: DiscreteState,
+    nuri: &NuriV0,
 ) -> Result<(Value, BackendDiscreteState), VerifierError> {
     match discrete_state {
         DiscreteState::YMap(bytes) => {
@@ -630,7 +662,7 @@ fn convert_discrete_blob_to_orm_object(
             let mut txn = doc.transact_mut();
             txn.apply_update(update);
 
-            let root_json = json!(root.to_json(&txn));
+            let root_json = yrs_out_to_json(&txn, &Out::YMap(root), nuri, None);
             drop(txn);
 
             return Ok((root_json, BackendDiscreteState::YMap(doc)));
@@ -640,11 +672,11 @@ fn convert_discrete_blob_to_orm_object(
             let root = doc.get_or_insert_array("ng");
             let update = yrs::Update::decode_v1(&bytes)
                 .map_err(|e| VerifierError::YrsError(e.to_string()))?;
-            let mut tx = doc.transact_mut();
-            tx.apply_update(update);
+            let mut txn = doc.transact_mut();
+            txn.apply_update(update);
 
-            let root_json = json!(root.to_json(&tx));
-            drop(tx);
+            let root_json = yrs_out_to_json(&txn, &Out::YArray(root), nuri, None);
+            drop(txn);
 
             return Ok((root_json, BackendDiscreteState::YArray(doc)));
         }
@@ -664,39 +696,40 @@ fn convert_discrete_blob_to_orm_object(
 }
 
 fn yrs_out_to_json(
-    txn: &mut yrs::TransactionMut<'_>,
+    txn: &yrs::TransactionMut<'_>,
     value: &Out,
     nuri: &NuriV0,
-    parentArr: Option<(u32, &ArrayRef)>,
+    parent_arr: Option<(u32, ArrayRef)>,
 ) -> serde_json::Value {
     match value {
         Out::Any(value) => json!(value),
         Out::YMap(map) => {
-            let mut hmap = HashMap::new();
+            let mut v_map = JsonMap::new();
             for (k, v) in map.iter(txn) {
-                hmap.insert(k.to_string(), yrs_out_to_json(txn, &v, nuri, None));
+                v_map.insert(k.to_string(), yrs_out_to_json(txn, &v, nuri, None));
             }
-            let val = Value::Object(hmap);
-
-            if let Some((idx, parentArr)) = parentArr {
-                if !map.contains_key("@id") {
-                    let sticky_id = parentArr
-                        .sticky_index(txn, idx, yrs::Assoc::Before)
-                        .unwrap()
-                        .id()
-                        .unwrap();
-                    let iri = nuri.discrete_resource_yjs(sticky_id.client, sticky_id.clock);
-
-                    val.as_object().unwrap.insert("@id".into(), iri);
+            if let Some((idx, parent_arr)) = parent_arr {
+                if !map.contains_key(txn, "@id") {
+                    // Create a mutable transaction for sticky_index
+                    let mut txn_mut = txn.doc().transact_mut();
+                    if let Some(sticky_id) = parent_arr
+                        .sticky_index(&mut txn_mut, idx, yrs::Assoc::Before)
+                        .and_then(|s| s.id().cloned())
+                    {
+                        let iri = nuri.discrete_resource_yjs(sticky_id.client, sticky_id.clock);
+                        v_map.insert("@id".into(), json!(iri));
+                    }
+                    drop(txn_mut);
                 }
             }
-            val
+            Value::Object(v_map)
         }
         Out::YArray(array) => Value::Array(
             array
                 .iter(txn)
                 .enumerate()
-                .map(|idx, el| yrs_out_to_json(txn, el, docId, Some((idx, array)))),
+                .map(|(idx, el)| yrs_out_to_json(txn, &el, nuri, Some((idx as u32, array.clone()))))
+                .collect(),
         ),
         _ => {
             log_err!("[yrs_out_to_json] Could not deserialize patch value");
@@ -708,9 +741,10 @@ fn yrs_out_to_json(
 /// Called when changes to a yrs document are made
 /// which this callback translates to OrmPatches for sending to the client.
 fn yrs_mutation_callback(
-    tx: &yrs::TransactionMut<'_>,
+    txn: &yrs::TransactionMut<'_>,
     update_event: &Events,
     patches: &Rc<RefCell<Vec<OrmPatch>>>,
+    nuri: &NuriV0,
 ) {
     let mut patches = patches.borrow_mut();
     for event in update_event.iter() {
@@ -734,14 +768,14 @@ fn yrs_mutation_callback(
 
         match event {
             yrs::types::Event::Map(map_event) => {
-                for (key, change) in map_event.keys(tx).iter() {
+                for (key, change) in map_event.keys(txn).iter() {
                     match change {
                         EntryChange::Inserted(new_val) => {
                             patches.push(OrmPatch {
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
                                 valType: None,
-                                value: Some(yrs_out_to_json(tx, new_val)),
+                                value: Some(yrs_out_to_json(txn, new_val, nuri, None)),
                             });
                         }
                         EntryChange::Removed(_removed) => {
@@ -757,7 +791,7 @@ fn yrs_mutation_callback(
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
                                 valType: None,
-                                value: Some(yrs_out_to_json(tx, new_val)),
+                                value: Some(yrs_out_to_json(txn, new_val, nuri, None)),
                             });
                         }
                     }
@@ -765,14 +799,19 @@ fn yrs_mutation_callback(
             }
             yrs::types::Event::Array(array_event) => {
                 let mut pos = 0;
-                for delta in array_event.delta(tx).iter() {
+                for delta in array_event.delta(txn).iter() {
                     match delta {
                         Change::Added(added) => {
                             for new_val in added {
                                 patches.push(OrmPatch {
                                     op: OrmPatchOp::add,
                                     path: format!("{base_path}/{pos}"),
-                                    value: Some(yrs_out_to_json(tx, new_val)),
+                                    value: Some(yrs_out_to_json(
+                                        txn,
+                                        new_val,
+                                        nuri,
+                                        Some((pos as u32, array_event.target().clone())),
+                                    )),
                                     valType: None,
                                 });
                                 pos += 1;
