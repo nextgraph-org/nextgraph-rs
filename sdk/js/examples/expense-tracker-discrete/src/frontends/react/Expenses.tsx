@@ -10,11 +10,7 @@
 
 import { useCallback } from "react";
 import { useShape } from "@ng-org/orm/react";
-import {
-    ExpenseCategoryShapeType,
-    ExpenseShapeType,
-} from "../../shapes/orm/expenseShapes.shapeTypes";
-import type { Expense } from "../../shapes/orm/expenseShapes.typings";
+
 import { sessionPromise } from "../../utils/ngSession";
 import { ExpenseCard } from "./ExpenseCard";
 

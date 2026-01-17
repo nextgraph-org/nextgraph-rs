@@ -1,6 +1,5 @@
 <script lang="ts">
   import { useShape } from "@ng-org/orm/svelte";
-  import { ExpenseCategoryShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
   import { sessionPromise } from "../../utils/ngSession";
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
 

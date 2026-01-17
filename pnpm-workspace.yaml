@@ -6,7 +6,8 @@ packages:
     - sdk/js/orm
     - sdk/js/alien-deepsignals
     - sdk/js/shex-orm
-    - sdk/js/examples/expense-tracker
+    - sdk/js/examples/expense-tracker-discrete
+    - sdk/js/examples/expense-tracker-rdf
     - sdk/js/examples/multi-framework-signals
     - sdk/js/examples/react-ldo
     - sdk/js/examples/test-react-sdk

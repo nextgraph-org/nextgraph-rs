@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useShape } from "@ng-org/orm/vue";
-import { ExpenseCategoryShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
-import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
+
 import { sessionPromise } from "../../utils/ngSession";
 import ExpenseCategoryCard from "./ExpenseCategoryCard.vue";
 
@@ -37,7 +36,11 @@ function categoryKey(category: ExpenseCategory) {
                 </h2>
             </div>
             <div class="header-actions">
-                <button type="button" class="primary-btn" @click="createCategory">
+                <button
+                    type="button"
+                    class="primary-btn"
+                    @click="createCategory"
+                >
                     + New category
                 </button>
             </div>

@@ -1,13 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useShape } from "@ng-org/orm/vue";
-import {
-    ExpenseCategoryShapeType,
-    ExpenseShapeType,
-} from "../../shapes/orm/expenseShapes.shapeTypes";
-import type {
-    Expense,
-} from "../../shapes/orm/expenseShapes.typings";
+
 import { sessionPromise } from "../../utils/ngSession";
 import ExpenseCard from "./ExpenseCard.vue";
 
@@ -33,9 +27,11 @@ async function createExpense(obj: Partial<Expense> = {}) {
     });
 }
 
-  const expensesSorted = computed(() => [...expenses].sort((a, b) =>
-    a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-  ));
+const expensesSorted = computed(() =>
+    [...expenses].sort((a, b) =>
+        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+    )
+);
 
 function expenseKey(expense: Expense) {
     return `${expense["@graph"]}|${expense["@id"]}`;
@@ -55,7 +51,8 @@ function expenseKey(expense: Expense) {
         </header>
         <div class="cards-stack">
             <p v-if="expensesSorted.length === 0" class="muted">
-                Nothing tracked yet - log your first purchase to kick things off.
+                Nothing tracked yet - log your first purchase to kick things
+                off.
             </p>
             <template v-else>
                 <ExpenseCard
