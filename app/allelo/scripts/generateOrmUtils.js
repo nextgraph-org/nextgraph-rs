@@ -55,7 +55,7 @@ function extractDictionaries(shapeBody, prefixes) {
     }
 
     // Extract individual values from the enumeration
-    const valueMatches = enumValues.matchAll(/(\w+):(\w+)/g);
+    const valueMatches = enumValues.matchAll(/(\w+):([\w-]+)/g);
     const prefixCounts = {};
     const valuesByPrefix = {};
 

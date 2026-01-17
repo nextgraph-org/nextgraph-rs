@@ -19,6 +19,7 @@ import {SocialGroup} from "@/.orm/shapes/group.typings.ts";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {Tags} from "@/components/ui/Tags";
 import {AddMembersDialog} from "@/components/groups/GroupInfoPage/MembersList/AddMembersDialog";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 interface GroupFormData {
   title: string;
@@ -110,6 +111,7 @@ const CreateGroupPage = () => {
   };*/
 
   const handleTagAdd = useCallback((tag: string) => {
+    tag = contactDictMapper.getPrefix("tag", "valueIRI") + tag;
     setFormData(prev => ({
       ...prev,
       tags: [...prev.tags, tag]
@@ -117,6 +119,7 @@ const CreateGroupPage = () => {
   }, []);
 
   const handleTagRemove = useCallback((tagToRemove: string) => {
+    tagToRemove = contactDictMapper.getPrefix("tag", "valueIRI") + tagToRemove;
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)
@@ -239,7 +242,7 @@ const CreateGroupPage = () => {
 
               {/* Tag Display */}
               <Tags
-                existingTags={formData.tags}
+                existingTags={formData.tags.map(tag => contactDictMapper.removePrefix(tag))}
                 availableTags={[]}
                 handleTagAdd={handleTagAdd}
                 handleTagRemove={handleTagRemove}

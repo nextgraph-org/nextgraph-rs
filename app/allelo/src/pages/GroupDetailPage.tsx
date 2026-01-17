@@ -8,6 +8,8 @@ import {ContactMap} from "@/components/ContactMap";
 import {ActivityFeed} from "@/components/groups/GroupDetailPage/ActivityFeed";
 import {useGroupData} from "@/hooks/groups/useGroupData.ts";
 import {GroupAvatarUpload} from "@/components/groups/GroupAvatarUpload";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
+import {kebabCaseToWords} from "@/utils/stringHelpers.ts";
 
 const GroupDetailPage = () => {
   const {groupId} = useParams<{ groupId: string }>();
@@ -36,7 +38,7 @@ const GroupDetailPage = () => {
     );
   }
 
-  const tags = [...group?.tag ?? []].join(", ");
+  const tags = [...group?.tag ?? []].map(contactDictMapper.removePrefix).map(kebabCaseToWords).join(", ");
 
   let contactNuris: string[] = [];
   if (group.hasMember)

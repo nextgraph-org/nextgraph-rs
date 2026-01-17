@@ -9,6 +9,7 @@ import {
 import {Button} from "@/components/ui";
 import {Tags} from "@/components/ui/Tags";
 import {usePostData} from "@/hooks/posts/usePostData.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
 
 interface SocialPostProps {
   post: SocialPost;
@@ -51,7 +52,7 @@ export const Post = ({post}: SocialPostProps) => {
             {(post.tag?.size ?? 0) > 0 && (
               <>
                 <Typography variant="caption" color="text.secondary">•</Typography>
-                <Tags existingTags={[...post.tag ?? []]} disabled={true} sx={{
+                <Tags existingTags={[...post.tag ?? []].map(contactDictMapper.removePrefix)} disabled={true} sx={{
                   height: 20,
                   fontSize: '0.7rem',
                   backgroundColor: alpha(theme.palette.primary.main, 0.08),

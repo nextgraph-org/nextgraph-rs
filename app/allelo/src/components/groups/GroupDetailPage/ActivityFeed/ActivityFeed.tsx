@@ -13,6 +13,8 @@ import {SocialGroup, SocialPost} from "@/.orm/shapes/group.typings.ts";
 import {PostCreateFormData} from "@/components/posts/PostCreateForm";
 import {useContactOrm} from "@/hooks/contacts/useContactOrm.ts";
 import {useResolvedContact} from "@/hooks/contacts/useResolvedContact.ts";
+import {contactDictMapper} from "@/utils/dictMappers.ts";
+import {kebabCaseToWords} from "@/utils/stringHelpers.ts";
 
 interface ActivityFeedProps {
   posts: SocialPost[];
@@ -40,7 +42,7 @@ export const ActivityFeed = ({posts, group}: ActivityFeedProps) => {
         tags.push(...(post.tag ?? []));
         return tags;
       }, [] as string[])
-    )];
+    )].map(kebabCaseToWords);
   }, [posts])
 
   const filteredPosts = useMemo(() => {
@@ -59,7 +61,7 @@ export const ActivityFeed = ({posts, group}: ActivityFeedProps) => {
       author: authorId,
       createdAt: new Date(Date.now()).toISOString(),
       description: data?.body ?? "",
-      tag: new Set(data?.tags),
+      tag: new Set(data?.tags.map((tag) => contactDictMapper.getPrefix("tag", "valueIRI") + tag)),
     }
     if (group) {
       group.post?.add(socialPost)
@@ -123,7 +125,7 @@ export const ActivityFeed = ({posts, group}: ActivityFeedProps) => {
           >
             <MenuItem value="all">All Topics</MenuItem>
             {allTags.map(id => <MenuItem value={id} key={id}>
-              {id}
+              {contactDictMapper.removePrefix(id)}
             </MenuItem>)}
           </Select>
         </FormControl>

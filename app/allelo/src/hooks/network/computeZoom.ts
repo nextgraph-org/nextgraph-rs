@@ -59,7 +59,7 @@
  */
 
   const ME_ICON_RADIUS = 20;
-  const ITEM_SIZE = 140;
+  const ITEM_SIZE = 100;
   const ITEM_SURFACE = ITEM_SIZE * ITEM_SIZE;
   const ME_SURFACE = ME_ICON_RADIUS * ME_ICON_RADIUS * Math.PI;
   const MIN_VIEW_SIZE = ( ME_ICON_RADIUS + 5 * ITEM_SIZE ) * 2;
@@ -192,7 +192,12 @@ export function computeZoom(init: ZoomInfo) : Array<ZoomInfo> {
       }
     }
     const level0size = level0.radius() * 2;
-    const level0_items = level0.convertToItemCount(); 
+    const level0_items = level0.convertToItemCount();
+
+    if (level0_items.viewSize < level0size) {
+      level0_items.viewSize = level0size;
+    }
+
     resZooms.push(level0_items);
 
     if (level10size > level0size) {

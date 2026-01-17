@@ -80,16 +80,44 @@ export const GraphCanvas = ({
           g.attr('transform', `translate(${event.transform.x},${event.transform.y})`);
         });
 
-      let x = viewportCenterX - canvasCenterX;
-      let y = viewportCenterY - canvasCenterY;
+      // Calculate initial transform to center "Me" in viewport
+      let initialX = viewportCenterX - canvasCenterX;
+      let initialY = viewportCenterY - canvasCenterY;
       if (centeredNode) {
-        x = viewportCenterX - centeredNode.x!;
-        y = viewportCenterY - centeredNode.y!;
+        initialX = viewportCenterX - centeredNode.x!;
+        initialY = viewportCenterY - centeredNode.y!;
       }
 
-      // Calculate translate to center "Me" in viewport
+      // Universe bounds for manual clamping
+      const viewSize = Math.round(currentZoomLevel.viewSize);
+      const halfSize = viewSize / 2;
+      const padding = 0;
+
+      // Calculate allowed pan range (symmetric around initial position)
+      // Pan distance = how far universe edge is from viewport edge at initial position
+      const panDistanceX = halfSize;
+      const panDistanceY = halfSize;
+
+      const minTx = initialX - panDistanceX - padding;
+      const maxTx = initialX + panDistanceX + padding;
+      const minTy = initialY - panDistanceY - padding;
+      const maxTy = initialY + panDistanceY + padding;
+
+      // Override zoom handler to manually clamp
+      panBehavior.on('zoom', (event) => {
+        let tx = event.transform.x;
+        let ty = event.transform.y;
+
+        tx = Math.max(minTx, Math.min(maxTx, tx));
+        ty = Math.max(minTy, Math.min(maxTy, ty));
+
+        if (!isNaN(tx) && !isNaN(ty)) {
+          g.attr('transform', `translate(${tx},${ty})`);
+        }
+      });
+
       const initialTransform = zoomIdentity
-        .translate(x, y);
+        .translate(initialX, initialY);
 
       svg.call(panBehavior.transform, initialTransform);
       svg.call(panBehavior);
