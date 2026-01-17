@@ -386,6 +386,8 @@ export function GmailRunner({open, onError, onGetResult}: SourceRunnerProps) {
         console.log('User cancelled sign-in');
       } else if (error.includes('network')) {
         console.log('Network error occurred');
+      } else {
+        alert(error);
       }
     }
   }, [getContacts, onError]);
