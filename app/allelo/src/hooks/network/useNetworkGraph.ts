@@ -43,7 +43,7 @@ const buildUserNetwork = (
         } else if (contact.relation && contact.relation.size > 0) {
           const relArray = Array.from(contact.relation);
           const firstRel = relArray[0];
-          relationship = firstRel.type2?.['@id'] || 'relation';
+          relationship = firstRel.type?.['@id'] || 'relation';
         }*/
 
     return {

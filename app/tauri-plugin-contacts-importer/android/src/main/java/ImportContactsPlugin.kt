@@ -261,7 +261,7 @@ class ImportContactsPlugin(private val activity: Activity) : Plugin(activity) {
                             ContactsContract.CommonDataKinds.Phone.TYPE_MMS to "mms",
                             ContactsContract.CommonDataKinds.Phone.TYPE_CUSTOM to "other"
                         )
-                        phoneMap["type2"] = this@ImportContactsPlugin.getTypeString(typeInt, null, typeMapping)
+                        phoneMap["type"] = this@ImportContactsPlugin.getTypeString(typeInt, null, typeMapping)
                     }
 
                     phoneMap
@@ -504,7 +504,7 @@ class ImportContactsPlugin(private val activity: Activity) : Plugin(activity) {
                     Log.d("ContactImporter", "Type: $typeInt   ")
 
                     if (typeInt != null) {
-                        mutableItem["type2"] =
+                        mutableItem["type"] =
                             getTypeString(typeInt, customLabel, config.typeMapping)
             }
         }
