@@ -158,11 +158,11 @@ function handleDictionaries(el: any, property: keyof SocialContactDictMap, subPr
   if (!el[subProperty]) return;
 
   let normalized = el[subProperty];
-  if ("@id" in normalized) {
+  if (typeof normalized === 'object' && "@id" in normalized) {
     normalized = normalized["@id"];
   }
 
-  if (subProperty === "type2") {
+  if (subProperty === "type") {
     el["type"] = contactDictMapper.appendPrefixToDictValue(property, subProperty, normalized);
     delete el[subProperty];
   } else {
@@ -204,7 +204,6 @@ export async function processContactFromJSON(jsonContact: any): Promise<SocialCo
       const props = jsonContact[property].map((el: any) => {
         //TODO: check this
         handleDictionaries(el, property, "type");
-        handleDictionaries(el, property, "type2");
         handleDictionaries(el, property, "valueIRI");
         handleDictionaries(el, property, "photoIRI");
 

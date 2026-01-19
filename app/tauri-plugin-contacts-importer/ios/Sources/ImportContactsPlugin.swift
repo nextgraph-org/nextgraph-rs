@@ -154,7 +154,7 @@ class ImportContactsPlugin: Plugin {
                     "source": "iOS Device"
                 ]
                 if let label = phoneNumber.label {
-                    phoneItem["type2"] = self.mapPhoneLabel(label)
+                    phoneItem["type"] = self.mapPhoneLabel(label)
                 }
                 return phoneItem
             }
@@ -169,7 +169,7 @@ class ImportContactsPlugin: Plugin {
                     "source": "iOS Device"
                 ]
                 if let label = email.label {
-                    emailItem["type2"] = self.mapEmailLabel(label)
+                    emailItem["type"] = self.mapEmailLabel(label)
                 }
                 return emailItem
             }
@@ -191,7 +191,7 @@ class ImportContactsPlugin: Plugin {
                     "isoCountryCode": postalAddress.isoCountryCode
                 ]
                 if let label = address.label {
-                    addressItem["type2"] = self.mapAddressLabel(label)
+                    addressItem["type"] = self.mapAddressLabel(label)
                 }
                 return addressItem
             }
@@ -221,7 +221,7 @@ class ImportContactsPlugin: Plugin {
                     "source": "iOS Device"
                 ]
                 if let label = url.label {
-                    urlItem["type2"] = self.mapURLLabel(label)
+                    urlItem["type"] = self.mapURLLabel(label)
                 }
                 return urlItem
             }
@@ -244,7 +244,7 @@ class ImportContactsPlugin: Plugin {
                 contactMap["event"] = [[
                     "value": dateFormatter.string(from: date),
                     "source": "iOS Device",
-                    "type2": "birthday"
+                    "type": "birthday"
                 ]]
             }
         }
@@ -257,7 +257,7 @@ class ImportContactsPlugin: Plugin {
                     "source": "iOS Device"
                 ]
                 if let label = relation.label {
-                    relationItem["type2"] = self.mapRelationLabel(label)
+                    relationItem["type"] = self.mapRelationLabel(label)
                 }
                 return relationItem
             }
@@ -275,7 +275,7 @@ class ImportContactsPlugin: Plugin {
                     "source": "iOS Device"
                 ]
                 if let label = date.label {
-                    dateItem["type2"] = self.mapDateLabel(label)
+                    dateItem["type"] = self.mapDateLabel(label)
                 }
                 return dateItem
             }

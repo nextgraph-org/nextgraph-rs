@@ -380,7 +380,7 @@ export class WSClient {
 	 * Handle incoming messages from server
 	 */
 	private async handleMessage(message: ServerOutboundMessage): Promise<void> {
-		this.log('info', `Received message: ${message.type}`);
+		//this.log('info', `Received message: ${message.type}`);
 
 		switch (message.type) {
 			case 'server/session_started':
@@ -488,7 +488,7 @@ export class WSClient {
 				})
 			);
 
-			this.log('info', `Tool results: ${JSON.stringify(results)}`);
+			//this.log('info', `Tool results: ${JSON.stringify(results)}`);
 			this.sendToolResults(message.sessionId, results);
 		} catch (error) {
 			this.log('error', 'Failed to process tool calls:', error);

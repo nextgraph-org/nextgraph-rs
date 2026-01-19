@@ -82,7 +82,7 @@ function parseVCard(vCardText: string): any | null {
         const emailType = getParamValue(prop.params, 'TYPE');
         contact.email.push({
           value: prop.value,
-          type2: emailType ? {'@id': normalizeEmailType(emailType)} : undefined,
+          type: emailType ? {'@id': normalizeEmailType(emailType)} : undefined,
           source: 'vcf',
           preferred: hasParam(prop.params, 'PREF')
         });
@@ -94,7 +94,7 @@ function parseVCard(vCardText: string): any | null {
         const phoneType = getParamValue(prop.params, 'TYPE');
         contact.phoneNumber.push({
           value: prop.value.replace(/[^+\d]/g, ''), // Clean phone number
-          type2: phoneType ? {'@id': normalizePhoneType(phoneType)} : undefined,
+          type: phoneType ? {'@id': normalizePhoneType(phoneType)} : undefined,
           source: 'vcf',
           preferred: hasParam(prop.params, 'PREF')
         });
@@ -109,7 +109,7 @@ function parseVCard(vCardText: string): any | null {
         const addressType = getParamValue(prop.params, 'TYPE');
         const addressObj: any = {
           source: 'vcf',
-          type2: addressType ? {'@id': normalizeAddressType(addressType)} : undefined
+          type: addressType ? {'@id': normalizeAddressType(addressType)} : undefined
         };
         if (adrParts[0]) addressObj.poBox = adrParts[0];
         if (adrParts[1]) addressObj.extendedAddress = adrParts[1];
@@ -159,7 +159,7 @@ function parseVCard(vCardText: string): any | null {
         const urlType = getParamValue(prop.params, 'TYPE');
         contact.url.push({
           value: prop.value,
-          type2: urlType ? {'@id': urlType.toLowerCase()} : undefined,
+          type: urlType ? {'@id': urlType.toLowerCase()} : undefined,
           source: 'vcf'
         });
         break;
