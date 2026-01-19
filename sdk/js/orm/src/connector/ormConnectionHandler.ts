@@ -325,8 +325,7 @@ export class OrmConnection<T extends BaseType> {
         this.stopSignalListening();
         const { stopListening } = watchDeepSignal(
             this.signalObject,
-            this.onSignalObjectUpdate,
-            { triggerInstantly: true }
+            this.onSignalObjectUpdate
         );
         this.stopSignalListening = stopListening;
     };
