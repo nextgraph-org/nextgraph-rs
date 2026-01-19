@@ -1,5 +1,5 @@
 import {SourceRunnerProps} from "@/types/importSource.ts";
-import {useCallback, useEffect} from "react";
+import {useCallback, useEffect, useRef} from "react";
 import {bcpCodeToIRI} from "@/utils/bcp47map.ts";
 import type { people_v1 } from "googleapis";
 
@@ -324,6 +324,7 @@ async function mapGmailPerson(googleResult: people_v1.Schema$Person): Promise<So
 }
 
 export function GmailRunner({open, onError, onGetResult}: SourceRunnerProps) {
+  const hasInitiatedRef = useRef(false);
   const getContacts = useCallback(async (accessToken: string) => {
     const contacts: SocialContact[] = [];
     let pageToken;
@@ -393,8 +394,13 @@ export function GmailRunner({open, onError, onGetResult}: SourceRunnerProps) {
   }, [getContacts, onError]);
 
   useEffect(() => {
-    if (open) {
+    if (open && !hasInitiatedRef.current) {
+      hasInitiatedRef.current = true;
       login();
+    }
+    
+    if (!open) {
+      hasInitiatedRef.current = false;
     }
   }, [open, login]);
 
