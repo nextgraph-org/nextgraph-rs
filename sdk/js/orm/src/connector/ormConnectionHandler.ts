@@ -39,6 +39,7 @@ export class OrmConnection<T extends BaseType> {
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
     readonly signalObject: DeepSignalSet<T>;
+    private stopSignalListening: () => void;
     private subscriptionId: number | undefined;
     private refCount: number;
     /** Identifier as a combination of shape type and scope. Prevents duplications. */
@@ -91,7 +92,11 @@ export class OrmConnection<T extends BaseType> {
         );
 
         // Add listener to deep signal object to report changes back to wasm land.
-        watchDeepSignal(this.signalObject, this.onSignalObjectUpdate);
+        const { stopListening } = watchDeepSignal(
+            this.signalObject,
+            this.onSignalObjectUpdate
+        );
+        this.stopSignalListening = stopListening;
 
         // Initialize per-entry readiness promise that resolves in setUpConnection
         this.readyPromise = new Promise<void>((resolve) => {
@@ -162,19 +167,21 @@ export class OrmConnection<T extends BaseType> {
 
         const ormPatches = deepPatchesToWasm(patches);
 
+        // If in transaction, collect patches immediately (no await before).
+        if (this.inTransaction) {
+            this.pendingPatches?.push(...ormPatches);
+            return;
+        }
+
         // Wait for session and subscription to be initialized.
         const { ng, session } = await ngSession;
         await this.readyPromise;
 
-        if (this.inTransaction) {
-            this.pendingPatches?.push(...ormPatches);
-        } else {
-            ng.graph_orm_update(
-                this.subscriptionId!,
-                ormPatches,
-                session.session_id
-            );
-        }
+        ng.graph_orm_update(
+            this.subscriptionId!,
+            ormPatches,
+            session.session_id
+        );
     };
 
     private onBackendMessage = (message: any) => {
@@ -275,29 +282,53 @@ export class OrmConnection<T extends BaseType> {
     public beginTransaction = () => {
         this.inTransaction = true;
         this.pendingPatches = [];
+
+        // Use a listener that immediately triggers on object modifications.
+        // We don't need the deep-signal's batching (through microtasks) here.
+        this.stopSignalListening();
+        const { stopListening } = watchDeepSignal(
+            this.signalObject,
+            this.onSignalObjectUpdate,
+            { triggerInstantly: true }
+        );
+        this.stopSignalListening = stopListening;
     };
 
     public commitTransaction = async () => {
-        if (!this.pendingPatches) {
+        if (!this.inTransaction) {
             throw new Error(
                 "No transaction is open. Call `beginTransaction` first."
             );
         }
 
-        if (this.pendingPatches.length == 0) {
-            return;
-        }
-
-        this.inTransaction = false;
         const { ng, session } = await ngSession;
         await this.readyPromise;
-        ng.graph_orm_update(
-            this.subscriptionId!,
-            this.pendingPatches!,
-            session.session_id
-        );
+
+        this.inTransaction = false;
+
+        if (this.pendingPatches?.length == 0) {
+            // Nothing to send to the backend.
+        } else {
+            // Send patches to backend.
+            await ng.graph_orm_update(
+                this.subscriptionId!,
+                this.pendingPatches!,
+                session.session_id
+            );
+        }
 
         this.pendingPatches = undefined;
+
+        // Go back to the regular object modification listening where we want batching
+        // scheduled in a microtask only triggered after the main task.
+        // This way we prevent excessive calls to the backend.
+        this.stopSignalListening();
+        const { stopListening } = watchDeepSignal(
+            this.signalObject,
+            this.onSignalObjectUpdate,
+            { triggerInstantly: true }
+        );
+        this.stopSignalListening = stopListening;
     };
 }
 
