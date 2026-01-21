@@ -9,32 +9,45 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { onDestroy } from "svelte";
-import type { DeepSignal } from "@ng-org/alien-deepsignals";
 import {
     useDeepSignal,
     UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte";
 import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandler.ts";
-import { DiscreteArray, DiscreteObject } from "../../types.ts";
-import { Writable } from "svelte/store";
+import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
 
-/** Extended result including the originating root signal wrapper. */
-export interface UseShapeRuneResult<T extends object>
-    extends UseDeepSignalResult<T> {
-    root: any;
-}
+export function useDiscrete(
+    documentIdOrPromise: string | Promise<string>
+): UseDeepSignalResult<DiscreteRootArray | DiscreteRootObject | undefined> {
+    let connection: DiscreteOrmConnection | undefined;
+    let isDestroyed = false;
 
-export function useDiscrete(documentId: string): Writable<any> {
-    onDestroy(close);
+    const objectPromise = new Promise<any>((resolve) => {
+        const init = (docId: string) => {
+            if (isDestroyed) return;
+            connection = DiscreteOrmConnection.getOrCreate(docId);
+            connection.readyPromise.then(() => {
+                if (isDestroyed) {
+                    connection?.close();
+                    return;
+                }
+                resolve(connection!.signalObject!);
+            });
+        };
 
-    const { signalObject: rootSignal } =
-        DiscreteOrmConnection.getOrCreate(documentId);
+        if (typeof documentIdOrPromise === "string") {
+            init(documentIdOrPromise);
+        } else {
+            documentIdOrPromise.then(init);
+        }
+    });
 
-    const ds = useDeepSignal(rootSignal);
+    onDestroy(() => {
+        isDestroyed = true;
+        if (connection) {
+            connection.close();
+        }
+    });
 
-    return {
-        set(value) {},
-        subscribe(run, invalidate) {},
-        update(updater) {},
-    };
+    return useDeepSignal(objectPromise);
 }

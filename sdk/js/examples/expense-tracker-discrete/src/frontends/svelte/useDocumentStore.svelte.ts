@@ -8,49 +8,17 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { onDestroy } from "svelte";
-import { DiscreteOrmConnection } from "@ng-org/orm";
 import type { DocumentStore } from "../../types";
-import { ormConnection, ormConnectionPromise } from "../../utils/ngSession";
+import { ormConnectionPromise } from "../../utils/ngSession";
+import { useDiscrete } from "@ng-org/orm/svelte";
+import type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte";
 
 export function useDocumentStore() {
-    let data = $state<DocumentStore | undefined>(undefined);
-    let cleanup: (() => void) | undefined;
+    const documentIdPromise = ormConnectionPromise.then(
+        (connection) => connection.documentId
+    );
 
-    // Register cleanup synchronously during component initialization
-    onDestroy(() => cleanup?.());
-
-    async function loadStore() {
-        // Wait for connection if not ready
-        const connection = ormConnection ?? (await ormConnectionPromise);
-
-        if (!connection?.documentId) {
-            return;
-        }
-
-        const { close, readyPromise } = DiscreteOrmConnection.getOrCreate(
-            connection.documentId
-        );
-        cleanup = close;
-
-        // Wait until the backend delivered the initial signal object.
-        await readyPromise;
-
-        const { signalObject: rootSignal } = DiscreteOrmConnection.getOrCreate(
-            connection.documentId
-        );
-
-        if (rootSignal) {
-            data = rootSignal as unknown as DocumentStore;
-        }
-    }
-
-    // Start loading the store
-    loadStore();
-
-    return {
-        get data() {
-            return data;
-        },
-    };
+    return useDiscrete(documentIdPromise) as UseDeepSignalResult<
+        DocumentStore | undefined
+    >;
 }

@@ -37,7 +37,7 @@ export function ExpenseCategories() {
                         <span className="badge">
                             {expenseCategories
                                 ? expenseCategories.length + " total"
-                                : ""}
+                                : "total"}
                         </span>
                     </h2>
                 </div>

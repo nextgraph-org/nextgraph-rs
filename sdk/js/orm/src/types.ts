@@ -26,4 +26,21 @@ export type DiscreteType =
     | number
     | boolean;
 
+export type DiscreteRootArray = (
+    | DiscreteArray
+    | string
+    | number
+    | boolean
+    | (DiscreteObject & { readonly "@id": string })
+)[];
+
+export interface DiscreteRootObject {
+    [key: string]:
+        | DiscreteObject
+        | string
+        | number
+        | boolean
+        | DiscreteRootArray;
+}
+
 export type DiscreteCrdt = "YMap" | "YArray" | "Automerge";

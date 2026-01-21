@@ -4,8 +4,8 @@
   import ExpenseCard from "./ExpenseCard.svelte";
 
   const store = useDocumentStore();
-  const expenses = $derived(store.data?.expenses);
-  const expenseCategories = $derived(store.data?.expenseCategories);
+  const expenses = $derived($store?.expenses);
+  const expenseCategories = $derived($store?.expenseCategories);
 
   function createExpense(obj: Partial<Expense> = {}) {
     if (!expenses) return;
@@ -51,7 +51,7 @@
     {:else}
       {#each expensesSorted as expense, index (expenseKey(expense, index))}
         <ExpenseCard
-          bind:expense={expensesSorted![index]}
+          expense={expensesSorted![index]}
           availableCategories={expenseCategories!}
         />
       {/each}
