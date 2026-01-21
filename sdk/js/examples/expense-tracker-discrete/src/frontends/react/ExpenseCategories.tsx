@@ -9,28 +9,23 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useCallback } from "react";
-import { useShape } from "@ng-org/orm/react";
-
-import { sessionPromise } from "../../utils/ngSession";
 import { ExpenseCategoryCard } from "./ExpenseCategoryCard";
+import { useDocumentStore } from "./useDocumentStore";
 
 export function ExpenseCategories() {
-    const expenseCategories = useShape(ExpenseCategoryShapeType);
+    const store = useDocumentStore();
+    const expenseCategories = store.data?.expenseCategories;
 
     const createCategory = useCallback(async () => {
-        const session = await sessionPromise;
-
-        expenseCategories.add({
-            "@graph": `did:ng:${session.private_store_id}`,
-            "@type": new Set(["http://example.org/ExpenseCategory"]),
-            "@id": "",
+        if (!expenseCategories) return;
+        expenseCategories.push({
             categoryName: "New category",
             description: "",
         });
     }, [expenseCategories]);
 
-    const categoryKey = (category: { "@graph": string; "@id": string }) =>
-        `${category["@graph"]}|${category["@id"]}`;
+    const categoryKey = (category: any, index: number) =>
+        category["@id"] ?? `${category.categoryName ?? "category"}-${index}`;
 
     return (
         <section className="panel">
@@ -40,7 +35,9 @@ export function ExpenseCategories() {
                     <h2 className="title">
                         Expense Categories
                         <span className="badge">
-                            {expenseCategories.size} total
+                            {expenseCategories
+                                ? expenseCategories.length + " total"
+                                : ""}
                         </span>
                     </h2>
                 </div>
@@ -54,14 +51,16 @@ export function ExpenseCategories() {
                     </button>
                 </div>
             </header>
-            {expenseCategories.size === 0 ? (
+            {!expenseCategories ? (
+                "Loading..."
+            ) : expenseCategories.length === 0 ? (
                 <p className="muted">No categories yet</p>
             ) : (
                 <div className="cards-grid">
-                    {[...expenseCategories].map((category) => (
+                    {expenseCategories.map((category, i) => (
                         <ExpenseCategoryCard
                             category={category}
-                            key={categoryKey(category)}
+                            key={categoryKey(category, i)}
                         />
                     ))}
                 </div>

@@ -9,17 +9,14 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useState } from "react";
-import type {
-    Expense,
-    ExpenseCategory,
-} from "../../shapes/orm/expenseShapes.typings";
 import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
+import type { Expense, ExpenseCategory } from "../../types";
 
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
-    "http://example.org/Paid": "Paid",
-    "http://example.org/Pending": "Pending",
-    "http://example.org/Overdue": "Overdue",
-    "http://example.org/Refunded": "Refunded",
+    Paid: "Paid",
+    Pending: "Pending",
+    Overdue: "Overdue",
+    Refunded: "Refunded",
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -33,7 +30,7 @@ export function ExpenseCard({
     availableCategories,
 }: {
     expense: Expense;
-    availableCategories: DeepSignalSet<ExpenseCategory>;
+    availableCategories: ExpenseCategory[];
 }) {
     const [isEditing, setIsEditing] = useState(false);
 
@@ -42,26 +39,25 @@ export function ExpenseCard({
         : "Date not set";
     const totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
 
-    const categoryKey = (category: ExpenseCategory) =>
-        `${category["@graph"]}|${category["@id"]}`;
-
     const isCategorySelected = (category: ExpenseCategory) =>
-        !!expense.expenseCategory?.has(category["@id"]);
+        !!expense.expenseCategories?.includes(category["@id"]!);
 
     const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
         if (checked) {
-            if (!expense.expenseCategory) {
-                expense.expenseCategory = new Set([category["@id"]]);
+            if (!expense.expenseCategories) {
+                expense.expenseCategories = [category["@id"]!];
             } else {
-                expense.expenseCategory.add(category["@id"]);
+                expense.expenseCategories.push(category["@id"]!);
             }
         } else {
-            expense.expenseCategory?.delete(category["@id"]);
+            expense.expenseCategories = expense.expenseCategories?.filter(
+                (e) => e !== category["@id"]
+            );
         }
     };
 
     const nameOfCategory = (categoryIri: string) =>
-        [...availableCategories].find((c) => c["@id"] === categoryIri)
+        availableCategories.find((c) => c["@id"] === categoryIri)
             ?.categoryName || "Unnamed";
 
     return (
@@ -156,10 +152,10 @@ export function ExpenseCard({
                             }
                         >
                             {Object.entries(paymentStatusLabels).map(
-                                ([paymentStatusIri, label]) => (
+                                ([paymentStatus, label]) => (
                                     <option
-                                        value={paymentStatusIri}
-                                        key={paymentStatusIri}
+                                        value={paymentStatus}
+                                        key={paymentStatus}
                                     >
                                         {label}
                                     </option>
@@ -177,12 +173,12 @@ export function ExpenseCard({
             <div className="field-group">
                 <span className="field-label">Categories</span>
                 {isEditing ? (
-                    availableCategories.size ? (
+                    availableCategories.length ? (
                         <div className="category-picker">
-                            {[...availableCategories].map((category) => (
+                            {availableCategories.map((category) => (
                                 <label
                                     className="category-option"
-                                    key={categoryKey(category)}
+                                    key={category["@id"]}
                                 >
                                     <input
                                         type="checkbox"
@@ -213,9 +209,9 @@ export function ExpenseCard({
                             above.
                         </p>
                     )
-                ) : expense.expenseCategory?.size ? (
+                ) : expense.expenseCategories?.length ? (
                     <div className="chip-list">
-                        {[...expense.expenseCategory].map((categoryIri) => (
+                        {[...expense.expenseCategories].map((categoryIri) => (
                             <span className="chip" key={categoryIri}>
                                 {nameOfCategory(categoryIri)}
                             </span>

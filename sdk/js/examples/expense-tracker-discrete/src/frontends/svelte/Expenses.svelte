@@ -1,38 +1,34 @@
 <script lang="ts">
-  import { useShape } from "@ng-org/orm/svelte";
-
-  import { sessionPromise } from "../../utils/ngSession";
+  import type { Expense } from "../../types";
+  import { useDocumentStore } from "./useDocumentStore.svelte";
   import ExpenseCard from "./ExpenseCard.svelte";
 
-  const expenses = useShape(ExpenseShapeType);
-  const categories = useShape(ExpenseCategoryShapeType);
+  const store = useDocumentStore();
+  const expenses = $derived(store.data?.expenses);
+  const expenseCategories = $derived(store.data?.expenseCategories);
 
-  async function createExpense(obj: Partial<Expense> = {}) {
-    const session = await sessionPromise;
-
-    $expenses.add({
-      "@graph": `did:ng:${session.private_store_id}`,
-      "@type": "http://example.org/Expense",
-      "@id": "",
+  function createExpense(obj: Partial<Expense> = {}) {
+    if (!expenses) return;
+    expenses.push({
       amount: obj.amount ?? 1,
       recurrenceInterval: obj.recurrenceInterval ?? "",
-      description: obj.description ?? undefined,
+      description: obj.description ?? "",
       totalPrice: obj.totalPrice ?? 0,
-      paymentStatus: obj.paymentStatus ?? "http://example.org/Paid",
+      paymentStatus: obj.paymentStatus ?? "Paid",
       isRecurring: obj.isRecurring ?? false,
-      expenseCategory: obj.expenseCategory ?? new Set<string>(),
+      expenseCategories: obj.expenseCategories ?? [],
       dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
       title: obj.title ?? "New Expense",
     });
   }
+
   const expensesSorted = $derived(
-    [...$expenses].sort((a, b) =>
-      a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    )
+    expenses &&
+      expenses.sort((a, b) => a.dateOfPurchase.localeCompare(b.dateOfPurchase))
   );
 
-  const expenseKey = (expense: Expense) =>
-    `${expense["@graph"]}|${expense["@id"]}`;
+  const expenseKey = (expense: Expense, index: number) =>
+    expense["@id"] ?? `${expense.title ?? "expense"}-${index}`;
 </script>
 
 <section class="panel">
@@ -46,15 +42,17 @@
     </button>
   </header>
   <div class="cards-stack">
-    {#if !$expenses.size}
+    {#if !expenses}
+      Loading...
+    {:else if expenses.length === 0}
       <p class="muted">
         Nothing tracked yet — log your first purchase to kick things off.
       </p>
     {:else}
-      {#each expensesSorted as expense, index (expenseKey(expense))}
+      {#each expensesSorted as expense, index (expenseKey(expense, index))}
         <ExpenseCard
-          expense={expensesSorted[index]}
-          availableCategories={$categories}
+          bind:expense={expensesSorted![index]}
+          availableCategories={expenseCategories!}
         />
       {/each}
     {/if}

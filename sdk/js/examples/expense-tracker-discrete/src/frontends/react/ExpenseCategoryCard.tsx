@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useState } from "react";
-import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
+import type { ExpenseCategory } from "../../types";
 
 export function ExpenseCategoryCard({
     category,

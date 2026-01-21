@@ -82,7 +82,7 @@ in a separate terminal, from the root of the mono-repo,
 
 ```bash
 # This is up to you. By example :
-cd sdk/js/examples/multi-framework-signals
+cd sdk/js/examples/expense-tracker-rdf
 pnpm dev3
 # PLEASE NOTE that we are calling dev3 and not dev
 # Then open that app in your browser

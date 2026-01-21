@@ -1,40 +1,39 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useShape } from "@ng-org/orm/vue";
 
-import { sessionPromise } from "../../utils/ngSession";
 import ExpenseCard from "./ExpenseCard.vue";
+import { useDocumentStore } from "./useDocumentStore";
+import type { Expense } from "../../types";
 
-const expenses = useShape(ExpenseShapeType);
-const categories = useShape(ExpenseCategoryShapeType);
+const store = useDocumentStore();
+const expenses = computed(() => store.data.value?.expenses);
+const expenseCategories = computed(
+    () => store.data.value?.expenseCategories ?? []
+);
 
-async function createExpense(obj: Partial<Expense> = {}) {
-    const session = await sessionPromise;
-
-    expenses.add({
-        "@graph": `did:ng:${session.private_store_id}`,
-        "@type": "http://example.org/Expense",
-        "@id": "",
+function createExpense(obj: Partial<Expense> = {}) {
+    if (!expenses.value) return;
+    expenses.value.push({
         amount: obj.amount ?? 1,
         recurrenceInterval: obj.recurrenceInterval ?? "",
         description: obj.description ?? undefined,
         totalPrice: obj.totalPrice ?? 0,
-        paymentStatus: obj.paymentStatus ?? "http://example.org/Paid",
+        paymentStatus: obj.paymentStatus ?? "Paid",
         isRecurring: obj.isRecurring ?? false,
-        expenseCategory: obj.expenseCategory ?? new Set<string>(),
+        expenseCategories: obj.expenseCategories ?? [],
         dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
         title: obj.title ?? "New Expense",
     });
 }
 
 const expensesSorted = computed(() =>
-    [...expenses].sort((a, b) =>
+    expenses.value && expenses.value.sort((a, b) =>
         a.dateOfPurchase.localeCompare(b.dateOfPurchase)
     )
 );
 
-function expenseKey(expense: Expense) {
-    return `${expense["@graph"]}|${expense["@id"]}`;
+function expenseKey(expense: Expense, index: number) {
+    return expense["@id"] ?? `${expense.title ?? "expense"}-${index}`;
 }
 </script>
 
@@ -50,16 +49,19 @@ function expenseKey(expense: Expense) {
             </button>
         </header>
         <div class="cards-stack">
-            <p v-if="expensesSorted.length === 0" class="muted">
+            <p v-if="!expensesSorted" class="muted">
+                Loading...
+            </p>
+            <p v-else-if="expensesSorted.length === 0" class="muted">
                 Nothing tracked yet - log your first purchase to kick things
                 off.
             </p>
             <template v-else>
                 <ExpenseCard
-                    v-for="expense in expensesSorted"
-                    :key="expenseKey(expense)"
+                    v-for="(expense, index) in expensesSorted"
+                    :key="expenseKey(expense, index)"
                     :expense="expense"
-                    :available-categories="categories"
+                    :available-categories="expenseCategories"
                 />
             </template>
         </div>

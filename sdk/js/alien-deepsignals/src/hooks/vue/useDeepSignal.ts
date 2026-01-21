@@ -8,7 +8,13 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { ref, onBeforeUnmount } from "vue";
+import {
+    ref,
+    onBeforeUnmount,
+    type MaybeRefOrGetter,
+    watch as vueWatch,
+    toValue,
+} from "vue";
 import { DeepSignal, deepSignal, DeepSignalOptions, watch } from "../../";
 
 /**
@@ -17,62 +23,97 @@ import { DeepSignal, deepSignal, DeepSignalOptions, watch } from "../../";
  * If modifications of the object are made from somewhere else, the component
  * is rerendered as well.
  *
- * @param object The object that should become reactive
- * @param deepSignalObjects When the object is not a deepSignal already, options passed to `deepSignal`.
+ * @param object The object that should become reactive (can be a ref or getter)
+ * @param options When the object is not a deepSignal already, options passed to `deepSignal`.
  * @returns The deepSignal object of the object param.
  *
  */
+// Note partly written with the help of Gemini 3.
 export function useDeepSignal<T extends object>(
-    object: T,
+    object: MaybeRefOrGetter<T>,
     options?: DeepSignalOptions
 ): DeepSignal<T> {
     const version = ref(0);
-    const signalObject = deepSignal(object, options);
+    // Holds the current reactive signal object.
+    let currentSignal: DeepSignal<T>;
+    let stopHandle: { stopListening: () => void } | undefined;
 
-    const stopHandle = watch(signalObject, ({ patches }) => {
-        if (patches.length > 0) {
+    // Watch the input object for changes.
+    const stopWatchingSource = vueWatch(
+        () => toValue(object),
+        (newObj) => {
+            if (stopHandle) {
+                stopHandle.stopListening();
+                stopHandle = undefined;
+            }
+            if (newObj) {
+                currentSignal = deepSignal(newObj, options);
+                stopHandle = watch(currentSignal, ({ patches }) => {
+                    if (patches.length > 0) version.value++;
+                });
+            }
+            // Trigger Vue update.
             version.value++;
-        }
-    });
+        },
+        { immediate: true }
+    );
 
-    // Proxy that creates Vue dependency on version for any access
-    const proxy = new Proxy(signalObject as any, {
+    // Determines the initial target for the Proxy (array vs object).
+    const initialVal = toValue(object);
+    const proxyTarget = (Array.isArray(initialVal) ? [] : {}) as T;
+
+    // Proxy that creates Vue dependency on version for any access.
+    const proxy = new Proxy(proxyTarget, {
         get(target, key: PropertyKey) {
-            if (key === "__raw") return target;
-            // Track version to create reactive dependency
+            if (key === "__raw") return currentSignal;
+
+            // Track version to create reactive dependency.
             version.value;
-            const value = target[key];
-            // Bind methods to maintain correct `this` context
-            return typeof value === "function" ? value.bind(target) : value;
+
+            // Delegate to current signal.
+            const actualTarget = currentSignal || target;
+            const value = Reflect.get(actualTarget, key);
+
+            // Bind methods to maintain correct `this` context.
+            return typeof value === "function"
+                ? value.bind(actualTarget)
+                : value;
         },
         set(target, key: PropertyKey, value: unknown) {
-            // Directly forward writes to the deep signal root so other frameworks observe the change.
-            return Reflect.set(target, key, value);
+            // Delegate to current signal.
+            const actualTarget = currentSignal || target;
+            return Reflect.set(actualTarget, key, value);
         },
         has(target, key: PropertyKey) {
             version.value;
-            return key in target;
+            const actualTarget = currentSignal || target;
+            return Reflect.has(actualTarget, key);
         },
         ownKeys(target) {
             version.value;
-            return Reflect.ownKeys(target);
+            const actualTarget = currentSignal || target;
+            return Reflect.ownKeys(actualTarget);
         },
         getOwnPropertyDescriptor(target, key: PropertyKey) {
             version.value;
-            const desc = Object.getOwnPropertyDescriptor(target, key);
+            const actualTarget = currentSignal || target;
+            const desc = Reflect.getOwnPropertyDescriptor(actualTarget, key);
             return desc ? { ...desc, configurable: true } : undefined;
         },
     });
 
     onBeforeUnmount(() => {
-        try {
-            stopHandle.stopListening();
-        } catch {
-            // ignore
+        stopWatchingSource();
+        if (stopHandle) {
+            try {
+                stopHandle.stopListening();
+            } catch {
+                // ignore
+            }
         }
     });
 
-    return proxy;
+    return proxy as DeepSignal<T>;
 }
 
 export default useDeepSignal;

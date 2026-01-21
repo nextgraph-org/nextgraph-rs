@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -8,30 +8,38 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useCallback } from "react";
-import { useShape } from "@ng-org/orm/react";
+import { useCallback, useMemo } from "react";
 
 import { sessionPromise } from "../../utils/ngSession";
 import { ExpenseCard } from "./ExpenseCard";
+import { useDocumentStore } from "./useDocumentStore";
+import type { Expense } from "../../types";
 
 export function Expenses() {
-    const expenses = useShape(ExpenseShapeType);
-    const expenseCategories = useShape(ExpenseCategoryShapeType);
+    const store = useDocumentStore();
+    const expenses = store.data?.expenses;
+    const expenseCategories = store.data?.expenseCategories;
+
+    const expensesSorted = useMemo(
+        () =>
+            expenses &&
+            expenses.sort((a, b) =>
+                a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+            ),
+        [expenses]
+    );
 
     const createExpense = useCallback(
         async (obj: Partial<Expense> = {}) => {
             const session = await sessionPromise;
 
-            expenses.add({
-                "@graph": `did:ng:${session.private_store_id}`,
-                "@type": "http://example.org/Expense",
-                "@id": "",
+            expenses!.push({
                 amount: obj.amount ?? 1,
                 description: obj.description ?? "",
                 totalPrice: obj.totalPrice ?? 0,
-                paymentStatus: obj.paymentStatus ?? "http://example.org/Paid",
+                paymentStatus: obj.paymentStatus ?? "Paid",
                 isRecurring: obj.isRecurring ?? false,
-                expenseCategory: obj.expenseCategory ?? new Set<string>(),
+                expenseCategories: obj.expenseCategories ?? [],
                 dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
                 title: obj.title ?? "New expense",
                 recurrenceInterval: obj.recurrenceInterval ?? "",
@@ -40,13 +48,9 @@ export function Expenses() {
         [expenses]
     );
 
-    const expensesSorted = [...expenses].sort((a, b) =>
-        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    );
-
-    const expenseKey = (expense: Expense) =>
-        `${expense["@graph"]}|${expense["@id"]}`;
-
+    function expenseKey(expense: Expense, index: number) {
+        return expense["@id"] ?? `${expense.title ?? "expense"}-${index}`;
+    }
     return (
         <section className="panel">
             <header className="panel-header">
@@ -63,20 +67,23 @@ export function Expenses() {
                 </button>
             </header>
             <div className="cards-stack">
-                {expensesSorted.length === 0 ? (
+                {!expensesSorted && "Loading..."}
+
+                {expensesSorted?.length === 0 && (
                     <p className="muted">
                         Nothing tracked yet — log your first purchase to kick
                         things off.
                     </p>
-                ) : (
-                    expensesSorted.map((expense) => (
-                        <ExpenseCard
-                            key={expenseKey(expense)}
-                            expense={expense}
-                            availableCategories={expenseCategories}
-                        />
-                    ))
                 )}
+                {expensesSorted &&
+                    expensesSorted.length > 0 &&
+                    expensesSorted.map((expense, i) => (
+                        <ExpenseCard
+                            key={expenseKey(expense, i)}
+                            expense={expense}
+                            availableCategories={expenseCategories!}
+                        />
+                    ))}
             </div>
         </section>
     );

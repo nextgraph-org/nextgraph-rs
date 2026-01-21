@@ -9,40 +9,62 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useEffect, useMemo, useRef } from "react";
-import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandle.ts";
+import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandler.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import { DeepSignal } from "@ng-org/alien-deepsignals";
 import { DiscreteArray, DiscreteObject } from "../../types.ts";
 
-export function useDiscrete(documentId: string) {
-    const prevOrmConnection = useRef<undefined | DiscreteOrmConnection>(
+const EMPTY_OBJECT = {} as const;
+
+export function useDiscrete(documentId: string | undefined) {
+    const prevDocumentId = useRef<string | undefined>(undefined);
+    const prevOrmConnection = useRef<DiscreteOrmConnection | undefined>(
         undefined
     );
 
     const ormConnection = useMemo(() => {
-        if (prevOrmConnection.current) prevOrmConnection.current.close();
-        const newOrmConnection = DiscreteOrmConnection.getOrCreate(documentId);
-        prevOrmConnection.current = newOrmConnection;
-        return newOrmConnection;
+        // Close previous connection if documentId changed.
+        if (
+            prevOrmConnection.current &&
+            prevDocumentId.current !== documentId
+        ) {
+            prevOrmConnection.current.close();
+            prevOrmConnection.current = undefined;
+        }
+
+        // If no documentId, return undefined.
+        if (!documentId) {
+            prevDocumentId.current = undefined;
+            return undefined;
+        }
+
+        // Create new connection only if needed.
+        if (
+            !prevOrmConnection.current ||
+            prevDocumentId.current !== documentId
+        ) {
+            prevOrmConnection.current =
+                DiscreteOrmConnection.getOrCreate(documentId);
+            prevDocumentId.current = documentId;
+        }
+
+        return prevOrmConnection.current;
     }, [documentId]);
 
     useEffect(() => {
-        if (!ormConnection) return;
-
         return () => {
-            ormConnection.close();
+            prevOrmConnection.current?.close();
         };
-    }, [ormConnection]);
+    }, []);
 
-    // Use react hook for listening to signal object changes
-    // (i.e. changes from backend or another component using the object).
-    // When establishing a connection, we don't have an object yet but
-    // we can't pass undefined to `useDeepSignal`. So we pass an empty dummy object (`{}`)
-    // but don't return it in the hook.
-    const state = useDeepSignal(ormConnection.signalObject ?? {}) as DeepSignal<
+    // useDeepSignal requires an object, so pass empty object when no connection.
+    const signalSource = ormConnection?.signalObject ?? EMPTY_OBJECT;
+    const state = useDeepSignal(signalSource) as DeepSignal<
         DiscreteArray | DiscreteObject
     >;
-    const returnState = ormConnection.signalObject ? state : undefined;
 
-    return { data: returnState };
+    // Only return data if we have a valid connection with a signal object.
+    const data = ormConnection?.signalObject ? state : undefined;
+
+    return { data };
 }

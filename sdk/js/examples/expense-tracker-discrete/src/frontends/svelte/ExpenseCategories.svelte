@@ -1,23 +1,20 @@
 <script lang="ts">
-  import { useShape } from "@ng-org/orm/svelte";
-  import { sessionPromise } from "../../utils/ngSession";
+  import { useDocumentStore } from "./useDocumentStore.svelte";
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
 
-  const expenseCategories = useShape(ExpenseCategoryShapeType);
+  const store = useDocumentStore();
+  const expenseCategories = $derived(store?.data?.expenseCategories);
 
-  async function createCategory() {
-    const session = await sessionPromise;
-    $expenseCategories.add({
-      "@graph": `did:ng:${session.private_store_id}`,
-      "@type": new Set(["http://example.org/ExpenseCategory"]),
-      "@id": "",
+  function createCategory() {
+    if (!expenseCategories) return;
+    expenseCategories.push({
       categoryName: "New category",
       description: "",
     });
   }
 
-  const categoryKey = (category: any) =>
-    `${category["@graph"]}|${category["@id"]}`;
+  const categoryKey = (category: any, index: number) =>
+    category["@id"] ?? `${category.categoryName ?? "category"}-${index}`;
 </script>
 
 <section class="panel">
@@ -26,20 +23,22 @@
       <p class="label-accent">Categories</p>
       <h2 class="title">
         Expense Categories
-        <span class="badge">{$expenseCategories?.size ?? 0} total</span>
+        <span class="badge">{expenseCategories?.length || ""} total</span>
       </h2>
     </div>
     <div class="header-actions">
-      <button type="button" class="primary-btn" on:click={createCategory}>
+      <button type="button" class="primary-btn" onclick={createCategory}>
         + New category
       </button>
     </div>
   </header>
-  {#if !$expenseCategories.size}
+  {#if !expenseCategories}
+    Loading...
+  {:else if !expenseCategories.length}
     <p class="muted">No categories yet</p>
   {:else}
     <div class="cards-grid">
-      {#each $expenseCategories as category (categoryKey(category))}
+      {#each expenseCategories as category, index (categoryKey(category, index))}
         <ExpenseCategoryCard {category} />
       {/each}
     </div>

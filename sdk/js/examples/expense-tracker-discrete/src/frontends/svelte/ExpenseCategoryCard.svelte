@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
+  import type { ExpenseCategory } from "../../types";
 
   export let category: ExpenseCategory;
   let isEditing = false;

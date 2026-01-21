@@ -1,25 +1,26 @@
 <script setup lang="ts">
-import { useShape } from "@ng-org/orm/vue";
+import { computed } from "vue";
 
-import { sessionPromise } from "../../utils/ngSession";
 import ExpenseCategoryCard from "./ExpenseCategoryCard.vue";
+import { useDocumentStore } from "./useDocumentStore";
+import type { ExpenseCategory } from "../../types";
 
-const expenseCategories = useShape(ExpenseCategoryShapeType);
+const store = useDocumentStore();
+const expenseCategories = computed(
+    () => store.data.value?.expenseCategories
+);
+const totalCategories = computed(() => expenseCategories.value?.length);
 
-async function createCategory() {
-    const session = await sessionPromise;
-
-    expenseCategories.add({
-        "@graph": `did:ng:${session.private_store_id}`,
-        "@type": new Set(["http://example.org/ExpenseCategory"]),
-        "@id": "",
+function createCategory() {
+    if (!expenseCategories.value) return;
+    expenseCategories.value.push({
         categoryName: "New category",
         description: "",
     });
 }
 
-function categoryKey(category: ExpenseCategory) {
-    return `${category["@graph"]}|${category["@id"]}`;
+function categoryKey(category: ExpenseCategory, index: number) {
+    return category["@id"] ?? `${category.categoryName ?? "category"}-${index}`;
 }
 </script>
 
@@ -31,7 +32,7 @@ function categoryKey(category: ExpenseCategory) {
                 <h2 class="title">
                     Expense Categories
                     <span class="badge">
-                        {{ expenseCategories.size }} total
+                        {{ totalCategories }} total
                     </span>
                 </h2>
             </div>
@@ -45,13 +46,16 @@ function categoryKey(category: ExpenseCategory) {
                 </button>
             </div>
         </header>
-        <p v-if="expenseCategories.size === 0" class="muted">
+        <p v-if="!totalCategories">
+            Loading...
+        </p>
+        <p v-else-if="totalCategories === 0" class="muted">
             No categories yet
         </p>
         <div v-else class="cards-grid">
             <ExpenseCategoryCard
-                v-for="category in expenseCategories"
-                :key="categoryKey(category)"
+                v-for="(category, index) in expenseCategories"
+                :key="categoryKey(category, index)"
                 :category="category"
             />
         </div>

@@ -11,28 +11,27 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type {
-    Expense,
-    ExpenseCategory,
-} from "../../shapes/orm/expenseShapes.typings";
-import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
+import type { Expense, ExpenseCategory } from "../../types";
 
 const props = defineProps<{
     expense: Expense;
-    availableCategories: DeepSignalSet<ExpenseCategory>;
+    availableCategories: ExpenseCategory[];
 }>();
 
 // Important!
 // In vue, you need to wrap children into useDeepSignal hooks, to ensure the component re-renders.
-const expense = useDeepSignal(props.expense);
+// const expense = useDeepSignal(props.expense);
+// const availableCategories = useDeepSignal(props.availableCategories);
+const expense = props.expense;
+const availableCategories = props.availableCategories;
 
 const isEditing = ref(false);
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
-    "http://example.org/Paid": "Paid",
-    "http://example.org/Pending": "Pending",
-    "http://example.org/Overdue": "Overdue",
-    "http://example.org/Refunded": "Refunded",
+    Paid: "Paid",
+    Pending: "Pending",
+    Overdue: "Overdue",
+    Refunded: "Refunded",
 };
 
 const paymentStatusEntries = Object.entries(paymentStatusLabels);
@@ -52,30 +51,30 @@ const purchaseDate = computed(() =>
 const totalPriceDisplay = computed(() =>
     currencyFormatter.format(expense.totalPrice)
 );
-
-
-
 const isCategorySelected = (category: ExpenseCategory) =>
-    !!expense.expenseCategory?.has(category["@id"]);
+    !!expense.expenseCategories?.includes(category["@id"] ?? "");
 
 const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
+    const categoryId = category["@id"];
+    if (!categoryId) return;
+
     if (checked) {
-        if (!expense.expenseCategory) {
-            expense.expenseCategory = new Set([category["@id"]]) as DeepSignalSet<string>;
-        } else {
-            expense.expenseCategory.add(category["@id"]);
+        if (!expense.expenseCategories) {
+            expense.expenseCategories = [categoryId];
+        } else if (!expense.expenseCategories.includes(categoryId)) {
+            expense.expenseCategories.push(categoryId);
         }
     } else {
-        expense.expenseCategory?.delete(category["@id"]);
+        expense.expenseCategories = (expense.expenseCategories ?? []).filter(
+            (value) => value !== categoryId
+        );
     }
 };
 
 function nameOfCategory(categoryIri: string) {
-    return props.availableCategories.find(c => c["@id"] === categoryIri)?.categoryName;
-}
-
-function categoryKey(category: ExpenseCategory) {
-    return `${category["@graph"]}|${category["@id"]}`;
+    return availableCategories.find(
+        (c: ExpenseCategory) => c["@id"] === categoryIri
+    )?.categoryName;
 }
 </script>
 
@@ -162,10 +161,10 @@ function categoryKey(category: ExpenseCategory) {
         <div class="field-group">
             <span class="field-label">Categories</span>
             <template v-if="isEditing">
-                <div v-if="props.availableCategories.size" class="category-picker">
+                <div v-if="availableCategories.length" class="category-picker">
                     <label
-                        v-for="category in props.availableCategories"
-                        :key="categoryKey(category)"
+                        v-for="category in availableCategories"
+                        :key="category['@id'] ?? category.categoryName"
                         class="category-option"
                     >
                         <input
@@ -189,9 +188,9 @@ function categoryKey(category: ExpenseCategory) {
                 </p>
             </template>
             <template v-else>
-                <div v-if="expense.expenseCategory?.size" class="chip-list">
+                <div v-if="expense.expenseCategories?.length" class="chip-list">
                     <span
-                        v-for="category in expense.expenseCategory"
+                        v-for="category in expense.expenseCategories"
                         :key="category"
                         class="chip"
                     >

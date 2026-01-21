@@ -19,12 +19,12 @@ import {
     batch,
 } from "@ng-org/alien-deepsignals";
 import type {
+    DeepPatch,
     DeepSignal,
     DeepSignalObject,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
 import type { BaseType } from "@ng-org/shex-orm";
-import { deepPatchesToWasm } from "../utils.ts";
 
 /**
  * Delay in ms to wait before closing connection.\
@@ -40,16 +40,18 @@ export class DiscreteOrmConnection {
     private _signalObject:
         | DeepSignal<DiscreteArray | DiscreteObject>
         | undefined;
+    private stopSignalListening: undefined | (() => void);
     private subscriptionId: number | undefined;
     private refCount: number;
     suspendDeepWatcher: boolean;
     inTransaction: boolean = false;
     /** Aggregation of patches to be sent when in transaction. */
     pendingPatches: Patch[] | undefined;
+    /** Resolves once the data arrives */
     readyPromise: Promise<void>;
     private closeOrmConnection: () => void;
-    /** Promise that resolves once initial data has been applied. */
-    resolveReady!: () => void;
+    /** Called to resolve the readyPromise. */
+    private resolveReady!: () => void;
 
     private constructor(documentId: string) {
         // @ts-expect-error
@@ -127,27 +129,29 @@ export class DiscreteOrmConnection {
 
         const ormPatches = deepPatchesToWasm(patches);
 
+        // If in transaction, collect patches immediately (no await before).
+        if (this.inTransaction) {
+            this.pendingPatches?.push(...ormPatches);
+            return;
+        }
+
         // Wait for session and subscription to be initialized.
         const { ng, session } = await ngSession;
         await this.readyPromise;
 
-        if (this.inTransaction) {
-            this.pendingPatches?.push(...ormPatches);
-        } else {
-            ng.discrete_orm_update(
-                this.subscriptionId!,
-                ormPatches,
-                session.session_id
-            );
-        }
+        ng.discrete_orm_update(
+            this.subscriptionId!,
+            ormPatches,
+            session.session_id
+        );
     };
 
     private onBackendMessage = (message: any) => {
         const data = message?.V0;
-        if (data?.GraphOrmInitial) {
-            this.handleInitialResponse(data.GraphOrmInitial);
-        } else if (data?.GraphOrmUpdate) {
-            this.onBackendUpdate(data.GraphOrmUpdate);
+        if (data?.DiscreteOrmInitial) {
+            this.handleInitialResponse(data.DiscreteOrmInitial);
+        } else if (data?.DiscreteOrmUpdate) {
+            this.onBackendUpdate(data.DiscreteOrmUpdate);
         } else {
             console.warn("Received unknown ORM message from backend", message);
         }
@@ -160,7 +164,11 @@ export class DiscreteOrmConnection {
         this.subscriptionId = subscriptionId;
         const signalObject = deepSignal(initialData);
         this._signalObject = signalObject;
-        watchDeepSignal(signalObject, this.onSignalObjectUpdate);
+        const { stopListening } = watchDeepSignal(
+            this._signalObject!,
+            this.onSignalObjectUpdate
+        );
+        this.stopSignalListening = stopListening;
 
         // Resolve readiness after initial data is committed and watcher armed.
         this.resolveReady();
@@ -178,18 +186,67 @@ export class DiscreteOrmConnection {
     public beginTransaction = () => {
         this.inTransaction = true;
         this.pendingPatches = [];
+
+        this.readyPromise.then(() => {
+            // Use a listener that immediately triggers on object modifications.
+            // We don't need the deep-signal's batching (through microtasks) here.
+            this.stopSignalListening?.();
+            const { stopListening } = watchDeepSignal(
+                this.signalObject!,
+                this.onSignalObjectUpdate,
+                { triggerInstantly: true }
+            );
+            this.stopSignalListening = stopListening;
+        });
     };
 
     public commitTransaction = async () => {
-        this.inTransaction = false;
+        if (!this.inTransaction) {
+            throw new Error(
+                "No transaction is open. Call `beginTransaction` first."
+            );
+        }
+
         const { ng, session } = await ngSession;
         await this.readyPromise;
-        ng.discrete_orm_update(
-            this.subscriptionId!,
-            this.pendingPatches!,
-            session.session_id
-        );
+
+        this.inTransaction = false;
+
+        if (this.pendingPatches?.length == 0) {
+            // Nothing to send to the backend.
+        } else {
+            ng.discrete_orm_update(
+                this.subscriptionId!,
+                this.pendingPatches!,
+                session.session_id
+            );
+        }
 
         this.pendingPatches = undefined;
+
+        // Go back to the regular object modification listening where we want batching
+        // scheduled in a microtask only triggered after the main task.
+        // This way we prevent excessive calls to the backend.
+        this.stopSignalListening!();
+        const { stopListening } = watchDeepSignal(
+            this.signalObject!,
+            this.onSignalObjectUpdate
+        );
+        this.stopSignalListening = stopListening;
     };
+}
+
+/**
+ * Converts DeepSignal patches to ORM Wasm-compatible patches
+ * @param patches DeepSignal patches
+ * @returns Patches with stringified path
+ */
+
+export function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
+    return patches.flatMap((patch) => {
+        if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
+            return [];
+        const path = "/" + patch.path.join("/");
+        return { ...patch, path };
+    }) as Patch[];
 }
