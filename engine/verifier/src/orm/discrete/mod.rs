@@ -8,4 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+pub mod automerge_orm;
 pub mod discrete_orm;
+pub mod yrs_orm;

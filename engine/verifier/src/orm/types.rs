@@ -28,6 +28,7 @@ pub struct DiscreteOrmSubscription {
 pub enum BackendDiscreteState {
     YMap(yrs::Doc),
     YArray(yrs::Doc),
+    Automerge(automerge::Automerge),
 }
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
