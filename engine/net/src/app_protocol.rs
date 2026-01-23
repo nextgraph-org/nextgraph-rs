@@ -197,6 +197,7 @@ pub struct NuriV0 {
 #[derive(Serialize, Deserialize, Debug)]
 enum DiscreteResourceId {
     YjsV1(u64, u32),
+    AutomergeV1(Vec<u8>),
 }
 
 impl NuriV0 {
@@ -293,6 +294,16 @@ impl NuriV0 {
 
     pub fn discrete_resource_id_yjs(repo_id: &RepoId, client_id: u64, clock: u32) -> String {
         let id = DiscreteResourceId::YjsV1(client_id, clock);
+        let buf = serde_bare::to_vec(&id).unwrap();
+        format!("{DID_PREFIX}:o:{}:d:{}", repo_id, base64_url::encode(&buf))
+    }
+
+    pub fn discrete_resource_automerge(&self, obj_id_ser: &[u8]) -> String {
+        Self::discrete_resource_id_automerge(self.target.repo_id(), obj_id_ser)
+    }
+
+    pub fn discrete_resource_id_automerge(repo_id: &RepoId, obj_id_ser: &[u8]) -> String {
+        let id = DiscreteResourceId::AutomergeV1(obj_id_ser.to_vec());
         let buf = serde_bare::to_vec(&id).unwrap();
         format!("{DID_PREFIX}:o:{}:d:{}", repo_id, base64_url::encode(&buf))
     }
