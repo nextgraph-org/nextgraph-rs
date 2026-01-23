@@ -23,7 +23,7 @@ export function Expenses() {
     const expensesSorted = useMemo(
         () =>
             expenses &&
-            expenses.sort((a, b) =>
+            [...expenses].sort((a, b) =>
                 a.dateOfPurchase.localeCompare(b.dateOfPurchase)
             ),
         [expenses]

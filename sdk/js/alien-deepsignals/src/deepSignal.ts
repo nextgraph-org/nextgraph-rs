@@ -547,10 +547,11 @@ function createProxy<T extends object>(
 
 /** Normalize a value prior to writes, ensuring nested objects are proxied. */
 function ensureValueForWrite(value: any, receiver: any, key: PropertyKey) {
-    const rawValue = rawToMeta.get(value) ?? value;
-    const proxied = ensureChildProxy(rawValue, receiver, key);
+    const raw = value[RAW_KEY] ?? rawToMeta.get(value)?.raw ?? value;
 
-    return { raw: rawValue, proxied };
+    const proxied = ensureChildProxy(raw, receiver, key);
+
+    return { raw, proxied };
 }
 
 /** Return primitive literals (string/number/boolean) for patch serialization. */
@@ -763,7 +764,7 @@ const objectHandlers: ProxyHandler<any> = {
                     value &&
                     typeof value === "object"
                 ) {
-                    value["@id"] = `tmp-${++tmpIdCounter}`;
+                    raw["@id"] = `tmp-${++tmpIdCounter}`;
                 }
 
                 return patches;

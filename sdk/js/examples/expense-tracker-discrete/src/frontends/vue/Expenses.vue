@@ -27,7 +27,7 @@ function createExpense(obj: Partial<Expense> = {}) {
 }
 
 const expensesSorted = computed(() =>
-    expenses.value && expenses.value.sort((a, b) =>
+    expenses.value && [...expenses.value].sort((a, b) =>
         a.dateOfPurchase.localeCompare(b.dateOfPurchase)
     )
 );
