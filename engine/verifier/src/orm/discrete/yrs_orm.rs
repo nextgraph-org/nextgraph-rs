@@ -12,7 +12,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use ng_net::app_protocol::*;
 use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatches};
-use ng_repo::*;
+
+use ng_repo::log::*;
 use ng_repo::{errors::VerifierError, types::BranchId};
 use serde_json::{json, Value};
 use yrs::{updates::decoder::Decode, Any, ArrayPrelim, BranchID, In, MapPrelim, Out};
@@ -127,7 +128,7 @@ pub(crate) enum YrsTarget {
 }
 
 /// Navigates to the parent container at the given path and returns it along with the final key.
-pub(crate) fn navigate_to_parent_from_target(
+fn navigate_to_parent_from_target(
     txn: &mut yrs::TransactionMut,
     root: &YrsTarget,
     path: &[String],
@@ -150,9 +151,7 @@ pub(crate) fn navigate_to_parent_from_target(
         YrsTarget::Array(a) => Out::YArray(a.clone()),
     };
 
-    log_info!("parent_path {:?}", parent_path);
     for (i, segment) in parent_path.iter().enumerate() {
-        log_info!("processing path {segment}");
         current = match current {
             Out::YMap(map) => match map.get(txn, segment) {
                 Some(child) => child,
@@ -188,7 +187,7 @@ pub(crate) fn navigate_to_parent_from_target(
             }
         };
     }
-    log_info!("end of loop {:?}", current);
+
     // Convert the final current value to a YrsTarget
     match current {
         Out::YMap(map) => Ok((YrsTarget::Map(map), final_key)),
@@ -258,8 +257,6 @@ pub(crate) fn apply_yrs_add_patch(
     // Get the root container
 
     let (parent, key) = navigate_to_parent_from_target(txn, root, path)?;
-
-    log_info!("found {:?} {}", parent, key);
 
     match parent {
         YrsTarget::Map(map) => {
@@ -549,8 +546,6 @@ pub(crate) fn yrs_handle_frontend_discrete_update(
     let resulting_orm_patches = Rc::try_unwrap(resulting_orm_patches)
         .expect("reference count should be 1")
         .into_inner();
-
-    log_info!("resulting_orm_patches {:?}", resulting_orm_patches);
 
     // obtain the full dump of state
     let empty_state_vector = yrs::StateVector::default();

@@ -891,19 +891,14 @@ describe("applyDiff - array operations", () => {
         expect(obj).toEqual([1, 2, 3, 4]);
     });
 
-    test("replaces item in array", () => {
+    test("inserts item in array", () => {
         let obj = [1, 2, 3, 4, 5];
         applyPatches(obj, [{ op: "add", path: "/1", value: 0 }], false);
-        expect(obj).toEqual([1, 0, 3, 4, 5]);
+        expect(obj).toEqual([1, 0, 2, 3, 4, 5]);
     });
     test("removes item from array", () => {
         let obj = [1, 2, 3, 4, 5];
         applyPatches(obj, [{ op: "remove", path: "/1" }], false);
         expect(obj).toEqual([1, 3, 4, 5]);
-    });
-    test("adds item at an exceeding position", () => {
-        let obj = [1, 2, 3, 4, 5];
-        applyPatches(obj, [{ op: "add", path: "/6", value: 7 }], false);
-        expect(obj).toEqual([1, 2, 3, 4, 5, undefined, 7]);
     });
 });

@@ -27,8 +27,6 @@
       expenses.sort((a, b) => a.dateOfPurchase.localeCompare(b.dateOfPurchase))
   );
 
-  const expenseKey = (expense: Expense, index: number) =>
-    expense["@id"] ?? `${expense.title ?? "expense"}-${index}`;
 </script>
 
 <section class="panel">
@@ -46,10 +44,10 @@
       Loading...
     {:else if expenses.length === 0}
       <p class="muted">
-        Nothing tracked yet — log your first purchase to kick things off.
+        Nothing tracked yet - log your first purchase to kick things off.
       </p>
     {:else}
-      {#each expensesSorted as expense, index (expenseKey(expense, index))}
+      {#each expensesSorted as expense, index (expense['@id']) }
         <ExpenseCard
           expense={expensesSorted![index]}
           availableCategories={expenseCategories!}

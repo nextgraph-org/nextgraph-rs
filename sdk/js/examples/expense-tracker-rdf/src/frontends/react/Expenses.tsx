@@ -69,7 +69,7 @@ export function Expenses() {
             <div className="cards-stack">
                 {expensesSorted.length === 0 ? (
                     <p className="muted">
-                        Nothing tracked yet — log your first purchase to kick
+                        Nothing tracked yet - log your first purchase to kick
                         things off.
                     </p>
                 ) : (

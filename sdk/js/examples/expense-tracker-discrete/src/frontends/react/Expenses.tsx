@@ -48,9 +48,6 @@ export function Expenses() {
         [expenses]
     );
 
-    function expenseKey(expense: Expense, index: number) {
-        return expense["@id"] ?? `${expense.title ?? "expense"}-${index}`;
-    }
     return (
         <section className="panel">
             <header className="panel-header">
@@ -71,7 +68,7 @@ export function Expenses() {
 
                 {expensesSorted?.length === 0 && (
                     <p className="muted">
-                        Nothing tracked yet — log your first purchase to kick
+                        Nothing tracked yet - log your first purchase to kick
                         things off.
                     </p>
                 )}
@@ -79,7 +76,7 @@ export function Expenses() {
                     expensesSorted.length > 0 &&
                     expensesSorted.map((expense, i) => (
                         <ExpenseCard
-                            key={expenseKey(expense, i)}
+                            key={expense["@id"]}
                             expense={expense}
                             availableCategories={expenseCategories!}
                         />

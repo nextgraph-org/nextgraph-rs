@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ExpenseCategory } from "../../types";
 
 export function ExpenseCategoryCard({

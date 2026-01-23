@@ -295,7 +295,6 @@ export function applyPatches(
             continue;
         }
 
-        // Regular object handling (parentVal is a plain object, not a Set)
         // Handle primitive set additions
         if (patch.op === "add" && patch.valType === "set") {
             const existing = parentVal[key];
@@ -364,6 +363,9 @@ export function applyPatches(
                     newLeaf["@id"] = idPatch.value;
                 }
                 parentVal[key] = newLeaf;
+
+                // Skip the next two add (@id + @graph) patches.
+                patchIndex += 2;
             }
 
             continue;
@@ -378,7 +380,7 @@ export function applyPatches(
                 }
             } else if (patch.op == "add") {
                 let keyNum = Number(key);
-                parentVal[keyNum] = patch.value;
+                parentVal.splice(keyNum, 0, patch.value);
             } else {
                 // patch.op == remove
                 let keyNum = Number(key);
@@ -390,10 +392,7 @@ export function applyPatches(
         }
 
         // Literal add
-        if (
-            patch.op === "add" &&
-            !(patch.path.endsWith("@id") || patch.path.endsWith("@graph"))
-        ) {
+        if (patch.op === "add") {
             parentVal[key] = (patch as LiteralAddPatch).value;
             continue;
         }

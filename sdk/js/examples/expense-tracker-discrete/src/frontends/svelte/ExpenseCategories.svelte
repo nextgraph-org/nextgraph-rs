@@ -13,8 +13,6 @@
     });
   }
 
-  const categoryKey = (category: any, index: number) =>
-    category["@id"] ?? `${category.categoryName ?? "category"}-${index}`;
 </script>
 
 <section class="panel">
@@ -38,7 +36,7 @@
     <p class="muted">No categories yet</p>
   {:else}
     <div class="cards-grid">
-      {#each expenseCategories as category, index (categoryKey(category, index))}
+      {#each expenseCategories as category (category['@id'])}
         <ExpenseCategoryCard {category} />
       {/each}
     </div>

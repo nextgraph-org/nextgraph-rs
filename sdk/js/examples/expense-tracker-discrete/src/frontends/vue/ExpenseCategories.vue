@@ -19,9 +19,7 @@ function createCategory() {
     });
 }
 
-function categoryKey(category: ExpenseCategory, index: number) {
-    return category["@id"] ?? `${category.categoryName ?? "category"}-${index}`;
-}
+
 </script>
 
 <template>
@@ -46,7 +44,7 @@ function categoryKey(category: ExpenseCategory, index: number) {
                 </button>
             </div>
         </header>
-        <p v-if="!totalCategories">
+        <p v-if="totalCategories === undefined">
             Loading...
         </p>
         <p v-else-if="totalCategories === 0" class="muted">
@@ -55,7 +53,7 @@ function categoryKey(category: ExpenseCategory, index: number) {
         <div v-else class="cards-grid">
             <ExpenseCategoryCard
                 v-for="(category, index) in expenseCategories"
-                :key="categoryKey(category, index)"
+                :key="category['@id']"
                 :category="category"
             />
         </div>

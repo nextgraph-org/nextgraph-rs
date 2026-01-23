@@ -8,9 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use futures::channel::mpsc;
 use futures::SinkExt;
 use ng_net::orm::{OrmPatchOp, OrmPatches};
@@ -19,19 +16,14 @@ use ng_net::{app_protocol::*, orm::OrmPatch};
 use ng_repo::errors::{StorageError, VerifierError};
 use ng_repo::log::*;
 use ng_repo::types::*;
-use serde_json::{json, Map as JsonMap, Value};
-use yrs::types::{Change, EntryChange, Events, PathSegment};
+use serde_json::Value;
 use yrs::updates::decoder::Decode;
-use yrs::{DeepObservable, Out, ReadTxn, Transact};
+use yrs::{Out, Transact};
 
 use crate::orm::discrete::automerge_orm::{
-    apply_automerge_add_patch, apply_automerge_remove_patch, automerge_doc_to_json,
-    json_diff_to_orm_patches,
+    automerge_doc_to_json, automerge_handle_frontend_discrete_update,
 };
-use crate::orm::discrete::yrs_orm::{
-    apply_yrs_add_patch, apply_yrs_remove_patch, json_value_to_yrs_in,
-    yrs_handle_frontend_discrete_update, yrs_mutation_callback, yrs_out_to_json, YrsTarget,
-};
+use crate::orm::discrete::yrs_orm::{yrs_handle_frontend_discrete_update, yrs_out_to_json};
 use crate::orm::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::types::{CancelFn, DiscreteTransaction};
 
@@ -58,10 +50,12 @@ impl Verifier {
 
         self.discrete_orm_subscription_counter += 1;
 
+        let subscription_id = self.discrete_orm_subscription_counter;
+
         let orm_subscription = DiscreteOrmSubscription {
             nuri,
             branch_id,
-            subscription_id: self.discrete_orm_subscription_counter,
+            subscription_id,
             sender: tx.clone(),
         };
 
@@ -131,6 +125,7 @@ impl Verifier {
             if !tx.is_closed() {
                 tx.close_channel();
             }
+            // TODO: Remove subscription from verifier.
         });
         Ok((rx, close))
     }
@@ -234,13 +229,11 @@ impl Verifier {
                 .ok_or(VerifierError::OrmStateNotFound)?;
 
             match backend_state {
-                BackendDiscreteState::YMap(doc) | BackendDiscreteState::YArray(doc) => {
-                    yrs_handle_frontend_discrete_update(
-                        patches,
-                        orm_subscription,
-                        doc,
-                        matches!(backend_state, BackendDiscreteState::YArray(_)),
-                    )?
+                BackendDiscreteState::YMap(doc) => {
+                    yrs_handle_frontend_discrete_update(patches, orm_subscription, doc, false)?
+                }
+                BackendDiscreteState::YArray(doc) => {
+                    yrs_handle_frontend_discrete_update(patches, orm_subscription, doc, true)?
                 }
                 BackendDiscreteState::Automerge(doc) => {
                     automerge_handle_frontend_discrete_update(patches, orm_subscription, doc)?
@@ -309,7 +302,7 @@ fn convert_discrete_state_to_orm_object(
             drop(txn);
             Ok(val)
         }
-        BackendDiscreteState::Automerge(doc) => automerge_doc_to_json(doc),
+        BackendDiscreteState::Automerge(doc) => Ok(automerge_doc_to_json(doc, nuri)),
     }
 }
 
@@ -341,10 +334,16 @@ fn convert_discrete_blob_to_orm_object(
             let mut txn = doc.transact_mut();
             txn.apply_update(update);
 
-            let root_json = yrs_out_to_json(&txn, &Out::YArray(root), nuri, false);
+            let root_json = yrs_out_to_json(&txn, &Out::YArray(root), nuri, true);
             drop(txn);
 
             return Ok((root_json, BackendDiscreteState::YArray(doc)));
+        }
+        DiscreteState::Automerge(bytes) => {
+            let mut doc = automerge::Automerge::load(&bytes)
+                .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
+            let root_json = automerge_doc_to_json(&doc, nuri);
+            return Ok((root_json, BackendDiscreteState::Automerge(doc)));
         }
         DiscreteState::YXml(bytes) => {
             log_warn!("YXml not implemented.");
@@ -353,12 +352,6 @@ fn convert_discrete_blob_to_orm_object(
         DiscreteState::YText(bytes) => {
             log_warn!("YText not implemented.");
             return Err(VerifierError::NotImplemented);
-        }
-        DiscreteState::Automerge(bytes) => {
-            let mut doc = automerge::Automerge::load(&bytes)
-                .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
-            let root_json = automerge_doc_to_json(&doc)?;
-            return Ok((root_json, BackendDiscreteState::Automerge(doc)));
         }
     }
 }

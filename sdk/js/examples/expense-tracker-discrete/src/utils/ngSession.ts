@@ -28,13 +28,12 @@ export let sessionPromise: Promise<NextGraphSession> = new Promise(
     }
 );
 
-let _crdtIfNew: AllowedCrdt = "YMap";
-export async function init(crdtIfNew: AllowedCrdt = "YMap") {
-    _crdtIfNew = crdtIfNew;
+export let PREFERRED_CRDT: AllowedCrdt;
+export async function init(crdtIfNew: AllowedCrdt) {
+    PREFERRED_CRDT = crdtIfNew;
     await initNgWeb(
         async (event: any) => {
             session = event.session;
-
             session!.ng ??= ng;
             resolveSessionPromise(session!);
 
@@ -49,7 +48,7 @@ export async function init(crdtIfNew: AllowedCrdt = "YMap") {
 
 /** Initializes and keeps open the orm connection while the application is running. */
 export let ormConnectionPromise = sessionPromise.then(async (session) => {
-    const _store = await loadStore(_crdtIfNew);
+    const _store = await loadStore(PREFERRED_CRDT);
     ormConnection = _store;
     return _store;
 });

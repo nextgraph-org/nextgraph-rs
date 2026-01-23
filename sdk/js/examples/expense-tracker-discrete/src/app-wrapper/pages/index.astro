@@ -23,7 +23,8 @@ import SvelteRoot from "../components/SvelteRoot.svelte";
 <script>
     import {init as initNg} from "../../utils/ngSession";
 
-    initNg();
+    let crdt = import.meta.env.NG_CRDT;
+    initNg(crdt);
 </script>
 <Layout>
     <div class="framework-grid">

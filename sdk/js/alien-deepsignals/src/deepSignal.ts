@@ -43,6 +43,7 @@ const pendingRoots = new Set<symbol>();
 const supported = new Set([Object, Array, Set]);
 const descriptor = Object.getOwnPropertyDescriptor;
 let blankNodeCounter = 0;
+let tmpIdCounter = 0;
 const wellKnownSymbols = new Set<symbol>([
     Symbol.asyncDispose,
     Symbol.asyncIterator,
@@ -702,7 +703,6 @@ const objectHandlers: ProxyHandler<any> = {
 
     set(target, key, value, receiver) {
         // Skip reactivity for symbols.
-
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.set(target, key, value, receiver);
 
@@ -710,6 +710,7 @@ const objectHandlers: ProxyHandler<any> = {
         if (meta?.options?.readOnlyProps?.includes(String(key))) {
             throw new Error(`Cannot modify readonly property '${String(key)}'`);
         }
+
         const path = meta ? buildPath(meta, key) : undefined;
         const desc = descriptor(target, key);
         const hasAccessor =
@@ -749,7 +750,23 @@ const objectHandlers: ProxyHandler<any> = {
         schedulePatch(meta, () => {
             const resolvedPath = path ?? buildPath(meta, key);
             if (!hadKey || typeof raw === "object") {
-                return emitPatchesForNew(raw, meta!, resolvedPath);
+                const patches = emitPatchesForNew(raw, meta!, resolvedPath);
+
+                // TODO: Document
+                // If an object is added to an array (this happens in discrete CRDTs), we will eventually receive an @id back.
+                // However, the @id is not available from the beginning but frontend frameworks might depend on @id.
+                // Thus, we set a temporary @id which will be replaced once we are called back with the real @id.
+                // Also, we don't emit a patch for this.
+                if (
+                    Array.isArray(target) &&
+                    !isNaN(Number(key)) &&
+                    value &&
+                    typeof value === "object"
+                ) {
+                    value["@id"] = `tmp-${++tmpIdCounter}`;
+                }
+
+                return patches;
             }
             if (snapshotLiteral(raw) === undefined) return undefined;
             return {

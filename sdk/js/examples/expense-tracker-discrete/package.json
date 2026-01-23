@@ -8,8 +8,10 @@
   "license": "MIT/Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "dev3": "cross-env NG_DEV3=1 astro dev",
+    "dev-automerge": "cross-env NG_CRDT=Automerge astro dev",
+    "dev-yjs": "cross-env NG_CRDT=YMap astro dev",
+    "dev3-automerge": "cross-env NG_DEV3=1 NG_CRDT=Automerge astro dev",
+    "dev3-yjs": "cross-env NG_DEV3=1 NG_CRDT=YMap astro dev",
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",

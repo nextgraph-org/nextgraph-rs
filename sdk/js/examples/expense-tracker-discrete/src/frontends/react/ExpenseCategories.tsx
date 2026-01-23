@@ -24,9 +24,6 @@ export function ExpenseCategories() {
         });
     }, [expenseCategories]);
 
-    const categoryKey = (category: any, index: number) =>
-        category["@id"] ?? `${category.categoryName ?? "category"}-${index}`;
-
     return (
         <section className="panel">
             <header className="panel-header">
@@ -59,8 +56,8 @@ export function ExpenseCategories() {
                 <div className="cards-grid">
                     {expenseCategories.map((category, i) => (
                         <ExpenseCategoryCard
+                            key={category["@id"]}
                             category={category}
-                            key={categoryKey(category, i)}
                         />
                     ))}
                 </div>

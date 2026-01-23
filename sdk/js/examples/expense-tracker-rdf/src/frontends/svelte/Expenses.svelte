@@ -52,7 +52,7 @@
   <div class="cards-stack">
     {#if !$expenses.size}
       <p class="muted">
-        Nothing tracked yet — log your first purchase to kick things off.
+        Nothing tracked yet - log your first purchase to kick things off.
       </p>
     {:else}
       {#each expensesSorted as expense, index (expenseKey(expense))}

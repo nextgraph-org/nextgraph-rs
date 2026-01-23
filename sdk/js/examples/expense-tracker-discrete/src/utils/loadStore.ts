@@ -9,17 +9,17 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { DiscreteOrmConnection } from "@ng-org/orm";
-import type { DocumentStore } from "../types";
+import type { AllowedCrdt, DocumentStore } from "../types";
 import { sessionPromise } from "./ngSession";
-
-/** The identifier that we use to find this application's store. */
-const APPLICATION_CLASS_IRI = "http://example.org/ExpenseTrackerDiscreteStore";
 
 /**
  * Establishes an ORM connection and loads or creates
  * the CRDT document store where all application data is stored as JSON.
  */
-export async function loadStore(crdtIfNew: "YMap" | "Automerge") {
+export async function loadStore(crdt: AllowedCrdt) {
+    /** The identifier that we use to find this application's store. */
+    const APPLICATION_CLASS_IRI = `did:ng:z:ExpenseTrackerDiscreteApp-${crdt}`;
+
     // First, find or create the document that we use for this document.
     // We find its document id / IRI with a sparql query.
     const { ng, session_id } = await sessionPromise;
@@ -38,8 +38,8 @@ export async function loadStore(crdtIfNew: "YMap" | "Automerge") {
         // Create document with the preferred CRDT.
         documentId = await ng.doc_create(
             session_id,
-            crdtIfNew,
-            APPLICATION_CLASS_IRI,
+            crdt,
+            crdt === "Automerge" ? "data:json" : "data:map", // Currently, the class name cannot be arbitrary due to a but in the ng interface. APPLICATION_CLASS_IRI,
             "store",
             undefined
         );

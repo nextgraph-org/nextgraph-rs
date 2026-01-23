@@ -32,9 +32,6 @@ const expensesSorted = computed(() =>
     )
 );
 
-function expenseKey(expense: Expense, index: number) {
-    return expense["@id"] ?? `${expense.title ?? "expense"}-${index}`;
-}
 </script>
 
 <template>
@@ -59,7 +56,7 @@ function expenseKey(expense: Expense, index: number) {
             <template v-else>
                 <ExpenseCard
                     v-for="(expense, index) in expensesSorted"
-                    :key="expenseKey(expense, index)"
+                    :key="expense['@id']"
                     :expense="expense"
                     :available-categories="expenseCategories"
                 />
