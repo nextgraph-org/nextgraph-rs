@@ -23,7 +23,7 @@
 //!
 //! The Rust API is used internally in the CLI, and for all the Tauri-based Apps.
 //!
-//! The same API is also made available in Javascript for the browser (and is used by our webapp) and for nodejs. See the npm package [lib-wasm](https://www.npmjs.com/package/lib-wasm) or [nextgraph](https://www.npmjs.com/package/nextgraph)
+//! The same API is also made available in Javascript for the browser (and is used by our webapp) and for nodejs. See the npm package [lib-wasm](https://www.npmjs.com/package/lib-wasm) or [nextgraph](https://www.npmjs.com/package/@ng-org/nextgraph)
 //!
 //! The library requires `async-std` minimal version 1.12.0
 //!

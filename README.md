@@ -10,7 +10,7 @@
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
 [![Crates.io Version](https://img.shields.io/crates/v/nextgraph)](https://crates.io/crates/nextgraph)
 [![docs.rs](https://img.shields.io/docsrs/nextgraph)](https://docs.rs/nextgraph)
-[node:![NPM Version node](https://img.shields.io/npm/v/nextgraph)](https://www.npmjs.com/package/nextgraph)
+[node:![NPM Version node](https://img.shields.io/npm/v/@ng-org/nextgraph)](https://www.npmjs.com/package/@ng-org/nextgraph)
 [web:![NPM Version web](https://img.shields.io/npm/v/@ng-org/web)](https://www.npmjs.com/package/@ng-org/web)
 [![PyPI - Version](https://img.shields.io/pypi/v/nextgraphpy)](https://pypi.org/project/nextgraphpy/)
 
