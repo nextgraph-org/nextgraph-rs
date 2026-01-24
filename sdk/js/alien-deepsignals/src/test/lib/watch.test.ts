@@ -903,36 +903,11 @@ describe("watch (patch mode)", () => {
             await Promise.resolve();
             expect(st.arr).toEqual([1, 99, 100, 3]);
             expect(batches[0]).toEqual([
-                { path: ["arr", "3"], op: "add", value: 3 },
+                { path: ["arr", "1"], op: "remove" },
+                { path: ["arr", "1"], op: "add", value: 100 },
                 { path: ["arr", "1"], op: "add", value: 99 },
-                { path: ["arr", "2"], op: "add", value: 100 },
-                { path: ["arr", "4"], op: "add", value: 3 },
-                { path: ["arr", "3"], op: "add", value: 100 },
-                { path: ["arr", "2"], op: "add", value: 99 },
-                { path: ["arr", "1"], op: "add", value: 1 },
                 { path: ["arr", "0"], op: "add", value: 0 },
-                { path: ["arr", "0"], op: "add", value: 1 },
-                { path: ["arr", "1"], op: "add", value: 99 },
-                { path: ["arr", "2"], op: "add", value: 100 },
-                { path: ["arr", "3"], op: "add", value: 3 },
-                { path: ["arr", "4"], op: "remove" },
-            ]);
-
-            stop();
-        });
-        it("emits patches for sort", async () => {
-            const st = deepSignal([1, 0, 3]);
-            const batches: DeepPatch[][] = [];
-            const { stopListening: stop } = watch(st, ({ patches }) => {
-                batches.push(patches);
-            });
-
-            st.sort();
-            await Promise.resolve();
-            expect(batches[0]).toEqual([
-                { path: ["0"], op: "add", value: 0 },
-                { path: ["1"], op: "add", value: 1 },
-                { path: ["2"], op: "add", value: 3 },
+                { path: ["arr", "0"], op: "remove" },
             ]);
 
             stop();
@@ -1262,6 +1237,96 @@ describe("watch (patch mode)", () => {
             expect(pathSegments?.[3]).toBe("prop2");
 
             stop();
+        });
+
+        it("Does not mutate calling .sort() and .reverse()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+            signalObject.sort();
+            signalObject.reverse();
+            expect(signalObject).toEqual([1, 3, 2]);
+
+            await Promise.resolve();
+
+            expect(batches).toHaveLength(0);
+            stop();
+        });
+
+        it("Emits patches on .shift()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            signalObject.shift();
+
+            expect(signalObject).toEqual([3, 2]);
+
+            await Promise.resolve();
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "remove",
+                    path: ["0"],
+                },
+            ]);
+        });
+
+        it("Emits patches on .splice()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            signalObject.splice(1, 1, 10);
+
+            await Promise.resolve();
+
+            expect(signalObject).toEqual([1, 10, 2]);
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "remove",
+                    path: ["1"],
+                },
+                {
+                    op: "add",
+                    path: ["1"],
+                    value: 10,
+                },
+            ]);
+        });
+
+        it("Does not mutate calling .unshift()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            signalObject.unshift(-1, 0);
+
+            expect(signalObject).toEqual([-1, 0, 1, 3, 2]);
+
+            await Promise.resolve();
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "add",
+                    path: ["0"],
+                    value: 0,
+                },
+                {
+                    op: "add",
+                    path: ["0"],
+                    value: -1,
+                },
+            ]);
         });
     });
 

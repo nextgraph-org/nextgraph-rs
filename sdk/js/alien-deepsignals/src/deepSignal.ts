@@ -545,15 +545,6 @@ function createProxy<T extends object>(
     return proxy as DeepSignal<T>;
 }
 
-/** Normalize a value prior to writes, ensuring nested objects are proxied. */
-function ensureValueForWrite(value: any, receiver: any, key: PropertyKey) {
-    const raw = value[RAW_KEY] ?? rawToMeta.get(value)?.raw ?? value;
-
-    const proxied = ensureChildProxy(raw, receiver, key);
-
-    return { raw, proxied };
-}
-
 /** Return primitive literals (string/number/boolean) for patch serialization. */
 function snapshotLiteral(value: any) {
     if (
@@ -662,6 +653,149 @@ function emitPatchesForNew(
     return patches;
 }
 
+/**
+ * Refresh numeric index signals for an array target so reads return current items
+ * and dependent effects are notified. Recreates/proxies values for indices < length
+ * and clears signals for indices >= length.
+ */
+function refreshNumericIndexSignals(target: any[], receiver: any) {
+    const sigs = propertiesToSignals.get(target);
+    if (!sigs) return;
+
+    for (const k of Array.from(sigs.keys())) {
+        if (typeof k === "string" && /^\d+$/.test(k)) {
+            const idx = Number(k);
+            if (idx >= target.length) {
+                const existing = sigs.get(k);
+                if (
+                    existing &&
+                    typeof (existing as WritableSignal).set === "function"
+                ) {
+                    (existing as WritableSignal).set(undefined);
+                }
+                sigs.delete(k);
+            } else {
+                const val = target[idx];
+                const proxied = ensureChildProxy(val, receiver, idx);
+                setSignalValue(sigs, k, proxied);
+            }
+        }
+    }
+}
+
+let hasWarnedAboutMissingSupportForReverse = false;
+let hasWarnedAboutMissingSupportForSort = false;
+/** Returns proxy function for array-mutating functions. */
+const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
+    const meta = rawToMeta.get(target);
+
+    if (key === "reverse") {
+        if (!hasWarnedAboutMissingSupportForReverse) {
+            console.warn(
+                ".reverse() was called on deepSignal array. In place modifications with .sort() and .reverse() are not supported. `toReversed` will be called instead."
+            );
+            hasWarnedAboutMissingSupportForReverse = true;
+        }
+        return target.toReversed;
+    } else if (key === "sort") {
+        if (!hasWarnedAboutMissingSupportForSort) {
+            console.warn(
+                ".sort() was called on deepSignal array. In place modifications with .sort() and .reverse() are not supported. `toSorted` will be called instead."
+            );
+            hasWarnedAboutMissingSupportForSort = true;
+        }
+        return target.toSorted;
+    } else if (key === "shift") {
+        return () => {
+            target.shift();
+
+            schedulePatch(meta, () => ({
+                op: "remove",
+                path: buildPath(meta, "0"),
+            }));
+
+            // Update length of proxy explicitly.
+            receiver.length = target.length;
+
+            // Refresh numeric index signals so shifted indices don't return stale values.
+            refreshNumericIndexSignals(target, receiver);
+        };
+    } else if (key === "splice") {
+        return (start: number, deleteCount: number, ...items: any[]) => {
+            // Call splice on (non-proxied) target.
+            const deletedItems = target.splice(start, deleteCount, ...items);
+
+            console.log(target, key, receiver, start, deleteCount, items);
+
+            // Manually schedule patches.
+            schedulePatch(meta, () => {
+                const patches: DeepPatch[] = [];
+                // All items can be deleted at the same path / index.
+                for (let i = 0; i < deleteCount; i++) {
+                    patches.push({
+                        op: "remove",
+                        path: buildPath(meta, String(start)),
+                    });
+                }
+                // All items can be inserted at same path / index, by adding items in reverse order.
+                for (const newItem of items.toReversed()) {
+                    patches.push({
+                        op: "add",
+                        path: buildPath(meta, String(start)),
+                        value: newItem,
+                    });
+                }
+
+                return patches;
+            });
+
+            // Ensure newly added items are proxied.
+            for (let i = 0; i < items.length; i++) {
+                ensureChildProxy(items[i], target, start + i);
+            }
+
+            // Refresh numeric index signals so shifted indices don't return stale values.
+            refreshNumericIndexSignals(target, receiver);
+
+            // Update length of proxy explicitly.
+            receiver.length = target.length;
+
+            return deletedItems;
+        };
+    } else if (key === "unshift") {
+        return (...items: any[]) => {
+            const deletedItems = target.unshift(...items);
+
+            schedulePatch(meta, () => {
+                const patches: DeepPatch[] = [];
+
+                // All items can be inserted at index 0, by adding items in reverse order.
+                for (const newItem of items.toReversed()) {
+                    patches.push({
+                        op: "add",
+                        path: buildPath(meta, "0"),
+                        value: newItem,
+                    });
+                }
+
+                return patches;
+            });
+
+            // Ensure newly added items are proxied.
+            for (let i = 0; i < items.length; i++) {
+                ensureChildProxy(items[i], target, i);
+            }
+            // Update length of proxy explicitly.
+            receiver.length = target.length;
+
+            // Refresh numeric index signals so shifted indices don't return stale values.
+            refreshNumericIndexSignals(target, receiver);
+
+            return deletedItems;
+        };
+    }
+};
+
 /** Proxy handler driving reactivity for plain objects and arrays. */
 const objectHandlers: ProxyHandler<any> = {
     get(target, key, receiver) {
@@ -677,6 +811,15 @@ const objectHandlers: ProxyHandler<any> = {
             }
             if (!isReactiveSymbol(key))
                 return Reflect.get(target, key, receiver);
+        }
+
+        // Array helper handling. We need that because otherwise, every array position change would go as a separate operation through the proxy.
+        // Thus, we need to schedule the patches manually for mutating array functions.
+        if (Array.isArray(target)) {
+            const mutationProxy = getArrayMutationProxy(target, key, receiver);
+            if (mutationProxy) {
+                return mutationProxy;
+            }
         }
 
         // Get object map from key to signal.
@@ -718,7 +861,9 @@ const objectHandlers: ProxyHandler<any> = {
             !!desc &&
             (typeof desc.get === "function" || typeof desc.set === "function");
 
-        const { raw, proxied } = ensureValueForWrite(value, receiver, key);
+        const proxied = ensureChildProxy(value, target, key);
+        const rawValue = value?.[RAW_KEY] ?? value;
+
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
 
         const shouldManuallyTrimLength =
@@ -732,15 +877,16 @@ const objectHandlers: ProxyHandler<any> = {
             }
         }
 
-        const result = Reflect.set(target, key, raw, receiver);
+        // === Set value on actual target ===
+        const result = Reflect.set(target, key, rawValue, receiver);
 
         if (!hasAccessor) {
             const signals = ensureSignalMap(target);
             setSignalValue(signals, key, proxied);
         }
         if (!hadKey) touchIterable(target);
-        if (meta && path && typeof raw === "object") {
-            initializeObjectTreeIfNoListeners(meta, path, raw, false);
+        if (meta && path && typeof rawValue === "object") {
+            initializeObjectTreeIfNoListeners(meta, path, rawValue, false);
         }
 
         // Modifications to the length should not emit patches
@@ -750,8 +896,12 @@ const objectHandlers: ProxyHandler<any> = {
 
         schedulePatch(meta, () => {
             const resolvedPath = path ?? buildPath(meta, key);
-            if (!hadKey || typeof raw === "object") {
-                const patches = emitPatchesForNew(raw, meta!, resolvedPath);
+            if (!hadKey || typeof rawValue === "object") {
+                const patches = emitPatchesForNew(
+                    rawValue,
+                    meta!,
+                    resolvedPath
+                );
 
                 // TODO: Document
                 // If an object is added to an array (this happens in discrete CRDTs), we will eventually receive an @id back.
@@ -762,18 +912,19 @@ const objectHandlers: ProxyHandler<any> = {
                     Array.isArray(target) &&
                     !isNaN(Number(key)) &&
                     value &&
-                    typeof value === "object"
+                    typeof value === "object" &&
+                    meta?.options.syntheticIdPropertyName !== "@id"
                 ) {
-                    raw["@id"] = `tmp-${++tmpIdCounter}`;
+                    rawValue["@id"] = `tmp-${++tmpIdCounter}`;
                 }
 
                 return patches;
             }
-            if (snapshotLiteral(raw) === undefined) return undefined;
+            if (snapshotLiteral(rawValue) === undefined) return undefined;
             return {
                 path: resolvedPath,
                 op: "add",
-                value: raw,
+                value: rawValue,
             };
         });
 
