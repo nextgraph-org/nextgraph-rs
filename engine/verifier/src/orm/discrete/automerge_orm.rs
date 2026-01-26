@@ -31,7 +31,7 @@ impl Verifier {
         patch: &DiscreteTransaction,
     ) -> Result<(Vec<u8>, Vec<OrmPatch>), VerifierError> {
         // Load current AutoMerge document.
-        let backend_state = self
+        let (_, backend_state) = self
             .discrete_orm_states
             .get_mut(branch_id)
             .ok_or(VerifierError::OrmStateNotFound)?;
