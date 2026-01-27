@@ -228,7 +228,11 @@ fn am_value_to_json(value: &AmValue, nuri: &NuriV0, parent_arr: bool, id: &ObjId
         AmValue::Object(obj_type) => match obj_type {
             ObjType::Map | ObjType::Table => {
                 if parent_arr {
-                    json!({"@id": nuri.discrete_resource_automerge(id.to_bytes())})
+                    if let ObjId::Id(_, actor, counter) = id {
+                        json!({"@id": nuri.discrete_resource_automerge(actor.to_bytes(), *counter)})
+                    } else {
+                        json!({})
+                    }
                 } else {
                     json!({})
                 }
@@ -258,10 +262,12 @@ fn am_object_to_json(
             let mut map = serde_json::Map::new();
 
             if parent_arr {
-                map.insert(
-                    "@id".to_string(),
-                    json!(nuri.discrete_resource_automerge(obj_id.to_bytes())),
-                );
+                if let ObjId::Id(_, actor, counter) = obj_id {
+                    map.insert(
+                        "@id".to_string(),
+                        json!(nuri.discrete_resource_automerge(actor.to_bytes(), *counter)),
+                    );
+                }
             }
 
             for key in doc.keys(obj_id) {
