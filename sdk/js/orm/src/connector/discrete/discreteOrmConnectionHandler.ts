@@ -58,6 +58,8 @@ export class DiscreteOrmConnection {
         window.ormDiscreteSignalConnections = DiscreteOrmConnection.idToEntry;
         // @ts-expect-error
         window.OrmDiscreteConnection = DiscreteOrmConnection;
+        // @ts-expect-error
+        window.OrmDiscreteIncomingPatches = [];
 
         this.documentId = documentId;
         this.refCount = 1;
@@ -175,8 +177,11 @@ export class DiscreteOrmConnection {
     };
 
     private onBackendUpdate = (patches: Patch[]) => {
+        // @ts-expect-error
+        window.OrmDiscreteIncomingPatches.push(patches);
+
         this.suspendDeepWatcher = true;
-        applyPatchesToDeepSignal(this._signalObject!, patches);
+        applyPatchesToDeepSignal(this._signalObject!, patches, "discrete");
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;

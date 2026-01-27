@@ -725,8 +725,6 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             // Call splice on (non-proxied) target.
             const deletedItems = target.splice(start, deleteCount, ...items);
 
-            console.log(target, key, receiver, start, deleteCount, items);
-
             // Manually schedule patches.
             schedulePatch(meta, () => {
                 const patches: DeepPatch[] = [];

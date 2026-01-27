@@ -157,6 +157,7 @@ function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
 export function applyPatches(
     currentState: Record<string, any>,
     patches: Patch[],
+    ormType: "set" | "discrete",
     ensurePathExists: boolean = false
 ) {
     for (let patchIndex = 0; patchIndex < patches.length; patchIndex++) {
@@ -169,7 +170,8 @@ export function applyPatches(
             .map(decodePathSegment);
 
         if (pathParts.length === 0) {
-            console.warn("[applyDiff] No path specified for patch", patch);
+            // Actually, this should mean replace..
+            console.warn("[applyPatches] No path specified for patch", patch);
             continue;
         }
         const lastKey = pathParts[pathParts.length - 1];
@@ -207,7 +209,7 @@ export function applyPatches(
             if (ensurePathExists) {
                 if (parentVal != null && typeof parentVal === "object") {
                     // Check if we need to create an object or a set:
-                    if (pathParts[i + 1]?.includes("|")) {
+                    if (pathParts[i + 1]?.includes("|") && ormType === "set") {
                         // The next path segment is an IRI, that means the new element must be a set of objects. Create a set.
                         parentVal[seg] = new Set();
                     } else {
@@ -227,7 +229,7 @@ export function applyPatches(
 
         if (parentMissing) {
             console.warn(
-                `[applyDiff] Skipping patch due to missing parent path segment(s): ${patch.path}`
+                `[applyPatches] Skipping patch due to missing parent path segment(s): ${patch.path}`
             );
             continue;
         }
@@ -235,7 +237,7 @@ export function applyPatches(
         // parentVal now should be an object, array, or set into which we apply lastKey
         if (parentVal == null || typeof parentVal !== "object") {
             console.warn(
-                `[applyDiff] Skipping patch because parent is not an object or Set: ${patch.path}`
+                `[applyPatches] Skipping patch because parent is not an object or Set: ${patch.path}`
             );
             continue;
         }
@@ -283,14 +285,14 @@ export function applyPatches(
             // All other operations require the target object to exist
             if (!targetObj) {
                 console.warn(
-                    `[applyDiff] Target object with @id=${key} not found in Set for path: ${patch.path}`
+                    `[applyPatches] Target object with @id=${key} not found in Set for path: ${patch.path}`
                 );
                 continue;
             }
 
             // This shouldn't happen - we handle all intermediate segments in the traversal loop
             console.warn(
-                `[applyDiff] Unexpected: reached end of path with Set as parent: ${patch.path}`
+                `[applyPatches] Unexpected: reached end of path with Set as parent: ${patch.path}`
             );
             continue;
         }
@@ -343,7 +345,8 @@ export function applyPatches(
         if (
             patch.op === "add" &&
             typeof patch.value === "object" &&
-            patch.value !== null
+            patch.value !== null &&
+            ormType === "set" // TODO: The backend should preferably add valType: "set" here (we don't need ormType then).
         ) {
             const leafVal = parentVal[key];
             const hasId = patches.at(patchIndex + 2)?.path.endsWith("@id");
@@ -391,7 +394,7 @@ export function applyPatches(
             continue;
         }
 
-        // Literal add
+        // Basic add
         if (patch.op === "add") {
             parentVal[key] = (patch as LiteralAddPatch).value;
             continue;
@@ -408,11 +411,20 @@ export function applyPatches(
 }
 
 /**
- * See documentation for applyDiff
+ * See documentation for applyPatches
  */
-export function applyPatchesToDeepSignal(currentState: object, patch: Patch[]) {
+export function applyPatchesToDeepSignal(
+    currentState: object,
+    patch: Patch[],
+    ormType: "set" | "discrete"
+) {
     batch(() => {
-        applyPatches(currentState as Record<string, any>, patch, true);
+        applyPatches(
+            currentState as Record<string, any>,
+            patch,
+            ormType,
+            false
+        );
     });
 }
 

@@ -221,7 +221,7 @@ export class OrmConnection<T extends BaseType> {
     };
     private onBackendUpdate = (patches: Patch[]) => {
         this.suspendDeepWatcher = true;
-        applyPatchesToDeepSignal(this.signalObject, patches);
+        applyPatchesToDeepSignal(this.signalObject, patches, "set");
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;

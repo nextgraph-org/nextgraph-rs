@@ -433,7 +433,7 @@ fn create_object_and_graph_and_id_patches(
         // Always create the object itself.
         patches.push(OrmPatch {
             op: OrmPatchOp::add,
-            valType: None,
+            valType: None, // TODO: For objects, this might be a set for objects of sets
             path: json_pointer.clone(),
             value: Some(json!({})),
         });

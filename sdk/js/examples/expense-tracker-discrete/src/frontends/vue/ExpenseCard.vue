@@ -21,10 +21,8 @@ const props = defineProps<{
 
 // Important!
 // In vue, you need to wrap children into useDeepSignal hooks, to ensure the component re-renders.
-// const expense = useDeepSignal(props.expense);
-// const availableCategories = useDeepSignal(props.availableCategories);
-const expense = props.expense;
-const availableCategories = props.availableCategories;
+const expense = useDeepSignal(props.expense);
+const availableCategories = useDeepSignal(props.availableCategories);
 
 const isEditing = ref(false);
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
