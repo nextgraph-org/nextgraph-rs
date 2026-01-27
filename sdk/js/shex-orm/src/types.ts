@@ -8,6 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+/**
+ * TODO: Short documentation on schema generation
+ */
 export interface ShapeType<T extends BaseType> {
     schema: Schema;
     shape: string;
