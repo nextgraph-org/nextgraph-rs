@@ -12,13 +12,14 @@ import {
     useShape as vueUseShape,
     useDiscrete as vueUseDiscrete,
 } from "./frontendAdapters/vue/index.ts";
-import { initNgSignals } from "./connector/initNg.ts";
+import { initNgSignals, ngSession } from "./connector/initNg.ts";
 import { insertObject } from "./connector/insertObject.ts";
 import { getObjects } from "./connector/getObjects.ts";
 export * from "./connector/applyPatches.ts";
 
 export {
     initNgSignals as initNg,
+    ngSession,
     OrmConnection,
     DiscreteOrmConnection,
     svelteUseShape,
