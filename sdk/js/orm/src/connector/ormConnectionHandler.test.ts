@@ -45,7 +45,7 @@ const mockNg = {
         setTimeout(() => {
             callback({
                 V0: {
-                    DiscreteOrmInitial: [{}, subscriptionId],
+                    GraphOrmInitial: [{}, subscriptionId],
                 },
             });
         }, 1);
