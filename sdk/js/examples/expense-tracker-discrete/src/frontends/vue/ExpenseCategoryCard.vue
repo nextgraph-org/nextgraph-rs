@@ -26,7 +26,6 @@ const isEditing = ref(false);
 const idBase = computed(
     () => category["@id"] ?? category.categoryName ?? "category"
 );
-
 </script>
 
 <template>
@@ -44,15 +43,44 @@ const idBase = computed(
                 :aria-label="isEditing ? 'Close editing' : 'Edit category'"
                 @click="isEditing = !isEditing"
             >
-                {{ isEditing ? "🗸" : "🖉" }}
+                <svg
+                    v-if="isEditing"
+                    data-slot="icon"
+                    fill="none"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M6 18 18 6M6 6l12 12"
+                    ></path>
+                </svg>
+
+                <svg
+                    v-else
+                    data-slot="icon"
+                    fill="none"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                    ></path>
+                </svg>
             </button>
         </div>
         <div v-if="isEditing" class="edit-grid">
             <div>
-                <label
-                    class="field-label"
-                    :for="`${idBase}-name`"
-                >
+                <label class="field-label" :for="`${idBase}-name`">
                     Category name
                 </label>
                 <input
@@ -60,14 +88,16 @@ const idBase = computed(
                     class="text-input"
                     :value="category.categoryName ?? ''"
                     placeholder="e.g. Groceries"
-                    @input="(e) => (category.categoryName = (e.target as HTMLInputElement).value)"
+                    @input="
+                        (e) =>
+                            (category.categoryName = (
+                                e.target as HTMLInputElement
+                            ).value)
+                    "
                 />
             </div>
             <div>
-                <label
-                    class="field-label"
-                    :for="`${idBase}-description`"
-                >
+                <label class="field-label" :for="`${idBase}-description`">
                     Description
                 </label>
                 <textarea
@@ -75,7 +105,12 @@ const idBase = computed(
                     class="text-area"
                     :value="category.description ?? ''"
                     placeholder="Optional context for this spend bucket"
-                    @input="(e) => (category.description = (e.target as HTMLTextAreaElement).value)"
+                    @input="
+                        (e) =>
+                            (category.description = (
+                                e.target as HTMLTextAreaElement
+                            ).value)
+                    "
                 ></textarea>
             </div>
         </div>
