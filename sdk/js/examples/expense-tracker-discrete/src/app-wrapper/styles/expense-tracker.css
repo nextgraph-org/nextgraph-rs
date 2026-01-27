@@ -312,4 +312,5 @@
 
 .astro {
     display: none;
+    border: none !important;
 }
