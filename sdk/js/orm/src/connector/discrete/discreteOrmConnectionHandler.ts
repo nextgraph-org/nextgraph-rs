@@ -164,7 +164,9 @@ export class DiscreteOrmConnection {
         number,
     ]) => {
         this.subscriptionId = subscriptionId;
-        const signalObject = deepSignal(initialData);
+        const signalObject = deepSignal(initialData, {
+            syntheticIdPropertyName: undefined,
+        });
         this._signalObject = signalObject;
         const { stopListening } = watchDeepSignal(
             this._signalObject!,

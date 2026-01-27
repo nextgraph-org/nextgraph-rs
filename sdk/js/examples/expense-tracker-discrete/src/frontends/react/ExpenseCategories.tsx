@@ -54,16 +54,12 @@ export function ExpenseCategories() {
                 <p className="muted">No categories yet</p>
             ) : (
                 <div className="cards-grid">
-                    {expenseCategories.map((category, i) => {
-                        if (!category["@id"]) return;
-
-                        return (
-                            <ExpenseCategoryCard
-                                key={category["@id"]}
-                                category={category}
-                            />
-                        );
-                    })}
+                    {expenseCategories.map((category, i) => (
+                        <ExpenseCategoryCard
+                            key={category["@id"]}
+                            category={category}
+                        />
+                    ))}
                 </div>
             )}
         </section>

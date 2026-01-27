@@ -74,16 +74,13 @@ export function Expenses() {
                 )}
                 {expensesSorted &&
                     expensesSorted.length > 0 &&
-                    expensesSorted.map((expense, i) => {
-                        if (!expense["@id"]) return;
-                        return (
-                            <ExpenseCard
-                                key={expense["@id"]}
-                                expense={expense}
-                                availableCategories={expenseCategories!}
-                            />
-                        );
-                    })}
+                    expensesSorted.map((expense, i) => (
+                        <ExpenseCard
+                            key={expense["@id"]}
+                            expense={expense}
+                            availableCategories={expenseCategories!}
+                        />
+                    ))}
             </div>
         </section>
     );
