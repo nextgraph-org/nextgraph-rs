@@ -12,11 +12,14 @@
     --button-shadow: 0 15px 30px rgba(79, 70, 229, 0.2);
 }
 
+body {
+    margin: 0;
+}
+
 .framework-grid {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    padding: 1rem 0 2rem;
 }
 
 .framework-card {
@@ -24,7 +27,6 @@
 }
 
 .framework-card .box {
-    width: 100%;
     min-width: 0;
     margin: 0;
     height: 100%;
