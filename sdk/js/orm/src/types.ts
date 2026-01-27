@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -8,17 +8,34 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/** The Scope of a shape request.
- * `subjects` maybe set to `undefined` or `[]` to indicate no filtering by subject.
- * If `graphs` is `undefined`, the scope is all available graphs.
- * **If `graphs` is `[]`, the scope is none and no objects are returned.
+/**
+ * When dealing with shapes (RDF graph ORMs):
+ * The scope of a shape request.
+ * In most cases, it is recommended to use a narrow scope for performance.
+ * You can filter results by `subjects` and `graphs`. Only objects in that scope will be returned.
+ *
+ * @param subjects array of subject IRIs to filter by. For no filtering, set to `undefined` set to `[]`.
+ * @param graphs array of graph IRIs to filter by. For no filtering, set to `undefined`.
+ * If you set to `[]`, *no objects are returned*. This is useful only for inserting objects in the database only
+ *
+ * @example
+ * ```typescript
+ * // Contains all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 IRI> or <g2 IRI>
+ * const expenses: DeepSignalSet<Expense = useShape(ExpenseShape,
+ *      {graphs: ["<g1 IRI>", "<g2 IRI>"],
+ *       subjects: ["<s1 IRI>", "<s2 IRI>"]});
+ * ```
  */
 export type Scope = { graphs?: string[]; subjects?: string[] };
 
+/** An allowed array in the CRDT. */
 export interface DiscreteArray extends Array<DiscreteType> {}
+
+/** An allowed object in the CRDT. */
 export interface DiscreteObject {
     [key: string]: DiscreteType;
 }
+/** An allowed type in the CRDT. */
 export type DiscreteType =
     | DiscreteArray
     | DiscreteObject
@@ -26,6 +43,9 @@ export type DiscreteType =
     | number
     | boolean;
 
+/**
+ * The root root array for reading and modifying the CRDT as a plain object.
+ */
 export type DiscreteRootArray = (
     | DiscreteArray
     | string
@@ -34,6 +54,9 @@ export type DiscreteRootArray = (
     | (DiscreteObject & { readonly "@id": string })
 )[];
 
+/**
+ * The root object for reading and modifying the CRDT as a plain object.
+ */
 export interface DiscreteRootObject {
     [key: string]:
         | DiscreteObject
@@ -43,4 +66,9 @@ export interface DiscreteRootObject {
         | DiscreteRootArray;
 }
 
+/**
+ * The supported discrete (JSON) CRDTs.
+ * Automerge and YMap require objects as roots.
+ * YArray requires an array as root.
+ */
 export type DiscreteCrdt = "YMap" | "YArray" | "Automerge";
