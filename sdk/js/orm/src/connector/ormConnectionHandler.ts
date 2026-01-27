@@ -186,10 +186,10 @@ export class OrmConnection<T extends BaseType> {
 
     private onBackendMessage = (message: any) => {
         const data = message?.V0;
-        if (data?.DiscreteOrmInitial) {
-            this.handleInitialResponse(data.DiscreteOrmInitial);
-        } else if (data?.DiscreteOrmUpdate) {
-            this.onBackendUpdate(data.DiscreteOrmUpdate);
+        if (data?.GraphOrmInitial) {
+            this.handleInitialResponse(data.GraphOrmInitial);
+        } else if (data?.GraphOrmUpdate) {
+            this.onBackendUpdate(data.GraphOrmUpdate);
         } else {
             console.warn("Received unknown ORM message from backend", message);
         }
@@ -208,7 +208,7 @@ export class OrmConnection<T extends BaseType> {
             // this.signalObject.clear();
 
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
-            for (const newItem of parseDiscreteOrmInitialObject(initialData)) {
+            for (const newItem of parseOrmInitialObject(initialData)) {
                 this.signalObject.add(newItem);
             }
         });
@@ -331,21 +331,19 @@ export class OrmConnection<T extends BaseType> {
     };
 }
 
-const parseDiscreteOrmInitialObject = (obj: any): any => {
+const parseOrmInitialObject = (obj: any): any => {
     // Regular arrays become sets.
     if (Array.isArray(obj)) {
-        return new Set(obj.map(parseDiscreteOrmInitialObject));
+        return new Set(obj.map(parseOrmInitialObject));
     } else if (obj && typeof obj === "object") {
         if ("@id" in obj) {
             // Regular object.
             for (const key of Object.keys(obj)) {
-                obj[key] = parseDiscreteOrmInitialObject(obj[key]);
+                obj[key] = parseOrmInitialObject(obj[key]);
             }
         } else {
             // Object does not have @id, that means it's a set of objects.
-            return new Set(
-                Object.values(obj).map(parseDiscreteOrmInitialObject)
-            );
+            return new Set(Object.values(obj).map(parseOrmInitialObject));
         }
     }
     return obj;

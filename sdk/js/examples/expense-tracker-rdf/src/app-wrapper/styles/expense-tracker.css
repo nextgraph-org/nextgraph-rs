@@ -309,3 +309,7 @@
     display: grid;
     gap: 0.9rem;
 }
+
+.astro {
+    display: none;
+}

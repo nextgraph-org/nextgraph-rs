@@ -27,12 +27,12 @@ import SvelteRoot from "../components/SvelteRoot.svelte";
 
     // Only show screen once ng is initialized.
     sessionPromise.then(() => {
-        document.getElementById("framework-grid")!.style = "";
+        document.querySelector<HTMLElement>(".astro")!.style.display = "block";
     })
 </script>
 
 <Layout>
-    <div id="framework-grid" class="framework-grid" style="display: none;">
+    <div  class="framework-grid">
         <div class="framework-card">
             <Highlight vue>
                 <VueRoot client:only />
