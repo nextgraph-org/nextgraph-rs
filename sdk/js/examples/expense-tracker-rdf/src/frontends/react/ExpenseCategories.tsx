@@ -11,11 +11,12 @@
 import { useCallback } from "react";
 import { useShape } from "@ng-org/orm/react";
 import { ExpenseCategoryShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
-import { sessionPromise } from "../../utils/ngSession";
+import { sessionPromise, session } from "../../utils/ngSession";
 import { ExpenseCategoryCard } from "./ExpenseCategoryCard";
 
 export function ExpenseCategories() {
-    const expenseCategories = useShape(ExpenseCategoryShapeType);
+    const privateNuri = session && `did:ng:${session?.private_store_id}`;
+    const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
 
     const createCategory = useCallback(async () => {
         const session = await sessionPromise;

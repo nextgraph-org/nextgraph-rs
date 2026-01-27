@@ -15,13 +15,13 @@ import {
     ExpenseShapeType,
 } from "../../shapes/orm/expenseShapes.shapeTypes";
 import type { Expense } from "../../shapes/orm/expenseShapes.typings";
-import { sessionPromise } from "../../utils/ngSession";
+import { sessionPromise, session } from "../../utils/ngSession";
 import { ExpenseCard } from "./ExpenseCard";
 
 export function Expenses() {
-    const expenses = useShape(ExpenseShapeType);
-    const expenseCategories = useShape(ExpenseCategoryShapeType);
-
+    const privateNuri = session && `did:ng:${session?.private_store_id}`;
+    const expenses = useShape(ExpenseShapeType, privateNuri);
+    const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
     const createExpense = useCallback(
         async (obj: Partial<Expense> = {}) => {
             const session = await sessionPromise;
