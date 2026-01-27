@@ -5,11 +5,12 @@
     ExpenseShapeType,
   } from "../../shapes/orm/expenseShapes.shapeTypes";
   import type { Expense } from "../../shapes/orm/expenseShapes.typings";
-  import { sessionPromise } from "../../utils/ngSession";
+  import { sessionPromise, session } from "../../utils/ngSession";
   import ExpenseCard from "./ExpenseCard.svelte";
 
-  const expenses = useShape(ExpenseShapeType);
-  const categories = useShape(ExpenseCategoryShapeType);
+  const privateNuri = session && `did:ng:${session?.private_store_id}`;
+  const expenses = useShape(ExpenseShapeType, { graphs: [privateNuri || ""] });
+  const categories = useShape(ExpenseCategoryShapeType, { graphs: [privateNuri || ""] });
 
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;

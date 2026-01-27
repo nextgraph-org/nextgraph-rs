@@ -1,10 +1,12 @@
 <script lang="ts">
   import { useShape } from "@ng-org/orm/svelte";
   import { ExpenseCategoryShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
-  import { sessionPromise } from "../../utils/ngSession";
+  import { sessionPromise, session } from "../../utils/ngSession";
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
 
-  const expenseCategories = useShape(ExpenseCategoryShapeType);
+  const privateNuri = session && `did:ng:${session?.private_store_id}`;
+  const expenseCategories = useShape(ExpenseCategoryShapeType, { graphs: [privateNuri || ""] });
+
 
   async function createCategory() {
     const session = await sessionPromise;

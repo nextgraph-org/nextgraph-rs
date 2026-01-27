@@ -2,10 +2,13 @@
 import { useShape } from "@ng-org/orm/vue";
 import { ExpenseCategoryShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
 import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
-import { sessionPromise } from "../../utils/ngSession";
+import { sessionPromise, session } from "../../utils/ngSession";
 import ExpenseCategoryCard from "./ExpenseCategoryCard.vue";
 
-const expenseCategories = useShape(ExpenseCategoryShapeType);
+const privateNuri = session && `did:ng:${session?.private_store_id}`;
+const expenseCategories = useShape(ExpenseCategoryShapeType, {
+    graphs: [privateNuri || ""],
+});
 
 async function createCategory() {
     const session = await sessionPromise;
@@ -37,7 +40,11 @@ function categoryKey(category: ExpenseCategory) {
                 </h2>
             </div>
             <div class="header-actions">
-                <button type="button" class="primary-btn" @click="createCategory">
+                <button
+                    type="button"
+                    class="primary-btn"
+                    @click="createCategory"
+                >
                     + New category
                 </button>
             </div>
