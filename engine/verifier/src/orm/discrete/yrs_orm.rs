@@ -33,7 +33,7 @@ impl Verifier {
         branch_id: &BranchId,
         patch: &DiscreteTransaction,
     ) -> Result<(Vec<u8>, Vec<OrmPatch>), VerifierError> {
-        let backend_state = self
+        let (_, backend_state) = self
             .discrete_orm_states
             .get(branch_id)
             .ok_or(VerifierError::OrmStateNotFound)?;

@@ -117,7 +117,7 @@ pub struct Verifier {
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
     pub(crate) orm_subscription_counter: u64,
     pub(crate) discrete_orm_subscriptions: HashMap<u64, DiscreteOrmSubscription>, // subscription id > Subscription
-    pub(crate) discrete_orm_states: HashMap<BranchId, BackendDiscreteState>, // branch_id > BackendDiscreteState
+    pub(crate) discrete_orm_states: HashMap<BranchId, (u32, BackendDiscreteState)>, // branch_id > BackendDiscreteState
     pub(crate) discrete_orm_subscription_counter: u64,
 }
 

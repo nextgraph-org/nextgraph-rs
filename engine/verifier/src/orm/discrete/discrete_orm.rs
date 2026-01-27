@@ -8,6 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::collections::HashMap;
+
 use futures::channel::mpsc;
 use futures::SinkExt;
 use ng_net::orm::{OrmPatchOp, OrmPatches};
@@ -59,8 +61,10 @@ impl Verifier {
             sender: tx.clone(),
         };
 
-        let orm_object = if let Some(state) = self.discrete_orm_states.get(&branch_id) {
+        let orm_object = if let Some((count, state)) = self.discrete_orm_states.get_mut(&branch_id)
+        {
             // If there is a subscription for this document already, we only need to materialize the loaded discrete state.
+            *count += 1;
             convert_discrete_state_to_orm_object(state, &orm_subscription.nuri)?
         } else {
             // Create a new session.
@@ -107,7 +111,8 @@ impl Verifier {
                 }
             };
 
-            self.discrete_orm_states.insert(branch_id, backend_state);
+            self.discrete_orm_states
+                .insert(branch_id, (1, backend_state));
             orm_object
         };
 
@@ -130,6 +135,27 @@ impl Verifier {
         Ok((rx, close))
     }
 
+    fn cleanup_subscriptions_and_states(&mut self) {
+        let mut closed: HashMap<BranchId, u32> = HashMap::new();
+        for (_, sub) in self
+            .discrete_orm_subscriptions
+            .extract_if(|_k, sub| sub.sender.is_closed())
+        {
+            closed
+                .entry(sub.branch_id)
+                .and_modify(|counter| *counter += 1)
+                .or_insert(1);
+        }
+        self.discrete_orm_states.retain(|branch, (count, _)| {
+            if let Some(removed) = closed.remove(branch) {
+                *count -= removed;
+                *count > 0
+            } else {
+                true
+            }
+        });
+    }
+
     /// Sends patches to frontend if they don't originate from the same subscriber.
     pub(crate) async fn push_orm_discrete_update(
         &mut self,
@@ -138,8 +164,7 @@ impl Verifier {
         branch_id: &BranchId,
     ) -> Result<(), VerifierError> {
         // Clean up and remove old subscriptions
-        self.discrete_orm_subscriptions
-            .retain(|_k, sub| !sub.sender.is_closed());
+        self.cleanup_subscriptions_and_states();
 
         if orm_patches.is_empty() {
             return Ok(());
@@ -223,7 +248,7 @@ impl Verifier {
                 .get_mut(&subscription_id)
                 .ok_or(VerifierError::OrmSubscriptionNotFound)?;
 
-            let backend_state = self
+            let (_, backend_state) = self
                 .discrete_orm_states
                 .get_mut(&orm_subscription.branch_id)
                 .ok_or(VerifierError::OrmStateNotFound)?;
