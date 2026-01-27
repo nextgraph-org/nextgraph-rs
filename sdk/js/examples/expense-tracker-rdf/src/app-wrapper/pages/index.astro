@@ -21,12 +21,18 @@ import SvelteRoot from "../components/SvelteRoot.svelte";
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script>
-    import {init as initNg} from "../../utils/ngSession";
+    import {init as initNg, sessionPromise} from "../../utils/ngSession";
 
     initNg();
+
+    // Only show screen once ng is initialized.
+    sessionPromise.then(() => {
+        document.getElementById("framework-grid")!.style = "";
+    })
 </script>
+
 <Layout>
-    <div class="framework-grid">
+    <div id="framework-grid" class="framework-grid" style="display: none;">
         <div class="framework-card">
             <Highlight vue>
                 <VueRoot client:only />
