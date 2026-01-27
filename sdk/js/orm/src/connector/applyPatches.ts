@@ -270,6 +270,9 @@ export function applyPatches(
                         }
                     }
                     parentVal.add(newLeaf);
+
+                    // Skip the next two add (@id + @graph) patches.
+                    patchIndex += 2;
                 }
                 continue;
             }

@@ -440,6 +440,7 @@ fn create_object_and_graph_and_id_patches(
 
         // If this object has an IRI (it's a real subject), add the graph then id fields
         if let Some((subject_iri, graph_iri)) = maybe_iri {
+            // TODO: Send it as one patch.
             // log_info!(
             //     "[PATCH TRACE]   Adding @graph/@id for subject='{}' graph='{}' at base={}",
             //     subject_iri,
