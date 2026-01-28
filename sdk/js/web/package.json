@@ -4,7 +4,7 @@
     "Niko PLP <niko@nextgraph.org>"
   ],
   "description": "JS/TS SDK of NextGraph for third-party web apps",
-  "version": "0.1.2-alpha.6",
+  "version": "0.1.2-alpha.8",
   "license": "MIT/Apache-2.0",
   "repository": {
     "type": "git",
@@ -22,7 +22,8 @@
     "builddevlocal": "tsc && cross-env NG_DEV=1 vite build",
     "builddev": "tsc && cross-env NG_DEV_LOCAL_BROKER=1 vite build",
     "builddev3": "tsc && cross-env NG_DEV3=1 vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "async-proxy": "^0.4.1"
