@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 /**
- * When dealing with shapes (RDF graph ORMs):
+ * When dealing with shapes (RDF-based graph db ORMs):
  * The scope of a shape request.
  * In most cases, it is recommended to use a narrow scope for performance.
  * You can filter results by `subjects` and `graphs`. Only objects in that scope will be returned.

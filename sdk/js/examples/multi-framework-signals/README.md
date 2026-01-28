@@ -51,7 +51,7 @@ This command uses `@ng-org/shex-orm` to generate:
 
 ### Automatic Database Persistence
 
-All modifications made through the reactive proxies are **automatically persisted** to the NextGraph database. Internally, object changes trigger the creation of patches that are sent to the backend which creates SPARQL updates from them. You don't need to write any manual save logic.
+All modifications made through the reactive proxies are **automatically persisted** to the NextGraph database. Internally, object changes trigger the creation of patches that are sent to the engine which creates SPARQL updates from them. You don't need to write any manual save logic.
 
 ### Deep Signal Proxies
 

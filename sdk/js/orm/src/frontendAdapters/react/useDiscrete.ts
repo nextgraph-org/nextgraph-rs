@@ -17,82 +17,102 @@ import { DiscreteArray, DiscreteObject } from "../../types.ts";
 const EMPTY_OBJECT = {} as const;
 
 /**
- * Hook to subscribe to discrete (JSON) CRDT documents.
+ * Hook to subscribe to an existing discrete (JSON) CRDT document.
  * You can modify the returned object like any other JSON object. Changes are immediately
- * reflected in the CRDT.
+ * reflected in the CRDT document.
  *
  * Establishes a 2-way binding: Modifications to the object are immediately committed,
- * changes coming from the backend (or other components) cause an immediate rerender.
+ * changes coming from the engine (or other components) cause an immediate rerender.
  *
  * In comparison to {@link useShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentId The IRI of the crdt document.
+ * @param documentId The IRI of the CRDT document.
  * @returns An object that contains as `data` the reactive DeepSignal object or undefined if `documentId` is undefined.
  *
- *@example
-```tsx
-// We assume you have created a CRDT document already, as below.
-// const documentId = await ng.doc_create(
-//     session_id,
-//     crdt, // "Automerge" | "YMap" | "YArray". YArray is for root arrays, the other two have objects at root.
-//     crdt === "Automerge" ? "data:json" : crdt === "YMap ? "data:map" : "data:array",
-//     "store",
-//     undefined
-// );
-
-function Expenses({documentId}: {documentId: string}) {
-    const { data } = useDiscrete(documentIdPromise);
-
-    // If the CRDT document is still empty, we need to initialize it.
-    if (data && !data.expenses) {
-        data.expenses = [];
-    }
-    const expenses = data?.expenses;
-
-    const createExpense = useCallback(() => {
-            expenses.add({
-                title: "New expense",
-                dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
-            });
-        },
-        [expenses]
-    );
-
-    // Loaded already?
-    if (!expenses) return <div>Loading...</div>;
-
-    // Note that we use expense["@id"] as a key in the expense list.
-    // Every object added to a CRDT array gets a stable `@id` property assigned
-    // which you can use for referencing objects in arrays even as
-    // objects are removed from the array. The ID is an IRI with the schema `<documentId>:d:<object-specific id>`.
-    // Since the `@id` is generated in the backend, the object is preliminarily
-    // given a mock id which will be replaced immediately
-
-    return (
-        <div>
-            <button
-                onClick={() => createExpense()}
-            >
-                + Add expense
-            </button>
-            <div>
-                {expenses.length === 0 ? (
-                    <p>
-                        No expenses yet.
-                    </p>
-                ) : (
-                    expenses.map((expense) => (
-                        <ExpenseCard
-                            key={expense["@id"]}
-                            expense={expense}
-                        />
-                    ))
-                )}
-            </div>
-        </div>
-    );
-}
+ * @example
+ * ```tsx
+ * // We assume you have created a CRDT document already, as below.
+ * // const documentId = await ng.doc_create(
+ * //     session_id,
+ * //     crdt, // "Automerge" | "YMap" | "YArray". YArray is for root arrays, the other two have objects at root.
+ * //     crdt === "Automerge" ? "data:json" : crdt === "YMap ? "data:map" : "data:array",
+ * //     "store",
+ * //     undefined
+ * // );
+ *
+ * function Expenses({documentId}: {documentId: string}) {
+ *     const { data } = useDiscrete(documentId);
+ *
+ *     // If the CRDT document is still empty, we need to initialize it.
+ *     if (data && !data.expenses) {
+ *         data.expenses = [];
+ *     }
+ *     const expenses = data?.expenses;
+ *
+ *     const createExpense = useCallback(() => {
+ *             // Note that we use *expense["@id"]* as a key in the expense list.
+ *             // Every object added to a CRDT array gets a stable `@id` property assigned
+ *             // which you can use for referencing objects in arrays even as
+ *             // objects are removed or added from the array.
+ *             // The `@id` is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *             // Since the `@id` is generated in the engine, the object is
+ *             // *preliminarily given a mock id* which will be replaced immediately.
+ *             expenses.push({
+ *                 title: "New expense",
+ *                 date: new Date().toISOString(),
+ *             });
+ *         },
+ *         [expenses]
+ *     );
+ *
+ *     // Still loading (data undefined)?
+ *     if (!data) return <div>Loading...</div>;
+ *
+ *     return (
+ *         <div>
+ *             <button
+ *                 onClick={() => createExpense()}
+ *             >
+ *                 + Add expense
+ *             </button>
+ *             <div>
+ *                 {expenses.length === 0 ? (
+ *                     <p>
+ *                         No expenses yet.
+ *                     </p>
+ *                 ) : (
+ *                     expenses.map((expense) => (
+ *                         <ExpenseCard
+ *                             key={expense["@id"]}
+ *                             expense={expense}
+ *                         />
+ *                     ))
+ *                 )}
+ *             </div>
+ *         </div>
+ *     );
+ * }
+ * ```
+ *
+ * ---
+ * In the ExpenseCard component:
+ * ```tsx
+ * function ExpenseCard({expense}: {expense: Expense}) {
+ *    return (
+ *        <input
+ *            value={expense.title}
+ *            onChange={(e) => {
+ *                expense.title = e.target.value; // Changes trigger rerender.
+ *            }}
+ *        />
+ *        <div>
+ *            <p>Date</p>
+ *            <p>{expense.data}
+ *        </div
+ *    );
+ * }
+ * ```
  */
 
 export function useDiscrete(documentId: string | undefined) {

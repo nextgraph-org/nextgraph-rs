@@ -25,7 +25,7 @@ const graphOrmUpdateCalls: Array<{
     sessionId: string;
 }> = [];
 
-// Store callbacks to simulate backend messages.
+// Store callbacks to simulate engine messages.
 const connectionCallbacks = new Map<number, Function>();
 let nextSubscriptionId = 1;
 
@@ -40,7 +40,7 @@ const mockNg = {
         const subscriptionId = nextSubscriptionId++;
         connectionCallbacks.set(subscriptionId, callback);
 
-        // Simulate backend sending initial data (empty set).
+        // Simulate engine sending initial data (empty set).
         // This resolves the readyPromise in OrmConnection.
         setTimeout(() => {
             callback({
