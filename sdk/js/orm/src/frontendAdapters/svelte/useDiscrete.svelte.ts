@@ -39,7 +39,8 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *     //     crdt, // "Automerge" | "YMap" | "YArray"
  *     //     crdt === "Automerge" ? "data:json" : crdt === "YMap ? "data:map" : "data:array",
  *     //     "store",
- *     //     undefined
+ *     //     undefined,
+ *     // );
  * 
  *     const data = useDiscrete(documentIdPromise);
  * 
