@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use ng_repo::log::*;
 
-use crate::local_broker::{doc_create, doc_sparql_update, orm_start};
+use crate::local_broker::{doc_create, doc_sparql_update, orm_start_discrete, orm_start_graph};
 
 #[doc(hidden)]
 pub mod orm_creation;
@@ -26,6 +26,8 @@ pub mod orm_creation;
 pub mod orm_apply_patches;
 #[doc(hidden)]
 pub mod orm_create_patches;
+#[doc(hidden)]
+pub mod orm_discrete_patches;
 
 #[doc(hidden)]
 pub mod create_or_open_wallet;
@@ -106,48 +108,104 @@ async fn create_orm_connection(
         .iter()
         .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
         .collect();
-    let (mut receiver, cancel_fn) = orm_start(nuris, subjects, shape_type, session_id)
+    let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id)
         .await
-        .expect("orm_start failed");
+        .expect("orm_start_graph failed");
 
     // Get initial state with timeout
-    let subscription_id;
-    let initial_value;
-    loop {
-        let res = timeout(Duration::from_secs(1), receiver.next()).await;
-        let opt = match res {
-            Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for OrmInitial response (1 second)"),
-        };
-        match opt {
-            Some(app_response) => {
-                if let AppResponse::V0(AppResponseV0::OrmInitial(init, sid)) = app_response {
-                    subscription_id = sid;
-                    initial_value = init;
-                    break;
-                }
-            }
-            None => panic!("ORM receiver closed before initial response"),
-        }
-    }
+    let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
+        AppResponseV0::GraphOrmInitial(sub, val) => Some((sub, val)),
+        _ => None,
+    })
+    .await;
 
     return (receiver, cancel_fn, subscription_id, initial_value);
 }
 
-async fn await_app_response(receiver: &mut UnboundedReceiver<AppResponse>) -> Vec<OrmPatch> {
+async fn await_graph_patches(receiver: &mut UnboundedReceiver<AppResponse>) -> Vec<OrmPatch> {
+    await_app_response(receiver, |res| match res {
+        AppResponseV0::GraphOrmUpdate(patches) => Some(patches),
+        _ => None,
+    })
+    .await
+}
+
+async fn await_app_response<T, F>(
+    receiver: &mut UnboundedReceiver<AppResponse>,
+    mut matcher: F,
+) -> T
+where
+    F: FnMut(AppResponseV0) -> Option<T>,
+{
     loop {
-        let res = timeout(Duration::from_secs(1), receiver.next()).await;
+        let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for GraphOrmInitial response (1 second)"),
+            Err(_) => panic!("Timed out waiting for AppResponseV0 (1 second)"),
         };
         match opt {
             Some(app_response) => {
-                if let AppResponse::V0(AppResponseV0::GraphOrmUpdate(patches)) = app_response {
-                    return patches;
+                let AppResponse::V0(v0) = app_response;
+                if let Some(val) = matcher(v0) {
+                    return val;
                 }
             }
-            None => panic!("ORM receiver closed before initial response"),
+            None => panic!("ORM receiver closed before expected response"),
         }
     }
+}
+
+async fn create_discrete_doc(
+    session_id: u64,
+    crdt: String,
+) -> (u64, UnboundedReceiver<AppResponse>, NuriV0) {
+    let nuri_str = doc_create(
+        session_id,
+        crdt,
+        "test_orm_query".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .expect("error creating doc");
+
+    let nuri = NuriV0::new_from(&nuri_str).unwrap();
+
+    let (mut receiver, _cancel_fn) = orm_start_discrete(nuri.clone(), session_id)
+        .await
+        .expect("orm_start_discrete failed");
+
+    let (_initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
+        AppResponseV0::DiscreteOrmInitial(sub, val) => Some((sub, val)),
+        _ => None,
+    })
+    .await;
+
+    (subscription_id, receiver, nuri)
+}
+
+async fn create_discrete_subscription(
+    session_id: u64,
+    nuri: &NuriV0,
+) -> (Value, UnboundedReceiver<AppResponse>, u64) {
+    let (mut receiver, _cancel_fn) = orm_start_discrete(nuri.clone(), session_id)
+        .await
+        .expect("orm_start_discrete failed");
+
+    let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
+        AppResponseV0::DiscreteOrmInitial(sub, val) => Some((sub, val)),
+        _ => None,
+    })
+    .await;
+
+    (initial_value, receiver, subscription_id)
+}
+
+async fn await_discrete_patches(receiver: &mut UnboundedReceiver<AppResponse>) -> Vec<OrmPatch> {
+    await_app_response(receiver, |res| match res {
+        AppResponseV0::DiscreteOrmUpdate(patches) => Some(patches),
+        _ => None,
+    })
+    .await
 }

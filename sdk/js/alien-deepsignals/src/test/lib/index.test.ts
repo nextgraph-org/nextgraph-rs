@@ -135,6 +135,9 @@ describe("deepsignal/core", () => {
         });
 
         it("should update array length", () => {
+            let state: Store = { a: 1, nested, array };
+            let store = deepSignal(state);
+
             expect(store.array.length).to.equal(2);
             store.array.push(4);
             expect(store.array.length).to.equal(3);
@@ -522,12 +525,13 @@ describe("deepsignal/core", () => {
             expect(sum).to.equal(2);
         });
 
-        it("should subscribe to implicit changes in length", () => {
+        it("should subscribe to implicit changes in array items", () => {
             const store = deepSignal(["foo", "bar"]);
             let x = "";
 
             effect(() => {
                 x = store.join(" ");
+                console.log("joined", x);
             });
 
             expect(x).to.equal("foo bar");
@@ -537,6 +541,9 @@ describe("deepsignal/core", () => {
 
             store.splice(0, 1);
             expect(x).to.equal("bar baz");
+
+            store.splice(1, 1, "bam");
+            expect(x).to.equal("bar bam");
         });
 
         it("should subscribe to changes when deleting properties", () => {

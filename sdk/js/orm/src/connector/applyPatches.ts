@@ -15,13 +15,7 @@ export type Patch = {
     path: string;
     valType?: string & {};
     value?: unknown;
-} & (
-    | SetAddPatch
-    | SetRemovePatch
-    | ObjectAddPatch
-    | RemovePatch
-    | LiteralAddPatch
-);
+} & (SetAddPatch | SetRemovePatch | RemovePatch | LiteralAddPatch);
 
 export interface SetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
@@ -44,13 +38,12 @@ export interface SetRemovePatch {
      *  - A single primitive
      *  - An array of primitives
      */
-    value: number | string | boolean | (number | string | boolean)[];
-}
-
-export interface ObjectAddPatch {
-    /** Mutation kind applied at the resolved `path`. */
-    op: "add";
-    valType: "object";
+    value:
+        | number
+        | string
+        | boolean
+        | object
+        | (number | string | boolean | object)[];
 }
 
 export interface RemovePatch {
@@ -62,7 +55,7 @@ export interface LiteralAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
     /** The literal value to be added at the resolved `path` */
-    value: string | number | boolean;
+    value: string | number | boolean | object;
 }
 
 function isPrimitive(v: unknown): v is string | number | boolean {
@@ -164,6 +157,7 @@ function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
 export function applyPatches(
     currentState: Record<string, any>,
     patches: Patch[],
+    ormType: "set" | "discrete",
     ensurePathExists: boolean = false
 ) {
     for (let patchIndex = 0; patchIndex < patches.length; patchIndex++) {
@@ -176,7 +170,8 @@ export function applyPatches(
             .map(decodePathSegment);
 
         if (pathParts.length === 0) {
-            console.warn("[applyDiff] No path specified for patch", patch);
+            // Actually, this should mean replace..
+            console.warn("[applyPatches] No path specified for patch", patch);
             continue;
         }
         const lastKey = pathParts[pathParts.length - 1];
@@ -214,7 +209,7 @@ export function applyPatches(
             if (ensurePathExists) {
                 if (parentVal != null && typeof parentVal === "object") {
                     // Check if we need to create an object or a set:
-                    if (pathParts[i + 1]?.includes("|")) {
+                    if (pathParts[i + 1]?.includes("|") && ormType === "set") {
                         // The next path segment is an IRI, that means the new element must be a set of objects. Create a set.
                         parentVal[seg] = new Set();
                     } else {
@@ -234,18 +229,15 @@ export function applyPatches(
 
         if (parentMissing) {
             console.warn(
-                `[applyDiff] Skipping patch due to missing parent path segment(s): ${patch.path}`
+                `[applyPatches] Skipping patch due to missing parent path segment(s): ${patch.path}`
             );
             continue;
         }
 
-        // parentVal now should be an object or Set into which we apply lastKey
-        if (
-            parentVal == null ||
-            (typeof parentVal !== "object" && !(parentVal instanceof Set))
-        ) {
+        // parentVal now should be an object, array, or set into which we apply lastKey
+        if (parentVal == null || typeof parentVal !== "object") {
             console.warn(
-                `[applyDiff] Skipping patch because parent is not an object or Set: ${patch.path}`
+                `[applyPatches] Skipping patch because parent is not an object or Set: ${patch.path}`
             );
             continue;
         }
@@ -257,7 +249,11 @@ export function applyPatches(
             const targetObj = findInSetBySegment(parentVal, key);
 
             // Handle object creation in a Set
-            if (patch.op === "add" && patch.valType === "object") {
+            if (
+                patch.op === "add" &&
+                typeof patch.value === "object" &&
+                patch.value !== null
+            ) {
                 if (!targetObj) {
                     // Determine if this will be a single object or nested Set
                     const hasId = patches[patchIndex + 2]?.path.endsWith("@id");
@@ -274,6 +270,9 @@ export function applyPatches(
                         }
                     }
                     parentVal.add(newLeaf);
+
+                    // Skip the next two add (@id + @graph) patches.
+                    patchIndex += 2;
                 }
                 continue;
             }
@@ -289,19 +288,18 @@ export function applyPatches(
             // All other operations require the target object to exist
             if (!targetObj) {
                 console.warn(
-                    `[applyDiff] Target object with @id=${key} not found in Set for path: ${patch.path}`
+                    `[applyPatches] Target object with @id=${key} not found in Set for path: ${patch.path}`
                 );
                 continue;
             }
 
             // This shouldn't happen - we handle all intermediate segments in the traversal loop
             console.warn(
-                `[applyDiff] Unexpected: reached end of path with Set as parent: ${patch.path}`
+                `[applyPatches] Unexpected: reached end of path with Set as parent: ${patch.path}`
             );
             continue;
         }
 
-        // Regular object handling (parentVal is a plain object, not a Set)
         // Handle primitive set additions
         if (patch.op === "add" && patch.valType === "set") {
             const existing = parentVal[key];
@@ -347,7 +345,12 @@ export function applyPatches(
         // Distinguish between single objects and multi-object containers:
         // - If an @id patch follows for this path, it's a single object -> create {}
         // - If no @id patch follows, it's a container for multi-valued objects -> create set.
-        if (patch.op === "add" && patch.valType === "object") {
+        if (
+            patch.op === "add" &&
+            typeof patch.value === "object" &&
+            patch.value !== null &&
+            ormType === "set" // TODO: The backend should preferably add valType: "set" here (we don't need ormType then).
+        ) {
             const leafVal = parentVal[key];
             const hasId = patches.at(patchIndex + 2)?.path.endsWith("@id");
 
@@ -366,16 +369,36 @@ export function applyPatches(
                     newLeaf["@id"] = idPatch.value;
                 }
                 parentVal[key] = newLeaf;
+
+                // Skip the next two add (@id + @graph) patches.
+                patchIndex += 2;
             }
 
             continue;
         }
 
-        // Literal add
-        if (
-            patch.op === "add" &&
-            !(patch.path.endsWith("@id") || patch.path.endsWith("@graph"))
-        ) {
+        if (Array.isArray(parentVal)) {
+            if (key === "-") {
+                if (patch.op == "add") {
+                    parentVal.push(patch.value);
+                } else {
+                    parentVal.pop();
+                }
+            } else if (patch.op == "add") {
+                let keyNum = Number(key);
+                parentVal.splice(keyNum, 0, patch.value);
+            } else {
+                // patch.op == remove
+                let keyNum = Number(key);
+                // Remove element at position from array in-place (will resize).
+                parentVal.splice(keyNum, 1);
+            }
+
+            continue;
+        }
+
+        // Basic add
+        if (patch.op === "add") {
             parentVal[key] = (patch as LiteralAddPatch).value;
             continue;
         }
@@ -391,11 +414,20 @@ export function applyPatches(
 }
 
 /**
- * See documentation for applyDiff
+ * See documentation for applyPatches
  */
-export function applyPatchesToDeepSignal(currentState: object, patch: Patch[]) {
+export function applyPatchesToDeepSignal(
+    currentState: object,
+    patch: Patch[],
+    ormType: "set" | "discrete"
+) {
     batch(() => {
-        applyPatches(currentState as Record<string, any>, patch, true);
+        applyPatches(
+            currentState as Record<string, any>,
+            patch,
+            ormType,
+            false
+        );
     });
 }
 

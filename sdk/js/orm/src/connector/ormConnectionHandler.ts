@@ -19,12 +19,12 @@ import {
     batch,
 } from "@ng-org/alien-deepsignals";
 import type {
-    DeepPatch,
     DeepSignalPropGenFn,
     DeepSignalSet,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
+import { deepPatchesToWasm } from "./utils.ts";
 
 const WAIT_BEFORE_CLOSE = 500;
 
@@ -105,7 +105,7 @@ export class OrmConnection<T extends BaseType> {
 
         ngSession.then(async ({ ng, session }) => {
             try {
-                this.closeOrmConnection = await ng.orm_start(
+                this.closeOrmConnection = await ng.orm_start_graph(
                     scope.graphs ?? ["did:ng:i"],
                     scope.subjects ?? [],
                     shapeType,
@@ -177,7 +177,7 @@ export class OrmConnection<T extends BaseType> {
         const { ng, session } = await ngSession;
         await this.readyPromise;
 
-        ng.orm_update(
+        ng.graph_orm_update(
             this.subscriptionId!,
             ormPatches,
             session.session_id
@@ -186,10 +186,10 @@ export class OrmConnection<T extends BaseType> {
 
     private onBackendMessage = (message: any) => {
         const data = message?.V0;
-        if (data?.OrmInitial) {
-            this.handleInitialResponse(data.OrmInitial);
-        } else if (data?.OrmUpdate) {
-            this.onBackendUpdate(data.OrmUpdate);
+        if (data?.GraphOrmInitial) {
+            this.handleInitialResponse(data.GraphOrmInitial);
+        } else if (data?.GraphOrmUpdate) {
+            this.onBackendUpdate(data.GraphOrmUpdate);
         } else {
             console.warn("Received unknown ORM message from backend", message);
         }
@@ -221,7 +221,7 @@ export class OrmConnection<T extends BaseType> {
     };
     private onBackendUpdate = (patches: Patch[]) => {
         this.suspendDeepWatcher = true;
-        applyPatchesToDeepSignal(this.signalObject, patches);
+        applyPatchesToDeepSignal(this.signalObject, patches, "set");
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;
@@ -310,7 +310,7 @@ export class OrmConnection<T extends BaseType> {
             // Nothing to send to the backend.
         } else {
             // Send patches to backend.
-            await ng.orm_update(
+            await ng.graph_orm_update(
                 this.subscriptionId!,
                 this.pendingPatches!,
                 session.session_id
@@ -329,20 +329,6 @@ export class OrmConnection<T extends BaseType> {
         );
         this.stopSignalListening = stopListening;
     };
-}
-
-/**
- * Converts DeepSignal patches to ORM Wasm-compatible patches
- * @param patches DeepSignal patches
- * @returns Patches with stringified path
- */
-export function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
-    return patches.flatMap((patch) => {
-        if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
-            return [];
-        const path = "/" + patch.path.join("/");
-        return { ...patch, path };
-    }) as Patch[];
 }
 
 const parseOrmInitialObject = (obj: any): any => {

@@ -143,7 +143,6 @@ describe("watch (patch mode)", () => {
             { op: "add", path: ["a", "b"], value: 2 },
             { op: "add", path: ["arr", "1", "x"], value: 3 },
             { op: "add", path: ["arr", "2"], value: 5 },
-            { op: "add", path: ["arr", "length"], value: 3 },
         ]);
         stop();
     });
@@ -210,8 +209,8 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         const flattened = patches.flat();
         expect(flattened).toEqual([
-            { op: "add", path: ["root", "child"], type: "object" },
-            { op: "add", path: ["root", "child", "level"], type: "object" },
+            { op: "add", path: ["root", "child"], value: {} },
+            { op: "add", path: ["root", "child", "level"], value: {} },
             {
                 op: "add",
                 path: ["root", "child", "level", "value"],
@@ -280,14 +279,24 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         const flattened = patches.flat();
         expect(flattened).toEqual([
-            { op: "add", path: ["data"], type: "object" },
-            { op: "add", path: ["data", "users"], type: "object" },
-            { op: "add", path: ["data", "users", 0], type: "object" },
-            { op: "add", path: ["data", "users", 0, "id"], value: 1 },
+            { op: "add", path: ["data"], value: {}, type: undefined },
+            { op: "add", path: ["data", "users"], value: [], type: undefined },
+            {
+                op: "add",
+                path: ["data", "users", 0],
+                value: {},
+                type: undefined,
+            },
+            {
+                op: "add",
+                path: ["data", "users", 0, "id"],
+                value: 1,
+            },
             {
                 op: "add",
                 path: ["data", "users", 0, "profile"],
-                type: "object",
+                value: {},
+                type: undefined,
             },
             {
                 op: "add",
@@ -297,19 +306,26 @@ describe("watch (patch mode)", () => {
             {
                 op: "add",
                 path: ["data", "users", 0, "profile", "settings"],
-                type: "object",
+                value: {},
+                type: undefined,
             },
             {
                 op: "add",
                 path: ["data", "users", 0, "profile", "settings", "theme"],
                 value: "dark",
             },
-            { op: "add", path: ["data", "users", 1], type: "object" },
+            {
+                op: "add",
+                path: ["data", "users", 1],
+                value: {},
+                type: undefined,
+            },
             { op: "add", path: ["data", "users", 1, "id"], value: 2 },
             {
                 op: "add",
                 path: ["data", "users", 1, "profile"],
-                type: "object",
+                value: {},
+                type: undefined,
             },
             {
                 op: "add",
@@ -319,14 +335,15 @@ describe("watch (patch mode)", () => {
             {
                 op: "add",
                 path: ["data", "users", 1, "profile", "settings"],
-                type: "object",
+                value: {},
+                type: undefined,
             },
             {
                 op: "add",
                 path: ["data", "users", 1, "profile", "settings", "theme"],
                 value: "light",
             },
-            { op: "add", path: ["data", "meta"], type: "object" },
+            { op: "add", path: ["data", "meta"], value: {}, type: undefined },
             { op: "add", path: ["data", "meta", "count"], value: 2 },
             { op: "add", path: ["data", "meta", "active"], value: true },
         ]);
@@ -353,34 +370,34 @@ describe("watch (patch mode)", () => {
         const flattened = patches.flat();
         expect(flattened).toEqual([
             { op: "add", path: ["container", "items"], type: "set", value: [] },
-            { op: "add", path: ["container", "items", "a"], type: "object" },
+            { op: "add", path: ["container", "items", "a"], value: {} },
             { op: "add", path: ["container", "items", "a", "id"], value: "a" },
             {
                 op: "add",
                 path: ["container", "items", "a", "data"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["container", "items", "a", "data", "nested"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["container", "items", "a", "data", "nested", "value"],
                 value: 1,
             },
-            { op: "add", path: ["container", "items", "b"], type: "object" },
+            { op: "add", path: ["container", "items", "b"], value: {} },
             { op: "add", path: ["container", "items", "b", "id"], value: "b" },
             {
                 op: "add",
                 path: ["container", "items", "b", "data"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
                 path: ["container", "items", "b", "data", "nested"],
-                type: "object",
+                value: {},
             },
             {
                 op: "add",
@@ -876,17 +893,63 @@ describe("watch (patch mode)", () => {
         it("emits patches for splice/unshift/shift in single batch", async () => {
             const st = deepSignal({ arr: [1, 2, 3] });
             const batches: DeepPatch[][] = [];
-            const { stopListening: stop } = watch(st, ({ patches }) =>
-                batches.push(patches)
-            );
+            const { stopListening: stop } = watch(st, ({ patches }) => {
+                batches.push(patches);
+            });
             st.arr.splice(1, 1, 99, 100);
             st.arr.unshift(0);
             st.arr.shift();
+
             await Promise.resolve();
-            const paths = batches.flat().map((p) => p.path.join("."));
-            expect(paths.some((p) => p.startsWith("arr."))).toBe(true);
+            expect(st.arr).toEqual([1, 99, 100, 3]);
+            expect(batches[0]).toEqual([
+                { path: ["arr", "1"], op: "remove" },
+                { path: ["arr", "1"], op: "add", value: 100 },
+                { path: ["arr", "1"], op: "add", value: 99 },
+                { path: ["arr", "0"], op: "add", value: 0 },
+                { path: ["arr", "0"], op: "remove" },
+            ]);
+
             stop();
         });
+        it("emits patches adding new array", async () => {
+            const obj = deepSignal({});
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(obj, ({ patches }) => {
+                batches.push(patches);
+            });
+
+            (obj as any).arr = [1, 2, 3];
+
+            await Promise.resolve();
+            expect(batches[0]).toEqual([
+                { path: ["arr"], op: "add", value: [] },
+                { path: ["arr", 0], op: "add", value: 1 },
+                { path: ["arr", 1], op: "add", value: 2 },
+                { path: ["arr", 2], op: "add", value: 3 },
+            ]);
+
+            stop();
+        });
+        it("emits remove patches when array length shrinks", async () => {
+            const st = deepSignal([1, 0, 3, -1]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) => {
+                batches.push(patches);
+            });
+
+            st.length = 2;
+            await Promise.resolve();
+
+            expect(st).toEqual([1, 0]);
+            expect(batches[0]).toEqual([
+                { path: ["3"], op: "remove" },
+                { path: ["2"], op: "remove" },
+            ]);
+
+            stop();
+        });
+
         it("mixed object/array/Set mutations batch together", async () => {
             const st = deepSignal({ o: { a: 1 }, arr: [1], s: new Set<any>() });
             const batches: DeepPatch[][] = [];
@@ -998,7 +1061,7 @@ describe("watch (patch mode)", () => {
             // 2. Individual "add" patches for each element
             //
             // This was the bug reported: replacing a Set emitted patches like:
-            // [{ path: [..., "setProperty"], op: "add", type: "object" },
+            // [{ path: [..., "setProperty"], op: "add", value: {} },
             //  { path: [..., "setProperty", 4], op: "add", value: 4 },
             //  { path: [..., "setProperty", 5], op: "add", value: 5 }]
             //
@@ -1174,6 +1237,96 @@ describe("watch (patch mode)", () => {
             expect(pathSegments?.[3]).toBe("prop2");
 
             stop();
+        });
+
+        it("Does not mutate calling .sort() and .reverse()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+            signalObject.sort();
+            signalObject.reverse();
+            expect(signalObject).toEqual([1, 3, 2]);
+
+            await Promise.resolve();
+
+            expect(batches).toHaveLength(0);
+            stop();
+        });
+
+        it("Emits patches on .shift()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            signalObject.shift();
+
+            expect(signalObject).toEqual([3, 2]);
+
+            await Promise.resolve();
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "remove",
+                    path: ["0"],
+                },
+            ]);
+        });
+
+        it("Emits patches on .splice()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            signalObject.splice(1, 1, 10);
+
+            await Promise.resolve();
+
+            expect(signalObject).toEqual([1, 10, 2]);
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "remove",
+                    path: ["1"],
+                },
+                {
+                    op: "add",
+                    path: ["1"],
+                    value: 10,
+                },
+            ]);
+        });
+
+        it("Does not mutate calling .unshift()", async () => {
+            const signalObject = deepSignal([1, 3, 2]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            signalObject.unshift(-1, 0);
+
+            expect(signalObject).toEqual([-1, 0, 1, 3, 2]);
+
+            await Promise.resolve();
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "add",
+                    path: ["0"],
+                    value: 0,
+                },
+                {
+                    op: "add",
+                    path: ["0"],
+                    value: -1,
+                },
+            ]);
         });
     });
 

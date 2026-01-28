@@ -35,7 +35,6 @@ pub enum OrmPatchOp {
 #[allow(non_camel_case_types)]
 pub enum OrmPatchType {
     set,
-    object,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

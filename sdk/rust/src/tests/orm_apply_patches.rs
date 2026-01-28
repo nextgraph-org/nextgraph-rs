@@ -11,7 +11,7 @@
 use crate::local_broker::{doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, await_app_response, create_doc_with_data, create_orm_connection,
+    assert_json_eq, await_graph_patches, create_doc_with_data, create_orm_connection,
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
@@ -1214,16 +1214,16 @@ INSERT DATA {
         OrmPatch {
             op: OrmPatchOp::add,
             path: root.clone(),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             // This does nothing as it does not represent a triple.
             // A subject is created when inserting data.
             op: OrmPatchOp::add,
             path: format!("{}/@id", root),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -1425,8 +1425,8 @@ INSERT DATA {
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}", root, child),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -1975,7 +1975,7 @@ INSERT DATA {
     while let Some(app_response) = receiver2.next().await {
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -1989,7 +1989,7 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "remove",
-                "valType": "object",
+                "value": {},
                 "path": root,
             },
         ]);
@@ -2103,7 +2103,7 @@ INSERT DATA {
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/address/{}", root, child_seg),
-        valType: Some(OrmPatchType::object),
+        valType: None,
         value: None,
     }];
     orm_update(subscription_id, diff, session_id).await.unwrap();
@@ -2234,8 +2234,8 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}", root, encoded_child_key),
-            valType: Some(OrmPatchType::object),
-            value: None,
+            valType: None,
+            value: Some(json!({})),
         },
         OrmPatch {
             op: OrmPatchOp::add,
@@ -2846,8 +2846,8 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
     let patch = OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/address/{}", root, child_seg),
-        valType: Some(OrmPatchType::object),
-        value: None,
+        valType: None,
+        value: Some(json!({})),
     };
     orm_update(subscription_id, vec![patch.clone(), patch], session_id)
         .await
@@ -2960,7 +2960,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/address/{}", root, child_seg),
-        valType: Some(OrmPatchType::object),
+        valType: None,
         value: None,
     }];
     orm_update(subscription_id, diff, session_id).await.unwrap();
@@ -3066,7 +3066,7 @@ INSERT DATA {
     // an `add` patch that restores the original value.
     let revert_received = timeout(Duration::from_secs(1), async {
         while let Some(response) = receiver.next().await {
-            if let AppResponse::V0(AppResponseV0::OrmUpdate(patches)) = response {
+            if let AppResponse::V0(AppResponseV0::GraphOrmUpdate(patches)) = response {
                 // Should receive a revert patch that restores the original value
                 for patch in &patches {
                     if patch.op == OrmPatchOp::add
@@ -3173,7 +3173,7 @@ INSERT DATA {
     // Wait for revert patch for the invalid value only
     let revert_received = timeout(Duration::from_secs(1), async {
         while let Some(response) = receiver.next().await {
-            if let AppResponse::V0(AppResponseV0::OrmUpdate(patches)) = response {
+            if let AppResponse::V0(AppResponseV0::GraphOrmUpdate(patches)) = response {
                 log_debug!("got patch: {:?}", patches);
                 for patch in &patches {
                     if patch.op == OrmPatchOp::remove
@@ -3278,11 +3278,11 @@ INSERT DATA {
         value: Some(json!("http://example.org/Human")),
     }];
 
-    graph_orm_update(subscription_id, patches, session_id)
+    orm_update(subscription_id, patches, session_id)
         .await
-        .expect("graph_orm_update failed");
+        .expect("orm_update failed");
 
-    let patches = await_app_response(&mut receiver2).await;
+    let patches = await_graph_patches(&mut receiver2).await;
     // Only an add patch should be generated. The object is not deleted
     assert!(patches.len() == 1, "Expected single patch");
 

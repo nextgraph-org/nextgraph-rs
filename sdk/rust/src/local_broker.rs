@@ -31,7 +31,7 @@ use zeroize::Zeroize;
 
 use ng_repo::block_storage::BlockStorage;
 use ng_repo::block_storage::HashMapBlockStorage;
-use ng_repo::errors::{NgError, ProtocolError};
+use ng_repo::errors::{NgError, ProtocolError, VerifierError};
 use ng_repo::log::*;
 use ng_repo::os_info::get_os_info;
 use ng_repo::types::*;
@@ -2874,13 +2874,13 @@ pub async fn upload_done(
     Ok(reference)
 }
 
-pub async fn orm_start(
+pub async fn orm_start_graph(
     graph_scope: Vec<NuriV0>,
     subject_scope: Vec<String>,
     shape_type: OrmShapeType,
     session_id: u64,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-    let mut request = AppRequest::new_orm_start(graph_scope, subject_scope, shape_type);
+    let mut request = AppRequest::new_orm_start_graph(graph_scope, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream(request).await
 }
@@ -2912,7 +2912,10 @@ pub async fn orm_discrete_update(
 ) -> Result<(), NgError> {
     let mut request = AppRequest::new_orm_discrete_update(subscription_id, diff);
     request.set_session_id(session_id);
-    app_request(request).await?;
+    let res = app_request(request).await?;
+    if let AppResponse::V0(AppResponseV0::Error(err)) = res {
+        return Err(NgError::VerifierError(VerifierError::OtherError(err)));
+    }
     Ok(())
 }
 

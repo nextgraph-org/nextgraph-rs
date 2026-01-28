@@ -1,2 +1,4 @@
 import useShape from "./useShape.svelte.ts";
-export { useShape };
+import { useDiscrete } from "./useDiscrete.svelte.ts";
+
+export { useShape, useDiscrete };

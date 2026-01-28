@@ -21,7 +21,7 @@ const title = "Multi-framework app";
 -->
 <script>
     import { ng, init } from "@ng-org/web";
-    import { initNg } from "@ng-org/orm";
+    import { initNg, ngSession } from "@ng-org/orm";
 
     await init(
         async (event: {
@@ -52,17 +52,24 @@ const title = "Multi-framework app";
         true,
         []
     );
+    
+    ngSession.then(() => {
+        // Show app when initialized.
+        document.getElementById("framework-grid")!.style = "";
+    })
 </script>
 <Layout title={title}>
-    <Highlight vue>
-        <VueRoot client:only />
-    </Highlight>
+    <div id="framework-grid" class="framework-grid" style="display: none;">
+        <Highlight vue>
+            <VueRoot client:only />
+        </Highlight>
 
-    <Highlight react>
-        <ReactRoot client:only="react" />
-    </Highlight>
+        <Highlight react>
+            <ReactRoot client:only="react" />
+        </Highlight>
 
-    <Highlight svelte>
-        <SvelteRoot client:only />
-    </Highlight>
+        <Highlight svelte>
+            <SvelteRoot client:only />
+        </Highlight>
+    </div>
 </Layout>

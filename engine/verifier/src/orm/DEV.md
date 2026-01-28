@@ -147,7 +147,6 @@ Utilities in `utils.rs` handle escaping, IRI detection, and converting JSON to S
     - single-valued properties overwrite by first deleting any existing value
     - object link removals target exactly one triple when you include the child composite key
   - process_sparql_update(...) applies the update in the store, returning revert information if needed.
-  - orm_update_self(...) is called to revert in case of partial failure and to trigger any follow-up updates.
 
 Failure handling and reverts:
 * TODO: On failure, no automatic client-visible revert patches are currently sent. Quad-level revert data exists internally but user-level patch reversion is future work.

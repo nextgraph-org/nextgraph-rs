@@ -1917,7 +1917,7 @@ pub async fn orm_start_discrete(
 }
 
 #[wasm_bindgen]
-pub async fn orm_start(
+pub async fn orm_start_graph(
     graph_scope: Array,
     subject_scope: Array,
     shapeType: JsValue,
@@ -1935,7 +1935,7 @@ pub async fn orm_start(
     let session_id: u64 =
         serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
             format!(
-                "Deserialization error of session_id {:?} orm_start",
+                "Deserialization error of session_id {:?} orm_start_graph",
                 session_id
             )
         })?;
@@ -1956,13 +1956,13 @@ pub async fn orm_start(
         graph_nuris
     };
 
-    let mut request = AppRequest::new_orm_start(graph_nuris, subject_scope, shape_type);
+    let mut request = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }
 
 #[wasm_bindgen]
-pub async fn orm_update(
+pub async fn graph_orm_update(
     subscription_id: JsValue,
     diff: JsValue,
     session_id: JsValue,
@@ -1970,18 +1970,17 @@ pub async fn orm_update(
     let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
         .map_err(|_| {
             format!(
-                "Deserialization error of subscription_id {:?} orm_update",
+                "Deserialization error of subscription_id {:?} graph_orm_update",
                 subscription_id
             )
         })?;
     let session_id: u64 =
         serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
             format!(
-                "Deserialization error of session_id {:?} orm_update",
+                "Deserialization error of session_id {:?} graph_orm_update",
                 session_id
             )
         })?;
-
     let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
 
@@ -1995,7 +1994,7 @@ pub async fn orm_update(
 }
 
 #[wasm_bindgen]
-pub async fn orm_discrete_update(
+pub async fn discrete_orm_update(
     subscription_id: JsValue,
     diff: JsValue,
     session_id: JsValue,
@@ -2003,14 +2002,14 @@ pub async fn orm_discrete_update(
     let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
         .map_err(|_| {
             format!(
-                "Deserialization error of subscription_id {:?} orm_discrete_update",
+                "Deserialization error of subscription_id {:?} discrete_orm_update",
                 subscription_id
             )
         })?;
     let session_id: u64 =
         serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
             format!(
-                "Deserialization error of session_id {:?} orm_discrete_update",
+                "Deserialization error of session_id {:?} discrete_orm_update",
                 session_id
             )
         })?;

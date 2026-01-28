@@ -180,15 +180,15 @@ INSERT DATA {
         let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for cross-graph OrmUpdate"),
+            Err(_) => panic!("Timed out waiting for cross-graph GraphOrmUpdate"),
         };
         let app_response = match opt {
             Some(a) => a,
-            None => panic!("ORM receiver closed before cross-graph OrmUpdate"),
+            None => panic!("ORM receiver closed before cross-graph GraphOrmUpdate"),
         };
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -196,7 +196,7 @@ INSERT DATA {
 
         // We expect at least the object creation and its @id and @graph under members
         let mut expected = json!([
-            { "op": "add", "valType": "object", "path": "/urn:test:project1/members/urn:test:personX" },
+            { "op": "add", "value": {}, "path": "/urn:test:project1/members/urn:test:personX" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/@id", "value": "urn:test:personX" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/name", "value": "Xavier" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/type", "value": "http://example.org/Person" },
@@ -332,15 +332,15 @@ INSERT DATA {
         let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for OrmUpdate in add_array test"),
+            Err(_) => panic!("Timed out waiting for GraphOrmUpdate in add_array test"),
         };
         let app_response = match opt {
             Some(a) => a,
-            None => panic!("ORM receiver closed before OrmUpdate in add_array test"),
+            None => panic!("ORM receiver closed before GraphOrmUpdate in add_array test"),
         };
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -373,7 +373,7 @@ INSERT DATA {
             },
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:numArrayObj4",
             },
             {
@@ -493,15 +493,15 @@ DELETE DATA {
         let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for OrmUpdate in remove_array test"),
+            Err(_) => panic!("Timed out waiting for GraphOrmUpdate in remove_array test"),
         };
         let app_response = match opt {
             Some(a) => a,
-            None => panic!("ORM receiver closed before OrmUpdate in remove_array test"),
+            None => panic!("ORM receiver closed before GraphOrmUpdate in remove_array test"),
         };
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -675,20 +675,20 @@ INSERT DATA {
         let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for OrmInitial in nested_house test"),
+            Err(_) => panic!("Timed out waiting for GraphOrmInitial in nested_house test"),
         };
         match opt {
             Some(app_response) => {
                 let _ = match app_response {
                     AppResponse::V0(v) => match v {
-                        AppResponseV0::OrmInitial(json, sid) => Some(json),
+                        AppResponseV0::GraphOrmInitial(json, sid) => Some(json),
                         _ => None,
                     },
                 }
                 .unwrap();
                 break;
             }
-            None => panic!("ORM receiver closed before OrmInitial in nested_house test"),
+            None => panic!("ORM receiver closed before GraphOrmInitial in nested_house test"),
         }
     }
 
@@ -718,15 +718,15 @@ INSERT DATA {
         let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for OrmUpdate in nested_house test"),
+            Err(_) => panic!("Timed out waiting for GraphOrmUpdate in nested_house test"),
         };
         let app_response = match opt {
             Some(a) => a,
-            None => panic!("ORM receiver closed before OrmUpdate in nested_house test"),
+            None => panic!("ORM receiver closed before GraphOrmUpdate in nested_house test"),
         };
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -749,7 +749,7 @@ INSERT DATA {
             },
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:oj1/multiNest/urn:test:multiNested4",
             },
             {
@@ -1068,7 +1068,7 @@ INSERT DATA {
     while let Some(app_response) = receiver.next().await {
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -1095,7 +1095,7 @@ INSERT DATA {
             // Bob gets a cat
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person2/cat",
             },
             {
@@ -1116,7 +1116,7 @@ INSERT DATA {
             // Bob's cat gets a toy (multi-valued): object container for specific toy subject
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2",
             },
             {
@@ -1137,7 +1137,7 @@ INSERT DATA {
             // New person Charlie with cat
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3",
             },
             {
@@ -1157,7 +1157,7 @@ INSERT DATA {
             },
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3/cat",
             },
             {
@@ -1178,7 +1178,7 @@ INSERT DATA {
             // Charlie's cat gets a toy (multi-valued)
             {
                 "op": "add",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3",
             },
             {
@@ -1262,7 +1262,7 @@ INSERT DATA {
     while let Some(app_response) = receiver.next().await {
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -1282,7 +1282,7 @@ INSERT DATA {
             // Alice loses her cat
             {
                 "op": "remove",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person1/cat",
             },
             // Bob's cat name changes
@@ -1300,7 +1300,7 @@ INSERT DATA {
             // Charlie and his cat are removed
             {
                 "op": "remove",
-                "valType": "object",
+                "value": {},
                 "path": "/urn:test:house1/inhabitants/urn:test:person3",
             },
         ]);
@@ -1479,14 +1479,14 @@ INSERT DATA {
         let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for OrmUpdate"),
+            Err(_) => panic!("Timed out waiting for GraphOrmUpdate"),
         };
         let app_response = match opt {
             Some(a) => a,
-            None => panic!("ORM receiver closed before OrmUpdate"),
+            None => panic!("ORM receiver closed before GraphOrmUpdate"),
         };
         let patches = match app_response {
-            AppResponse::V0(AppResponseV0::OrmUpdate(json)) => json,
+            AppResponse::V0(AppResponseV0::GraphOrmUpdate(json)) => json,
             _ => continue,
         };
 
@@ -1690,15 +1690,15 @@ DELETE DATA {{
         let res = timeout(Duration::from_secs(10), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for cross-graph OrmUpdate"),
+            Err(_) => panic!("Timed out waiting for cross-graph GraphOrmUpdate"),
         };
         let app_response = match opt {
             Some(a) => a,
-            None => panic!("ORM receiver closed before cross-graph OrmUpdate"),
+            None => panic!("ORM receiver closed before cross-graph GraphOrmUpdate"),
         };
         let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmUpdate(json) => Some(json),
+                AppResponseV0::GraphOrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
@@ -1711,7 +1711,7 @@ DELETE DATA {{
 
         // We expect at least the object creation and its @id and @graph under members
         let mut expected = json!([
-            { "op": "add", "valType": "object", "path": "/urn:test:project1/members/urn:test:personX0" },
+            { "op": "add", "value": {}, "path": "/urn:test:project1/members/urn:test:personX0" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/@id", "value": "urn:test:personX0" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/name", "value": "Xavier" },
             { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/type", "value": "http://example.org/Person" },

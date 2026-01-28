@@ -904,13 +904,17 @@ impl Verifier {
         Ok(res)
     }
 
-    pub(crate) async fn process_discrete_transaction(
+    pub(crate) async fn create_discrete_transaction(
         &mut self,
         patch: DiscreteTransaction,
         nuri: &NuriV0,
-        subscription_id: u64,
+        from_orm: Option<Vec<u8>>,
     ) -> Result<(), NgError> {
         let (repo_id, branch_id, store_repo) = self.resolve_target(&nuri.target)?;
+
+        if patch.as_slice().is_empty() {
+            return Err(NgError::InvalidArgument);
+        }
 
         let transac = TransactionBody {
             body_type: TransactionBodyType::Discrete,
@@ -936,13 +940,13 @@ impl Verifier {
         let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
 
         let crdt: &BranchCrdt = &repo.branch(&branch_id)?.crdt.clone();
-        self.update_discrete(
+        self.process_discrete(
             patch,
             &crdt,
             &branch_id,
             commit.id().unwrap(),
             commit_info,
-            subscription_id,
+            from_orm,
         )
         .await?;
 
@@ -981,7 +985,7 @@ impl Verifier {
                         .orm_frontend_discrete_update(subscription_id, patches)
                         .await
                     {
-                        Err(e) => Ok(AppResponse::error(e)),
+                        Err(e) => Ok(AppResponse::error(e.to_string())),
                         Ok(()) => Ok(AppResponse::ok()),
                     }
                 }
@@ -1329,7 +1333,8 @@ impl Verifier {
                         //TODO: verify that update.heads are the same as what the Verifier knows
                         if let Some(discrete) = update.discrete {
                             let patch: DiscreteTransaction = discrete.into();
-                            return match self.process_discrete_transaction(patch, &nuri, 0).await {
+                            return match self.create_discrete_transaction(patch, &nuri, None).await
+                            {
                                 Err(e) => Ok(AppResponse::error(e.to_string())),
                                 Ok(_) => Ok(AppResponse::ok()),
                             };

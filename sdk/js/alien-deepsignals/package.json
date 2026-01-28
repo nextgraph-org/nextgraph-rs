@@ -1,6 +1,6 @@
 {
   "name": "@ng-org/alien-deepsignals",
-  "version": "0.1.2-alpha.3",
+  "version": "0.1.2-alpha.5",
   "private": false,
   "authors": [
     "Laurin Weger",
@@ -14,7 +14,6 @@
   "publishConfig": {
     "access": "public",
     "main": "dist/index.js",
-    "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
     "exports": {
       ".": {

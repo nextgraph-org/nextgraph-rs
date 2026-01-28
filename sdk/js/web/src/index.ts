@@ -16,8 +16,7 @@ let initialized = false;
 const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
 const config = import.meta.env.NG_DEV3
     ? {
-          redirect:
-              "http://127.0.0.1:3033/redir/#/?o=",
+          redirect: "http://127.0.0.1:3033/redir/#/?o=",
           origin: "http://127.0.0.1:3033",
       }
     : import.meta.env.NG_DEV
@@ -80,7 +79,7 @@ export const init = async function (
 
 const streamed_api: Record<string, number> = {
     doc_subscribe: 2,
-    orm_start: 4,
+    orm_start_graph: 4,
     orm_start_discrete: 2,
     file_get: 3,
     app_request_stream: 1,

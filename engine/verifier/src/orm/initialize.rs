@@ -141,7 +141,7 @@ impl Verifier {
         }
 
         let _ = tx
-            .send(AppResponse::V0(AppResponseV0::OrmInitial(
+            .send(AppResponse::V0(AppResponseV0::GraphOrmInitial(
                 orm_objects,
                 orm_subscription.subscription_id,
             )))
@@ -153,8 +153,8 @@ impl Verifier {
         // sync and subscribe to all the graphs found by ORM.
         // This can have the side effect of sending more AppResponses to the stream
         // (in case some new updates have been received while we were building the initial values).
-        // For this reason, it happens AFTER the OrmInitial is sent (just above) because
-        // the client cannot apply OrmPatches if it didn't receive the OrmInitial first.
+        // For this reason, it happens AFTER the GraphOrmInitial is sent (just above) because
+        // the client cannot apply OrmPatches if it didn't receive the GraphOrmInitial first.
         for graph in graphs.iter() {
             let nuri = NuriV0::new_from_repo_graph(graph)?;
             self.open_for_target(&nuri.target, true).await?;

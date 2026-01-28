@@ -194,6 +194,12 @@ pub struct NuriV0 {
     pub locator: Option<Locator>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+enum DiscreteResourceId {
+    YjsV1(u64, u32),
+    AutomergeV1(Vec<u8>, u64),
+}
+
 impl NuriV0 {
     pub fn new_empty() -> Self {
         NuriV0 {
@@ -280,6 +286,30 @@ impl NuriV0 {
 
     pub fn repo(&self) -> String {
         Self::repo_id(self.target.repo_id())
+    }
+
+    pub fn discrete_resource_yjs(&self, client_id: u64, clock: u32) -> String {
+        Self::discrete_resource_id_yjs(self.target.repo_id(), client_id, clock)
+    }
+
+    pub fn discrete_resource_id_yjs(repo_id: &RepoId, client_id: u64, clock: u32) -> String {
+        let id = DiscreteResourceId::YjsV1(client_id, clock);
+        let buf = serde_bare::to_vec(&id).unwrap();
+        format!("{DID_PREFIX}:o:{}:d:{}", repo_id, base64_url::encode(&buf))
+    }
+
+    pub fn discrete_resource_automerge(&self, actor_id: &[u8], counter: usize) -> String {
+        Self::discrete_resource_id_automerge(self.target.repo_id(), actor_id, counter)
+    }
+
+    pub fn discrete_resource_id_automerge(
+        repo_id: &RepoId,
+        actor_id: &[u8],
+        counter: usize,
+    ) -> String {
+        let id = DiscreteResourceId::AutomergeV1(actor_id.to_vec(), counter as u64);
+        let buf = serde_bare::to_vec(&id).unwrap();
+        format!("{DID_PREFIX}:o:{}:d:{}", repo_id, base64_url::encode(&buf))
     }
 
     pub fn repo_id(repo_id: &RepoId) -> String {
@@ -825,7 +855,7 @@ impl AppRequest {
         })
     }
 
-    pub fn new_orm_start(
+    pub fn new_orm_start_graph(
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,
@@ -1347,8 +1377,10 @@ pub enum AppResponseV0 {
     Nuri(String),
     Header(AppHeader),
     Commits(Vec<String>),
-    OrmInitial(Value, u64), // Initial JSON object and subscription id for communication
-    OrmUpdate(OrmPatches),
+    GraphOrmInitial(Value, u64), // Initial JSON object and subscription id for communication
+    GraphOrmUpdate(OrmPatches),
+    DiscreteOrmInitial(Value, u64), // Initial JSON object and subscription id for communication
+    DiscreteOrmUpdate(OrmPatches),
     OrmError(String),
 }
 
@@ -1369,5 +1401,17 @@ impl AppResponse {
     }
     pub fn text(text: String) -> Self {
         AppResponse::V0(AppResponseV0::Text(text))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::NuriV0;
+    use ng_repo::utils::generate_keypair;
+
+    #[test]
+    fn test_discrete_id() {
+        let (_, pubkey) = generate_keypair();
+        println!("{}", NuriV0::discrete_resource_id_yjs(&pubkey, 10, 100));
     }
 }

@@ -1,2 +1,3 @@
 import useShape from "./useShape.ts";
-export { useShape };
+import { useDiscrete } from "./useDiscrete.ts";
+export { useShape, useDiscrete };
