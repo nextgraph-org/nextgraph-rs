@@ -12,9 +12,9 @@ import type { Schema, ShapeDecl, Shape, EachOf, TripleConstraint } from "shexj";
 
 // Split IRI by colon, slash and hash; drop empties
 const splitIriTokens = (iri: string): string[] =>
-    iri.split(/[:/#]+/).filter(Boolean);
+    iri.split(/[:/#.]+/).filter(Boolean);
 // Keep dots and dashes (so 0.1 stays as 0.1) but sanitize everything else
-const sanitize = (s: string) => s.replace(/[^\w.\-]/g, "_");
+const sanitize = (s: string) => s.replace(/[^\w.\-@]/g, "_");
 
 type TCwReadable = TripleConstraint & { readablePredicate?: string };
 
@@ -34,89 +34,144 @@ export default function annotateReadablePredicates(schema: Schema): void {
         )
             return;
 
-        const tcs = (eachOf.expressions as unknown[]).filter(
+        const tripleConstraints = (eachOf.expressions as unknown[]).filter(
             (e): e is TCwReadable =>
                 typeof e === "object" &&
                 e !== null &&
                 (e as any).type === "TripleConstraint"
         );
 
-        if (tcs.length > 0) {
-            // Group by local token (last segment of IRI) and set a base readablePredicate for all
-            const readableNameToPredicatesMap = new Map<
-                string,
-                TCwReadable[]
-            >();
-            for (const tripleConstraint of tcs) {
-                // Use the name based on the IRI ending.
-                let readableName: string;
-                // Special case rdfs:type => @type
-                if (
-                    tripleConstraint.predicate ===
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-                ) {
-                    readableName = "@type";
-                } else {
-                    const tokens = splitIriTokens(tripleConstraint.predicate);
-                    readableName = tokens.length
-                        ? tokens[tokens.length - 1]
-                        : tripleConstraint.predicate;
-                }
-                // default base name for non-colliders
-                tripleConstraint.readablePredicate = readableName;
-                const groupMembers =
-                    readableNameToPredicatesMap.get(readableName) ?? [];
-                groupMembers.push(tripleConstraint);
-                readableNameToPredicatesMap.set(readableName, groupMembers);
+        if (tripleConstraints.length > 0) {
+            // Workflow:
+            // Split IRIs into its parts
+            // Use last part of IRI as predicate name
+            // In case of collisions: Consider the n-th last part too (foaf_name, vcard_name), etc.
+            // Build a tree structure to keep track of collisions
+
+            interface TripleConstraintNameNode {
+                leaf: { tc: TCwReadable; iriElements: string[] } | false;
+                children: Record<string, TripleConstraintNameNode | undefined>;
             }
-            // Resolve each group (rename all in collisions)
-            for (const [, groupMembers] of readableNameToPredicatesMap) {
-                if (groupMembers.length <= 1) continue;
-                const used = new Set<string>();
-                const local =
-                    splitIriTokens(groupMembers[0].predicate).slice(-1)[0] ??
-                    "";
-                for (const tc of groupMembers) {
-                    const tokens = splitIriTokens(tc.predicate);
-                    let localIdx = tokens.lastIndexOf(local);
-                    if (localIdx === -1)
-                        localIdx = Math.max(tokens.length - 1, 0);
-                    let prefixIdx = localIdx - 1;
-                    let assigned = false;
-                    while (prefixIdx >= 0) {
-                        const cand = `${sanitize(tokens[prefixIdx])}_${sanitize(
-                            tokens[localIdx]
-                        )}`;
-                        if (!used.has(cand)) {
-                            tc.readablePredicate = cand;
-                            used.add(cand);
-                            assigned = true;
-                            break;
-                        }
-                        prefixIdx -= 1;
+
+            // Add a triple constraint (tc) to parent tree node.
+            // The tree branches on name collisions.
+            const addToPreds = (
+                depth: number,
+                parent: TripleConstraintNameNode,
+                iriElements: string[],
+                tc: TCwReadable
+            ) => {
+                // Get the name of the next IRI part (e.g. the foaf from foaf_name).
+                // It can be that we are out of bounds. In that case we use "".
+                // That way the final name remains the same, unless we still collisions.
+                // In that case, we enumerate.
+                const key = iriElements[depth] ?? "";
+
+                // Case no collision: Add triple constraint as leaf.
+                if (!parent.children[key]) {
+                    parent.children[key] = {
+                        leaf: { tc, iriElements },
+                        children: {},
+                    };
+                } else if (key === "") {
+                    // Case out of bounds but not the only one
+                    // Add a counter prefix
+                    const node = parent.children[key];
+
+                    if (node.leaf) {
+                        // If this child has a leaf, that means it didn't have children before.
+                        // Add a __counter prefix__ now.
+                        node.children = {
+                            ["0"]: {
+                                leaf: node.leaf,
+                                children: {},
+                            },
+                        };
+                        // Remove moved leaf from old node.
+                        node.leaf = false;
                     }
-                    if (!assigned) {
-                        const iriNoProto = tc.predicate.replace(
-                            /^[a-z]+:\/\//i,
-                            ""
-                        );
-                        const composite = sanitize(
-                            iriNoProto
-                                .split(/[:/#]+/)
-                                .slice(0, -1)
-                                .join("_") || "iri"
-                        );
-                        let cand = `${composite}_${sanitize(tokens[localIdx] || local)}`;
-                        let n = 1;
-                        while (used.has(cand)) cand = `${cand}_${n++}`;
-                        tc.readablePredicate = cand;
-                        used.add(cand);
+
+                    // Add counter to iriElements -> will be picked up by recursion call.
+                    iriElements[depth + 1] = Object.keys(
+                        node.children
+                    ).length.toString();
+
+                    addToPreds(depth + 1, node, iriElements, tc);
+                } else {
+                    // Case collision: create a new child
+
+                    const node = parent.children[key];
+
+                    if (node.leaf) {
+                        // If this child has a leaf, that means it didn't have children before.
+                        // Move the leaf to the new children.
+                        const childKey = node.leaf.iriElements[depth + 1] ?? "";
+                        node.children = {
+                            [childKey]: {
+                                leaf: node.leaf,
+                                children: {},
+                            },
+                        };
+                        // Remove moved leaf from old node.
+                        node.leaf = false;
                     }
+
+                    addToPreds(depth + 1, node, iriElements, tc);
+                }
+            };
+
+            // Root structure to keep names for triple constraints.
+            // Keys are the readable names of the predicates
+            const rootPredTree: TripleConstraintNameNode = {
+                leaf: false,
+                children: {},
+            };
+
+            // Add all triple constraints to root tree.
+            for (const tripleConstraint of tripleConstraints) {
+                const iri = tripleConstraint.predicate;
+
+                if (iri === "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") {
+                    // Special case: convert type predicate to @type
+                    addToPreds(0, rootPredTree, ["@type"], tripleConstraint);
+                } else {
+                    addToPreds(
+                        0,
+                        rootPredTree,
+                        // Divide IRI in sanitized parts, start from end (property name)
+                        splitIriTokens(iri).map(sanitize).reverse(),
+                        tripleConstraint
+                    );
                 }
             }
 
+            // Traverse tree and annotate
+            const annotatePreds = (
+                parentTree: TripleConstraintNameNode,
+                accumulatedName: string
+            ) => {
+                // If we reached the leaf, annotate with name
+                if (parentTree?.leaf) {
+                    parentTree.leaf.tc.readablePredicate = accumulatedName;
+                    return;
+                }
+
+                // Recurse for all children.
+                for (const key of Object.keys(parentTree.children ?? {})) {
+                    const name =
+                        accumulatedName === ""
+                            ? key // Just use name
+                            : `${key}_${accumulatedName}`; // Make composite.
+
+                    // Annotate children
+                    annotatePreds(parentTree.children[key]!, name);
+                }
+            };
+
+            annotatePreds(rootPredTree, "");
+
             // Recurse into nested valueExpr shapes of each TC
-            for (const tc of tcs) {
+            for (const tc of tripleConstraints) {
                 const ve: any = (tc as any).valueExpr;
                 if (ve && typeof ve === "object") {
                     const t = (ve as any).type;

@@ -28,29 +28,21 @@
     "@types/ejs": "^3.1.1",
     "@types/fs-extra": "^9.0.13",
     "@types/jsonld": "^1.5.15",
-    "@types/prompts": "^2.4.9",
     "@types/shexj": "^2.1.4",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@jeswr/shacl2shex": "^1.1.0",
     "@ldo/traverser-shexj": "1.0.0-alpha.28",
     "@ldo/type-traverser": "1.0.0-alpha.28",
     "@shexjs/parser": "^1.0.0-alpha.24",
-    "child-process-promise": "^2.2.1",
     "commander": "^14.0.1",
     "dts-dom": "~3.6.0",
     "ejs": "^3.1.8",
     "fs-extra": "^10.1.0",
     "jsonld2graphobject": "^0.0.5",
     "loading-cli": "^1.1.0",
-    "prettier": "^3.0.3",
-    "prompts": "^2.4.2",
-    "rdf-dereference-store": "^1.4.0",
-    "rdf-namespaces": "^1.13.1",
-    "ts-morph": "^24.0.0",
-    "type-fest": "^2.19.0"
+    "prettier": "^3.0.3"
   },
   "files": [
     "dist"
