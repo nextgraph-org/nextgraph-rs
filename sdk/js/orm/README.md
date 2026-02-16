@@ -1,8 +1,8 @@
-# @ng-org/orm
+# NextGraph ORM SDK
 
 Reactive ORM library for NextGraph: use reactive (typed) objects that automatically sync to NextGraph's encrypted, local-first storage.
 
-For a walk-through you can see the the expense-tracker example apps for [discrete JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) or [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph) which shows
+For a walk-through you can see the the expense-tracker example apps for [discrete JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) or [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
 
 ## Why?
 
@@ -18,7 +18,7 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 ## Table of Contents
 
-- [@ng-org/orm](#ng-orgorm)
+- [NextGraph ORM SDK](#nextgraph-orm-sdk)
   - [Why?](#why)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)

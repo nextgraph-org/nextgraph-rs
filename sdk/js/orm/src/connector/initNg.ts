@@ -19,12 +19,47 @@ type Session = {
 
 let resolveNgSession: (value: { ng: typeof NG; session: Session }) => void;
 
+/** Resolves to the NG session and the ng implementation. */
 export const ngSession = new Promise<{ ng: typeof NG; session: Session }>(
     (resolve) => {
         resolveNgSession = resolve;
     }
 );
 
+/**
+ * Initialize the ORM by passing the ng implementation and session.
+ *
+ * @param ngImpl
+ * @param session
+ *
+ * @example
+ * ```typescript
+ * import { ng, init } from "@ng-org/web";
+ * import { initNg as initNgSignals } from "@ng-org/orm";
+ * let session: {
+ *     ng: typeof NG;
+ *     session_id: string;
+ *     protected_store_id: string;
+ *     private_store_id: string;
+ *     public_store_id: string;
+ *     [key: string]: unknown;
+ * };
+ *
+ * // Call as early as possible as it will redirect to the auth page.
+ * await init(
+ *     async (event: any) => {
+ *         session = event.session;
+ *         session!.ng ??= ng;
+ *
+ *         // Call initNgSignals
+ *         initNgSignals(ng, session);
+ *     },
+ *     true,
+ *     []
+ * );
+ * ```
+ *
+ */
 export function initNgSignals(ngImpl: typeof NG, session: Session) {
     resolveNgSession({ ng: ngImpl, session });
 }

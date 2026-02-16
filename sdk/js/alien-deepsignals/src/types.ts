@@ -22,9 +22,20 @@ export interface DeepPatchJITBatch {
 export type DeepPatchSubscriber = (batch: DeepPatchBatch) => void;
 export type DeepPatchJITSubscriber = (batch: DeepPatchJITBatch) => void;
 
+/** Options to pass to {@link deepSignal} */
 export interface DeepSignalOptions {
+    /** An optional function that is called when new objects are attached and that may return additional properties to be attached. */
     propGenerator?: DeepSignalPropGenFn;
+    /**
+     * The property name which should be as an object identifier in sets.
+     * You will see it when patches are generated with a path to an object in a set.
+     * The `syntheticId` will be a patch element then.
+     *
+     */
     syntheticIdPropertyName?: string;
+    /**
+     * Properties that may not be altered.
+     */
     readOnlyProps?: string[];
 }
 

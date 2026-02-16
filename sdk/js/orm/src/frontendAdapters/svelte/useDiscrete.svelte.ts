@@ -41,14 +41,14 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *     //     "store",
  *     //     undefined,
  *     // );
- * 
+ *
  *     const data = useDiscrete(documentIdPromise);
- * 
+ *
  *     // If the CRDT document is still empty, we need to initialize it.
  *     if (data && !data.expenses) {
  *         data.expenses = [];
  *     }
- * 
+ *
  *     const createExpense = () => {
  *         // Note that we use *expense["@id"]* as a key in the expense list.
  *         // Every object added to a CRDT array gets a stable `@id` property assigned
@@ -62,14 +62,14 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *             date: new Date().toISOString(),
  *         });
  *      };
- * 
- * 
+ *
+ *
  * </script>
- * 
+ *
  * <section>
  *     <div>
  *         <button on:click={() => createExpense({})}/>
- *         
+ *
  *         {#if !data}
  *             Loading...
  *         {:else if data.expenses.length === 0}
@@ -86,7 +86,7 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *     </div>
  * </section>
  * ```
- * 
+ *
  * ---
  * In the ExpenseCard component:
  * ```svelte
@@ -94,15 +94,14 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *         expense = $bindable(),
  *     }: { expense: Expense; } = $props();
  * </script>
- * 
+ *
  * <div>
  *     <input
  *         value={expense.title ?? ""}
  *         oninput={(event) => {expense.title = event.currentTarget?.value ?? ""}}
  *     />
  * </div>
-```
-
+ * ```
  */
 export function useDiscrete(
     documentIdOrPromise: string | Promise<string>

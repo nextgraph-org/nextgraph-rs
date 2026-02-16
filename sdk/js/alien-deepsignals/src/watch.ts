@@ -39,9 +39,11 @@ export interface WatchOptions {
 }
 
 export interface WatchPatchEvent<T extends object> {
+    /** The changes made */
     patches: DeepPatch[];
     /** The version if `triggerInstantly` is not true. */
     version?: number;
+    /** The current value of the signal */
     newValue: DeepSignal<T>;
 }
 
@@ -49,6 +51,15 @@ export type WatchPatchCallback<T extends object> = (
     event: WatchPatchEvent<T>
 ) => void;
 
+/**
+ * Watch for changes to a deepSignal.
+ *
+ * Whenever a change is made, `callback` with the patches describing the change and the current value.
+ * If you set `triggerInstantly`, the callback is called on every property change.
+ * If not, all changes are aggregated and `callback` is called in a microtask when
+ * the current task finishes, e.g. `await` is called (meaning it supports batching).
+ *
+ */
 export function watch<T extends object>(
     source: DeepSignalSet<T> | DeepSignalObject<T> | DeepSignal<T>,
     callback: WatchPatchCallback<T>,
