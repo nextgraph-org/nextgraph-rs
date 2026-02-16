@@ -707,9 +707,6 @@ importers:
       '@ng-org/lib-wasm':
         specifier: workspace:*
         version: link:../../lib-wasm/pkg
-      '@ng-org/shex-orm':
-        specifier: workspace:*
-        version: link:../../shex-orm
       '@playwright/test':
         specifier: ^1.55.0
         version: 1.55.0
@@ -1102,9 +1099,6 @@ importers:
 
   sdk/js/shex-orm:
     dependencies:
-      '@jeswr/shacl2shex':
-        specifier: ^1.1.0
-        version: 1.5.0
       '@ldo/traverser-shexj':
         specifier: 1.0.0-alpha.28
         version: 1.0.0-alpha.28
@@ -1114,9 +1108,6 @@ importers:
       '@shexjs/parser':
         specifier: ^1.0.0-alpha.24
         version: 1.0.0-alpha.28
-      child-process-promise:
-        specifier: ^2.2.1
-        version: 2.2.1
       commander:
         specifier: ^14.0.1
         version: 14.0.1
@@ -1138,21 +1129,6 @@ importers:
       prettier:
         specifier: ^3.0.3
         version: 3.6.2
-      prompts:
-        specifier: ^2.4.2
-        version: 2.4.2
-      rdf-dereference-store:
-        specifier: ^1.4.0
-        version: 1.4.0
-      rdf-namespaces:
-        specifier: ^1.13.1
-        version: 1.16.0
-      ts-morph:
-        specifier: ^24.0.0
-        version: 24.0.0
-      type-fest:
-        specifier: ^2.19.0
-        version: 2.19.0
     devDependencies:
       '@types/child-process-promise':
         specifier: ^2.2.2
@@ -1166,9 +1142,6 @@ importers:
       '@types/jsonld':
         specifier: ^1.5.15
         version: 1.5.15
-      '@types/prompts':
-        specifier: ^2.4.9
-        version: 2.4.9
       '@types/shexj':
         specifier: ^2.1.4
         version: 2.1.7
@@ -3998,9 +3971,6 @@ packages:
 
   '@types/node@8.10.66':
     resolution: {integrity: sha512-tktOkFUA4kXx2hhhrB8bIFb5TbwzS4uOhKEmwiD+NoiL0qtP2OQ9mFldbgD4dV1djrlBYP6eBuQZiWjuHUpqFw==}
-
-  '@types/prompts@2.4.9':
-    resolution: {integrity: sha512-qTxFi6Buiu8+50/+3DGIWLHM6QuWsEKugJnnP6iv2Mc4ncxE4A/OJkjuVOA+5X0X1S/nq5VJRa8Lu+nwcvbrKA==}
 
   '@types/pug@2.0.10':
     resolution: {integrity: sha512-Sk/uYFOBAB7mb74XcpizmH0KOR2Pv3D2Hmrh1Dmy5BmK3MpdSa5kqZcg6EKBdklU0bFXX9gCfzvpnyUehrPIuA==}
@@ -11961,11 +11931,6 @@ snapshots:
       undici-types: 7.10.0
 
   '@types/node@8.10.66': {}
-
-  '@types/prompts@2.4.9':
-    dependencies:
-      '@types/node': 24.10.4
-      kleur: 3.0.3
 
   '@types/pug@2.0.10': {}
 
