@@ -531,7 +531,6 @@ describe("deepsignal/core", () => {
 
             effect(() => {
                 x = store.join(" ");
-                console.log("joined", x);
             });
 
             expect(x).to.equal("foo bar");
@@ -674,21 +673,24 @@ describe("deepsignal/core", () => {
     });
 
     describe("refs", () => {
-        it("should change if children changed", async () => {
-            const signalObj = deepSignal({
-                primitive: 1,
-                nestedObject: { primitive: 2 },
-                nestedSetOfPrimitives: new Set([1, 2, "three"]),
-                nestedSetOfObjects: new Set([
-                    { "@id": "obj1", primitive: true },
-                    { "@id": "obj2", primitive: "false" },
-                ]),
-                nestedArrayOfPrimitives: [1, 2, "three"],
-                nestedArrayOfObjects: [
-                    { "@id": "obj1", primitive: true },
-                    { "@id": "obj2", primitive: "false" },
-                ],
-            });
+        it("should change if children changed when replaceProxiesInBranchOnChange", async () => {
+            const signalObj = deepSignal(
+                {
+                    primitive: 1,
+                    nestedObject: { primitive: 2 },
+                    nestedSetOfPrimitives: new Set([1, 2, "three"]),
+                    nestedSetOfObjects: new Set([
+                        { "@id": "obj1", primitive: true },
+                        { "@id": "obj2", primitive: "false" },
+                    ]),
+                    nestedArrayOfPrimitives: [1, 2, "three"],
+                    nestedArrayOfObjects: [
+                        { "@id": "obj1", primitive: true },
+                        { "@id": "obj2", primitive: "false" },
+                    ],
+                },
+                { replaceProxiesInBranchOnChange: true }
+            );
 
             // Capture initial references
             let no = signalObj.nestedObject;

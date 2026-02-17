@@ -30,8 +30,6 @@ import {
 /** The current proxy object for the raw object (others might exist but are not the current / clean ones). */
 const rawToProxy = new WeakMap<object, any>();
 const rawToMeta = new WeakMap<object, ProxyMeta>();
-// TODO: We can move them to the meta objects.
-const propertiesToSignals = new WeakMap<object, Map<PropertyKey, SignalLike>>();
 const iterableSignals = new WeakMap<
     object,
     ReturnType<typeof signal<number>>
@@ -79,17 +77,8 @@ function shouldProxy(value: any): value is object {
 }
 
 /**
- * Get or create the map in `proxySignals` for key `proxy`.
- */
-function ensureSignalMap(rawObj: object): Map<PropertyKey, SignalLike> {
-    if (!propertiesToSignals.has(rawObj))
-        propertiesToSignals.set(rawObj, new Map());
-    return propertiesToSignals.get(rawObj)!;
-}
-
-/**
  * Write a new value into a cached signal, creating it if needed.
- * Does nothing computed signals.
+ * Does nothing on computed signals.
  */
 function setSignalValue(
     signals: Map<PropertyKey, SignalLike>,
@@ -119,14 +108,11 @@ function touchIterable(target: object) {
     sig.set(sig() + 1);
 }
 
-/** True when the target has a getter defined for the provided key. */
-function hasGetter(target: any, key: PropertyKey) {
-    return typeof descriptor(target, key)?.get === "function";
-}
-
 /**
- * Ensure that `signals` has a computed signal for the property with `key` on target.
- * TODO: Why is this necessary?
+ * If the property value is a a signal and the signal is not in the `signals` map yet,
+ * Add it as computed signal to the signals.
+ *
+ * TODO: We might be able to live without that.
  */
 function ensureComputed(
     signals: Map<PropertyKey, SignalLike>,
@@ -134,7 +120,11 @@ function ensureComputed(
     key: PropertyKey,
     receiver: any
 ) {
-    if (!signals.has(key) && hasGetter(target, key)) {
+    if (
+        !signals.has(key) &&
+        typeof descriptor(target, key)?.get === "function" // Value is getter?
+    ) {
+        // TODO?
         signals.set(
             key,
             computed(() => Reflect.get(target, key, receiver))
@@ -156,17 +146,25 @@ function isReactiveSymbol(key: PropertyKey): key is symbol {
 }
 
 /**
- * Replaces the old proxy to a raw object with a new one.
+ * Replaces the old rawToProxy object with a proxy object.
  * Used so that we can indicate modifications along the path of a change by equality checks.
+ * All values remain the same.
+ *
+ * Does nothing if the deep signal's options `replaceProxiesInBranchOnChange` is false.
  */
 function replaceProxy(meta: ProxyMeta) {
-    if (!meta.parent || !meta.key) return;
+    if (
+        !meta.parent ||
+        !meta.key ||
+        !meta.options.replaceProxiesInBranchOnChange
+    )
+        return;
 
     // Create a new proxy for this raw object -- frontend libs like react need this to recognize changes along this path.
     const handlers = meta.raw instanceof Set ? setHandlers : objectHandlers;
     const proxy = new Proxy(meta.raw, handlers);
     rawToProxy.set(meta.raw, proxy);
-    const signal = propertiesToSignals.get(meta.parent.raw)?.get(meta.key);
+    const signal = meta.parent.signals.get(meta.key);
     signal?.(proxy);
 }
 
@@ -374,10 +372,10 @@ function initializeObjectTreeIfNoListeners(
 }
 
 /**
- * Return (or create) a proxy for a nested value.
+ * Return (or create) a proxy for a property value.
  * Ensures the linkage between parent and child in metadata.
  * Does not proxy and returns `value` if @see shouldProxy returns false.
- * Returns value if parent has no metadata record.
+ * Assumes parent has proxy.
  */
 function ensureChildProxy<T>(
     rawChild: T,
@@ -388,8 +386,9 @@ function ensureChildProxy<T>(
     if (!shouldProxy(rawChild)) return rawChild;
 
     const parentRaw = parent[RAW_KEY] || parent;
-    const parentMeta = rawToMeta?.get(parentRaw);
+    const parentMeta = rawToMeta.get(parentRaw)!;
 
+    // Child is already proxied, ensure the linkage from parent to child.
     if (rawToProxy.has(rawChild)) {
         const proxied = rawToProxy.get(rawChild);
         const proxiedMeta = rawToMeta.get(rawChild);
@@ -400,8 +399,6 @@ function ensureChildProxy<T>(
         }
         return proxied;
     }
-
-    if (!parentMeta) return rawChild;
 
     // Create proxy if none exists yet.
     const proxy = createProxy(
@@ -536,9 +533,9 @@ function createProxy<T extends object>(
         isSyntheticId,
         root,
         options,
+        signals: new Map(),
     };
 
-    propertiesToSignals.set(target, new Map());
     rawToMeta.set(target, meta);
     rawToProxy.set(target, proxy);
 
@@ -658,9 +655,12 @@ function emitPatchesForNew(
  * and dependent effects are notified. Recreates/proxies values for indices < length
  * and clears signals for indices >= length.
  */
-function refreshNumericIndexSignals(target: any[], receiver: any) {
-    const sigs = propertiesToSignals.get(target);
-    if (!sigs) return;
+function refreshNumericIndexSignals(
+    meta: ProxyMeta,
+    target: any[],
+    receiver: any
+) {
+    const sigs = meta.signals;
 
     for (const k of Array.from(sigs.keys())) {
         if (typeof k === "string" && /^\d+$/.test(k)) {
@@ -687,7 +687,7 @@ let hasWarnedAboutMissingSupportForReverse = false;
 let hasWarnedAboutMissingSupportForSort = false;
 /** Returns proxy function for array-mutating functions. */
 const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
-    const meta = rawToMeta.get(target);
+    const meta = rawToMeta.get(target)!;
 
     if (key === "reverse") {
         if (!hasWarnedAboutMissingSupportForReverse) {
@@ -718,7 +718,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             receiver.length = target.length;
 
             // Refresh numeric index signals so shifted indices don't return stale values.
-            refreshNumericIndexSignals(target, receiver);
+            refreshNumericIndexSignals(meta, target, receiver);
         };
     } else if (key === "splice") {
         return (start: number, deleteCount: number, ...items: any[]) => {
@@ -753,7 +753,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             }
 
             // Refresh numeric index signals so shifted indices don't return stale values.
-            refreshNumericIndexSignals(target, receiver);
+            refreshNumericIndexSignals(meta, target, receiver);
 
             // Update length of proxy explicitly.
             receiver.length = target.length;
@@ -787,7 +787,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             receiver.length = target.length;
 
             // Refresh numeric index signals so shifted indices don't return stale values.
-            refreshNumericIndexSignals(target, receiver);
+            refreshNumericIndexSignals(meta, target, receiver);
 
             return deletedItems;
         };
@@ -820,8 +820,10 @@ const objectHandlers: ProxyHandler<any> = {
             }
         }
 
+        const meta = rawToMeta.get(target)!;
+
         // Get object map from key to signal.
-        const signals = ensureSignalMap(target);
+        const signals = meta.signals;
 
         // Ensure that target object is signal.
         ensureComputed(signals, target, key, receiver);
@@ -835,7 +837,7 @@ const objectHandlers: ProxyHandler<any> = {
 
             const childProxyOrRaw = ensureChildProxy(rawChild, receiver, key);
 
-            signals.set(key, signal(childProxyOrRaw));
+            setSignalValue(signals, key, childProxyOrRaw);
         }
 
         // Call and return signal
@@ -848,7 +850,7 @@ const objectHandlers: ProxyHandler<any> = {
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.set(target, key, value, receiver);
 
-        const meta = rawToMeta.get(target);
+        const meta = rawToMeta.get(target)!;
         if (meta?.options?.readOnlyProps?.includes(String(key))) {
             throw new Error(`Cannot modify readonly property '${String(key)}'`);
         }
@@ -879,8 +881,7 @@ const objectHandlers: ProxyHandler<any> = {
         const result = Reflect.set(target, key, rawValue, receiver);
 
         if (!hasAccessor) {
-            const signals = ensureSignalMap(target);
-            setSignalValue(signals, key, proxied);
+            setSignalValue(meta.signals, key, proxied);
         }
         if (!hadKey) touchIterable(target);
         if (meta && path && typeof rawValue === "object") {
@@ -932,14 +933,13 @@ const objectHandlers: ProxyHandler<any> = {
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.deleteProperty(target, key);
 
-        const meta = rawToMeta.get(target);
+        const meta = rawToMeta.get(target)!;
 
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
         const result = Reflect.deleteProperty(target, key);
         if (hadKey) {
-            if (propertiesToSignals.has(target)) {
                 // Trigger signal
-                const signals = propertiesToSignals.get(target)!;
+            const signals = meta.signals;
                 const existing = signals.get(key);
                 if (
                     existing &&
@@ -948,7 +948,7 @@ const objectHandlers: ProxyHandler<any> = {
                     (existing as WritableSignal).set(undefined);
                 }
                 signals.delete(key);
-            }
+
             // Notify listeners
             touchIterable(target);
             schedulePatch(meta, () => ({
@@ -1221,8 +1221,8 @@ const setHandlers: ProxyHandler<Set<any>> = {
 };
 
 /** Runtime guard that checks whether a value is a deepSignal proxy. */
-export function isDeepSignal(value: any): boolean {
-    return !!value?.[RAW_KEY];
+export function isDeepSignal(value: unknown): value is DeepSignal<any> {
+    return !!(value as any)?.[RAW_KEY];
 }
 
 /**
@@ -1245,6 +1245,7 @@ export function deepSignal<T extends object>(
     const rootState = {
         options: {
             syntheticIdPropertyName: DEFAULT_SYNTHETIC_ID_PROPERTY_NAME,
+            replaceProxiesInBranchOnChange: false,
             ...options,
         },
         version: 0,

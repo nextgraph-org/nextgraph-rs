@@ -28,7 +28,11 @@ const useSignal = <T extends object>(
 ) => {
     // Create the actual deepSignal object from the raw object (if the object is a deepSignal object already, it returns itself).
     const signal = useMemo(
-        () => deepSignal(object, deepSignalOptions),
+        () =>
+            deepSignal(object, {
+                replaceProxiesInBranchOnChange: true, // Set so that react can detect change in object hierarchy by equality comparison.
+                ...deepSignalOptions,
+            }),
         [object, deepSignalOptions]
     );
 

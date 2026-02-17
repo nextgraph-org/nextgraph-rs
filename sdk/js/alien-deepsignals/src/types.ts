@@ -27,16 +27,23 @@ export interface DeepSignalOptions {
     /** An optional function that is called when new objects are attached and that may return additional properties to be attached. */
     propGenerator?: DeepSignalPropGenFn;
     /**
-     * The property name which should be as an object identifier in sets.
+     * The property name which should be used as an object identifier in sets.
      * You will see it when patches are generated with a path to an object in a set.
      * The `syntheticId` will be a patch element then.
-     *
      */
     syntheticIdPropertyName?: string;
     /**
-     * Properties that may not be altered.
+     * Optional: Properties that are made read-only in objects.
+     * Can only be attached by propGenerator or must already be member
+     * of the new object before attaching it.
      */
     readOnlyProps?: string[];
+    /**
+     * If set to `true`, all proxies in the branch to a modified nested property are replaced.
+     * This has no effect except for equality checks (===). This is necessary for react to notice the change.
+     * @default false
+     */
+    replaceProxiesInBranchOnChange?: boolean;
 }
 
 export type DeepSignalPropGenFn = (props: {
@@ -56,6 +63,7 @@ export interface ProxyMeta {
     root: symbol;
     options: DeepSignalOptions;
     setInfo?: SetMeta;
+    signals: Map<PropertyKey, SignalLike>;
 }
 
 export interface SetMeta {
