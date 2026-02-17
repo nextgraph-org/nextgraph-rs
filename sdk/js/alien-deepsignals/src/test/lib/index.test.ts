@@ -893,6 +893,22 @@ describe("deepsignal/core", () => {
             expect(state[key]).to.equal(true);
             expect(x).to.equal(undefined);
         });
+
+        it("access well-known symbol property returns raw value and not a signal", () => {
+            const tag = Symbol.toStringTag;
+            const ds = deepSignal({ [tag]: "Custom", x: 1 }) as any;
+            const val = ds[tag];
+            expect(val).toBe("Custom");
+        });
+
+        it("access Set Symbol.iterator.toString() key path (skip branch)", () => {
+            const ds = deepSignal({ set: new Set([1]) }) as any;
+            const iterKey = Symbol.iterator.toString(); // 'Symbol(Symbol.iterator)'
+            // Accessing this string property triggers skip branch (no special handling needed)
+            const maybe = ds.set[iterKey];
+            // underlying Set likely has undefined for that string key
+            expect(maybe).toBeUndefined();
+        });
     });
 
     describe("shallow", () => {

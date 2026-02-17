@@ -1,4 +1,14 @@
-import { computed, signal } from "./core";
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// Licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice may not be copied, modified, or distributed except
+// according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+import { alienComputed, alienSignal } from "./core";
 
 /** Deep mutation emitted from a deepSignal root. */
 export type DeepPatch = {
@@ -63,7 +73,6 @@ export interface ProxyMeta {
     root: symbol;
     options: DeepSignalOptions;
     setInfo?: SetMeta;
-    signals: Map<PropertyKey, SignalLike>;
 }
 
 export interface SetMeta {
@@ -79,8 +88,8 @@ export interface RootState {
     pendingPatches: DeepPatch[];
 }
 
-type WritableSignalFunction<T> = typeof signal<T>;
-type ComputedSignalFunction<T> = typeof computed<T>;
+type WritableSignalFunction<T> = typeof alienSignal<T>;
+type ComputedSignalFunction<T> = typeof alienComputed<T>;
 
 export type WritableSignal<T = any> = ReturnType<WritableSignalFunction<T>>;
 export type ComputedSignal<T = any> = ReturnType<ComputedSignalFunction<T>>;
@@ -162,3 +171,8 @@ export type DeepSignalObject<T extends object> = {
 };
 
 export type RevertDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
+
+/** Union allowing a plain value or a writable signal wrapping that value. */
+export type MaybeSignal<T = any> = T | ReturnType<typeof alienSignal>;
+/** Union allowing value, writable signal, computed signal or plain getter function. */
+export type MaybeSignalOrComputed<T = any> = MaybeSignal<T> | (() => T);
