@@ -22,9 +22,20 @@ export interface DeepPatchJITBatch {
 export type DeepPatchSubscriber = (batch: DeepPatchBatch) => void;
 export type DeepPatchJITSubscriber = (batch: DeepPatchJITBatch) => void;
 
+/** Options to pass to {@link deepSignal} */
 export interface DeepSignalOptions {
+    /** An optional function that is called when new objects are attached and that may return additional properties to be attached. */
     propGenerator?: DeepSignalPropGenFn;
+    /**
+     * The property name which should be as an object identifier in sets.
+     * You will see it when patches are generated with a path to an object in a set.
+     * The `syntheticId` will be a patch element then.
+     *
+     */
     syntheticIdPropertyName?: string;
+    /**
+     * Properties that may not be altered.
+     */
     readOnlyProps?: string[];
 }
 
@@ -79,16 +90,17 @@ export type DeepSignalSetProps<T> = {
     first(): undefined | (T extends object ? DeepSignal<T> : T);
 
     /**
-     * Retrieve an entry from the Set by its synthetic ID.
+     * Retrieve an entry from the Set by its synthetic set ID.
      * @param id - The synthetic ID (string or number) assigned to the entry.
      * @returns The proxied entry if found, undefined otherwise.
      */
     getById(id: string | number): DeepSignal<T> | undefined;
+
     /**
-     * Retrieve an entry from the Set by constructing an ID from graphIri and subjectIri.
-     * This is a convenience method that constructs the ID as "graphIri|subjectIri".
-     * @param graphIri - The graph IRI part of the identifier.
-     * @param subjectIri - The subject IRI part of the identifier.
+     * Retrieve an object from the Set by its `@graph` and `@id`.
+     *
+     * @param graphIri - The `@graph` IRI of the object.
+     * @param subjectIri - The `@subject` IRI of the object.
      * @returns The proxied entry if found, undefined otherwise.
      */
     getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;

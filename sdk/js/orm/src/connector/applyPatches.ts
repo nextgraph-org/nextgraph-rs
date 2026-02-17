@@ -349,7 +349,7 @@ export function applyPatches(
             patch.op === "add" &&
             typeof patch.value === "object" &&
             patch.value !== null &&
-            ormType === "set" // TODO: The backend should preferably add valType: "set" here (we don't need ormType then).
+            ormType === "set" // TODO: The engine should preferably add valType: "set" here (we don't need ormType then).
         ) {
             const leafVal = parentVal[key];
             const hasId = patches.at(patchIndex + 2)?.path.endsWith("@id");

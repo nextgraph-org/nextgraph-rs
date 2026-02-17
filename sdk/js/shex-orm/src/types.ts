@@ -9,7 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 /**
- * TODO: Short documentation on schema generation
+ * The ORM shape type generated from a [SHEX](https://shex.io/) schema with
+ * `rdf-orm build --input ./path/to/shex-files --output ./path/to/shape-types`
  */
 export interface ShapeType<T extends BaseType> {
     schema: Schema;
@@ -18,6 +19,9 @@ export interface ShapeType<T extends BaseType> {
 
 export interface BaseType extends Record<string, any> {
     "@id": string;
+    /* TODO: add
+    "@graph": string;
+    */
 }
 
 export type Schema = {

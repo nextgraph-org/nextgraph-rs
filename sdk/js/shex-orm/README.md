@@ -1,6 +1,6 @@
 # Schema Converter SHEX > TypeScript
 
-CLI tool to convert SHEX shapes to schemas and TypeScript definitions ("shape types") that can be used for creating ORM objects.
+CLI tool to convert SHEX shapes to schemas and TypeScript definitions ("shape types") that can be used for creating graph ORM objects.
 
 ## How to Use
 
@@ -16,7 +16,42 @@ Then run
 npx rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm
 ```
 
-The input directory needs to contain shex files with one or more shape definitions each.
+The input directory needs to contain shex files with one or more shape definitions each, for example:
+
+```shex
+PREFIX ex: <http://example.org/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+ex:ExpenseShape {
+  a [ex:Person] ;                            # Required type <http://example.org/Person>
+  ex:name xsd:string ;                       # Required string
+  ex:email xsd:string * ;                    # Zero or more strings (set)
+  ex:height xsd:float ;                      # Required number
+  ex:age xsd:integer ;                       # Required integer
+  ex:friends IRI * ;                         # Set of IRIs
+  ex:isRecurring xsd:boolean ;               # A boolean value
+  ex:address @ex:AddressShape                # A nested object shape.
+  ex:paymentStatus [ex:Paid ex:Pending ex:Overdue] ; # Enum
+}
+
+# In the same or another file...
+ex:AddressShape EXTRA a {
+  a [ ex:Address ] ;
+  ex:name xsd:string ;
+}
+```
+
+**SHEX Cardinality Reference**
+
+| Syntax              | Meaning                     | TypeScript Type           |
+| ------------------- | --------------------------- | ------------------------- |
+| `prop xsd:string`   | Required, exactly one       | `string`                  |
+| `prop xsd:string ?` | Optional, zero or one       | `string \| undefined`     |
+| `prop xsd:string *` | Zero or more                | `Set<string>`             |
+| `prop xsd:string +` | One or more                 | `Set<string>` (non-empty) |
+| `prop IRI`          | Reference to another object | `string` (IRI)            |
+| `@ex:PersonShape`   | nested object               | `Person`                  |
+
 The output directory will contain the typescript files with type definitions and the converted schema.
 
 You will then pass the shape type of a shape definition to the ng sdk:
@@ -43,145 +78,10 @@ For each SHEX file, the tool creates three TypeScript files:
 
 The transformers for converting SHEX to schema and typings files are based on `@ldo/traverser-shexj`.
 
-### ShapeType File
-
-```ts
-export const PersonShapeType: ShapeType<Person> = {
-    schema: personSchema,
-    shape: "http://example.org/PersonShape",
-};
-```
-
-### Schema File
-
-```ts
-import type { Schema } from "@ng-org/shex-orm";
-
-export const personSchema: Schema = {
-    "http://example.org/PersonShape": {
-        iri: "http://example.org/PersonShape",
-        predicates: [
-            {
-                dataTypes: [
-                    {
-                        valType: "literal",
-                        literals: ["http://example.org/Person"],
-                    },
-                ],
-                maxCardinality: -1,
-                minCardinality: 1,
-                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                readablePredicate: "@type",
-                // `extra` here allows additional type values along with `http://example.org/Person`.
-                extra: true,
-            },
-            {
-                dataTypes: [{ valType: "string" }],
-                maxCardinality: 1,
-                minCardinality: 1,
-                iri: "http://example.org/name",
-                readablePredicate: "name",
-            },
-            {
-                dataTypes: [{ valType: "string" }],
-                maxCardinality: -1,
-                minCardinality: 0,
-                iri: "http://example.org/email",
-                readablePredicate: "email",
-            },
-            {
-                dataTypes: [
-                    {
-                        valType: "shape",
-                        shape: "http://example.org/PersonShape||http://example.org/address",
-                    },
-                ],
-                maxCardinality: 1,
-                minCardinality: 0,
-                iri: "http://example.org/address",
-                readablePredicate: "address",
-                // `extra` here enables that if multiple children are present but only one is valid, the shape is still considered valid.
-                extra: true,
-            },
-        ],
-    },
-    "http://example.org/PersonShape||http://example.org/address": {
-        iri: "http://example.org/PersonShape||http://example.org/address",
-        predicates: [
-            {
-                dataTypes: [{ valType: "string" }],
-                maxCardinality: 1,
-                minCardinality: 1,
-                iri: "http://example.org/city",
-                readablePredicate: "city",
-            },
-        ],
-    },
-};
-```
-
-#### Readable Predicate Names
-
-The `readablePredicate` field is automatically generated from the predicate IRI and becomes the property name in the TypeScript interface.
-
-**Generation Rules:**
-
-1. **Special case**: `rdf:type` (`http://www.w3.org/1999/02/22-rdf-syntax-ns#type`) always becomes `@type`
-
-2. **No conflicts**: If the last segment of the IRI is unique within the shape, it's used as-is:
-    - `http://example.org/name` → `name`
-    - `http://schema.org/email` → `email`
-
-3. **Conflict resolution**: When multiple predicates in the same shape share the same last segment (local name), **all** predicates in that collision group are renamed using prefixes:
-    - The algorithm walks backward through IRI segments (right to left)
-    - For each predicate, it tries `{prefix}_{localName}` combinations until finding an unused name
-    - Example: Both `http://foaf.org/name` and `http://schema.org/name` would become `foaf_name` and `schema_name`
-
-4. **Fallback**: If prefix combinations are exhausted, a composite name is generated from all IRI segments (excluding protocol) with incrementing numbers for uniqueness:
-    - Pattern: `{composite}_{localName}` or `{composite}_{localName}_1`, `{composite}_{localName}_2`, etc.
-
-**Character sanitization**: Special characters (except dots and dashes) are replaced with underscores to ensure valid JavaScript identifiers.
-
-**Note**: You can **manually edit** the `readablePredicate` values in the generated schema files if you prefer different property names. The schema acts as the single source of truth for property naming.
-
-### Typings File
-
-```ts
-export type IRI = string;
-
-export interface Person {
-    readonly "@id": IRI;
-    readonly "@graph": IRI;
-    /**
-     * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
-     */
-    "@type": "http://example.org/Person";
-    /**
-     * Original IRI: http://example.org/name
-     */
-    name: string;
-    /**
-     * Original IRI: http://example.org/email
-     */
-    email?: Set<string>;
-    /**
-     * Original IRI: http://example.org/address
-     */
-    address?: {
-        readonly "@id": IRI;
-        readonly "@graph": IRI;
-        /**
-         * Original IRI: http://example.org/city
-         */
-        city: string;
-    };
-}
-```
-
-#### Standard Properties
+#### Default Properties
 
 - **`@type`**: The RDF type IRI (from `rdf:type`) is always converted to the property name `@type` by default
-- **`@id` and `@graph`**: These properties are automatically added to all typed objects as readonly properties
+- **`@id` (subject IRI) and `@graph` (graph IRI)**: These properties are automatically added to all typed objects as readonly properties
 
 ### Cardinality Handling
 

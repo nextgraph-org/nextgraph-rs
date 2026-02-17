@@ -1554,6 +1554,16 @@ pub async fn app_request_with_nuri_command(
     Ok(serde_wasm_bindgen::to_value(&response).unwrap())
 }
 
+///
+/// Create a document
+///
+/// @param session_id The current session id
+/// @param crdt The type of CRDT for this document. Supported: `YMap | YArray | Automerge`
+/// @param class_name Currently you should set to `data:json` if crdt == "Automerge", to "data:map" if crdt == "YMap and to `data:array` ` if crdt == "YArray"
+/// @param destination Storage location (you can set to `store`)
+/// @param store_repo Store repo, private store if undefined
+/// @returns The document id (an ng IRI)
+///
 #[cfg(not(wasmpack_target = "nodejs"))]
 #[wasm_bindgen]
 pub async fn doc_create(
@@ -1586,6 +1596,17 @@ pub async fn doc_create(
     .map(|nuri| serde_wasm_bindgen::to_value(&nuri).unwrap())
 }
 
+///
+/// Create a document
+///
+/// @param session_id The current session id
+/// @param crdt The type of CRDT for this document. Supported: `YMap | YArray | Automerge`
+/// @param class_name Currently you should set to `data:json` if crdt == "Automerge", to "data:map" if crdt == "YMap and to `data:array` ` if crdt == "YArray"
+/// @param destination Storage location (you can set to `store`)
+/// @param store_type Store type
+/// @param store_repo Store repo, private store if undefined
+/// @returns The document id (an ng IRI)
+///
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
 pub async fn doc_create(
@@ -1896,6 +1917,8 @@ pub async fn doc_subscribe(
     app_request_stream_(request, callback).await
 }
 
+/// Not to be used by frontend directly.
+/// Use a useShape hook or DiscreteOrmConnection to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn orm_start_discrete(
     nuri: String,
@@ -1916,6 +1939,8 @@ pub async fn orm_start_discrete(
     app_request_stream_(request, callback).await
 }
 
+/// Not to be used by frontend directly.
+/// Use a useShape hook or OrmConnection to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn orm_start_graph(
     graph_scope: Array,
@@ -1961,6 +1986,8 @@ pub async fn orm_start_graph(
     app_request_stream_(request, callback).await
 }
 
+/// Not to be used by frontend directly.
+/// Use a useShape hook or OrmConnection to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn graph_orm_update(
     subscription_id: JsValue,
@@ -1993,6 +2020,8 @@ pub async fn graph_orm_update(
     Ok(())
 }
 
+/// Not to be used by frontend directly.
+/// Use a useShape hook or DiscreteOrmConnection to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn discrete_orm_update(
     subscription_id: JsValue,

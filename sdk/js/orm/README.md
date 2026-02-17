@@ -1,20 +1,29 @@
-# @ng-org/orm
+# NextGraph ORM SDK
 
-Reactive ORM library for NextGraph — use typed, reactive objects that automatically sync to NextGraph's encrypted, local-first storage.
+Reactive ORM library for NextGraph: use reactive (typed) objects that automatically sync to NextGraph's encrypted, local-first storage.
 
-For a walk-through, you can see the the [expense-tracker example app](https://git.nextgraph.org/NextGraph/expense-tracker) which shows
-- React, Vue, and Svelte frontends sharing data
-- SHEX schema definitions
-- CRUD operations
-- Cross-framework real-time sync
+For a walk-through you can see the the expense-tracker example apps for [discrete JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) or [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
+
+## Why?
+
+Different CRDTs have different APIs. We want to make it as easy as possible to use them in the same way:\
+**You modify a plain old TypeScript object and that updates the CRDT.**\
+Vice versa, the CRDT is modified and that is reflected in your TS object.\
+We offer this for **React, Vue, and Svelte**.
+
+Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
+
+- For graphs, you specify a schema using a SHEX shape and optionally a scope. This provides you with typing support.
+- For discrete CRDTs, all you need is a document id.
 
 ## Table of Contents
 
-- [@ng-org/orm](#ng-orgorm)
+- [NextGraph ORM SDK](#nextgraph-orm-sdk)
+  - [Why?](#why)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
-  - [Quick Start](#quick-start)
-  - [Defining Schemas](#defining-schemas)
+  - [Start](#start)
+  - [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
   - [Framework Usage](#framework-usage)
     - [React](#react)
     - [Vue](#vue)
@@ -25,9 +34,7 @@ For a walk-through, you can see the the [expense-tracker example app](https://gi
     - [Deleting Objects](#deleting-objects)
     - [Working with Sets](#working-with-sets)
     - [Relationships](#relationships)
-  - [API Reference](#api-reference)
-    - [`useShape(shapeType)`](#useshapeshapetype)
-    - [Shared State](#shared-state)
+  - [About NextGraph](#about-nextgraph)
   - [License](#license)
 
 ---
@@ -38,7 +45,7 @@ For a walk-through, you can see the the [expense-tracker example app](https://gi
 pnpm add @ng-org/orm @ng-org/web @ng-org/alien-deepsignals
 ```
 
-For schema code generation, also install:
+For schema generation, also install:
 
 ```bash
 pnpm add -D @ng-org/shex-orm
@@ -46,7 +53,9 @@ pnpm add -D @ng-org/shex-orm
 
 ---
 
-## Quick Start
+## Start
+
+You are strongly advised to look at the example apps for [discrete JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) and [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
 
 Before using the ORM, initialize NextGraph in your app entry point:
 
@@ -56,6 +65,7 @@ import { initNg } from "@ng-org/orm";
 
 await init(
     async (event) => {
+        // The ORM needs to have access to ng, the interface to the engine running in WASM.
         initNg(ng, event.session);
     },
     true,
@@ -63,27 +73,24 @@ await init(
 );
 ```
 
-Then use `useShape()` in your components:
+Then use `useShape()` for graph, or `useDiscrete()` for discrete documents.
 
-```typescript
-import { useShape } from "@ng-org/orm/react";  // or /vue, /svelte
-import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
+In some cases, you may want to use advanced features managing subscriptions with the engine.
+For that, you can directly use:
 
-const dogs = useShape(DogShapeType);
+- `OrmConnection.getOrCreate(ShapeType, scope)` for graphs
+- `DiscreteOrmConnection.getOrCreate(documentId)` for discrete documents
 
-// Iterate, modify, add — changes auto-sync everywhere
-for (const dog of dogs) {
-    console.log(dog.name);
-}
-```
+Internally, the OrmConnection keeps a signalObject, a proxied, reactive object. When modifications are made, this makes the frontend components rerender and sends the update to the engine to be persisted.
+In all cases, you have to create a document first with `ng.doc_create()`. For more details, you can consult the example apps and the inline jsdoc documentation.
 
----
-
-## Defining Schemas
+## Graph ORM: Defining Schemas
 
 Define your data model using [SHEX (Shape Expressions)](https://shex.io/):
+See [@ng-org/shex-orm](../shex-orm/README.md) for details.
 
 **`shapes/shex/dogShape.shex`**:
+
 ```shex
 PREFIX ex: <http://example.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -102,15 +109,6 @@ Generate TypeScript types. Add the following to your `package.json` scripts and 
     "build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
 ```
 
-This creates:
-- `dogShape.typings.ts` — TypeScript interfaces
-- `dogShape.shapeTypes.ts` — Shape type objects for `useShape()`
-- `dogShape.schema.ts` — Internal schema metadata
-
-See [@ng-org/shex-orm](../shex-orm/README.md) for full documentation.
-
----
-
 ## Framework Usage
 
 ### React
@@ -121,16 +119,16 @@ import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import type { Dog } from "./shapes/orm/dogShape.typings";
 
 export function DogList() {
-    const dogs = useShape(DogShapeType);  // DeepSignalSet<Dog>
+    const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
 
     return (
         <ul>
-            {[...dogs].map(dog => (
+            {[...dogs].map((dog) => (
                 <li key={dog["@id"]}>
                     {/* Direct mutation triggers re-render */}
                     <input
                         value={dog.name}
-                        onChange={e => dog.name = e.target.value}
+                        onChange={(e) => (dog.name = e.target.value)}
                     />
                 </li>
             ))}
@@ -144,25 +142,23 @@ export function DogList() {
 ### Vue
 
 **Parent component** (`DogList.vue`):
+
 ```vue
 <script setup lang="ts">
 import { useShape } from "@ng-org/orm/vue";
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import DogCard from "./DogCard.vue";
 
-const dogs = useShape(DogShapeType);  // DeepSignalSet<Dog>
+const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
 </script>
 
 <template>
-    <DogCard
-        v-for="dog in dogs"
-        :key="dog['@id']"
-        :dog="dog"
-    />
+    <DogCard v-for="dog in dogs" :key="dog['@id']" :dog="dog" />
 </template>
 ```
 
 **Child component** (`DogCard.vue`):
+
 ```vue
 <script setup lang="ts">
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
@@ -187,14 +183,14 @@ const dog = useDeepSignal(props.dog);
 
 ```svelte
 <script lang="ts">
-import { useShape } from "@ng-org/orm/svelte";
-import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
+    import { useShape } from "@ng-org/orm/svelte";
+    import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
-const dogs = useShape(DogShapeType);  // Reactive store
+    const dogs = useShape(DogShapeType); // Reactive store
 </script>
 
 <ul>
-    {#each [...$dogs] as dog (dog['@id'])}
+    {#each [...$dogs] as dog (dog["@id"])}
         <li>
             <input bind:value={dog.name} />
         </li>
@@ -228,9 +224,9 @@ const docIri = await session.ng.doc_create(
 
 // Add to the reactive set
 dogs.add({
-    "@graph": docIri,                   // Required: document IRI
-    "@type": "http://example.org/Dog",  // Required: RDF type
-    "@id": "",                          // Empty = auto-generate subject IRI
+    "@graph": docIri, // Required: document IRI
+    "@type": "http://example.org/Dog", // Required: RDF type
+    "@id": "", // Empty = auto-generate subject IRI
     name: "Buddy",
     age: 3,
     toys: new Set(["ball", "rope"]),
@@ -251,6 +247,7 @@ dog.age = 4;
 ```
 
 Changes are:
+
 - Immediately reflected in all components using the same shape
 - Automatically persisted to NextGraph storage
 - Synced to other devices in real-time
@@ -301,35 +298,20 @@ Link objects by storing the target's `@id` IRI:
 dog.owner = person["@id"];
 
 // Resolve the relationship
-const owner = people.find(p => p["@id"] === dog.owner);
+const owner = people.find((p) => p["@id"] === dog.owner);
 ```
 
 ---
 
-## API Reference
+## About NextGraph
 
-### `useShape(shapeType)`
-
-Returns a `DeepSignalSet<T>` containing all objects of the given shape type.
-
-```typescript
-const dogs = useShape(DogShapeType);
-```
-
-**DeepSignalSet methods:**
-- `add(obj)` — Add a new object
-- `delete(obj)` — Remove an object
-- `has(obj)` — Check if object exists
-- `size` — Number of objects
-- `getBy(graphIri, subjectIri)` — Find object by IRIs
-- `[Symbol.iterator]` — Iterate with `for...of` or spread `[...set]`
-- ... and all symbol iterator helper methods (like `.map`, `.find`, ...), if you are in an ES2025+ environment.
-
-### Shared State
-
-When `useShape()` is called with the same shape type and scope in multiple components, they share the exact same reactive data. Changes in one component instantly appear in all others.
-
----
+> **NextGraph** brings about the convergence of P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs.
+>
+> This open source ecosystem provides solutions for end-users (a platform) and software developers (a framework), wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with **end-to-end encryption**, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy.
+>
+> Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
+>
+> More info: [https://nextgraph.org](https://nextgraph.org)
 
 ## License
 
@@ -337,7 +319,7 @@ Licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  
+
 at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
