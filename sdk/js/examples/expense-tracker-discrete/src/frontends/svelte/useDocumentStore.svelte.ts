@@ -11,7 +11,7 @@
 import type { DocumentStore } from "../../types";
 import { ormConnectionPromise } from "../../utils/ngSession";
 import { useDiscrete } from "@ng-org/orm/svelte";
-import type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte";
+import type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
 
 export function useDocumentStore() {
     const documentIdPromise = ormConnectionPromise.then(

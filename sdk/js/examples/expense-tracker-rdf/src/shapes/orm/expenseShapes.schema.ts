@@ -16,7 +16,7 @@ export const expenseShapesSchema: Schema = {
             literals: ["http://example.org/Expense"],
           },
         ],
-        maxCardinality: 1,
+        maxCardinality: -1,
         minCardinality: 1,
         iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
         readablePredicate: "@type",
@@ -31,17 +31,6 @@ export const expenseShapesSchema: Schema = {
         minCardinality: 1,
         iri: "http://example.org/title",
         readablePredicate: "title",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 0,
-        iri: "http://example.org/description",
-        readablePredicate: "description",
       },
       {
         dataTypes: [
@@ -68,18 +57,9 @@ export const expenseShapesSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "string",
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "http://example.org/dateOfPurchase",
-        readablePredicate: "dateOfPurchase",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "string",
+            valType: "shape",
+            shape:
+              "http://example.org/ExpenseShape||http://example.org/expenseCategory",
           },
         ],
         maxCardinality: -1,
@@ -87,16 +67,23 @@ export const expenseShapesSchema: Schema = {
         iri: "http://example.org/expenseCategory",
         readablePredicate: "expenseCategory",
       },
+    ],
+  },
+  "http://example.org/ExpenseShape||http://example.org/expenseCategory": {
+    iri: "http://example.org/ExpenseShape||http://example.org/expenseCategory",
+    predicates: [
       {
         dataTypes: [
           {
-            valType: "boolean",
+            valType: "iri",
+            literals: ["http://example.org/ExpenseCategory"],
           },
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/isRecurring",
-        readablePredicate: "isRecurring",
+        iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        readablePredicate: "@type",
+        extra: true,
       },
       {
         dataTypes: [
@@ -105,33 +92,20 @@ export const expenseShapesSchema: Schema = {
           },
         ],
         maxCardinality: 1,
-        minCardinality: 0,
-        iri: "http://example.org/recurrenceInterval",
-        readablePredicate: "recurrenceInterval",
+        minCardinality: 1,
+        iri: "http://example.org/categoryName",
+        readablePredicate: "categoryName",
       },
       {
         dataTypes: [
           {
-            valType: "iri",
-            literals: ["http://example.org/Paid"],
-          },
-          {
-            valType: "iri",
-            literals: ["http://example.org/Pending"],
-          },
-          {
-            valType: "iri",
-            literals: ["http://example.org/Overdue"],
-          },
-          {
-            valType: "iri",
-            literals: ["http://example.org/Refunded"],
+            valType: "string",
           },
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/paymentStatus",
-        readablePredicate: "paymentStatus",
+        iri: "http://example.org/description",
+        readablePredicate: "description",
       },
     ],
   },

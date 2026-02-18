@@ -42,7 +42,7 @@ const buildDefaultObjectSetEntries = (): TaggedObject[] => {
             count: 3,
         },
     ];
-    const extraEntries = Array.from({ length: 298 }, (_, index) => {
+    const extraEntries = Array.from({ length: 2 }, (_, index) => {
         const idNumber = (index + 1).toString().padStart(3, "0");
         return {
             "@id": `urn:object:item-${idNumber}`,

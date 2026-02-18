@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { deepSignal, getDeepSignalRootId } from "../../deepSignal";
 import { watch } from "../../watch";
 
@@ -69,7 +69,7 @@ describe("patches & root ids", () => {
     });
 });
 
-describe("tier3: Set iteration variants", () => {
+describe("Set iteration variants", () => {
     it("entries() iteration proxies nested mutation", async () => {
         const st = deepSignal(
             { s: new Set<any>() },
@@ -169,5 +169,86 @@ describe("tier3: Set iteration variants", () => {
             true
         );
         stop();
+    });
+});
+
+describe("external subscribers", () => {
+    it("onGet / onSet are called for basic types", () => {
+        const onGet = vi.fn(() => {});
+        const onSet = vi.fn(() => {});
+
+        const ds = deepSignal(
+            {
+                s1: "str",
+                o1: {
+                    i1: 1,
+                    b1: false,
+                },
+            },
+            { subscriberFactories: new Set([() => ({ onGet, onSet })]) }
+        );
+
+        let setCount = 0;
+        let getCount = 0;
+
+        ds.o1;
+        expect(onGet).toHaveBeenCalledTimes((getCount += 1));
+        expect(onSet).toHaveBeenCalledTimes(setCount);
+
+        ds.o1.b1;
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes(setCount);
+
+        ds.s1 = "new string";
+        expect(onGet).toHaveBeenCalledTimes(getCount);
+        // We didn't track s1 yet so set won't be called.
+        expect(onSet).toHaveBeenCalledTimes(setCount);
+        ds.s1;
+        ds.s1 = "new string2";
+        expect(onGet).toHaveBeenCalledTimes((getCount += 1));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 1));
+
+        ds.o1 = { b1: true, i1: 2 };
+        expect(onGet).toHaveBeenCalledTimes(getCount);
+        expect(onSet).toHaveBeenCalledTimes((setCount += 1));
+    });
+
+    it("onGet / onSet are called for sets", () => {
+        const onGet = vi.fn(() => {
+            // No op
+            let a;
+        });
+        const onSet = vi.fn(() => {
+            // no op
+            let a;
+        });
+        const createSubscriber = vi.fn(() => ({ onGet, onSet }));
+
+        const ds = deepSignal(
+            {
+                set1: new Set([{ s1: "s1 in set" }]),
+                set2: new Set([1, 2, 3]),
+            },
+            { subscriberFactories: new Set([createSubscriber]) }
+        );
+
+        let setCount = 0;
+        let getCount = 0;
+
+        ds.set1.first().s1;
+        expect(onGet).toHaveBeenCalledTimes((getCount += 3));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        ds.set1.first().s1 = "s1 new value";
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 1));
+
+        ds.set1.add({ s2: "s2 in set" });
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 1));
+
+        ds.set2.delete(2);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 1));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 1));
     });
 });

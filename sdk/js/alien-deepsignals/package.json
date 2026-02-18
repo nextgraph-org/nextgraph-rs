@@ -28,6 +28,10 @@
         "types": "./dist/hooks/svelte/index.d.ts",
         "default": "./dist/hooks/svelte/index.js"
       },
+      "./svelte4": {
+        "types": "./dist/hooks/svelte4/index.d.ts",
+        "default": "./dist/hooks/svelte4/index.js"
+      },
       "./vue": {
         "types": "./dist/hooks/vue/index.d.ts",
         "default": "./dist/hooks/vue/index.js"
@@ -50,6 +54,9 @@
     },
     "./svelte": {
       "default": "./src/hooks/svelte/index.ts"
+    },
+    "./svelte4": {
+      "default": "./src/hooks/svelte4/index.ts"
     },
     "./vue": {
       "default": "./src/hooks/vue/index.ts"

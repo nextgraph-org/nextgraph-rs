@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useShape } from "@ng-org/orm/svelte";
+  import { useShape } from "@ng-org/orm/svelte4";
   import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,

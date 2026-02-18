@@ -1,6 +1,7 @@
 ---
 import ReactPanel from "../components/ReactPanel";
 import SveltePanel from "../components/SveltePanel.svelte";
+import Svelte4Panel from "../components/Svelte4Panel.svelte";
 import VuePanel from "../components/VuePanel.vue";
 import "../../../utils/state";
 ---
@@ -143,6 +144,7 @@ import "../../../utils/state";
       }
     </style>
   </head>
+  
   <body>
     <main>
     <div class="frontend react">
@@ -154,6 +156,10 @@ import "../../../utils/state";
     <div class="frontend svelte">
         <SveltePanel client:only="svelte" />
     </div>
+      <div class="frontend svelte4">
+        <Svelte4Panel client:only="svelte4" />
+    </div>
+  
     </main>
   </body>
 </html>

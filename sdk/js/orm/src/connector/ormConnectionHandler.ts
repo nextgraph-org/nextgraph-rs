@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { Scope } from "../types.ts";
+import { normalizeScope, type Scope } from "../types.ts";
 import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
@@ -104,11 +104,12 @@ export class OrmConnection<T extends BaseType> {
         window.OrmConnection = OrmConnection;
 
         this.shapeType = shapeType;
-        this.scope = scope;
+        const normalizedScope = normalizeScope(scope);
+        this.scope = normalizedScope;
         this.refCount = 1;
         this.closeOrmConnection = () => {};
         this.suspendDeepWatcher = false;
-        this.identifier = `${shapeType.shape}|${canonicalScope(scope)}`;
+        this.identifier = `${shapeType.shape}|${canonicalScope(normalizedScope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
             propGenerator: this.signalObjectPropGenerator,
             // Don't set syntheticIdPropertyName - let propGenerator handle all ID logic
@@ -137,8 +138,8 @@ export class OrmConnection<T extends BaseType> {
         ngSession.then(async ({ ng, session }) => {
             try {
                 this.closeOrmConnection = await ng.orm_start_graph(
-                    scope.graphs ?? ["did:ng:i"],
-                    scope.subjects ?? [],
+                    normalizedScope.graphs,
+                    normalizedScope.subjects,
                     shapeType,
                     session.session_id,
                     this.onBackendMessage

@@ -165,5 +165,5 @@ export function useDiscrete(documentId: string | undefined) {
     // Only return data if we have a valid connection with a signal object.
     const data = ormConnection?.signalObject ? state : undefined;
 
-    return { data };
+    return { doc: data };
 }

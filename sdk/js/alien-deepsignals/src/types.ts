@@ -54,7 +54,17 @@ export interface DeepSignalOptions {
      * @default false
      */
     replaceProxiesInBranchOnChange?: boolean;
+    /*
+     * External subscribers that are called when a signal updates or is read.
+     * TODO: Is the an onDestroy fn necessary?
+     */
+    subscriberFactories?: Set<ExternalSubscriberFactory>;
 }
+
+export type ExternalSubscriberFactory<T = any> = () => {
+    onGet: () => void;
+    onSet: (newVal: T) => void;
+};
 
 export type DeepSignalPropGenFn = (props: {
     path: (string | number)[];

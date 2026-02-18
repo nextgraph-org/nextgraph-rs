@@ -1,21 +1,33 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import useDeepSignal from "../../../../../hooks/svelte/useDeepSignal.svelte";
+  import useDeepSignal from "../../../../../hooks/svelte4/useDeepSignal.svelte";
   import { sharedState } from "../../../utils/state";
   import {
     recordRender,
     recordObjectRender,
   } from "../../../utils/renderMetrics";
   import type { TaggedObject, TestState } from "../../../utils/mockData";
-  import ObjectRow from "./ObjectRow.svelte";
 
-  const snapshot = useDeepSignal(sharedState);
-  
-
-  let objectEntries = Array.from(snapshot.objectSet.values());
+  const store = useDeepSignal(sharedState);
+  let snapshot = sharedState as TestState;
+  let renderCount = 0;
+  let objectEntries: TaggedObject[] = Array.from(snapshot.objectSet.values());
 
   const rowRenderCounts = new Map<string, number>();
-  
+  const unsubscribe = store.subscribe((value) => {
+    snapshot = value as TestState;
+    objectEntries = Array.from(snapshot.objectSet.values());
+  });
+
+  $: renderCount += 1;
+  $: recordRender("svelte", renderCount);
+  $: objectEntries = Array.from(snapshot.objectSet.values()) as TaggedObject[];
+
+  onDestroy(() => {
+    unsubscribe();
+    store.dispose();
+  });
+
   const toNumber = (value: string) => Number(value || 0);
   const recordRowRender = (entryId: string) => {
     const next = (rowRenderCounts.get(entryId) ?? 0) + 1;
@@ -26,7 +38,10 @@
 </script>
 
 <section>
-  <h2 class="title">Svelte 5</h2>
+  <h2 class="title">svelte 3 / 4</h2>
+  <div class="render-meta" data-render-count={renderCount}>
+    Render #{renderCount}
+  </div>
 
   <div class="field-grid">
     <fieldset class="field" data-field="type">
@@ -34,7 +49,8 @@
       <input
         type="text"
         data-role="editor"
-        bind:value={snapshot.type}
+        value={snapshot.type}
+        on:input={(event) => (snapshot.type = event.currentTarget.value)}
       />
       <span data-role="value">{snapshot.type}</span>
     </fieldset>
@@ -45,7 +61,7 @@
         type="text"
         data-role="editor"
         value={snapshot.stringValue}
-        oninput={(event) => (snapshot.stringValue = event.currentTarget.value)}
+        on:input={(event) => (snapshot.stringValue = event.currentTarget.value)}
       />
       <span data-role="value">{snapshot.stringValue}</span>
     </fieldset>
@@ -56,7 +72,7 @@
         type="number"
         data-role="editor"
         value={snapshot.numValue}
-        oninput={(event) =>
+        on:input={(event) =>
           (snapshot.numValue = toNumber(event.currentTarget.value))}
       />
       <span data-role="value">{snapshot.numValue}</span>
@@ -68,7 +84,7 @@
         type="checkbox"
         data-role="editor"
         checked={snapshot.boolValue}
-        onchange={(event) =>
+        on:change={(event) =>
           (snapshot.boolValue = event.currentTarget.checked)}
       />
       <span data-role="value">{String(snapshot.boolValue)}</span>
@@ -80,7 +96,7 @@
         type="text"
         data-role="editor"
         value={snapshot.objectValue.nestedString}
-        oninput={(event) =>
+        on:input={(event) =>
           (snapshot.objectValue.nestedString = event.currentTarget.value)}
       />
       <span data-role="value">{snapshot.objectValue.nestedString}</span>
@@ -92,7 +108,7 @@
         type="number"
         data-role="editor"
         value={snapshot.objectValue.nestedNum}
-        oninput={(event) =>
+        on:input={(event) =>
           (snapshot.objectValue.nestedNum = toNumber(
             event.currentTarget.value
           ))}
@@ -108,7 +124,7 @@
       <button
         type="button"
         data-action="push"
-        onclick={() =>
+        on:click={() =>
           snapshot.arrayValue.push(snapshot.arrayValue.length + 1)}
       >
         Add item
@@ -116,7 +132,7 @@
       <button
         type="button"
         data-action="pop"
-        onclick={() => {
+        on:click={() => {
           if (snapshot.arrayValue.length) snapshot.arrayValue.pop();
         }}
       >
@@ -139,7 +155,7 @@
       <button
         type="button"
         data-action="push"
-        onclick={() =>
+        on:click={() =>
           snapshot.objectValue.nestedArray.push(
             snapshot.objectValue.nestedArray.length + 10
           )}
@@ -149,7 +165,7 @@
       <button
         type="button"
         data-action="pop"
-        onclick={() => {
+        on:click={() => {
           if (snapshot.objectValue.nestedArray.length) {
             snapshot.objectValue.nestedArray.pop();
           }
@@ -172,7 +188,7 @@
       <button
         type="button"
         data-action="add"
-        onclick={() =>
+        on:click={() =>
           snapshot.setValue.add(`item${snapshot.setValue.size + 1}`)}
       >
         Add entry
@@ -180,7 +196,7 @@
       <button
         type="button"
         data-action="remove"
-        onclick={() => {
+        on:click={() => {
           const last = Array.from(snapshot.setValue.values()).pop();
           if (last) snapshot.setValue.delete(last);
         }}
@@ -198,7 +214,34 @@
   <fieldset class="field" data-field="objectSet">
     <legend>objectSet entries</legend>
     {#each objectEntries as entry (entry["@id"])}
-      <ObjectRow {entry} {rowRenderCounts} />
+      <div
+        class="object-row"
+        data-entry-id={entry["@id"]}
+        data-render-count={recordRowRender(entry["@id"])}
+      >
+        <span class="object-id">{entry["@id"]}</span>
+        <input
+          type="text"
+          data-role="label"
+          value={entry.label}
+          on:input={(event) => (entry.label = event.currentTarget.value)}
+        />
+        <input
+          type="number"
+          data-role="count-input"
+          value={entry.count}
+          on:input={(event) =>
+            (entry.count = toNumber(event.currentTarget.value))}
+        />
+        <span data-role="count">{entry.count}</span>
+        <button
+          type="button"
+          data-action="increment"
+          on:click={() => (entry.count += 1)}
+        >
+          +1
+        </button>
+      </div>
     {/each}
   </fieldset>
 </section>

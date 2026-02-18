@@ -24,6 +24,9 @@
     "./svelte": {
       "default": "./src/frontendAdapters/svelte/index.ts"
     },
+    "./svelte4": {
+      "default": "./src/frontendAdapters/svelte4/index.ts"
+    },
     "./vue": {
       "default": "./src/frontendAdapters/vue/index.ts"
     }
@@ -44,6 +47,10 @@
       "./svelte": {
         "types": "./dist/frontendAdapters/svelte/index.d.ts",
         "default": "./dist/frontendAdapters/svelte/index.js"
+      },
+      "./svelte4": {
+        "types": "./dist/frontendAdapters/svelte4/index.d.ts",
+        "default": "./dist/frontendAdapters/svelte4/index.js"
       },
       "./vue": {
         "types": "./dist/frontendAdapters/vue/index.d.ts",

@@ -37,15 +37,14 @@ export type Scope = {
     subjects?: string[];
 };
 
-export const normalizeScope = (
-    scope: Scope | string | undefined = {}
-): { graphs: string[]; subjects: string[] | undefined } => {
+/** Convert undefined to [] and for graphs "" to "did:ng:i". If scope is string, that means {graphs: [<scope string>], subjects: []}. */
+export const normalizeScope = (scope: Scope | string | undefined = {}) => {
     if (typeof scope === "string") {
-        return { graphs: [scope], subjects: undefined };
+        return { graphs: [scope], subjects: [] };
     }
     // Convert "" to did:ng:i
     const graphs = (scope.graphs ?? []).map((g) => (g === "" ? "did:ng:i" : g));
-    const subjects = scope.subjects?.length === 0 ? undefined : scope.subjects;
+    const subjects = scope.subjects ?? [];
 
     return { graphs, subjects };
 };

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { Scope } from "../../types.ts";
+import { normalizeScope, type Scope } from "../../types.ts";
 import { onDestroy } from "svelte";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
 import {
@@ -26,9 +26,9 @@ export interface UseShapeRuneResult<T extends object>
 }
 
 /**
- * Hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
+ * Svelte 5 hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
  *
- * Returns a {@link DeepSignalSet} of objects matching the shape and that are within the scope.
+ * Returns a {@link DeepSignalSet} that contain the objects matching the shape and that are within the scope.
  * Establishes a 2-way binding: Modifications to the object are immediately committed,
  * changes coming from the engine (or other components) cause an immediate rerender.
  *
@@ -103,7 +103,7 @@ export interface UseShapeRuneResult<T extends object>
  */
 export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
-    scope: Scope = {}
+    scope: Scope
 ): UseShapeRuneResult<Set<T>> {
     const { signalObject: rootSignal, close } = OrmConnection.getOrCreate(
         shape,
