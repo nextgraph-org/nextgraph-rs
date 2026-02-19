@@ -3,28 +3,31 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
 ex:ExpenseShape {
-  a [ex:Expense ] +;
+  a [ex:Expense] ;
   ex:title xsd:string
     // rdfs:comment "The name of the expense" ;
-  
+  ex:description xsd:string ?
+    // rdfs:comment "A readable description" ;
   ex:totalPrice xsd:float
     // rdfs:comment "The total price" ;
-  
   ex:amount xsd:integer
     // rdfs:comment "The number of items bought" ;
-  
-  ex:expenseCategory @ex:ExpenseCategoryShape *
+  ex:dateOfPurchase xsd:date
+    // rdfs:comment "The date of purchase" ;
+  ex:expenseCategory ex:ExpenseCategoryShape *
     // rdfs:comment "The use category of the product" ;  
-
-  # ...
+  ex:isRecurring xsd:boolean
+    // rdfs:comment "True, if this is a recurring expense (e.g. bus pass)" ;
+  ex:recurrenceInterval xsd:duration ?
+    // rdfs:comment "For recurring events, the interval of recurrence" ;
+  ex:paymentStatus [ex:Paid ex:Pending ex:Overdue ex:Refunded]
+    // rdfs:comment "The payment status of the expense" ;
 }
 
 ex:ExpenseCategoryShape EXTRA a {
   a [ ex:ExpenseCategory ] ;
-  
   ex:categoryName xsd:string
     // rdfs:comment "Name of expense category" ;
-
   ex:description xsd:string
     // rdfs:comment "Human-readable description of category" ;
 }

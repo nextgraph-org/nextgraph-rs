@@ -17,8 +17,8 @@ import type { Expense } from "../../types";
 
 export function Expenses() {
     const store = useDocumentStore();
-    const expenses = store.data?.expenses;
-    const expenseCategories = store.data?.expenseCategories;
+    const expenses = store?.expenses;
+    const expenseCategories = store?.expenseCategories;
 
     const expensesSorted = useMemo(
         () =>

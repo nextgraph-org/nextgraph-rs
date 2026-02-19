@@ -8,7 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { computed, ref, type ComputedRef } from "vue";
+import { ref, type ComputedRef } from "vue";
+import type { DeepSignal } from "@ng-org/orm";
 import { useDiscrete } from "@ng-org/orm/vue";
 import type { DocumentStore } from "../../types";
 import { ormConnection, ormConnectionPromise } from "../../utils/ngSession";
@@ -22,7 +23,7 @@ export function useDocumentStore() {
         });
     }
 
-    return useDiscrete(documentId) as {
-        doc: ComputedRef<DocumentStore | undefined>;
-    };
+    return useDiscrete(documentId) as ComputedRef<{
+        doc: DeepSignal<DocumentStore> | undefined;
+    }>;
 }

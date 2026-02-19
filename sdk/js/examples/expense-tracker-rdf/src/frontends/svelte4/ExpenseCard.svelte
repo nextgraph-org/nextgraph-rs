@@ -15,12 +15,10 @@
     ExpenseCategory,
   } from "../../shapes/orm/expenseShapes.typings";
 
-  let {
-    expense,
-    availableCategories,
-  }: { expense: Expense; availableCategories: Set<ExpenseCategory> } = $props();
-
-  let isEditing = $state(false);
+  export let expense: Expense;
+  export let availableCategories: Set<ExpenseCategory>;
+    
+  let isEditing = false;
 
   const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
     "http://example.org/Paid": "Paid",
@@ -36,18 +34,12 @@
     minimumFractionDigits: 2,
   });
 
-  const purchaseDate = $derived(
+  $: purchaseDate = (
     expense.dateOfPurchase
       ? new Date(expense.dateOfPurchase).toLocaleDateString()
       : "Date not set"
   );
-  const totalPriceDisplay = $derived(
-    currencyFormatter.format(expense.totalPrice ?? 0)
-  );
-
-  const categoryKey = (category: ExpenseCategory) => {
-    return `${category["@graph"]}|${category["@id"]}`;
-  };
+  $: totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
 
   const isCategorySelected = (category: ExpenseCategory) =>
     !!expense.expenseCategory?.has(category["@id"]);

@@ -10,15 +10,15 @@
 
 import type { DocumentStore } from "../../types";
 import { ormConnectionPromise } from "../../utils/ngSession";
-import type { DeepSignal } from "@ng-org/orm";
-import { useDiscrete } from "@ng-org/orm/svelte";
+import { useDiscrete } from "@ng-org/orm/svelte4";
+import type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
 
 export function useDocumentStore() {
     const documentIdPromise = ormConnectionPromise.then(
         (connection) => connection.documentId
     );
 
-    return useDiscrete(documentIdPromise) as {
-        doc: DeepSignal<DocumentStore> | undefined;
-    };
+    return useDiscrete(documentIdPromise) as UseDeepSignalResult<
+        DocumentStore | undefined
+    >;
 }

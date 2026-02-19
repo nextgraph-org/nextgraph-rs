@@ -3,12 +3,11 @@
   import { sharedState } from "../../../utils/state";
   import ObjectRow from "./SvelteObjectRow.svelte";
 
-  const snapshot = useDeepSignal(sharedState);
+  const state = useDeepSignal(sharedState);
 
   const rowRenderCounts = new Map<string, number>();
   
   const toNumber = (value: string) => Number(value || 0);
-
 </script>
 
 <section>
@@ -20,9 +19,9 @@
       <input
         type="text"
         data-role="editor"
-        bind:value={snapshot.type}
+        bind:value={state.type}
       />
-      <span data-role="value">{snapshot.type}</span>
+      <span data-role="value">{state.type}</span>
     </fieldset>
 
     <fieldset class="field" data-field="stringValue">
@@ -30,9 +29,9 @@
       <input
         type="text"
         data-role="editor"
-        bind:value={snapshot.stringValue}
+        bind:value={state.stringValue}
       />
-      <span data-role="value">{snapshot.stringValue}</span>
+      <span data-role="value">{state.stringValue}</span>
     </fieldset>
 
     <fieldset class="field" data-field="numValue">
@@ -40,11 +39,11 @@
       <input
         type="number"
         data-role="editor"
-        value={snapshot.numValue}
+        value={state.numValue}
         oninput={(event) =>
-          (snapshot.numValue = toNumber(event.currentTarget.value))}
+          (state.numValue = toNumber(event.currentTarget.value))}
       />
-      <span data-role="value">{snapshot.numValue}</span>
+      <span data-role="value">{state.numValue}</span>
     </fieldset>
 
     <fieldset class="field" data-field="boolValue">
@@ -52,9 +51,9 @@
       <input
         type="checkbox"
         data-role="editor"
-        bind:checked={snapshot.boolValue}
+        bind:checked={state.boolValue}
         />
-      <span data-role="value">{String(snapshot.boolValue)}</span>
+      <span data-role="value">{String(state.boolValue)}</span>
     </fieldset>
 
     <fieldset class="field" data-field="objectValue.nestedString">
@@ -62,10 +61,10 @@
       <input
         type="text"
         data-role="editor"
-        bind:value={snapshot.objectValue.nestedString}
+        bind:value={state.objectValue.nestedString}
         
       />
-      <span data-role="value">{snapshot.objectValue.nestedString}</span>
+      <span data-role="value">{state.objectValue.nestedString}</span>
     </fieldset>
 
     <fieldset class="field" data-field="objectValue.nestedNum">
@@ -73,25 +72,25 @@
       <input
         type="number"
         data-role="editor"
-        value={snapshot.objectValue.nestedNum}
+        value={state.objectValue.nestedNum}
         oninput={(event) =>
-          (snapshot.objectValue.nestedNum = toNumber(
+          (state.objectValue.nestedNum = toNumber(
             event.currentTarget.value
           ))}
       />
-      <span data-role="value">{snapshot.objectValue.nestedNum}</span>
+      <span data-role="value">{state.objectValue.nestedNum}</span>
     </fieldset>
   </div>
 
   <fieldset class="field" data-field="arrayValue">
     <legend>arrayValue</legend>
-    <span data-role="array-length">Length: {snapshot.arrayValue.length}</span>
+    <span data-role="array-length">Length: {state.arrayValue.length}</span>
     <div>
       <button
         type="button"
         data-action="push"
         onclick={() =>
-          snapshot.arrayValue.push(snapshot.arrayValue.length + 1)}
+          state.arrayValue.push(state.arrayValue.length + 1)}
       >
         Add item
       </button>
@@ -99,14 +98,14 @@
         type="button"
         data-action="pop"
         onclick={() => {
-          if (snapshot.arrayValue.length) snapshot.arrayValue.pop();
+          if (state.arrayValue.length) state.arrayValue.pop();
         }}
       >
         Remove item
       </button>
     </div>
     <ul class="value-list">
-      {#each snapshot.arrayValue as value, index (index)}
+      {#each state.arrayValue as value, index (index)}
         <li>{value}</li>
       {/each}
     </ul>
@@ -115,15 +114,15 @@
   <fieldset class="field" data-field="objectValue.nestedArray">
     <legend>objectValue.nestedArray</legend>
     <span data-role="array-length"
-      >Length: {snapshot.objectValue.nestedArray.length}</span
+      >Length: {state.objectValue.nestedArray.length}</span
     >
     <div>
       <button
         type="button"
         data-action="push"
         onclick={() =>
-          snapshot.objectValue.nestedArray.push(
-            snapshot.objectValue.nestedArray.length + 10
+          state.objectValue.nestedArray.push(
+            state.objectValue.nestedArray.length + 10
           )}
       >
         Add nested item
@@ -132,8 +131,8 @@
         type="button"
         data-action="pop"
         onclick={() => {
-          if (snapshot.objectValue.nestedArray.length) {
-            snapshot.objectValue.nestedArray.pop();
+          if (state.objectValue.nestedArray.length) {
+            state.objectValue.nestedArray.pop();
           }
         }}
       >
@@ -141,7 +140,7 @@
       </button>
     </div>
     <ul class="value-list">
-      {#each snapshot.objectValue.nestedArray as value, index (index)}
+      {#each state.objectValue.nestedArray as value, index (index)}
         <li>{value}</li>
       {/each}
     </ul>
@@ -149,13 +148,13 @@
 
   <fieldset class="field" data-field="setValue">
     <legend>setValue</legend>
-    <span data-role="set-size">Size: {snapshot.setValue.size}</span>
+    <span data-role="set-size">Size: {state.setValue.size}</span>
     <div>
       <button
         type="button"
         data-action="add"
         onclick={() =>
-          snapshot.setValue.add(`item${snapshot.setValue.size + 1}`)}
+          state.setValue.add(`item${state.setValue.size + 1}`)}
       >
         Add entry
       </button>
@@ -163,15 +162,15 @@
         type="button"
         data-action="remove"
         onclick={() => {
-          const last = Array.from(snapshot.setValue.values()).pop();
-          if (last) snapshot.setValue.delete(last);
+          const last = Array.from(state.setValue.values()).pop();
+          if (last) state.setValue.delete(last);
         }}
       >
         Remove entry
       </button>
     </div>
     <ul class="value-list">
-      {#each Array.from(snapshot.setValue.values()) as entry (entry)}
+      {#each Array.from(state.setValue.values()) as entry (entry)}
         <li>{entry}</li>
       {/each}
     </ul>
@@ -179,7 +178,7 @@
 
   <fieldset class="field" data-field="objectSet">
     <legend>objectSet entries</legend>
-    {#each snapshot.objectSet as entry (entry["@id"])}
+    {#each state.objectSet as entry (entry["@id"])}
       <ObjectRow {entry} {rowRenderCounts} />
     {/each}
   </fieldset>

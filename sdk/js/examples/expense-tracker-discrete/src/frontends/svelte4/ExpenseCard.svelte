@@ -1,5 +1,5 @@
 <!--
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -10,23 +10,18 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import type {
-    Expense,
-    ExpenseCategory,
-  } from "../../shapes/orm/expenseShapes.typings";
+  import type { Expense, ExpenseCategory } from "../../types";
 
-  let {
-    expense,
-    availableCategories,
-  }: { expense: Expense; availableCategories: Set<ExpenseCategory> } = $props();
+  export let expense: Expense;
+  export let availableCategories: ExpenseCategory[] = [];
 
-  let isEditing = $state(false);
+  let isEditing = false;
 
   const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
-    "http://example.org/Paid": "Paid",
-    "http://example.org/Pending": "Pending",
-    "http://example.org/Overdue": "Overdue",
-    "http://example.org/Refunded": "Refunded",
+    Paid: "Paid",
+    Pending: "Pending",
+    Overdue: "Overdue",
+    Refunded: "Refunded",
   };
   const paymentStatusEntries = Object.entries(paymentStatusLabels);
 
@@ -36,36 +31,35 @@
     minimumFractionDigits: 2,
   });
 
-  const purchaseDate = $derived(
-    expense.dateOfPurchase
+  $: purchaseDate =
+    expense?.dateOfPurchase
       ? new Date(expense.dateOfPurchase).toLocaleDateString()
-      : "Date not set"
-  );
-  const totalPriceDisplay = $derived(
-    currencyFormatter.format(expense.totalPrice ?? 0)
-  );
+      : "Date not set";
 
-  const categoryKey = (category: ExpenseCategory) => {
-    return `${category["@graph"]}|${category["@id"]}`;
-  };
+  $: totalPriceDisplay = currencyFormatter.format(expense?.totalPrice ?? 0);
 
   const isCategorySelected = (category: ExpenseCategory) =>
-    !!expense.expenseCategory?.has(category["@id"]);
+    !!expense.expenseCategories?.includes(category["@id"] ?? "");
 
   const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
+    const categoryId = category["@id"];
+    if (!categoryId) return;
+
     if (checked) {
-      if (!expense.expenseCategory) {
-        expense.expenseCategory = new Set([category["@id"]]);
-      } else {
-        expense.expenseCategory.add(category["@id"]);
+      if (!expense.expenseCategories) {
+        expense.expenseCategories = [categoryId];
+      } else if (!expense.expenseCategories.includes(categoryId)) {
+        expense.expenseCategories.push(categoryId);
       }
     } else {
-      expense.expenseCategory?.delete(category["@id"]);
+      expense.expenseCategories = (expense.expenseCategories ?? []).filter(
+        (value) => value !== categoryId
+      );
     }
-  };
+  }
 
   function nameOfCategory(categoryIri: string) {
-    return availableCategories.values().find((c) => c["@id"] === categoryIri)
+    return availableCategories.find((c) => c["@id"] === categoryIri)
       ?.categoryName;
   }
 </script>
@@ -178,7 +172,7 @@
   <div class="field-group">
     <span class="field-label">Categories</span>
     {#if isEditing}
-      {#if availableCategories.size}
+      {#if availableCategories.length}
         <div class="category-picker">
           {#each availableCategories as category}
             <label class="category-option">
@@ -205,9 +199,9 @@
         <p class="muted">No categories available yet. Create one above.</p>
       {/if}
     {:else}
-      {#if expense.expenseCategory?.size}
+      {#if expense.expenseCategories?.length}
         <div class="chip-list">
-          {#each expense.expenseCategory as categoryIri}
+          {#each expense.expenseCategories as categoryIri}
             <span class="chip">{nameOfCategory(categoryIri) || "Unnamed"}</span>
           {/each}
         </div>

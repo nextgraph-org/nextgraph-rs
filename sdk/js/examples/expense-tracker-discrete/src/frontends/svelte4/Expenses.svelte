@@ -10,45 +10,33 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import { useShape } from "@ng-org/orm/svelte";
-  import {
-    ExpenseCategoryShapeType,
-    ExpenseShapeType,
-  } from "../../shapes/orm/expenseShapes.shapeTypes";
-  import type { Expense } from "../../shapes/orm/expenseShapes.typings";
-  import { sessionPromise, session } from "../../utils/ngSession";
+  import type { Expense } from "../../types";
+  import { useDocumentStore } from "./useDocumentStore.svelte";
   import ExpenseCard from "./ExpenseCard.svelte";
 
-  const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenses = useShape(ExpenseShapeType, { graphs: [privateNuri || ""] });
-  const categories = useShape(ExpenseCategoryShapeType, { graphs: [privateNuri || ""] });
+  const store = useDocumentStore();
+  $: expenses = $store?.expenses;
+  $: expenseCategories = $store?.expenseCategories;
 
-  async function createExpense(obj: Partial<Expense> = {}) {
-    const session = await sessionPromise;
-
-    expenses.add({
-      "@graph": `did:ng:${session.private_store_id}`,
-      "@type": "http://example.org/Expense",
-      "@id": "",
+  function createExpense(obj: Partial<Expense> = {}) {
+    if (!expenses) return;
+    expenses.push({
       amount: obj.amount ?? 1,
       recurrenceInterval: obj.recurrenceInterval ?? "",
-      description: obj.description ?? undefined,
+      description: obj.description ?? "",
       totalPrice: obj.totalPrice ?? 0,
-      paymentStatus: obj.paymentStatus ?? "http://example.org/Paid",
+      paymentStatus: obj.paymentStatus ?? "Paid",
       isRecurring: obj.isRecurring ?? false,
-      expenseCategory: obj.expenseCategory ?? new Set<string>(),
+      expenseCategories: obj.expenseCategories ?? [],
       dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
       title: obj.title ?? "New Expense",
     });
   }
-  const expensesSorted = $derived(
-    [...expenses].sort((a, b) =>
-      a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    )
-  );
 
-  const expenseKey = (expense: Expense) =>
-    `${expense["@graph"]}|${expense["@id"]}`;
+  $: expensesSorted = expenses &&
+      [...expenses].sort((a, b) => a.dateOfPurchase.localeCompare(b.dateOfPurchase))
+  ;
+
 </script>
 
 <section class="panel">
@@ -62,15 +50,17 @@
     </button>
   </header>
   <div class="cards-stack">
-    {#if !expenses.size}
+    {#if !expenses}
+      Loading...
+    {:else if expenses.length === 0}
       <p class="muted">
         Nothing tracked yet - log your first purchase to kick things off.
       </p>
     {:else}
-      {#each expensesSorted as expense, index (expenseKey(expense))}
+      {#each expensesSorted as expense, index (expense['@id']) }
         <ExpenseCard
-          expense={expensesSorted[index]}
-          availableCategories={categories}
+          expense={expensesSorted![index]}
+          availableCategories={expenseCategories!}
         />
       {/each}
     {/if}

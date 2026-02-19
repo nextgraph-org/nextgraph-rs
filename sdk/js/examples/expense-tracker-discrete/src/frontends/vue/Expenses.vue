@@ -6,14 +6,14 @@ import { useDocumentStore } from "./useDocumentStore";
 import type { Expense } from "../../types";
 
 const store = useDocumentStore();
-const expenses = computed(() => store.data.value?.expenses);
+const expenses = computed(() => store.value.doc?.expenses);
 const expenseCategories = computed(
-    () => store.data.value?.expenseCategories ?? []
+    () => store.value.doc?.expenseCategories ?? []
 );
 
 function createExpense(obj: Partial<Expense> = {}) {
-    if (!expenses.value) return;
-    expenses.value.push({
+    if (!expenses) return;
+    expenses.value?.push({
         amount: obj.amount ?? 1,
         recurrenceInterval: obj.recurrenceInterval ?? "",
         description: obj.description ?? undefined,

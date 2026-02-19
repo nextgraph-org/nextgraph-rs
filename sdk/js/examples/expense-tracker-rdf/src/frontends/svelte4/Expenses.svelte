@@ -1,5 +1,5 @@
 <!--
-// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -10,7 +10,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import { useShape } from "@ng-org/orm/svelte";
+  import { useShape } from "@ng-org/orm/svelte4";
   import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,
@@ -26,7 +26,7 @@
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
 
-    expenses.add({
+    $expenses.add({
       "@graph": `did:ng:${session.private_store_id}`,
       "@type": "http://example.org/Expense",
       "@id": "",
@@ -41,10 +41,8 @@
       title: obj.title ?? "New Expense",
     });
   }
-  const expensesSorted = $derived(
-    [...expenses].sort((a, b) =>
+  $: expensesSorted = [...$expenses].sort((a, b) =>
       a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    )
   );
 
   const expenseKey = (expense: Expense) =>
@@ -62,7 +60,7 @@
     </button>
   </header>
   <div class="cards-stack">
-    {#if !expenses.size}
+    {#if !$expenses.size}
       <p class="muted">
         Nothing tracked yet - log your first purchase to kick things off.
       </p>
@@ -70,7 +68,7 @@
       {#each expensesSorted as expense, index (expenseKey(expense))}
         <ExpenseCard
           expense={expensesSorted[index]}
-          availableCategories={categories}
+          availableCategories={$categories}
         />
       {/each}
     {/if}

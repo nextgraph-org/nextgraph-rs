@@ -1,8 +1,7 @@
 <script lang="ts">
-  import useDeepSignal from "../../../../../hooks/svelte/useDeepSignal.svelte";
   import { recordObjectRender } from "../../../utils/renderMetrics";
   import type { TaggedObject } from "../../../utils/mockData";
-  import type { DeepSignal } from "../../../../../types";
+    import type { DeepSignal } from "../../../../../types";
 
   interface Props {
     entry: DeepSignal<TaggedObject>;
@@ -38,8 +37,7 @@
     type="number"
     data-role="count-input"
     value={entry.count}
-    oninput={(event) =>
-      (entry.count = toNumber(event.currentTarget.value))}
+    oninput={(event) => (entry.count = toNumber(event.currentTarget.value))}
   />
   <span data-role="count">{entry.count}</span>
   <button

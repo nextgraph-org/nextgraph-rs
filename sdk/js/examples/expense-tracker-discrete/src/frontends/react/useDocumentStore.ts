@@ -9,13 +9,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useDiscrete } from "@ng-org/orm/react";
-import type { DocumentStore, Expense, ExpenseCategory } from "../../types";
-import {
-    ormConnection,
-    ormConnectionPromise,
-    sessionPromise,
-} from "../../utils/ngSession";
-import { useEffect, useMemo, useState } from "react";
+import type { DeepSignal } from "@ng-org/orm";
+import type { DocumentStore } from "../../types";
+import { ormConnection, ormConnectionPromise } from "../../utils/ngSession";
+import { useEffect, useState } from "react";
 
 export function useDocumentStore() {
     const [documentId, setDocumentId] = useState(ormConnection?.documentId);
@@ -27,9 +24,7 @@ export function useDocumentStore() {
         }
     });
 
-    const disc = useDiscrete(documentId);
+    const { doc } = useDiscrete(documentId);
 
-    return {
-        data: disc.data as DocumentStore | undefined,
-    };
+    return doc as DeepSignal<DocumentStore> | undefined;
 }

@@ -10,19 +10,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import ExpenseCategories from "./ExpenseCategories.svelte";
-  import Expenses from "./Expenses.svelte";
+  import Main from "../../frontends/svelte4/Main.svelte";
 </script>
 
-<div id="svelte-main" class="expense-app-shell">
-  <div class="expense-app-content">
-    <header class="expense-hero">
-      <h1>Svelte 5 Expense Tracker</h1>
-      <p>Organize categories, log purchases. Encrypted and local-first.</p>
-    </header>
-    <div class="section-stack">
-      <ExpenseCategories />
-      <Expenses />
-    </div>
-  </div>
-</div>
+<Main />

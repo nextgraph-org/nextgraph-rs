@@ -17,7 +17,7 @@
 <div id="svelte-main" class="expense-app-shell">
   <div class="expense-app-content">
     <header class="expense-hero">
-      <h1>Svelte 5 Expense Tracker</h1>
+      <h1>Svelte 3/4 Expense Tracker</h1>
       <p>Organize categories, log purchases. Encrypted and local-first.</p>
     </header>
     <div class="section-stack">

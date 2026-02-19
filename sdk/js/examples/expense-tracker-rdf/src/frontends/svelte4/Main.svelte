@@ -1,5 +1,5 @@
 <!--
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -17,7 +17,7 @@
 <div id="svelte-main" class="expense-app-shell">
   <div class="expense-app-content">
     <header class="expense-hero">
-      <h1>Svelte 5 Expense Tracker</h1>
+      <h1>Svelte 3/4 Expense Tracker</h1>
       <p>Organize categories, log purchases. Encrypted and local-first.</p>
     </header>
     <div class="section-stack">

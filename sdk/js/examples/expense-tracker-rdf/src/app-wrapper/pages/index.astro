@@ -6,6 +6,7 @@ import "../styles/expense-tracker.css";
 import VueRoot from "../components/VueRoot.vue";
 import ReactRoot from "../components/ReactRoot";
 import SvelteRoot from "../components/SvelteRoot.svelte";
+import Svelte4Root from "../components/Svelte4Root.svelte";
 
 ---
 
@@ -48,6 +49,13 @@ import SvelteRoot from "../components/SvelteRoot.svelte";
         <div class="framework-card">
             <Highlight svelte>
                 <SvelteRoot client:only />
+            </Highlight>
+        </div>
+
+        <div class="framework-card">
+            <Highlight svelte4>
+                {/* @ts-ignore */}
+                <Svelte4Root client:only />
             </Highlight>
         </div>
     </div>

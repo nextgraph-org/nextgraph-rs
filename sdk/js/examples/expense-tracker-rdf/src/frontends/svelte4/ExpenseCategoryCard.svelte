@@ -12,10 +12,10 @@
 <script lang="ts">
   import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
 
-  let { category }: { category: ExpenseCategory } = $props();
-  let isEditing = $state(false);
+  export let category: ExpenseCategory;
+  let isEditing = false;
 
-  const idBase = $derived(category["@id"] ?? category.categoryName ?? "category");
+  $: idBase = category["@id"] ?? category.categoryName ?? "category";
 </script>
 
 <article class="category-card">
