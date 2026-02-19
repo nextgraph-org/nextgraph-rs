@@ -46,7 +46,7 @@ state.settings.add("beta");
 
 ## Frontend Hooks
 
-We provide hooks for Svelte, Vue, and React so that you can use deepSignal objects in your frontend framework. Modifying the object within those components works as usual, just that the component will rerender automatically if the object changed (by an event in the component or a modification from elsewhere).
+We provide hooks for Svelte 3/4, Svelte 5, Vue, and React so that you can use deepSignal objects in your frontend framework. Modifying the object within those components works as usual, just that the component will rerender automatically if the object changed (by an event in the component or a modification from elsewhere).
 
 Note that you can pass existing deepSignal objects (that you are using elsewhere too, for example as shared state) as well as plain JavaScript objects (which are then wrapped).
 
@@ -95,7 +95,16 @@ const user = props.user;
 </template>
 ```
 
-### Svelte
+### Svelte 3 / 4
+
+```ts
+import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte4";
+
+// `users` is a store of type `{username: string}[]`
+const users = useDeepSignal([{ username: "Bob" }]);
+```
+
+### Svelte 5
 
 ```ts
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
