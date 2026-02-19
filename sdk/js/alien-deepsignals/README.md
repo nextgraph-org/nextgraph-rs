@@ -13,7 +13,6 @@ Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signal
 - Per-property signals: fine‑grained invalidation without traversal on each change.
 - Patch stream: microtask‑batched granular mutations (paths + op) for syncing external stores / framework adapters.
 - Getter => computed: property getters become derived (readonly) signals automatically.
-- `$` accessors: TypeScript exposes `$prop` for each non‑function key plus `$` / `$length` for arrays.
 - Sets: structural `add/delete/clear` emit patches; object entries get synthetic stable ids.
 - Configurable synthetic IDs: custom property generator - the synthetic id is used in the paths of patches to identify objects in sets.
 - Read-only properties: protect specific properties from modification.

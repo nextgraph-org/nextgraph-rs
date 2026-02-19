@@ -26,7 +26,7 @@ export type Scope = {
     /**
      * The graphs to filter for. If more than one IRI is provided, the union of all graphs is considered.
      *
-     * - Set value to `["did:ng:i"]` or `[""]` for whole graph.
+     * - Set value to `["did:ng:i"]` or `[""]` for whole dataset.
      * - Setting value to `[]` or leaving it `undefined`, no objects are returned.
      */
     graphs?: string[];
