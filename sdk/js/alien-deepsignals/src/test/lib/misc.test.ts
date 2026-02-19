@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, it, expect, vi } from "vitest";
-import { deepSignal, getDeepSignalRootId } from "../../deepSignal";
+import { deepSignal, getDeepSignalRootId, getRaw } from "../../deepSignal";
 import { watch } from "../../watch";
 
 describe("watch advanced", () => {
@@ -235,20 +235,73 @@ describe("external subscribers", () => {
         let setCount = 0;
         let getCount = 0;
 
-        ds.set1.first().s1;
+        ds.set1.first()!.s1;
         expect(onGet).toHaveBeenCalledTimes((getCount += 3));
         expect(onSet).toHaveBeenCalledTimes((setCount += 0));
 
-        ds.set1.first().s1 = "s1 new value";
+        ds.set1.first()!.s1 = "s1 new value";
         expect(onGet).toHaveBeenCalledTimes((getCount += 2));
         expect(onSet).toHaveBeenCalledTimes((setCount += 1));
 
-        ds.set1.add({ s2: "s2 in set" });
+        ds.set1.add({ s1: "s1.2 in set" });
         expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 1));
+
+        ds.set2.size; // Track.
+        ds.set2.delete(2);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 4));
         expect(onSet).toHaveBeenCalledTimes((setCount += 1));
 
         ds.set2.delete(2);
         expect(onGet).toHaveBeenCalledTimes((getCount += 1));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        ds.set2.add(4);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
         expect(onSet).toHaveBeenCalledTimes((setCount += 1));
+
+        ds.set2.add(4);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 1));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        expect(ds.set2.has(4)).toBe(true);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        const isDisjoint = ds.set2.isDisjointFrom(new Set([8]));
+        expect(isDisjoint).toBe(true);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        expect(ds.set1.size).toBe(2);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        expect(ds.set1.getById("")).toBe(undefined);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 1));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        ds.set2.clear();
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 1));
+
+        ds.set2.clear();
+        expect(onGet).toHaveBeenCalledTimes((getCount += 1));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        let counter = 0;
+        for (const _item of ds.set1) {
+            counter += 1;
+        }
+        expect(counter).toBe(2);
+        expect(onGet).toHaveBeenCalledTimes((getCount += 2));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
+
+        let concatenated = ds.set1.reduce((previous, current) => {
+            return `${previous}_${current.s1}`;
+        }, "");
+        expect(concatenated).toBe("_s1 new value_s1.2 in set");
+        expect(onGet).toHaveBeenCalledTimes((getCount += 4));
+        expect(onSet).toHaveBeenCalledTimes((setCount += 0));
     });
 });

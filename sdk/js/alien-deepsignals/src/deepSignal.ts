@@ -157,6 +157,7 @@ function getValFromSignalRecord(meta: ProxyMeta, record: SignalRecord) {
 /** Sets the current value of a signal and notifies external subscribers about update. */
 function setValToSignalRecord(record: SignalRecord, value: any) {
     record.alienSignal(value);
+
     // Notify external subscribers (usually frontend frameworks) about property update.
     record.externalSubscribers.forEach((subscriber) => subscriber.onSet(value));
 }
@@ -917,6 +918,7 @@ const objectHandlers: ProxyHandler<any> = {
 
         // Call and return signal.
         const sig = signals.get(key)!;
+
         return getValFromSignalRecord(meta, sig);
     },
 
@@ -1169,7 +1171,6 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
         if (key === "delete") {
             return function deleteEntry(this: any, value: any) {
-                const containerPath = resolveContainerPath(meta);
                 const rawValue = value?.[RAW_KEY] ?? value;
                 const synthetic =
                     rawValue && typeof rawValue === "object"
@@ -1183,6 +1184,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 }
 
                 if (existed && synthetic !== undefined) {
+                    const containerPath = resolveContainerPath(meta);
                     if (rawValue && typeof rawValue === "object") {
                         schedulePatch(meta, () => ({
                             path: [...containerPath, synthetic as string],
@@ -1206,6 +1208,9 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
         if (key === "clear") {
             return function clear(this: any) {
+                // Nothing to do.
+                if (target.size === 0) return;
+
                 const containerPath = resolveContainerPath(meta);
                 if (meta!.setInfo) {
                     meta!.setInfo.objectForId.clear();
@@ -1293,9 +1298,18 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
 
         // All other cases:
-        const res = Reflect.get(target, key, receiver);
-        ensureIterableSignal(meta, target);
-        return res;
+        const res = (target as any)[key];
+
+        if (typeof res === "function") {
+            // For all other functions on sets, return a wrapped function
+            // that calls ensureIterableSignal() before.
+            return (...props: any) => {
+                ensureIterableSignal(meta, target);
+                return res.bind(target)(...props);
+            };
+        } else {
+            return res;
+        }
     },
 };
 
@@ -1427,4 +1441,9 @@ export function addWithId<T>(set: Set<T>, entry: T, id: string | number): T {
         }
     }
     return entry;
+}
+
+/** Get the original, raw value of a deep signal. */
+export function getRaw<T extends object>(value: T | DeepSignal<T>) {
+    return (value as any)?.[RAW_KEY] ?? value;
 }

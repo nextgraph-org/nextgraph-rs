@@ -78,7 +78,7 @@
     "@types/node": "^22.10.9",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.2",
-    "@vitest/coverage-v8": "3.2.4",
+    "@vitest/coverage-v8": "^4.0.18",
     "astro": "^5.16.1",
     "@playwright/test": "^1.55.0",
     "react-dom": "^19.0.0",
@@ -86,7 +86,7 @@
     "svelte": "^5.1.9",
     "typescript": "^5.4.3",
     "vue": "^3.5.11",
-    "vitest": "^3.0.2"
+    "vitest": "^4.0.18"
   },
   "repository": {
     "type": "git",
