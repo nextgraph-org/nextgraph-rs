@@ -54,32 +54,31 @@ Note that you can pass existing deepSignal objects (that you are using elsewhere
 ```tsx
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 
-const users = useDeepSignal([{username: "Bob"}]);
+const users = useDeepSignal([{ username: "Bob" }]);
 // Note: Instead of calling `setState`, you just need to modify a property. That will trigger the required re-render.
 ```
 
 ### Vue
 
 In component `UserManager.vue`
+
 ```vue
-<script setup lang="ts"> 
+<script setup lang="ts">
 import { DeepSignal } from "@ng-org/alien-deepsignals";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import UserComponent from "./User.vue";
 import { User } from "./types.ts";
 
-const users: DeepSignal<User> = useDeepSignal([{username: "Bob", id: 1}]);
+const users: DeepSignal<User> = useDeepSignal([{ username: "Bob", id: 1 }]);
 </script>
 
 <template>
-    <UserComponent
-        v-for="user in users"
-        :key="user.id"
-        :user="user"
-    />
+    <UserComponent v-for="user in users" :key="user.id" :user="user" />
 </template>
 ```
+
 In a child component, `User.vue`
+
 ```vue
 <script setup lang="ts">
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
@@ -88,12 +87,12 @@ const props = defineProps<{
     user: DeepSignal<User>;
 }>();
 
-// Important!
-// In vue child components, you need to wrap deepSignal objects into useDeepSignal hooks, to ensure the component re-renders.
-const user = useDeepSignal(props.user);
+// The component only rerenders when user.name changes.
+// It behaves the same as an object called with `reactive()`
+const user = props.user;
 </script>
 <template>
-    {{user.name}}
+    <input type="text" v-model:value="user.name" />
 </template>
 ```
 
@@ -103,7 +102,7 @@ const user = useDeepSignal(props.user);
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
 
 // `users` is a rune of type `{username: string}[]`
-const users = useDeepSignal([{username: "Bob"}]);
+const users = useDeepSignal([{ username: "Bob" }]);
 ```
 
 ## Configuration options

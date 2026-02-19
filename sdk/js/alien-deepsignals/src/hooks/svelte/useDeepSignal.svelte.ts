@@ -8,31 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { derived, writable, type Readable } from "svelte/store";
 import { createSubscriber } from "svelte/reactivity";
-import { onDestroy } from "svelte";
-import {
-    subscribeDeepMutations,
-    getDeepSignalRootId,
-    type DeepPatchBatch,
-    DeepSignalOptions,
-    deepSignal,
-    RevertDeepSignal,
-    getDeepSignalVersion,
-    DeepSignal,
-} from "../../index";
-
-/** Base result contract for a deepSignal-backed Svelte integration. */
-export interface UseDeepSignalResult<T> extends Readable<T> {
-    /** Derive a nested selection; re-runs when the underlying tree version increments. */
-    select<U>(selector: (tree: T) => U): Readable<U>;
-    /** Stop receiving further updates (invoked automatically on component destroy). */
-    dispose(): void;
-    /** Replace root shape contents (mutative merge) – enables Svelte writable store binding semantics. */
-    set(next: Partial<T> | T): void;
-    /** Functional update helper using current tree snapshot. */
-    update(updater: (current: T) => T | void): void;
-}
+import { DeepSignalOptions, deepSignal, DeepSignal } from "../../index";
 
 /**
  * Create a rune from a deepSignal object (creates one if it is just a regular object).
@@ -46,21 +23,33 @@ export interface UseDeepSignalResult<T> extends Readable<T> {
  * @returns A rune for using the deepSignal object in svelte.
  */
 export function useDeepSignal<T extends object>(
-    object: T,
+    object: T | Promise<T>,
     options?: DeepSignalOptions
 ) {
-    const deepProxy = deepSignal(object, {
-        ...options,
-        subscriberFactories: (options?.subscriberFactories ?? new Set()).union(
-            new Set([subscriberFactory])
-        ),
-    });
+    let signalOrWaiting = $state();
 
-    onDestroy(() => {
-        // TODO: Tell signal that subscriber can be removed
-    });
+    const createDeepSignal = () => {
+        signalOrWaiting = deepSignal(object, {
+            ...options,
+            subscriberFactories: (
+                options?.subscriberFactories ?? new Set()
+            ).union(new Set([subscriberFactory])),
+        });
+    };
 
-    return deepProxy as T extends DeepSignal<any> ? T : DeepSignal<T>;
+    if (object instanceof Promise) {
+        object.then(createDeepSignal);
+    } else {
+        createDeepSignal();
+    }
+
+    // onDestroy(() => {
+    //     // TODO: Tell signal that subscriber can be removed?
+    // });
+
+    return signalOrWaiting as T extends DeepSignal<any>
+        ? T
+        : DeepSignal<T> | undefined;
 }
 
 /**
@@ -82,7 +71,7 @@ const subscriberFactory = () => {
 
     return {
         onGet,
-        onSet: onSet,
+        onSet,
     };
 };
 

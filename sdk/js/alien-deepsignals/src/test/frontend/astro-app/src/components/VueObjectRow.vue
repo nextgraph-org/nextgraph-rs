@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUpdated, ref } from "vue";
-import useDeepSignal from "../../../../../hooks/vue/useDeepSignal";
-import { sharedState } from "../../../utils/state";
-import { recordRender, recordObjectRender } from "../../../utils/renderMetrics";
+import {  onMounted, onUpdated, ref } from "vue";
+import { recordRender } from "../../../utils/renderMetrics";
 import type { TaggedObject } from "../../../utils/mockData";
 
 let renderCount = 0;
@@ -31,19 +29,10 @@ onUpdated(() => {
   recordVueRender();
 });
 
-
 const toNumber = (value: string) => Number(value || 0);
 
-const rowRenderCounts = new Map<string, number>();
 const incrementObjectCount = (entry: TaggedObject) => {
   entry.count += 1;
-};
-
-const recordRowRender = (entryId: string) => {
-  const current = (rowRenderCounts.get(entryId) ?? 0) + 1;
-  rowRenderCounts.set(entryId, current);
-  recordObjectRender("vue", entryId, current);
-  return current;
 };
 
 </script>
@@ -55,17 +44,16 @@ const recordRowRender = (entryId: string) => {
     <input
       type="text"
       data-role="label"
-      :value="entry.label"
-      @input="(event) => entry.label = (event.target as HTMLInputElement).value"
+      v-model="props.entry.label"
     />
     <input
       type="number"
       data-role="count-input"
-      :value="entry.count"
-      @input="(event) => (entry.count = toNumber((event.target as HTMLInputElement).value))"
+      :value="props.entry.count"
+      @input="(event) => (props.entry.count = toNumber((event.target as HTMLInputElement).value))"
     />
-    <span data-role="count">{{ entry.count }}</span>
-    <button type="button" data-action="increment" @click="incrementObjectCount(entry)">
+    <span data-role="count">{{ props.entry.count }}</span>
+    <button type="button" data-action="increment" @click="incrementObjectCount(props.entry)">
       +1
     </button>
   </fieldset>

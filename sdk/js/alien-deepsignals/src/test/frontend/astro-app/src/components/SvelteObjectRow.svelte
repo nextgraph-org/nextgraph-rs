@@ -10,9 +10,7 @@
   }
 
   let { entry, rowRenderCounts }: Props = $props();
-  
-  const snapshot = useDeepSignal(entry);
-  
+    
   const toNumber = (value: string) => Number(value || 0);
   
   const recordRowRender = (entryId: string) => {
@@ -26,29 +24,28 @@
 
 <div
   class="object-row"
-  data-entry-id={snapshot["@id"]}
-  data-render-count={recordRowRender(snapshot["@id"])}
+  data-entry-id={entry["@id"]}
+  data-render-count={recordRowRender(entry["@id"])}
 >
 
-  <span class="object-id">{snapshot["@id"]}</span>
+  <span class="object-id">{entry["@id"]}</span>
   <input
     type="text"
     data-role="label"
-    value={snapshot.label}
-    oninput={(event) => (snapshot.label = event.currentTarget.value)}
+    bind:value={entry.label}
   />
   <input
     type="number"
     data-role="count-input"
-    value={snapshot.count}
+    value={entry.count}
     oninput={(event) =>
-      (snapshot.count = toNumber(event.currentTarget.value))}
+      (entry.count = toNumber(event.currentTarget.value))}
   />
-  <span data-role="count">{snapshot.count}</span>
+  <span data-role="count">{entry.count}</span>
   <button
     type="button"
     data-action="increment"
-    onclick={() => (snapshot.count += 1)}
+    onclick={() => (entry.count += 1)}
   >
     +1
   </button>

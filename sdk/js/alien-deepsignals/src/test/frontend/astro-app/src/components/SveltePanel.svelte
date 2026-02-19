@@ -1,25 +1,14 @@
 <script lang="ts">
   import useDeepSignal from "../../../../../hooks/svelte/useDeepSignal.svelte";
   import { sharedState } from "../../../utils/state";
-  import {
-    recordObjectRender,
-  } from "../../../utils/renderMetrics";
   import ObjectRow from "./SvelteObjectRow.svelte";
 
   const snapshot = useDeepSignal(sharedState);
-  
-
-  let objectEntries = Array.from(snapshot.objectSet.values());
 
   const rowRenderCounts = new Map<string, number>();
   
   const toNumber = (value: string) => Number(value || 0);
-  const recordRowRender = (entryId: string) => {
-    const next = (rowRenderCounts.get(entryId) ?? 0) + 1;
-    rowRenderCounts.set(entryId, next);
-    recordObjectRender("svelte", entryId, next);
-    return next;
-  };
+
 </script>
 
 <section>
@@ -41,8 +30,7 @@
       <input
         type="text"
         data-role="editor"
-        value={snapshot.stringValue}
-        oninput={(event) => (snapshot.stringValue = event.currentTarget.value)}
+        bind:value={snapshot.stringValue}
       />
       <span data-role="value">{snapshot.stringValue}</span>
     </fieldset>
@@ -64,10 +52,8 @@
       <input
         type="checkbox"
         data-role="editor"
-        checked={snapshot.boolValue}
-        onchange={(event) =>
-          (snapshot.boolValue = event.currentTarget.checked)}
-      />
+        bind:checked={snapshot.boolValue}
+        />
       <span data-role="value">{String(snapshot.boolValue)}</span>
     </fieldset>
 
@@ -76,9 +62,8 @@
       <input
         type="text"
         data-role="editor"
-        value={snapshot.objectValue.nestedString}
-        oninput={(event) =>
-          (snapshot.objectValue.nestedString = event.currentTarget.value)}
+        bind:value={snapshot.objectValue.nestedString}
+        
       />
       <span data-role="value">{snapshot.objectValue.nestedString}</span>
     </fieldset>
@@ -194,7 +179,7 @@
 
   <fieldset class="field" data-field="objectSet">
     <legend>objectSet entries</legend>
-    {#each objectEntries as entry (entry["@id"])}
+    {#each snapshot.objectSet as entry (entry["@id"])}
       <ObjectRow {entry} {rowRenderCounts} />
     {/each}
   </fieldset>

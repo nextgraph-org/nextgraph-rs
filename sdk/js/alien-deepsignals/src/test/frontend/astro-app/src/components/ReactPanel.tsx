@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import useDeepSignal from "../../../../../hooks/react/useDeepSignal";
 import { sharedState } from "../../../utils/state";
 import { recordRender, recordObjectRender } from "../../../utils/renderMetrics";
@@ -13,113 +13,9 @@ const ReactPanel: React.FC = () => {
         recordRender("react", renderCount.current);
     });
 
-    const objectEntries = Array.from(
-        state.objectSet.values()
-    ) as TaggedObject[];
-
-    const ObjectRow: React.FC<{ entry: TaggedObject }> = ({ entry }) => {
-        const rowRenderCount = useRef(0);
-        rowRenderCount.current += 1;
-        useEffect(() => {
-            recordObjectRender("react", entry["@id"], rowRenderCount.current);
-        });
-        return (
-            <div
-                className="object-row"
-                data-entry-id={entry["@id"]}
-                data-render-count={rowRenderCount.current}
-            >
-                <span className="object-id">{entry["@id"]}</span>
-                <input
-                    type="text"
-                    data-role="label"
-                    value={entry.label}
-                    onChange={(event) => {
-                        entry.label = event.target.value;
-                    }}
-                />
-                <input
-                    type="number"
-                    data-role="count-input"
-                    value={entry.count}
-                    onChange={(event) => {
-                        entry.count = Number(event.target.value || 0);
-                    }}
-                />
-                <span data-role="count">{entry.count}</span>
-                <button
-                    type="button"
-                    data-action="increment"
-                    onClick={() => {
-                        entry.count += 1;
-                    }}
-                >
-                    +1
-                </button>
-            </div>
-        );
-    };
-
-    const renderPrimitiveField = (
-        label: string,
-        options:
-            | { type: "text"; value: string; onChange: (next: string) => void }
-            | {
-                  type: "number";
-                  value: number;
-                  onChange: (next: number) => void;
-              }
-            | {
-                  type: "boolean";
-                  value: boolean;
-                  onChange: (next: boolean) => void;
-              }
-    ) => {
-        if (options.type === "boolean") {
-            return (
-                <fieldset className="field" data-field={label}>
-                    <legend>{label}</legend>
-                    <input
-                        type="checkbox"
-                        data-role="editor"
-                        checked={options.value}
-                        onChange={(event) =>
-                            options.onChange(event.target.checked)
-                        }
-                    />
-                    <span data-role="value">{String(options.value)}</span>
-                </fieldset>
-            );
-        }
-        if (options.type === "number") {
-            return (
-                <fieldset className="field" data-field={label}>
-                    <legend>{label}</legend>
-                    <input
-                        type="number"
-                        data-role="editor"
-                        value={options.value}
-                        onChange={(event) =>
-                            options.onChange(Number(event.target.value || 0))
-                        }
-                    />
-                    <span data-role="value">{options.value}</span>
-                </fieldset>
-            );
-        }
-        return (
-            <fieldset className="field" data-field={label}>
-                <legend>{label}</legend>
-                <input
-                    type="text"
-                    data-role="editor"
-                    value={options.value}
-                    onChange={(event) => options.onChange(event.target.value)}
-                />
-                <span data-role="value">{options.value}</span>
-            </fieldset>
-        );
-    };
+    const objectEntries = useMemo(() => {
+        return [...state.objectSet];
+    }, [state.objectSet]);
 
     return (
         <section>
@@ -296,6 +192,108 @@ const ReactPanel: React.FC = () => {
                 ))}
             </fieldset>
         </section>
+    );
+};
+
+const ObjectRow: React.FC<{ entry: TaggedObject }> = ({ entry }) => {
+    const rowRenderCount = useRef(0);
+    rowRenderCount.current += 1;
+    useEffect(() => {
+        recordObjectRender("react", entry["@id"], rowRenderCount.current);
+    });
+    return (
+        <div
+            className="object-row"
+            data-entry-id={entry["@id"]}
+            data-render-count={rowRenderCount.current}
+        >
+            <span className="object-id">{entry["@id"]}</span>
+            <input
+                type="text"
+                data-role="label"
+                value={entry.label}
+                onChange={(event) => {
+                    entry.label = event.target.value;
+                }}
+            />
+            <input
+                type="number"
+                data-role="count-input"
+                value={entry.count}
+                onChange={(event) => {
+                    entry.count = Number(event.target.value || 0);
+                }}
+            />
+            <span data-role="count">{entry.count}</span>
+            <button
+                type="button"
+                data-action="increment"
+                onClick={() => {
+                    entry.count += 1;
+                }}
+            >
+                +1
+            </button>
+        </div>
+    );
+};
+
+const renderPrimitiveField = (
+    label: string,
+    options:
+        | { type: "text"; value: string; onChange: (next: string) => void }
+        | {
+              type: "number";
+              value: number;
+              onChange: (next: number) => void;
+          }
+        | {
+              type: "boolean";
+              value: boolean;
+              onChange: (next: boolean) => void;
+          }
+) => {
+    if (options.type === "boolean") {
+        return (
+            <fieldset className="field" data-field={label}>
+                <legend>{label}</legend>
+                <input
+                    type="checkbox"
+                    data-role="editor"
+                    checked={options.value}
+                    onChange={(event) => options.onChange(event.target.checked)}
+                />
+                <span data-role="value">{String(options.value)}</span>
+            </fieldset>
+        );
+    }
+    if (options.type === "number") {
+        return (
+            <fieldset className="field" data-field={label}>
+                <legend>{label}</legend>
+                <input
+                    type="number"
+                    data-role="editor"
+                    value={options.value}
+                    onChange={(event) =>
+                        options.onChange(Number(event.target.value || 0))
+                    }
+                />
+                <span data-role="value">{options.value}</span>
+            </fieldset>
+        );
+    }
+    return (
+        <fieldset className="field" data-field={label}>
+            <legend>{label}</legend>
+            <input
+                type="text"
+                data-role="editor"
+                value={options.value}
+                onChange={(event) => options.onChange(event.target.value)}
+            />
+            <span data-role="value">{options.value}</span>
+        </fieldset>
     );
 };
 

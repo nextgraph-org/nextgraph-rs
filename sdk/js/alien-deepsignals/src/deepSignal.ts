@@ -230,7 +230,7 @@ function isReactiveSymbol(key: PropertyKey): key is symbol {
  *
  * Does nothing if the deep signal's options `replaceProxiesInBranchOnChange` is false.
  */
-function replaceProxy(meta: ProxyMeta) {
+function replaceProxyMaybe(meta: ProxyMeta) {
     if (
         !meta.parent ||
         !meta.key ||
@@ -281,7 +281,7 @@ function buildPath(
     while (cursor && cursor.parent && cursor.key !== undefined) {
         push(cursor.key, !!cursor.isSyntheticId);
 
-        replaceProxy(cursor);
+        replaceProxyMaybe(cursor);
 
         cursor = cursor.parent;
     }
@@ -291,7 +291,7 @@ function buildPath(
 /** Resolve the path for a container itself (without the child key appended). */
 function resolveContainerPath(meta: ProxyMeta | undefined) {
     if (!meta || !meta.parent || meta.key === undefined) return [];
-    replaceProxy(meta);
+    replaceProxyMaybe(meta);
     return buildPath(meta.parent, meta.key, !!meta.isSyntheticId);
 }
 
@@ -1337,7 +1337,7 @@ export function deepSignal<T extends object>(
                 options?.subscriberFactories ?? new Set()
             );
 
-        meta?.options.replaceProxiesInBranchOnChange ==
+        meta.options.replaceProxiesInBranchOnChange =
             meta?.options.replaceProxiesInBranchOnChange ||
             options?.replaceProxiesInBranchOnChange;
 

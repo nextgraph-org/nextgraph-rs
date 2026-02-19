@@ -41,9 +41,9 @@ export function useDeepSignal<T extends object>(
         ),
     });
 
-    onBeforeUnmount(() => {
-        // TODO: Tell signal that subscriber can be removed
-    });
+    // onBeforeUnmount(() => {
+    //     // TODO: Tell signal that subscriber can be removed
+    // });
 
     return deepProxy as DeepSignal<T>;
 }

@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUpdated, ref } from "vue";
+import { onMounted, onUpdated, ref } from "vue";
 import useDeepSignal from "../../../../../hooks/vue/useDeepSignal";
 import { sharedState } from "../../../utils/state";
 import { recordRender, recordObjectRender } from "../../../utils/renderMetrics";
-import type { TaggedObject } from "../../../utils/mockData";
 import VueObjectRow from "./VueObjectRow.vue";
 
 const state = useDeepSignal(sharedState);
 let renderCount = 0;
 const renderMetaRef = ref<HTMLElement | null>(null);
 
-const objectEntries = computed<TaggedObject[]>(() =>
-  Array.from(state.objectSet.values()) as TaggedObject[]
-);
+
 
 const updateRenderMeta = () => {
   const element = renderMetaRef.value;
@@ -58,9 +55,7 @@ const removeSetEntry = () => {
   if (last) state.setValue.delete(last);
 };
 const rowRenderCounts = new Map<string, number>();
-const incrementObjectCount = (entry: TaggedObject) => {
-  entry.count += 1;
-};
+
 
 const recordRowRender = (entryId: string) => {
   const current = (rowRenderCounts.get(entryId) ?? 0) + 1;
@@ -81,8 +76,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="text"
           data-role="editor"
-          :value="state.type"
-          @input="(event) => (state.type = (event.target as HTMLInputElement).value)"
+          v-model="state.type"
         />
         <span data-role="value">{{ state.type }}</span>
       </fieldset>
@@ -92,8 +86,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="text"
           data-role="editor"
-          :value="state.stringValue"
-          @input="(event) => (state.stringValue = (event.target as HTMLInputElement).value)"
+          v-model="state.stringValue"
         />
         <span data-role="value">{{ state.stringValue }}</span>
       </fieldset>
@@ -114,8 +107,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="checkbox"
           data-role="editor"
-          :checked="state.boolValue"
-          @change="(event) => (state.boolValue = (event.target as HTMLInputElement).checked)"
+          v-model="state.boolValue"
         />
         <span data-role="value">{{ String(state.boolValue) }}</span>
       </fieldset>
@@ -125,8 +117,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="text"
           data-role="editor"
-          :value="state.objectValue.nestedString"
-          @input="(event) => (state.objectValue.nestedString = (event.target as HTMLInputElement).value)"
+          v-model="state.objectValue.nestedString"
         />
         <span data-role="value">{{ state.objectValue.nestedString }}</span>
       </fieldset>
@@ -189,7 +180,7 @@ const recordRowRender = (entryId: string) => {
       <legend>objectSet entries</legend>
       <div
         class="object-row"
-        v-for="entry in objectEntries"
+        v-for="entry in state.objectSet"
         :key="entry['@id']"
         :data-entry-id="entry['@id']"
         :data-render-count="recordRowRender(entry['@id'])"
