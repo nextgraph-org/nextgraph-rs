@@ -2,25 +2,17 @@
   import { onDestroy } from "svelte";
   import useDeepSignal from "../../../../../hooks/svelte4/useDeepSignal.svelte";
   import { sharedState } from "../../../utils/state";
-  import {
-    recordRender,
-    recordObjectRender,
-  } from "../../../utils/renderMetrics";
   import type { TaggedObject, TestState } from "../../../utils/mockData";
 
   const store = useDeepSignal(sharedState);
   let snapshot = sharedState as TestState;
-  let renderCount = 0;
   let objectEntries: TaggedObject[] = Array.from(snapshot.objectSet.values());
 
-  const rowRenderCounts = new Map<string, number>();
   const unsubscribe = store.subscribe((value) => {
     snapshot = value as TestState;
     objectEntries = Array.from(snapshot.objectSet.values());
   });
 
-  $: renderCount += 1;
-  $: recordRender("svelte", renderCount);
   $: objectEntries = Array.from(snapshot.objectSet.values()) as TaggedObject[];
 
   onDestroy(() => {
@@ -29,19 +21,12 @@
   });
 
   const toNumber = (value: string) => Number(value || 0);
-  const recordRowRender = (entryId: string) => {
-    const next = (rowRenderCounts.get(entryId) ?? 0) + 1;
-    rowRenderCounts.set(entryId, next);
-    recordObjectRender("svelte", entryId, next);
-    return next;
-  };
+
 </script>
 
 <section>
-  <h2 class="title">svelte 3 / 4</h2>
-  <div class="render-meta" data-render-count={renderCount}>
-    Render #{renderCount}
-  </div>
+  <h2 class="title">Svelte 3 / 4</h2>
+
 
   <div class="field-grid">
     <fieldset class="field" data-field="type">
@@ -217,7 +202,6 @@
       <div
         class="object-row"
         data-entry-id={entry["@id"]}
-        data-render-count={recordRowRender(entry["@id"])}
       >
         <span class="object-id">{entry["@id"]}</span>
         <input

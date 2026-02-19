@@ -2,7 +2,7 @@
   import useDeepSignal from "../../../../../hooks/svelte/useDeepSignal.svelte";
   import { recordObjectRender } from "../../../utils/renderMetrics";
   import type { TaggedObject } from "../../../utils/mockData";
-    import type { DeepSignal } from "../../../../../types";
+  import type { DeepSignal } from "../../../../../types";
 
   interface Props {
     entry: DeepSignal<TaggedObject>;

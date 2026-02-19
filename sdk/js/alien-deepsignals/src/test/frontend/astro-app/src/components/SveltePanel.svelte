@@ -1,13 +1,10 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
   import useDeepSignal from "../../../../../hooks/svelte/useDeepSignal.svelte";
   import { sharedState } from "../../../utils/state";
   import {
-    recordRender,
     recordObjectRender,
   } from "../../../utils/renderMetrics";
-  import type { TaggedObject, TestState } from "../../../utils/mockData";
-  import ObjectRow from "./ObjectRow.svelte";
+  import ObjectRow from "./SvelteObjectRow.svelte";
 
   const snapshot = useDeepSignal(sharedState);
   

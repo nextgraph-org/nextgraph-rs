@@ -4,6 +4,7 @@ import useDeepSignal from "../../../../../hooks/vue/useDeepSignal";
 import { sharedState } from "../../../utils/state";
 import { recordRender, recordObjectRender } from "../../../utils/renderMetrics";
 import type { TaggedObject } from "../../../utils/mockData";
+import VueObjectRow from "./VueObjectRow.vue";
 
 const state = useDeepSignal(sharedState);
 let renderCount = 0;
@@ -71,7 +72,7 @@ const recordRowRender = (entryId: string) => {
 
 <template>
   <section>
-    <h2 class="title">vue</h2>
+    <h2 class="title">Vue</h2>
     <div class="render-meta" data-render-count="0" ref="renderMetaRef">Render #0</div>
 
     <div class="field-grid">
@@ -193,23 +194,7 @@ const recordRowRender = (entryId: string) => {
         :data-entry-id="entry['@id']"
         :data-render-count="recordRowRender(entry['@id'])"
       >
-        <span class="object-id">{{ entry['@id'] }}</span>
-        <input
-          type="text"
-          data-role="label"
-          :value="entry.label"
-          @input="(event) => (entry.label = (event.target as HTMLInputElement).value)"
-        />
-        <input
-          type="number"
-          data-role="count-input"
-          :value="entry.count"
-          @input="(event) => (entry.count = toNumber((event.target as HTMLInputElement).value))"
-        />
-        <span data-role="count">{{ entry.count }}</span>
-        <button type="button" data-action="increment" @click="incrementObjectCount(entry)">
-          +1
-        </button>
+        <VueObjectRow :entry="entry" />
       </div>
     </fieldset>
   </section>

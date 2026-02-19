@@ -123,7 +123,7 @@ const ReactPanel: React.FC = () => {
 
     return (
         <section>
-            <h2 className="title">react</h2>
+            <h2 className="title">React</h2>
             <div
                 className="render-meta"
                 data-render-count={renderCount.current}

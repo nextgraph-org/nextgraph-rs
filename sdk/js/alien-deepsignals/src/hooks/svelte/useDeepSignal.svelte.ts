@@ -75,18 +75,13 @@ const subscriberFactory = () => {
     };
 
     const onGet = createSubscriber((update) => {
-        console.log("creating subscriber");
         setter = () => {
-            console.log("onSet");
             update();
         };
     });
 
     return {
-        onGet: () => {
-            console.log("onget");
-            onGet();
-        },
+        onGet,
         onSet: onSet,
     };
 };
