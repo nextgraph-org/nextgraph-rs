@@ -89,14 +89,14 @@ export interface UseShapeRuneResult<T extends object>
  * ```svelte
  * <script lang="ts">
  * let {
- *     expense = $bindable(),
- * }: { expense: Expense; } = $props();
+ *     expense,
+ * }: { expense: DeepSignal<Expense>; } = $props();
  * </script>
  *
  * <div>
  *     <input
  *         value={expense.title ?? ""}
- *         oninput={(event) => {expense.title = event.currentTarget!.value}}
+ *         oninput={(event) => {expense.title = event.currentTarget.value}}
  *     />
  * </div>
  * ```
@@ -104,7 +104,7 @@ export interface UseShapeRuneResult<T extends object>
 export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope
-): UseShapeRuneResult<Set<T>> {
+) {
     const { signalObject: rootSignal, close } = OrmConnection.getOrCreate(
         shape,
         scope
@@ -112,8 +112,8 @@ export function useShape<T extends BaseType>(
 
     onDestroy(close);
 
-    const ds = useDeepSignal<Set<T>>(rootSignal as Set<T>);
-    return { root: rootSignal, ...ds } as UseShapeRuneResult<Set<T>>;
+    const shapeSignalSet = useDeepSignal<Set<T>>(rootSignal as Set<T>);
+    return shapeSignalSet;
 }
 
 export default useShape;

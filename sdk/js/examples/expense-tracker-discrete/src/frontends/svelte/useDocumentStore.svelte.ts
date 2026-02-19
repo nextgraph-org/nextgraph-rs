@@ -8,17 +8,13 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { DocumentStore } from "../../types";
 import { ormConnectionPromise } from "../../utils/ngSession";
 import { useDiscrete } from "@ng-org/orm/svelte";
-import type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
 
 export function useDocumentStore() {
     const documentIdPromise = ormConnectionPromise.then(
         (connection) => connection.documentId
     );
 
-    return useDiscrete(documentIdPromise) as UseDeepSignalResult<
-        DocumentStore | undefined
-    >;
+    return useDiscrete(documentIdPromise);
 }

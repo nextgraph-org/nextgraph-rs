@@ -8,13 +8,16 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { computed, MaybeRefOrGetter, onBeforeUnmount, toValue } from "vue";
-import { type DeepSignal } from "@ng-org/alien-deepsignals";
+import {
+    computed,
+    MaybeRefOrGetter,
+    onBeforeUnmount,
+    shallowRef,
+    toValue,
+    watchEffect,
+} from "vue";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandler.ts";
-import { DiscreteArray, DiscreteObject } from "../../types.ts";
-
-const EMPTY_OBJECT = {} as const;
 
 /**
  * Hook to subscribe to an existing discrete (JSON) CRDT document.
@@ -41,11 +44,11 @@ const EMPTY_OBJECT = {} as const;
  * //     "store",
  * //     undefined
  * // );
- * const { data } = useDiscrete(documentId);
+ * const { doc } = useDiscrete(documentId);
  *
  * // If document is new, we need to set up the basic structure.
- * if (data && !data.expenses) {
- *     data.expenses = [];
+ * if (doc && !doc.expenses) {
+ *     doc.expenses = [];
  * }
  *
  * const createExpense = () => {
@@ -64,7 +67,7 @@ const EMPTY_OBJECT = {} as const;
  * </script>
  *
  * <template>
- *     <div v-if="!data">
+ *     <div v-if="!doc">
  *         Loading...
  *     </div>
  *     <div v-else>
@@ -90,15 +93,9 @@ const EMPTY_OBJECT = {} as const;
  * In the `ExpenseCard` component:
  * ```html
  * <script lang="ts">
- * const props = defineProps<{
+ * const { expense } = defineProps<{
  *     expense: DeepSignal<Expense>;
  * }>();
- *
- * // Important!
- * // In vue, you need to wrap children into useDeepSignal hooks,
- * // to ensure the component re-renders on changes coming from
- * // other components or the engine.
- * const expense = useDeepSignal(props.expense);
  *
  * // If you modify expense in the component,
  * // the changes are immediately propagated to the other components
@@ -119,21 +116,18 @@ export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
         return id ? DiscreteOrmConnection.getOrCreate(id) : undefined;
     });
 
-    onBeforeUnmount(() => {
-        ormConnection?.value?.close();
+    const ret = shallowRef({ doc: undefined });
+    watchEffect(() => {
+        ormConnection.value?.readyPromise.then(() => {
+            ret.value = {
+                doc: useDeepSignal(ormConnection.value!.signalObject as any),
+            };
+        });
     });
 
-    const signalSource = computed(
-        () => ormConnection.value?.signalObject ?? EMPTY_OBJECT
-    );
+    onBeforeUnmount(() => {
+        ormConnection.value?.close();
+    });
 
-    const state = useDeepSignal(signalSource) as DeepSignal<
-        DiscreteArray | DiscreteObject
-    >;
-
-    const data = computed(() =>
-        ormConnection.value?.signalObject ? state : undefined
-    );
-
-    return { data };
+    return ret;
 }

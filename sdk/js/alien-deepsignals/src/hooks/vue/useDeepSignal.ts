@@ -34,7 +34,7 @@ export function useDeepSignal<T extends object>(
     object: MaybeRefOrGetter<T>,
     options?: DeepSignalOptions
 ): DeepSignal<T> {
-    const deepProxy = deepSignal(object, {
+    const deepProxy = deepSignal(toValue(object), {
         ...options,
         subscriberFactories: (options?.subscriberFactories ?? new Set()).union(
             new Set([subscriberFactory])

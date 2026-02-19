@@ -23,33 +23,21 @@ import { DeepSignalOptions, deepSignal, DeepSignal } from "../../index";
  * @returns A rune for using the deepSignal object in svelte.
  */
 export function useDeepSignal<T extends object>(
-    object: T | Promise<T>,
+    object: T,
     options?: DeepSignalOptions
 ) {
-    let signalOrWaiting = $state();
-
-    const createDeepSignal = () => {
-        signalOrWaiting = deepSignal(object, {
-            ...options,
-            subscriberFactories: (
-                options?.subscriberFactories ?? new Set()
-            ).union(new Set([subscriberFactory])),
-        });
-    };
-
-    if (object instanceof Promise) {
-        object.then(createDeepSignal);
-    } else {
-        createDeepSignal();
-    }
+    const ret = deepSignal(object, {
+        ...options,
+        subscriberFactories: (options?.subscriberFactories ?? new Set()).union(
+            new Set([subscriberFactory])
+        ),
+    });
 
     // onDestroy(() => {
     //     // TODO: Tell signal that subscriber can be removed?
     // });
 
-    return signalOrWaiting as T extends DeepSignal<any>
-        ? T
-        : DeepSignal<T> | undefined;
+    return ret as T extends DeepSignal<any> ? T : DeepSignal<T> | undefined;
 }
 
 /**

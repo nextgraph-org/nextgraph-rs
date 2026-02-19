@@ -66,15 +66,9 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
  * In the `ExpenseCard` component:
  * ```html
  * <script lang="ts">
- * const props = defineProps<{
+ * const { expense } = defineProps<{
  *     expense: DeepSignal<Expense>;
  * }>();
- *
- * // Important!
- * // In vue, you need to wrap children into useDeepSignal hooks,
- * // to ensure the component re-renders on changes coming from
- * // other components or the backend.
- * const expense = useDeepSignal(props.expense);
  *
  * // If you modify expense in the component,
  * // the changes are immediately propagated to the other components

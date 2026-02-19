@@ -17,6 +17,10 @@ import { insertObject } from "./connector/insertObject.ts";
 import { getObjects } from "./connector/getObjects.ts";
 export * from "./connector/applyPatches.ts";
 
+export type { DeepSignal, DeepSignalObject } from "@ng-org/alien-deepsignals";
+
+export { getRaw, watch, effect } from "@ng-org/alien-deepsignals";
+
 export {
     initNgSignals as initNg,
     ngSession,

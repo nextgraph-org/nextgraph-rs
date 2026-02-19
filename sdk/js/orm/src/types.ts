@@ -37,7 +37,7 @@ export type Scope = {
     subjects?: string[];
 };
 
-/** Convert undefined to [] and for graphs "" to "did:ng:i". If scope is string, that means {graphs: [<scope string>], subjects: []}. */
+/** Convert undefined to [] and for graphs "" to "did:ng:i". If scope is string, that means {graphs: [\<scope string>], subjects: []}. */
 export const normalizeScope = (scope: Scope | string | undefined = {}) => {
     if (typeof scope === "string") {
         return { graphs: [scope], subjects: [] };

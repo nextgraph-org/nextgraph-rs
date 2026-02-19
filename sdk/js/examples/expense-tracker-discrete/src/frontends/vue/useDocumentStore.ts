@@ -23,6 +23,6 @@ export function useDocumentStore() {
     }
 
     return useDiscrete(documentId) as {
-        data: ComputedRef<DocumentStore | undefined>;
+        doc: ComputedRef<DocumentStore | undefined>;
     };
 }
