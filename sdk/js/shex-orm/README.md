@@ -66,7 +66,7 @@ export function TestComponent() {
 }
 ```
 
-For an example, see the [multi-framework-signals example application](../examples/multi-framework-signals/README.md).
+For an example, see the [expense-tracker-rdf example application](../examples/expense-tracker-rdf/README.md).
 
 ## Generated Output
 
