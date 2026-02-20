@@ -11,7 +11,6 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import type { Expense, ExpenseCategory } from "../../types";
 
 const props = defineProps<{
@@ -19,10 +18,8 @@ const props = defineProps<{
     availableCategories: ExpenseCategory[];
 }>();
 
-// Important!
-// In vue, you need to wrap children into useDeepSignal hooks, to ensure the component re-renders.
-const expense = useDeepSignal(props.expense);
-const availableCategories = useDeepSignal(props.availableCategories);
+const expense = props.expense;
+const availableCategories = props.availableCategories;
 
 const isEditing = ref(false);
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {

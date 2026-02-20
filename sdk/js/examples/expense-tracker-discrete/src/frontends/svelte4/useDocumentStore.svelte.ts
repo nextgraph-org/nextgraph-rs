@@ -10,12 +10,11 @@
 
 import type { DocumentStore } from "../../types";
 import { ormSubscriptionPromise } from "../../utils/ngSession";
-import { useDiscrete } from "@ng-org/orm/svelte4";
-import type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
+import { useDiscrete, type UseDeepSignalResult } from "@ng-org/orm/svelte4";
 
 export function useDocumentStore() {
     const documentIdPromise = ormSubscriptionPromise.then(
-        (connection) => connection.documentId
+        (subscription) => subscription.documentId
     );
 
     return useDiscrete(documentIdPromise) as UseDeepSignalResult<
