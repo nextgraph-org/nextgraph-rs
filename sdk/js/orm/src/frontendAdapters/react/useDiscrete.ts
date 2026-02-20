@@ -158,12 +158,14 @@ export function useDiscrete(documentId: string | undefined) {
 
     // useDeepSignal requires an object, so pass empty object when no connection.
     const signalSource = ormConnection?.signalObject ?? EMPTY_OBJECT;
-    const state = useDeepSignal(signalSource) as DeepSignal<
+    const deepSignalValue = useDeepSignal(signalSource) as DeepSignal<
         DiscreteArray | DiscreteObject
     >;
 
     // Only return data if we have a valid connection with a signal object.
-    const data = ormConnection?.signalObject ? state : undefined;
+    const dataOrUndefined = ormConnection?.signalObject
+        ? deepSignalValue
+        : undefined;
 
-    return { data };
+    return { doc: dataOrUndefined };
 }

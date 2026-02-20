@@ -531,7 +531,6 @@ describe("deepsignal/core", () => {
 
             effect(() => {
                 x = store.join(" ");
-                console.log("joined", x);
             });
 
             expect(x).to.equal("foo bar");
@@ -674,21 +673,24 @@ describe("deepsignal/core", () => {
     });
 
     describe("refs", () => {
-        it("should change if children changed", async () => {
-            const signalObj = deepSignal({
-                primitive: 1,
-                nestedObject: { primitive: 2 },
-                nestedSetOfPrimitives: new Set([1, 2, "three"]),
-                nestedSetOfObjects: new Set([
-                    { "@id": "obj1", primitive: true },
-                    { "@id": "obj2", primitive: "false" },
-                ]),
-                nestedArrayOfPrimitives: [1, 2, "three"],
-                nestedArrayOfObjects: [
-                    { "@id": "obj1", primitive: true },
-                    { "@id": "obj2", primitive: "false" },
-                ],
-            });
+        it("should change if children changed when replaceProxiesInBranchOnChange", async () => {
+            const signalObj = deepSignal(
+                {
+                    primitive: 1,
+                    nestedObject: { primitive: 2 },
+                    nestedSetOfPrimitives: new Set([1, 2, "three"]),
+                    nestedSetOfObjects: new Set([
+                        { "@id": "obj1", primitive: true },
+                        { "@id": "obj2", primitive: "false" },
+                    ]),
+                    nestedArrayOfPrimitives: [1, 2, "three"],
+                    nestedArrayOfObjects: [
+                        { "@id": "obj1", primitive: true },
+                        { "@id": "obj2", primitive: "false" },
+                    ],
+                },
+                { replaceProxiesInBranchOnChange: true }
+            );
 
             // Capture initial references
             let no = signalObj.nestedObject;
@@ -890,6 +892,22 @@ describe("deepsignal/core", () => {
             state[key] = true;
             expect(state[key]).to.equal(true);
             expect(x).to.equal(undefined);
+        });
+
+        it("access well-known symbol property returns raw value and not a signal", () => {
+            const tag = Symbol.toStringTag;
+            const ds = deepSignal({ [tag]: "Custom", x: 1 }) as any;
+            const val = ds[tag];
+            expect(val).toBe("Custom");
+        });
+
+        it("access Set Symbol.iterator.toString() key path (skip branch)", () => {
+            const ds = deepSignal({ set: new Set([1]) }) as any;
+            const iterKey = Symbol.iterator.toString(); // 'Symbol(Symbol.iterator)'
+            // Accessing this string property triggers skip branch (no special handling needed)
+            const maybe = ds.set[iterKey];
+            // underlying Set likely has undefined for that string key
+            expect(maybe).toBeUndefined();
         });
     });
 

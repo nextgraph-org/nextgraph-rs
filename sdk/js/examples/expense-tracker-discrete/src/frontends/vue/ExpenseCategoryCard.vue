@@ -9,17 +9,15 @@ notice may not be copied, modified, or distributed except
 according to those terms.
 SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
+
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { ExpenseCategory } from "../../types";
-import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 
 const props = defineProps<{
     category: ExpenseCategory;
 }>();
 
-// Important! To subscribe to reactivity of deepSignal children, you mus call `useDeepSignal`.
-// const category = useDeepSignal(props.category);
 const category = props.category;
 
 const isEditing = ref(false);

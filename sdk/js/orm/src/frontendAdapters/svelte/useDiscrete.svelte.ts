@@ -9,15 +9,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { onDestroy } from "svelte";
-import {
-    useDeepSignal,
-    UseDeepSignalResult,
-} from "@ng-org/alien-deepsignals/svelte";
+import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
 import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandler.ts";
 import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
 
 /**
- * Svelte version 3/4 hook to subscribe to existing discrete (JSON) CRDT documents.
+ * Svelte 5 hook to subscribe to existing discrete (JSON) CRDT documents.
  * You can modify the returned object like any other JSON object. Changes are immediately
  * reflected in the CRDT.
  *
@@ -42,11 +39,11 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *     //     undefined,
  *     // );
  *
- *     const data = useDiscrete(documentIdPromise);
+ *     const { doc } = useDiscrete(documentIdPromise);
  *
  *     // If the CRDT document is still empty, we need to initialize it.
- *     if (data && !data.expenses) {
- *         data.expenses = [];
+ *     if (doc && !doc.expenses) {
+ *         doc.expenses = [];
  *     }
  *
  *     const createExpense = () => {
@@ -70,14 +67,14 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *     <div>
  *         <button on:click={() => createExpense({})}/>
  *
- *         {#if !data}
+ *         {#if !doc}
  *             Loading...
- *         {:else if data.expenses.length === 0}
+ *         {:else if doc.expenses.length === 0}
  *             <p>
  *                 Nothing tracked yet - log your first purchase to kick things off.
  *             </p>
  *         {:else}
- *             {#each data.expenses as expense, index (expense['@id']) }
+ *             {#each doc.expenses as expense, index (expense['@id']) }
  *                 <ExpenseCard
  *                     expense={expense}
  *                 />
@@ -103,31 +100,35 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  * </div>
  * ```
  */
-export function useDiscrete(
-    documentIdOrPromise: string | Promise<string>
-): UseDeepSignalResult<DiscreteRootArray | DiscreteRootObject | undefined> {
+export function useDiscrete(documentIdOrPromise: string | Promise<string>): {
+    doc: DiscreteRootArray | DiscreteRootObject | undefined;
+} {
     let connection: DiscreteOrmConnection | undefined;
     let isDestroyed = false;
+    let doc = $state.raw<DiscreteRootArray | DiscreteRootObject | undefined>(
+        undefined
+    );
 
-    const objectPromise = new Promise<any>((resolve) => {
-        const init = (docId: string) => {
-            if (isDestroyed) return;
-            connection = DiscreteOrmConnection.getOrCreate(docId);
-            connection.readyPromise.then(() => {
-                if (isDestroyed) {
-                    connection?.close();
-                    return;
-                }
-                resolve(connection!.signalObject!);
-            });
-        };
+    const init = (docId: string) => {
+        if (isDestroyed) return;
+        connection = DiscreteOrmConnection.getOrCreate(docId);
+        connection.readyPromise.then(() => {
+            if (isDestroyed) {
+                connection?.close();
+                return;
+            }
+            doc = useDeepSignal(connection!.signalObject!) as
+                | DiscreteRootArray
+                | DiscreteRootObject
+                | undefined;
+        });
+    };
 
-        if (typeof documentIdOrPromise === "string") {
-            init(documentIdOrPromise);
-        } else {
-            documentIdOrPromise.then(init);
-        }
-    });
+    if (typeof documentIdOrPromise === "string") {
+        init(documentIdOrPromise);
+    } else {
+        documentIdOrPromise.then(init);
+    }
 
     onDestroy(() => {
         isDestroyed = true;
@@ -136,5 +137,9 @@ export function useDiscrete(
         }
     });
 
-    return useDeepSignal(objectPromise);
+    return {
+        get doc() {
+            return doc;
+        },
+    };
 }

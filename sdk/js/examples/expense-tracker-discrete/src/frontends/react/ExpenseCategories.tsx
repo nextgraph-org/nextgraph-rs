@@ -14,7 +14,7 @@ import { useDocumentStore } from "./useDocumentStore";
 
 export function ExpenseCategories() {
     const store = useDocumentStore();
-    const expenseCategories = store.data?.expenseCategories;
+    const expenseCategories = store?.expenseCategories;
 
     const createCategory = useCallback(async () => {
         if (!expenseCategories) return;

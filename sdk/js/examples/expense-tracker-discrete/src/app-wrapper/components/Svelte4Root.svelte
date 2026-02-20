@@ -1,3 +1,4 @@
+<!--
 // Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
@@ -7,9 +8,9 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<script lang="ts">
+  import Main from "../../frontends/svelte4/Main.svelte";
+</script>
 
-export enum ReactiveFlags {
-  IS_SIGNAL = '__v_isSignal',
-  SKIP = "__v_skip",
-  IS_SHALLOW = "__v_isShallow",
-}
+<Main />

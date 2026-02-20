@@ -10,12 +10,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import { useShape } from "@ng-org/orm/svelte";
+  import { useShape } from "@ng-org/orm/svelte4";
   import flattenObject from "../utils/flattenObject";
   import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
   import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
-  const shapeObjects = useShape(TestObjectShapeType);
+  const shapeObjects = useShape(TestObjectShapeType, {graphs: [""]});
 
   function getNestedValue(obj: any, path: string) {
     return path

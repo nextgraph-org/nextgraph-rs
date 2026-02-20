@@ -1,7 +1,6 @@
 ---
-const { react, svelte, vue, astro } = Astro.props;
+const { react, svelte, svelte4, vue, astro } = Astro.props;
 
-const frameworkName = Object.keys(Astro.props)[0];
 ---
 
 <!--
@@ -15,7 +14,7 @@ const frameworkName = Object.keys(Astro.props)[0];
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
-<div class:list={["box", { react, svelte, vue, astro }]}>
+<div class:list={["box", { react, svelte, svelte4, vue, astro }]}>
     <div class="wrap">
         <slot />
     </div>
@@ -49,5 +48,9 @@ const frameworkName = Object.keys(Astro.props)[0];
     }
     .svelte {
         background-color: rgb(255, 216, 189);
+    }
+
+    .svelte4 {
+        background-color: rgb(253, 255, 189);
     }
 </style>

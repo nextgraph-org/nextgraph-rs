@@ -1,17 +1,27 @@
+<!--
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// Licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice may not be copied, modified, or distributed except
+// according to those terms.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+
 <script setup lang="ts">
-import { computed, onMounted, onUpdated, ref } from "vue";
+import { onMounted, onUpdated, ref } from "vue";
 import useDeepSignal from "../../../../../hooks/vue/useDeepSignal";
 import { sharedState } from "../../../utils/state";
 import { recordRender, recordObjectRender } from "../../../utils/renderMetrics";
-import type { TaggedObject } from "../../../utils/mockData";
+import VueObjectRow from "./VueObjectRow.vue";
 
 const state = useDeepSignal(sharedState);
 let renderCount = 0;
 const renderMetaRef = ref<HTMLElement | null>(null);
 
-const objectEntries = computed<TaggedObject[]>(() =>
-  Array.from(state.objectSet.values()) as TaggedObject[]
-);
+
 
 const updateRenderMeta = () => {
   const element = renderMetaRef.value;
@@ -57,9 +67,7 @@ const removeSetEntry = () => {
   if (last) state.setValue.delete(last);
 };
 const rowRenderCounts = new Map<string, number>();
-const incrementObjectCount = (entry: TaggedObject) => {
-  entry.count += 1;
-};
+
 
 const recordRowRender = (entryId: string) => {
   const current = (rowRenderCounts.get(entryId) ?? 0) + 1;
@@ -71,7 +79,7 @@ const recordRowRender = (entryId: string) => {
 
 <template>
   <section>
-    <h2 class="title">vue</h2>
+    <h2 class="title">Vue</h2>
     <div class="render-meta" data-render-count="0" ref="renderMetaRef">Render #0</div>
 
     <div class="field-grid">
@@ -80,8 +88,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="text"
           data-role="editor"
-          :value="state.type"
-          @input="(event) => (state.type = (event.target as HTMLInputElement).value)"
+          v-model="state.type"
         />
         <span data-role="value">{{ state.type }}</span>
       </fieldset>
@@ -91,8 +98,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="text"
           data-role="editor"
-          :value="state.stringValue"
-          @input="(event) => (state.stringValue = (event.target as HTMLInputElement).value)"
+          v-model="state.stringValue"
         />
         <span data-role="value">{{ state.stringValue }}</span>
       </fieldset>
@@ -113,8 +119,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="checkbox"
           data-role="editor"
-          :checked="state.boolValue"
-          @change="(event) => (state.boolValue = (event.target as HTMLInputElement).checked)"
+          v-model="state.boolValue"
         />
         <span data-role="value">{{ String(state.boolValue) }}</span>
       </fieldset>
@@ -124,8 +129,7 @@ const recordRowRender = (entryId: string) => {
         <input
           type="text"
           data-role="editor"
-          :value="state.objectValue.nestedString"
-          @input="(event) => (state.objectValue.nestedString = (event.target as HTMLInputElement).value)"
+          v-model="state.objectValue.nestedString"
         />
         <span data-role="value">{{ state.objectValue.nestedString }}</span>
       </fieldset>
@@ -188,28 +192,12 @@ const recordRowRender = (entryId: string) => {
       <legend>objectSet entries</legend>
       <div
         class="object-row"
-        v-for="entry in objectEntries"
+        v-for="entry in state.objectSet"
         :key="entry['@id']"
         :data-entry-id="entry['@id']"
         :data-render-count="recordRowRender(entry['@id'])"
       >
-        <span class="object-id">{{ entry['@id'] }}</span>
-        <input
-          type="text"
-          data-role="label"
-          :value="entry.label"
-          @input="(event) => (entry.label = (event.target as HTMLInputElement).value)"
-        />
-        <input
-          type="number"
-          data-role="count-input"
-          :value="entry.count"
-          @input="(event) => (entry.count = toNumber((event.target as HTMLInputElement).value))"
-        />
-        <span data-role="count">{{ entry.count }}</span>
-        <button type="button" data-action="increment" @click="incrementObjectCount(entry)">
-          +1
-        </button>
+        <VueObjectRow :entry="entry" />
       </div>
     </fieldset>
   </section>

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -8,7 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { computed, ref, type ComputedRef } from "vue";
+import { ref, type ComputedRef } from "vue";
+import type { DeepSignal } from "@ng-org/orm";
 import { useDiscrete } from "@ng-org/orm/vue";
 import type { DocumentStore } from "../../types";
 import { ormConnection, ormConnectionPromise } from "../../utils/ngSession";
@@ -22,7 +23,7 @@ export function useDocumentStore() {
         });
     }
 
-    return useDiscrete(documentId) as {
-        data: ComputedRef<DocumentStore | undefined>;
-    };
+    return useDiscrete(documentId) as ComputedRef<{
+        doc: DeepSignal<DocumentStore> | undefined;
+    }>;
 }

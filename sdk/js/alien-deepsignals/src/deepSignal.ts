@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { computed, signal } from "./core";
+import { alienComputed, alienSignal } from "./core";
 import {
     DeepPatch,
     DeepPatchBatch,
@@ -16,6 +16,7 @@ import {
     DeepPatchSubscriber,
     DeepSignal,
     DeepSignalOptions,
+    ExternalSubscriberFactory,
     ProxyMeta,
     RootState,
     SetMeta,
@@ -30,18 +31,38 @@ import {
 /** The current proxy object for the raw object (others might exist but are not the current / clean ones). */
 const rawToProxy = new WeakMap<object, any>();
 const rawToMeta = new WeakMap<object, ProxyMeta>();
-// TODO: We can move them to the meta objects.
-const propertiesToSignals = new WeakMap<object, Map<PropertyKey, SignalLike>>();
-const iterableSignals = new WeakMap<
+
+/** Type to store alien signal and external subscribers  */
+type SignalRecord<T = any> = {
+    /** The alien signal to store the value in. */
+    alienSignal: WritableSignal<T>;
+    /**
+     * Subscribers from frontend libraries. On changes, `onSet` is called. On property access `onGet`.
+     * The keys are the subscriber factories, the values are the returned subscribers.
+     */
+    // TODO: Find an elegant way to garbage collect unused subscribers.
+    externalSubscribers: Map<
+        ExternalSubscriberFactory<T>,
+        ReturnType<ExternalSubscriberFactory<T>>
+    >;
+};
+
+/**
+ * Mapping of raw objects to child signals.
+ * We store them globally because the same object can be attached in different locations.
+ */
+const propertiesToSignals = new WeakMap<
     object,
-    ReturnType<typeof signal<number>>
+    Map<PropertyKey, SignalRecord>
 >();
+
+const iterableSignals = new WeakMap<object, SignalRecord<number>>();
 const ignored = new WeakSet<object>();
 
+// TODO: We can just add this to the root directly
 const rootStates = new Map<symbol, RootState>();
 const pendingRoots = new Set<symbol>();
 const supported = new Set([Object, Array, Set]);
-const descriptor = Object.getOwnPropertyDescriptor;
 let blankNodeCounter = 0;
 let tmpIdCounter = 0;
 const wellKnownSymbols = new Set<symbol>([
@@ -79,9 +100,9 @@ function shouldProxy(value: any): value is object {
 }
 
 /**
- * Get or create the map in `proxySignals` for key `proxy`.
+ * Get or create the map in `proxySignals` for raw object to `Map<property key, signal>`
  */
-function ensureSignalMap(rawObj: object): Map<PropertyKey, SignalLike> {
+function getOrCreateSignalMap(rawObj: object) {
     if (!propertiesToSignals.has(rawObj))
         propertiesToSignals.set(rawObj, new Map());
     return propertiesToSignals.get(rawObj)!;
@@ -89,56 +110,103 @@ function ensureSignalMap(rawObj: object): Map<PropertyKey, SignalLike> {
 
 /**
  * Write a new value into a cached signal, creating it if needed.
- * Does nothing computed signals.
+ * Does nothing on computed signals.
  */
-function setSignalValue(
-    signals: Map<PropertyKey, SignalLike>,
-    key: PropertyKey,
-    value: any
-) {
+function setSignalValue(meta: ProxyMeta, key: PropertyKey, value: any) {
+    const signals = propertiesToSignals.get(meta.raw)!;
+
     if (!signals.has(key)) {
-        signals.set(key, signal(value));
-        return;
-    }
-    const existing = signals.get(key)!;
-    if (typeof (existing as WritableSignal).set === "function") {
-        (existing as WritableSignal).set(value);
+        // Add new signal.
+
+        signals.set(key, {
+            alienSignal: alienSignal(value),
+            // Do not add external subscribers yet, they will be created on first read.
+            externalSubscribers: new Map(),
+        });
+    } else {
+        // Update existing signal.
+
+        const existingSignal = signals.get(key)!;
+        existingSignal.alienSignal(value);
+        existingSignal.externalSubscribers
+            .values()
+            .forEach((subscriber) => subscriber.onSet(value));
     }
 }
 
-/** Track mutations that affect object iteration order/length. */
-function ensureIterableSignal(target: object) {
-    if (!iterableSignals.has(target)) iterableSignals.set(target, signal(0));
-    return iterableSignals.get(target)!;
+/** Gets the current value of a signal and notifies external subscribers about read. */
+function getValFromSignalRecord(meta: ProxyMeta, record: SignalRecord) {
+    const val = record.alienSignal();
+
+    // Notify external subscribers (usually frontend frameworks) about property access.
+    meta.options.subscriberFactories?.forEach((createSubscriber) => {
+        let subscriber = record.externalSubscribers.get(createSubscriber);
+
+        if (!subscriber) {
+            // Create new subscriber
+            subscriber = createSubscriber();
+            record.externalSubscribers.set(createSubscriber, subscriber);
+        }
+
+        subscriber.onGet();
+    });
+
+    return val;
 }
 
-/** Notify all iteration-based subscribers that the container changed shape. */
-function touchIterable(target: object) {
+/** Sets the current value of a signal and notifies external subscribers about update. */
+function setValToSignalRecord(record: SignalRecord, value: any) {
+    record.alienSignal(value);
+
+    // Notify external subscribers (usually frontend frameworks) about property update.
+    record.externalSubscribers.forEach((subscriber) => subscriber.onSet(value));
+}
+
+/** Track mutations that affect object iteration order/length with a counter signal. */
+function ensureIterableSignal(meta: ProxyMeta, target: object) {
+    // Create new one if none exists.
+    if (!iterableSignals.has(target)) {
+        iterableSignals.set(target, {
+            alienSignal: alienSignal(0),
+            externalSubscribers: new Map(),
+        });
+    }
+
+    const signal = iterableSignals.get(target)!;
+
+    getValFromSignalRecord(meta, signal);
+}
+
+/** Notify all iteration-based subscribers that the container changed shape, by increasing the counter signal. */
+function touchIterable(meta: ProxyMeta, target: object) {
     if (!iterableSignals.has(target)) return;
-    const sig = iterableSignals.get(target)!;
-    sig.set(sig() + 1);
-}
 
-/** True when the target has a getter defined for the provided key. */
-function hasGetter(target: any, key: PropertyKey) {
-    return typeof descriptor(target, key)?.get === "function";
+    const signalRecord = iterableSignals.get(target)!;
+    const oldCountVal = getValFromSignalRecord(meta, signalRecord);
+
+    const newVal = oldCountVal + 1;
+    setValToSignalRecord(signalRecord, newVal);
 }
 
 /**
- * Ensure that `signals` has a computed signal for the property with `key` on target.
- * TODO: Why is this necessary?
+ * Create computed signals for getter functions.
  */
-function ensureComputed(
-    signals: Map<PropertyKey, SignalLike>,
+function ensureProxiedGetter(
+    signals: Map<PropertyKey, SignalRecord>,
     target: any,
     key: PropertyKey,
     receiver: any
 ) {
-    if (!signals.has(key) && hasGetter(target, key)) {
-        signals.set(
-            key,
-            computed(() => Reflect.get(target, key, receiver))
-        );
+    if (
+        !signals.has(key) &&
+        typeof Object.getOwnPropertyDescriptor(target, key)?.get === "function" // If we have a getter?
+    ) {
+        signals.set(key, {
+            alienSignal: alienComputed(() =>
+                Reflect.get(target, key, receiver)
+            ),
+            externalSubscribers: new Map(),
+        });
     }
 }
 
@@ -156,18 +224,27 @@ function isReactiveSymbol(key: PropertyKey): key is symbol {
 }
 
 /**
- * Replaces the old proxy to a raw object with a new one.
+ * Replaces the old rawToProxy object with a proxy object.
  * Used so that we can indicate modifications along the path of a change by equality checks.
+ * All values remain the same.
+ *
+ * Does nothing if the deep signal's options `replaceProxiesInBranchOnChange` is false.
  */
-function replaceProxy(meta: ProxyMeta) {
-    if (!meta.parent || !meta.key) return;
+function replaceProxyMaybe(meta: ProxyMeta) {
+    if (
+        !meta.parent ||
+        !meta.key ||
+        !meta.options.replaceProxiesInBranchOnChange
+    )
+        return;
 
     // Create a new proxy for this raw object -- frontend libs like react need this to recognize changes along this path.
     const handlers = meta.raw instanceof Set ? setHandlers : objectHandlers;
     const proxy = new Proxy(meta.raw, handlers);
     rawToProxy.set(meta.raw, proxy);
-    const signal = propertiesToSignals.get(meta.parent.raw)?.get(meta.key);
-    signal?.(proxy);
+
+    const signal = getOrCreateSignalMap(meta.parent.raw).get(meta.key);
+    signal?.alienSignal(proxy);
 }
 
 /**
@@ -204,7 +281,7 @@ function buildPath(
     while (cursor && cursor.parent && cursor.key !== undefined) {
         push(cursor.key, !!cursor.isSyntheticId);
 
-        replaceProxy(cursor);
+        replaceProxyMaybe(cursor);
 
         cursor = cursor.parent;
     }
@@ -214,7 +291,7 @@ function buildPath(
 /** Resolve the path for a container itself (without the child key appended). */
 function resolveContainerPath(meta: ProxyMeta | undefined) {
     if (!meta || !meta.parent || meta.key === undefined) return [];
-    replaceProxy(meta);
+    replaceProxyMaybe(meta);
     return buildPath(meta.parent, meta.key, !!meta.isSyntheticId);
 }
 
@@ -374,10 +451,10 @@ function initializeObjectTreeIfNoListeners(
 }
 
 /**
- * Return (or create) a proxy for a nested value.
+ * Return (or create) a proxy for a property value.
  * Ensures the linkage between parent and child in metadata.
  * Does not proxy and returns `value` if @see shouldProxy returns false.
- * Returns value if parent has no metadata record.
+ * Assumes parent has proxy.
  */
 function ensureChildProxy<T>(
     rawChild: T,
@@ -388,8 +465,9 @@ function ensureChildProxy<T>(
     if (!shouldProxy(rawChild)) return rawChild;
 
     const parentRaw = parent[RAW_KEY] || parent;
-    const parentMeta = rawToMeta?.get(parentRaw);
+    const parentMeta = rawToMeta.get(parentRaw)!;
 
+    // Child is already proxied, ensure the linkage from parent to child.
     if (rawToProxy.has(rawChild)) {
         const proxied = rawToProxy.get(rawChild);
         const proxiedMeta = rawToMeta.get(rawChild);
@@ -400,8 +478,6 @@ function ensureChildProxy<T>(
         }
         return proxied;
     }
-
-    if (!parentMeta) return rawChild;
 
     // Create proxy if none exists yet.
     const proxy = createProxy(
@@ -538,7 +614,7 @@ function createProxy<T extends object>(
         options,
     };
 
-    propertiesToSignals.set(target, new Map());
+    getOrCreateSignalMap(target);
     rawToMeta.set(target, meta);
     rawToProxy.set(target, proxy);
 
@@ -658,26 +734,26 @@ function emitPatchesForNew(
  * and dependent effects are notified. Recreates/proxies values for indices < length
  * and clears signals for indices >= length.
  */
-function refreshNumericIndexSignals(target: any[], receiver: any) {
-    const sigs = propertiesToSignals.get(target);
-    if (!sigs) return;
+function refreshNumericIndexSignals(
+    meta: ProxyMeta,
+    target: any[],
+    receiver: any
+) {
+    const signals = getOrCreateSignalMap(meta.raw);
 
-    for (const k of Array.from(sigs.keys())) {
+    for (const k of Array.from(signals.keys())) {
         if (typeof k === "string" && /^\d+$/.test(k)) {
             const idx = Number(k);
             if (idx >= target.length) {
-                const existing = sigs.get(k);
-                if (
-                    existing &&
-                    typeof (existing as WritableSignal).set === "function"
-                ) {
-                    (existing as WritableSignal).set(undefined);
+                const existing = signals.get(k);
+                if (existing) {
+                    setSignalValue(meta, k, undefined);
                 }
-                sigs.delete(k);
+                signals.delete(k);
             } else {
                 const val = target[idx];
                 const proxied = ensureChildProxy(val, receiver, idx);
-                setSignalValue(sigs, k, proxied);
+                setSignalValue(meta, k, proxied);
             }
         }
     }
@@ -687,7 +763,7 @@ let hasWarnedAboutMissingSupportForReverse = false;
 let hasWarnedAboutMissingSupportForSort = false;
 /** Returns proxy function for array-mutating functions. */
 const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
-    const meta = rawToMeta.get(target);
+    const meta = rawToMeta.get(target)!;
 
     if (key === "reverse") {
         if (!hasWarnedAboutMissingSupportForReverse) {
@@ -718,7 +794,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             receiver.length = target.length;
 
             // Refresh numeric index signals so shifted indices don't return stale values.
-            refreshNumericIndexSignals(target, receiver);
+            refreshNumericIndexSignals(meta, target, receiver);
         };
     } else if (key === "splice") {
         return (start: number, deleteCount: number, ...items: any[]) => {
@@ -753,7 +829,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             }
 
             // Refresh numeric index signals so shifted indices don't return stale values.
-            refreshNumericIndexSignals(target, receiver);
+            refreshNumericIndexSignals(meta, target, receiver);
 
             // Update length of proxy explicitly.
             receiver.length = target.length;
@@ -787,7 +863,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             receiver.length = target.length;
 
             // Refresh numeric index signals so shifted indices don't return stale values.
-            refreshNumericIndexSignals(target, receiver);
+            refreshNumericIndexSignals(meta, target, receiver);
 
             return deletedItems;
         };
@@ -801,13 +877,15 @@ const objectHandlers: ProxyHandler<any> = {
         if (key === RAW_KEY) return target;
         if (key === META_KEY) return rawToMeta.get(target);
 
-        // TODO: Why are we doing this?
+        const meta = rawToMeta.get(target)!;
+
         if (typeof key === "symbol") {
             if (key === Symbol.iterator) {
-                const iterableSig = ensureIterableSignal(target);
-                iterableSig();
+                // Ensure that signal exists tracking iteration-based dependencies.
+                ensureIterableSignal(meta, target);
             }
             if (!isReactiveSymbol(key))
+                // No reactivity for well-known symbols
                 return Reflect.get(target, key, receiver);
         }
 
@@ -821,10 +899,10 @@ const objectHandlers: ProxyHandler<any> = {
         }
 
         // Get object map from key to signal.
-        const signals = ensureSignalMap(target);
+        const signals = getOrCreateSignalMap(meta.raw);
 
-        // Ensure that target object is signal.
-        ensureComputed(signals, target, key, receiver);
+        // If the property value is a getter, create a computed signal for it.
+        ensureProxiedGetter(signals, target, key, receiver);
 
         // Add signal if it does not exist already and did not have a getter.
         if (!signals.has(key)) {
@@ -835,12 +913,13 @@ const objectHandlers: ProxyHandler<any> = {
 
             const childProxyOrRaw = ensureChildProxy(rawChild, receiver, key);
 
-            signals.set(key, signal(childProxyOrRaw));
+            setSignalValue(meta, key, childProxyOrRaw);
         }
 
-        // Call and return signal
+        // Call and return signal.
         const sig = signals.get(key)!;
-        return sig();
+
+        return getValFromSignalRecord(meta, sig);
     },
 
     set(target, key, value, receiver) {
@@ -848,16 +927,12 @@ const objectHandlers: ProxyHandler<any> = {
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.set(target, key, value, receiver);
 
-        const meta = rawToMeta.get(target);
+        const meta = rawToMeta.get(target)!;
         if (meta?.options?.readOnlyProps?.includes(String(key))) {
             throw new Error(`Cannot modify readonly property '${String(key)}'`);
         }
 
         const path = meta ? buildPath(meta, key) : undefined;
-        const desc = descriptor(target, key);
-        const hasAccessor =
-            !!desc &&
-            (typeof desc.get === "function" || typeof desc.set === "function");
 
         const proxied = ensureChildProxy(value, target, key);
         const rawValue = value?.[RAW_KEY] ?? value;
@@ -878,11 +953,10 @@ const objectHandlers: ProxyHandler<any> = {
         // === Set value on actual target ===
         const result = Reflect.set(target, key, rawValue, receiver);
 
-        if (!hasAccessor) {
-            const signals = ensureSignalMap(target);
-            setSignalValue(signals, key, proxied);
-        }
-        if (!hadKey) touchIterable(target);
+        // Set signal value.
+        setSignalValue(meta, key, proxied);
+
+        if (!hadKey) touchIterable(meta, target);
         if (meta && path && typeof rawValue === "object") {
             initializeObjectTreeIfNoListeners(meta, path, rawValue, false);
         }
@@ -932,25 +1006,22 @@ const objectHandlers: ProxyHandler<any> = {
         if (typeof key === "symbol" && !isReactiveSymbol(key))
             return Reflect.deleteProperty(target, key);
 
-        const meta = rawToMeta.get(target);
+        const meta = rawToMeta.get(target)!;
 
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
         const result = Reflect.deleteProperty(target, key);
         if (hadKey) {
-            if (propertiesToSignals.has(target)) {
-                // Trigger signal
-                const signals = propertiesToSignals.get(target)!;
-                const existing = signals.get(key);
-                if (
-                    existing &&
-                    typeof (existing as WritableSignal).set === "function"
-                ) {
-                    (existing as WritableSignal).set(undefined);
-                }
-                signals.delete(key);
-            }
+            // Trigger signal
+            const signals = getOrCreateSignalMap(meta.raw);
+            const existing = signals.get(key);
+            if (existing) setValToSignalRecord(existing, undefined);
+
+            signals.delete(key);
+
             // Notify listeners
-            touchIterable(target);
+            touchIterable(meta, target);
+
+            // Schedule remove patch.
             schedulePatch(meta, () => ({
                 path: buildPath(meta, key),
                 op: "remove",
@@ -959,25 +1030,11 @@ const objectHandlers: ProxyHandler<any> = {
         return result;
     },
     ownKeys(target) {
-        const sig = ensureIterableSignal(target);
-        sig();
+        const meta = rawToMeta.get(target)!;
+        const sig = ensureIterableSignal(meta, target);
         return Reflect.ownKeys(target);
     },
 };
-
-/**
- * Guarantee Set iteration always surfaces proxies, even when raw values were stored.
- */
-function ensureEntryProxy(
-    raw: any,
-    entry: any,
-    syntheticKey: string | number,
-    meta: ProxyMeta
-) {
-    return shouldProxy(entry)
-        ? ensureChildProxy(entry, raw, syntheticKey, true)
-        : entry;
-}
 
 /** Wrap the underlying Set iterator so each value is proxied before leaving the trap. */
 function createSetIterator(
@@ -985,19 +1042,21 @@ function createSetIterator(
     receiver: any,
     mapValue: (value: any) => any
 ) {
+    const meta = rawToMeta.get(target)!;
+
     const iterator = target.values();
-    const iterableSignal = ensureIterableSignal(target);
-    iterableSignal();
+    ensureIterableSignal(meta, target);
     return createIteratorWithHelpers(() => {
         const next = iterator.next();
         if (next.done) return next;
         const meta = rawToMeta.get(target)!;
-        const proxied = ensureEntryProxy(
-            target,
+        const proxied = ensureChildProxy(
             next.value,
+            target,
             assignSyntheticId(meta, next.value, [], true),
-            meta
+            true
         );
+
         return {
             value: mapValue(proxied),
             done: false,
@@ -1008,38 +1067,39 @@ function createSetIterator(
 /** Proxy handler providing deep-signal semantics for native Set instances. */
 const setHandlers: ProxyHandler<Set<any>> = {
     get(target, key, receiver) {
-        const meta = rawToMeta.get(target);
+        const meta = rawToMeta.get(target)!;
 
         if (key === RAW_KEY) return target;
         if (key === META_KEY) return meta;
+
         if (key === "size") {
-            const sig = ensureIterableSignal(target);
-            sig();
+            ensureIterableSignal(meta, target);
             return target.size;
         }
         if (key === "first") {
             return function first() {
-                const iterableSig = ensureIterableSignal(target);
-                iterableSig();
                 const iterator = target.values().next();
                 if (iterator.done) return undefined;
 
-                return ensureEntryProxy(
-                    target,
+                const proxy = ensureChildProxy(
                     iterator.value,
+                    target,
                     assignSyntheticId(meta!, iterator.value, [], true),
-                    meta!
+                    true
                 );
+                ensureIterableSignal(meta, target);
+                return proxy;
             };
         }
         if (key === "getById") {
             return function getById(this: any, id: string | number) {
-                const iterableSig = ensureIterableSignal(target);
-                iterableSig();
                 if (!meta?.setInfo) return undefined;
                 const entry = meta.setInfo.objectForId.get(String(id));
                 if (!entry) return undefined;
-                return ensureEntryProxy(target, entry, String(id), meta);
+
+                const proxy = ensureChildProxy(entry, target, String(id));
+                ensureIterableSignal(meta, target);
+                return proxy;
             };
         }
         if (key === "getBy") {
@@ -1048,8 +1108,6 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 graphIri: string,
                 subjectIri: string
             ) {
-                const iterableSig = ensureIterableSignal(target);
-                iterableSig();
                 return (this as any).getById(`${graphIri}|${subjectIri}`);
             };
         }
@@ -1058,58 +1116,75 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 const containerPath = resolveContainerPath(meta);
 
                 const rawValue = value[RAW_KEY] ?? value;
-                const sizeBefore = target.size;
-                const result = target.add(rawValue);
-                if (target.size !== sizeBefore) {
-                    touchIterable(target);
-                    if (rawValue && typeof rawValue === "object") {
-                        const synthetic = assignSyntheticId(
+
+                if (target.has(rawValue)) {
+                    // Nothing to do.
+                    return receiver;
+                }
+
+                target.add(rawValue);
+
+                if (rawValue && typeof rawValue === "object") {
+                    // Case: Object in set
+                    const synthetic = assignSyntheticId(
+                        meta!,
+                        rawValue,
+                        containerPath,
+                        true
+                    );
+                    initializeObjectTreeIfNoListeners(
+                        meta,
+                        [...containerPath, synthetic],
+                        rawValue,
+                        true
+                    );
+                    ensureChildProxy(rawValue, target, synthetic, true);
+
+                    touchIterable(meta, target);
+
+                    schedulePatch(meta, () =>
+                        emitPatchesForNew(
+                            rawValue,
                             meta!,
-                            rawValue,
-                            containerPath,
-                            true
-                        );
-                        initializeObjectTreeIfNoListeners(
-                            meta,
                             [...containerPath, synthetic],
-                            rawValue,
                             true
-                        );
-                        ensureEntryProxy(target, rawValue, synthetic, meta!);
-                        schedulePatch(meta, () =>
-                            emitPatchesForNew(
-                                rawValue,
-                                meta!,
-                                [...containerPath, synthetic],
-                                true
-                            )
-                        );
-                    } else {
-                        const literal = snapshotLiteral(rawValue);
-                        if (literal !== undefined) {
-                            schedulePatch(meta, () => ({
-                                path: containerPath,
-                                op: "add",
-                                type: "set",
-                                value: [literal],
-                            }));
-                        }
+                        )
+                    );
+                } else {
+                    // Case: Literal in set
+
+                    touchIterable(meta, target);
+
+                    const literal = snapshotLiteral(rawValue);
+                    if (literal !== undefined) {
+                        schedulePatch(meta, () => ({
+                            path: containerPath,
+                            op: "add",
+                            type: "set",
+                            value: [literal],
+                        }));
                     }
                 }
+
                 return receiver;
             };
         }
         if (key === "delete") {
             return function deleteEntry(this: any, value: any) {
-                const containerPath = resolveContainerPath(meta);
                 const rawValue = value?.[RAW_KEY] ?? value;
                 const synthetic =
                     rawValue && typeof rawValue === "object"
                         ? ensureSetInfo(meta!).idForObject.get(rawValue)
                         : rawValue;
+
                 const existed = target.delete(rawValue);
+
+                if (existed) {
+                    touchIterable(meta, target);
+                }
+
                 if (existed && synthetic !== undefined) {
-                    touchIterable(target);
+                    const containerPath = resolveContainerPath(meta);
                     if (rawValue && typeof rawValue === "object") {
                         schedulePatch(meta, () => ({
                             path: [...containerPath, synthetic as string],
@@ -1133,13 +1208,18 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
         if (key === "clear") {
             return function clear(this: any) {
+                // Nothing to do.
+                if (target.size === 0) return;
+
                 const containerPath = resolveContainerPath(meta);
                 if (meta!.setInfo) {
                     meta!.setInfo.objectForId.clear();
                     meta!.setInfo.idForObject = new WeakMap();
                 }
+
                 target.clear();
-                touchIterable(target);
+
+                touchIterable(meta, target);
                 schedulePatch(meta, () => ({
                     path: containerPath,
                     op: "add",
@@ -1188,8 +1268,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 callback: (value: any, value2: any, set: Set<any>) => void,
                 thisArg?: any
             ) {
-                const iterableSig = ensureIterableSignal(target);
-                iterableSig();
+                ensureIterableSignal(meta, target);
                 let index = 0;
                 const expectsIteratorSignature = callback.length <= 2;
                 const iteratorCallback = callback as unknown as (
@@ -1197,11 +1276,11 @@ const setHandlers: ProxyHandler<Set<any>> = {
                     index: number
                 ) => void;
                 target.forEach((entry) => {
-                    const proxied = ensureEntryProxy(
-                        target,
+                    const proxied = ensureChildProxy(
                         entry,
+                        target,
                         assignSyntheticId(meta!, entry, [], true),
-                        meta!
+                        true
                     );
                     if (expectsIteratorSignature) {
                         iteratorCallback.call(thisArg, proxied, index++);
@@ -1213,16 +1292,30 @@ const setHandlers: ProxyHandler<Set<any>> = {
         }
         if (key === "has") {
             return function has(this: any, value: any) {
+                ensureIterableSignal(meta, target);
                 return target.has(value?.[RAW_KEY] ?? value);
             };
         }
-        return Reflect.get(target, key, receiver);
+
+        // All other cases:
+        const res = (target as any)[key];
+
+        if (typeof res === "function") {
+            // For all other functions on sets, return a wrapped function
+            // that calls ensureIterableSignal() before.
+            return (...props: any) => {
+                ensureIterableSignal(meta, target);
+                return res.bind(target)(...props);
+            };
+        } else {
+            return res;
+        }
     },
 };
 
 /** Runtime guard that checks whether a value is a deepSignal proxy. */
-export function isDeepSignal(value: any): boolean {
-    return !!value?.[RAW_KEY];
+export function isDeepSignal(value: unknown): value is DeepSignal<any> {
+    return !!(value as any)?.[RAW_KEY];
 }
 
 /**
@@ -1234,7 +1327,22 @@ export function deepSignal<T extends object>(
     input: T,
     options?: DeepSignalOptions
 ): DeepSignal<T> {
-    if (isDeepSignal(input)) return input as DeepSignal<T>;
+    // Is the input already a signal?
+    if (isDeepSignal(input)) {
+        // Add possibly new external subscribers to existing ones.
+        // TODO: Document this behavior.
+        const meta = rawToMeta.get((input as any)[RAW_KEY]!)!;
+        meta.options.subscriberFactories =
+            meta.options.subscriberFactories!.union(
+                options?.subscriberFactories ?? new Set()
+            );
+
+        meta.options.replaceProxiesInBranchOnChange =
+            meta?.options.replaceProxiesInBranchOnChange ||
+            options?.replaceProxiesInBranchOnChange;
+
+        return input as DeepSignal<T>;
+    }
 
     if (!shouldProxy(input))
         throw new Error("deepSignal() expects an object, array, or Set");
@@ -1245,6 +1353,8 @@ export function deepSignal<T extends object>(
     const rootState = {
         options: {
             syntheticIdPropertyName: DEFAULT_SYNTHETIC_ID_PROPERTY_NAME,
+            replaceProxiesInBranchOnChange: false,
+            subscriberFactories: new Set(),
             ...options,
         },
         version: 0,
@@ -1331,4 +1441,9 @@ export function addWithId<T>(set: Set<T>, entry: T, id: string | number): T {
         }
     }
     return entry;
+}
+
+/** Get the original, raw value of a deep signal. */
+export function getRaw<T extends object>(value: T | DeepSignal<T>) {
+    return (value as any)?.[RAW_KEY] ?? value;
 }

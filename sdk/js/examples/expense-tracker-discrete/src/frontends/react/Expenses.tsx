@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -17,8 +17,8 @@ import type { Expense } from "../../types";
 
 export function Expenses() {
     const store = useDocumentStore();
-    const expenses = store.data?.expenses;
-    const expenseCategories = store.data?.expenseCategories;
+    const expenses = store?.expenses;
+    const expenseCategories = store?.expenseCategories;
 
     const expensesSorted = useMemo(
         () =>

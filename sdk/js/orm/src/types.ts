@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -9,24 +9,45 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 /**
- * When dealing with shapes (RDF-based graph db ORMs):
+ * When dealing with shapes (RDF-based graph database ORMs):
  * The scope of a shape request.
  * In most cases, it is recommended to use a narrow scope for performance.
  * You can filter results by `subjects` and `graphs`. Only objects in that scope will be returned.
- *
- * @param subjects array of subject IRIs to filter by. For no filtering, set to `undefined` set to `[]`.
- * @param graphs array of graph IRIs to filter by. For no filtering, set to `undefined`.
- * If you set to `[]`, *no objects are returned*. This is useful only for inserting objects in the database only
  *
  * @example
  * ```typescript
  * // Contains all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 IRI> or <g2 IRI>
  * const expenses: DeepSignalSet<Expense = useShape(ExpenseShape,
- *      {graphs: ["<g1 IRI>", "<g2 IRI>"],
- *       subjects: ["<s1 IRI>", "<s2 IRI>"]});
+ *      {graphs: ["<graph1 IRI>", "<graph2 IRI>"],
+ *       subjects: ["<subject1 IRI>", "<subject2 IRI>"]});
  * ```
  */
-export type Scope = { graphs?: string[]; subjects?: string[] };
+export type Scope = {
+    /**
+     * The graphs to filter for. If more than one IRI is provided, the union of all graphs is considered.
+     *
+     * - Set value to `["did:ng:i"]` or `[""]` for whole dataset.
+     * - Setting value to `[]` or leaving it `undefined`, no objects are returned.
+     */
+    graphs?: string[];
+
+    /**
+     * Subjects to filter for. Set to `[]` or leaving it `undefined` for no filtering.
+     */
+    subjects?: string[];
+};
+
+/** Convert undefined to [] and for graphs "" to "did:ng:i". If scope is string, that means {graphs: [\<scope string>], subjects: []}. */
+export const normalizeScope = (scope: Scope | string | undefined = {}) => {
+    if (typeof scope === "string") {
+        return { graphs: [scope], subjects: [] };
+    }
+    // Convert "" to did:ng:i
+    const graphs = (scope.graphs ?? []).map((g) => (g === "" ? "did:ng:i" : g));
+    const subjects = scope.subjects ?? [];
+
+    return { graphs, subjects };
+};
 
 /** An allowed array in the CRDT. */
 export interface DiscreteArray extends Array<DiscreteType> {}
