@@ -8,16 +8,10 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/** Lightweight facade adding ergonomic helpers (.value/.get/.set) to native alien-signals function signals. */
-
 // Native re-exports for advanced usage.
 export {
     signal as alienSignal,
     computed as alienComputed,
-    startBatch as alienStartBatch,
-    endBatch as alienEndBatch,
-    getCurrentSub as alienGetCurrentSub,
-    setCurrentSub as alienSetCurrentSub,
     effect as alienEffect,
 } from "alien-signals";
 

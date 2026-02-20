@@ -10,7 +10,7 @@
 
 import { onDestroy } from "svelte";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
-import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandler.ts";
+import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
 import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
 
 /**
@@ -21,10 +21,10 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  * Establishes a 2-way binding: Modifications to the object are immediately committed,
  * changes coming from the engine (or other components) cause an immediate rerender.
  *
- * In comparison to `useShape`, discrete CRDTs are untyped.
+ * In comparison to {@link svelteUseShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentId The IRI of the CRDT document.
+ * @param documentIdOrPromise The IRI of the CRDT document or a promise to that.
  * @returns The reactive JSON object of the CRDT document.
  *
  *@example
@@ -103,7 +103,7 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
 export function useDiscrete(documentIdOrPromise: string | Promise<string>): {
     doc: DiscreteRootArray | DiscreteRootObject | undefined;
 } {
-    let connection: DiscreteOrmConnection | undefined;
+    let connection: DiscreteOrmSubscription | undefined;
     let isDestroyed = false;
     let doc = $state.raw<DiscreteRootArray | DiscreteRootObject | undefined>(
         undefined
@@ -111,7 +111,7 @@ export function useDiscrete(documentIdOrPromise: string | Promise<string>): {
 
     const init = (docId: string) => {
         if (isDestroyed) return;
-        connection = DiscreteOrmConnection.getOrCreate(docId);
+        connection = DiscreteOrmSubscription.getOrCreate(docId);
         connection.readyPromise.then(() => {
             if (isDestroyed) {
                 connection?.close();

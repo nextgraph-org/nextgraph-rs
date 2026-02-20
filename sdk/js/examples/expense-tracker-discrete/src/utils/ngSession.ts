@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { ng, init as initNgWeb } from "@ng-org/web";
-import { DiscreteOrmConnection, initNg as initNgSignals } from "@ng-org/orm";
+import { DiscreteOrmSubscription, initNg as initNgSignals } from "@ng-org/orm";
 import type * as NG from "@ng-org/lib-wasm";
 import { loadStore } from "./loadStore";
 import type { AllowedCrdt } from "../types";
@@ -47,12 +47,12 @@ export async function init(crdtIfNew: AllowedCrdt) {
 }
 
 /** Initializes and keeps open the orm connection while the application is running. */
-export let ormConnectionPromise = sessionPromise.then(async (session) => {
+export let ormSubscriptionPromise = sessionPromise.then(async (session) => {
     const _store = await loadStore(PREFERRED_CRDT);
-    ormConnection = _store;
+    ormSubscription = _store;
     return _store;
 });
-export let ormConnection: DiscreteOrmConnection | undefined = undefined;
+export let ormSubscription: DiscreteOrmSubscription | undefined = undefined;
 
 export interface NextGraphSession {
     ng: typeof NG;

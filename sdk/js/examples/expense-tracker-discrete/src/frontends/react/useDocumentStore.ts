@@ -11,16 +11,16 @@
 import { useDiscrete } from "@ng-org/orm/react";
 import type { DeepSignal } from "@ng-org/orm";
 import type { DocumentStore } from "../../types";
-import { ormConnection, ormConnectionPromise } from "../../utils/ngSession";
+import { ormSubscription, ormSubscriptionPromise } from "../../utils/ngSession";
 import { useEffect, useState } from "react";
 
 export function useDocumentStore() {
-    const [documentId, setDocumentId] = useState(ormConnection?.documentId);
+    const [documentId, setDocumentId] = useState(ormSubscription?.documentId);
 
     useEffect(() => {
         // If the connection hasn't been established, wait for it.
         if (!documentId) {
-            ormConnectionPromise.then((con) => setDocumentId(con.documentId));
+            ormSubscriptionPromise.then((con) => setDocumentId(con.documentId));
         }
     });
 

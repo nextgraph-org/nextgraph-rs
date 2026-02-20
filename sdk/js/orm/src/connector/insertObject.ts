@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { OrmConnection } from "./ormConnectionHandler.ts";
+import { OrmSubscription } from "./ormSubscriptionHandler.ts";
 
 /**
  * Utility for adding ORM-typed objects to the database without the need for subscribing to documents.
@@ -20,7 +20,7 @@ export async function insertObject<T extends BaseType>(
     shapeType: ShapeType<T>,
     object: T
 ) {
-    const connection = OrmConnection.getOrCreate(shapeType, {
+    const connection = OrmSubscription.getOrCreate(shapeType, {
         graphs: [], // Subscribe to no documents
     });
     await connection.readyPromise;

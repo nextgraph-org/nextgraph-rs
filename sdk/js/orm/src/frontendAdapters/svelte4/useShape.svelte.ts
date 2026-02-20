@@ -15,7 +15,7 @@ import {
     useDeepSignal,
     type UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte4";
-import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
+import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 
 export type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
 
@@ -94,7 +94,7 @@ export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope
 ): UseShapeRuneResult<Set<T>> {
-    const { signalObject: rootSignal, close } = OrmConnection.getOrCreate(
+    const { signalObject: rootSignal, close } = OrmSubscription.getOrCreate(
         shape,
         scope
     );

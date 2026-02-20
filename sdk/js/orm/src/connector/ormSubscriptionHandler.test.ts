@@ -10,7 +10,7 @@
 
 import { describe, test, expect, beforeEach } from "vitest";
 import { initNgSignals } from "./initNg.ts";
-import { OrmConnection } from "./ormConnectionHandler.ts";
+import { OrmSubscription } from "./ormConnectionHandler.ts";
 import type { Patch } from "./applyPatches.ts";
 
 // Provide a minimal window mock for Node.js environment.
@@ -41,7 +41,7 @@ const mockNg = {
         connectionCallbacks.set(subscriptionId, callback);
 
         // Simulate engine sending initial data (empty set).
-        // This resolves the readyPromise in OrmConnection.
+        // This resolves the readyPromise in OrmSubscription.
         setTimeout(() => {
             callback({
                 V0: {
@@ -86,7 +86,7 @@ describe("orm connection handler transactions", () => {
     });
 
     test("Modifications are recorded in order and ready for commit immediately", async () => {
-        const connection = OrmConnection.getOrCreate(
+        const connection = OrmSubscription.getOrCreate(
             { schema: {}, shape: "test:Shape1" },
             { graphs: ["did:ng:test:graph1"] }
         );
@@ -140,7 +140,7 @@ describe("orm connection handler transactions", () => {
     });
 
     test("Commit without begin throws error", async () => {
-        const connection = OrmConnection.getOrCreate(
+        const connection = OrmSubscription.getOrCreate(
             { schema: {}, shape: "test:Shape3" },
             { graphs: ["did:ng:test:graph3"] }
         );
@@ -155,7 +155,7 @@ describe("orm connection handler transactions", () => {
     });
 
     test("Multiple transactions work correctly in sequence", async () => {
-        const connection = OrmConnection.getOrCreate(
+        const connection = OrmSubscription.getOrCreate(
             { schema: {}, shape: "test:Shape5" },
             { graphs: ["did:ng:test:graph5"] }
         );

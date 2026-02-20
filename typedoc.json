@@ -1,0 +1,16 @@
+{
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "./typedoc-out",
+  "entryPoints": [
+    "./sdk/js/orm",
+    "./sdk/js/shex-orm",
+    "./sdk/js/alien-deepsignals"
+  ],
+  "excludeInternal": true,
+  "exclude": ["**/test/**", "*.tsx"],
+  "entryPointStrategy": "packages",
+  "packageOptions": {
+    "entryPoints": ["src/index.ts"]
+  },
+  "router": "structure"
+}

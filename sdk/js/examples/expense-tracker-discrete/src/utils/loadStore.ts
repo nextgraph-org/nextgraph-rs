@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { DiscreteOrmConnection } from "@ng-org/orm";
+import { DiscreteOrmSubscription } from "@ng-org/orm";
 import type { AllowedCrdt, DocumentStore } from "../types";
 import { sessionPromise } from "./ngSession";
 
@@ -52,7 +52,7 @@ export async function loadStore(crdt: AllowedCrdt) {
         );
     }
 
-    const connection = DiscreteOrmConnection.getOrCreate(documentId);
+    const connection = DiscreteOrmSubscription.getOrCreate(documentId);
     await connection.readyPromise;
     const storeObject = connection.signalObject as Partial<DocumentStore>;
 

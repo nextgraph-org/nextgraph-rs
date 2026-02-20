@@ -8,8 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { OrmConnection } from "./connector/ormConnectionHandler.ts";
-import { DiscreteOrmConnection } from "./connector/discrete/discreteOrmConnectionHandler.ts";
+import { OrmSubscription } from "./connector/ormSubscriptionHandler.ts";
+import { DiscreteOrmSubscription } from "./connector/discrete/discreteOrmSubscriptionHandler.ts";
 import {
     useShape as svelteUseShape,
     useDiscrete as svelteUseDiscrete,
@@ -26,6 +26,7 @@ import { initNgSignals, ngSession } from "./connector/initNg.ts";
 import { insertObject } from "./connector/insertObject.ts";
 import { getObjects } from "./connector/getObjects.ts";
 export * from "./connector/applyPatches.ts";
+export * from "./types.ts";
 
 export type { DeepSignal, DeepSignalObject } from "@ng-org/alien-deepsignals";
 
@@ -34,8 +35,8 @@ export { getRaw, watch, effect } from "@ng-org/alien-deepsignals";
 export {
     initNgSignals as initNg,
     ngSession,
-    OrmConnection,
-    DiscreteOrmConnection,
+    OrmSubscription as OrmSubscription,
+    DiscreteOrmSubscription,
     svelteUseShape,
     svelteUseDiscrete,
     reactUseShape,

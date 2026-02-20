@@ -12,7 +12,7 @@ import { normalizeScope, type Scope } from "../../types.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { onBeforeUnmount } from "vue";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
+import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 /**
@@ -87,7 +87,10 @@ export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope
 ) {
-    const connection = OrmConnection.getOrCreate(shape, normalizeScope(scope));
+    const connection = OrmSubscription.getOrCreate(
+        shape,
+        normalizeScope(scope)
+    );
 
     // Cleanup
     onBeforeUnmount(() => {

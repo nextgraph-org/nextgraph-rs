@@ -42,7 +42,7 @@ export function useDeepSignal<T extends object>(
     });
 
     // onBeforeUnmount(() => {
-    //     // TODO: Tell signal that subscriber can be removed
+    //     // TODO: Tell signal that subscriber can be removed?
     // });
 
     return deepProxy as DeepSignal<T>;
@@ -53,8 +53,8 @@ const subscriberFactory = () => {
     let onGet: () => void;
     let onSet: () => void;
 
-    // We don't use the actually returned value of the ref.
-    // We only need it since Dep is not exposed by vue.
+    // We don't use the actually returned value of the get/set.
+    // We only need it to notify Vue, since Dep is not exposed directly.
     customRef((track, trigger) => {
         onGet = track;
         onSet = trigger;

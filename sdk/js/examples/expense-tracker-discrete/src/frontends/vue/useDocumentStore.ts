@@ -12,13 +12,13 @@ import { ref, type ComputedRef } from "vue";
 import type { DeepSignal } from "@ng-org/orm";
 import { useDiscrete } from "@ng-org/orm/vue";
 import type { DocumentStore } from "../../types";
-import { ormConnection, ormConnectionPromise } from "../../utils/ngSession";
+import { ormSubscription, ormSubscriptionPromise } from "../../utils/ngSession";
 
 export function useDocumentStore() {
-    const documentId = ref<string | undefined>(ormConnection?.documentId);
+    const documentId = ref<string | undefined>(ormSubscription?.documentId);
 
     if (!documentId.value) {
-        ormConnectionPromise.then((con) => {
+        ormSubscriptionPromise.then((con) => {
             documentId.value = con.documentId;
         });
     }

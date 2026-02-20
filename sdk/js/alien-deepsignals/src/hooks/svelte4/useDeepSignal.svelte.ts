@@ -12,13 +12,12 @@ import { derived, writable, type Readable } from "svelte/store";
 import { onDestroy } from "svelte";
 import {
     subscribeDeepMutations,
-    getDeepSignalRootId,
     type DeepPatchBatch,
     DeepSignalOptions,
     deepSignal,
     RevertDeepSignal,
-    getDeepSignalVersion,
 } from "../../index";
+import { getDeepSignalRootId, getDeepSignalVersion } from "../../deepSignal";
 
 /** Base result contract for a deepSignal-backed Svelte integration. */
 export interface UseDeepSignalResult<T> extends Readable<T> {

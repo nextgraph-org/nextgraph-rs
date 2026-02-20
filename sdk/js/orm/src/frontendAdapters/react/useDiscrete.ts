@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useEffect, useMemo, useRef } from "react";
-import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandler.ts";
+import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import { DeepSignal } from "@ng-org/alien-deepsignals";
 import { DiscreteArray, DiscreteObject } from "../../types.ts";
@@ -24,7 +24,7 @@ const EMPTY_OBJECT = {} as const;
  * Establishes a 2-way binding: Modifications to the object are immediately committed,
  * changes coming from the engine (or other components) cause an immediate rerender.
  *
- * In comparison to {@link useShape}, discrete CRDTs are untyped.
+ * In comparison to {@link reactUseShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
  * @param documentId The IRI of the CRDT document.
@@ -117,18 +117,18 @@ const EMPTY_OBJECT = {} as const;
 
 export function useDiscrete(documentId: string | undefined) {
     const prevDocumentId = useRef<string | undefined>(undefined);
-    const prevOrmConnection = useRef<DiscreteOrmConnection | undefined>(
+    const prevOrmSubscription = useRef<DiscreteOrmSubscription | undefined>(
         undefined
     );
 
     const ormConnection = useMemo(() => {
         // Close previous connection if documentId changed.
         if (
-            prevOrmConnection.current &&
+            prevOrmSubscription.current &&
             prevDocumentId.current !== documentId
         ) {
-            prevOrmConnection.current.close();
-            prevOrmConnection.current = undefined;
+            prevOrmSubscription.current.close();
+            prevOrmSubscription.current = undefined;
         }
 
         // If no documentId, return undefined.
@@ -139,20 +139,20 @@ export function useDiscrete(documentId: string | undefined) {
 
         // Create new connection only if needed.
         if (
-            !prevOrmConnection.current ||
+            !prevOrmSubscription.current ||
             prevDocumentId.current !== documentId
         ) {
-            prevOrmConnection.current =
-                DiscreteOrmConnection.getOrCreate(documentId);
+            prevOrmSubscription.current =
+                DiscreteOrmSubscription.getOrCreate(documentId);
             prevDocumentId.current = documentId;
         }
 
-        return prevOrmConnection.current;
+        return prevOrmSubscription.current;
     }, [documentId]);
 
     useEffect(() => {
         return () => {
-            prevOrmConnection.current?.close();
+            prevOrmSubscription.current?.close();
         };
     }, []);
 

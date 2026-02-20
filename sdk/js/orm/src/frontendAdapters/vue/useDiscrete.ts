@@ -17,7 +17,7 @@ import {
     watchEffect,
 } from "vue";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
-import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConnectionHandler.ts";
+import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
 
 /**
  * Hook to subscribe to an existing discrete (JSON) CRDT document.
@@ -111,22 +111,22 @@ import { DiscreteOrmConnection } from "../../connector/discrete/discreteOrmConne
  * ```
  */
 export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
-    const ormConnection = computed(() => {
+    const ormSubscription = computed(() => {
         const id = toValue(documentId);
-        return id ? DiscreteOrmConnection.getOrCreate(id) : undefined;
+        return id ? DiscreteOrmSubscription.getOrCreate(id) : undefined;
     });
 
     const ret = shallowRef({ doc: undefined });
     watchEffect(() => {
-        ormConnection.value?.readyPromise.then(() => {
+        ormSubscription.value?.readyPromise.then(() => {
             ret.value = {
-                doc: useDeepSignal(ormConnection.value!.signalObject as any),
+                doc: useDeepSignal(ormSubscription.value!.signalObject as any),
             };
         });
     });
 
     onBeforeUnmount(() => {
-        ormConnection.value?.close();
+        ormSubscription.value?.close();
     });
 
     return ret;

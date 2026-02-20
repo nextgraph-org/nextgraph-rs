@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { OrmConnection } from "./ormConnectionHandler.ts";
+import { OrmSubscription } from "./ormSubscriptionHandler.ts";
 import { Scope } from "../types.ts";
 import { deepClone } from "./utils.ts";
 
@@ -23,7 +23,7 @@ export async function getObjects<T extends BaseType>(
     shapeType: ShapeType<T>,
     scope: Scope = {}
 ) {
-    const connection = OrmConnection.getOrCreate(shapeType, scope);
+    const connection = OrmSubscription.getOrCreate(shapeType, scope);
     await connection.readyPromise;
 
     setTimeout(() => {
