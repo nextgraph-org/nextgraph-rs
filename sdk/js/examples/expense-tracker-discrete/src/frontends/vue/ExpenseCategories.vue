@@ -16,9 +16,9 @@ import { computed } from "vue";
 import ExpenseCategoryCard from "./ExpenseCategoryCard.vue";
 import { useDocumentStore } from "./useDocumentStore";
 
-const store = useDocumentStore();
+const { doc } = useDocumentStore();
 const expenseCategories = computed(
-    () => store.value.doc?.expenseCategories
+    () => doc.value?.expenseCategories
 );
 const totalCategories = computed(() => expenseCategories.value?.length);
 

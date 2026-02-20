@@ -41,10 +41,12 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *
  *     const { doc } = useDiscrete(documentIdPromise);
  *
- *     // If the CRDT document is still empty, we need to initialize it.
- *     if (doc && !doc.expenses) {
- *         doc.expenses = [];
- *     }
+ *     $effect(() => {
+ *         // If the CRDT document is still empty, we need to initialize it.
+ *         if (doc && !doc.expenses) {
+ *             doc.expenses = [];
+ *         }
+ *     });
  *
  *     const createExpense = () => {
  *         // Note that we use *expense["@id"]* as a key in the expense list.

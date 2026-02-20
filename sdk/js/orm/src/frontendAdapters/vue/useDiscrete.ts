@@ -12,12 +12,15 @@ import {
     computed,
     MaybeRefOrGetter,
     onBeforeUnmount,
-    shallowRef,
+    shallowReactive,
+    ToRefs,
+    toRefs,
     toValue,
     watchEffect,
 } from "vue";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
+import { DiscreteRootObject } from "../../types.ts";
 
 /**
  * Hook to subscribe to an existing discrete (JSON) CRDT document.
@@ -47,9 +50,11 @@ import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSub
  * const { doc } = useDiscrete(documentId);
  *
  * // If document is new, we need to set up the basic structure.
- * if (doc && !doc.expenses) {
- *     doc.expenses = [];
- * }
+ * effect(() => {
+ *     if (doc.value && !doc.value.expenses) {
+ *         doc.value.expenses = [];
+ *     }
+ * })
  *
  * const createExpense = () => {
  *     // Note that we use *expense["@id"]* as a key in the expense list.
@@ -59,7 +64,7 @@ import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSub
  *     // The `@id` is an IRI with the schema `<documentId>:d:<object-specific id>`.
  *     // Since the `@id` is generated in the engine, the object is
  *     // *preliminarily given a mock id* which will be replaced immediately.
- *     expenses.push({
+ *     doc.value.expenses.push({
  *         title: "New expense",
  *         date: new Date().toISOString(),
  *     });
@@ -71,7 +76,7 @@ import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSub
  *         Loading...
  *     </div>
  *     <div v-else>
- *         <p v-if="expensesSorted.length === 0">
+ *         <p v-if="expenses.length === 0">
  *             No expenses yet.
  *         </p>
  *         <template v-else>
@@ -116,12 +121,12 @@ export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
         return id ? DiscreteOrmSubscription.getOrCreate(id) : undefined;
     });
 
-    const ret = shallowRef({ doc: undefined });
+    const ret = shallowReactive({
+        doc: undefined as undefined | DiscreteRootObject,
+    });
     watchEffect(() => {
         ormSubscription.value?.readyPromise.then(() => {
-            ret.value = {
-                doc: useDeepSignal(ormSubscription.value!.signalObject as any),
-            };
+            ret.doc = useDeepSignal(ormSubscription.value!.signalObject as any);
         });
     });
 
@@ -129,5 +134,5 @@ export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
         ormSubscription.value?.close();
     });
 
-    return ret;
+    return toRefs(ret) as ToRefs<{ doc: DiscreteRootObject }>;
 }

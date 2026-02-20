@@ -45,7 +45,7 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *     const doc = useDiscrete(documentIdPromise);
  *
  *     // If the CRDT document is still empty, we need to initialize it.
- *     if (doc && !doc.expenses) {
+ *     $: if (doc && !doc.expenses) {
  *         doc.expenses = [];
  *     }
  *

@@ -16,8 +16,7 @@
 
   const store = useDocumentStore();
 
-  const expenses = $derived(
-    store.doc?.expenses);
+  const expenses = $derived(store.doc?.expenses);
   const expenseCategories = $derived(store.doc?.expenseCategories);
   
   function createExpense(obj: Partial<Expense> = {}) {
