@@ -17,10 +17,10 @@ import ExpenseCard from "./ExpenseCard.vue";
 import { useDocumentStore } from "./useDocumentStore";
 import type { Expense } from "../../types";
 
-const store = useDocumentStore();
-const expenses = computed(() => store.value.doc?.expenses);
+const { doc } = useDocumentStore();
+const expenses = computed(() => doc.value?.expenses);
 const expenseCategories = computed(
-    () => store.value.doc?.expenseCategories ?? []
+    () => doc.value?.expenseCategories ?? []
 );
 
 function createExpense(obj: Partial<Expense> = {}) {

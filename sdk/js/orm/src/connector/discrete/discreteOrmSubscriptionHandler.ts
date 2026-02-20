@@ -20,7 +20,6 @@ import {
 import type {
     DeepPatch,
     DeepSignal,
-    DeepSignalObject,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
 import type { BaseType } from "@ng-org/shex-orm";
