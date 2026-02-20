@@ -1918,7 +1918,7 @@ pub async fn doc_subscribe(
 }
 
 /// Not to be used by frontend directly.
-/// Use a useShape hook or DiscreteOrmConnection to establish ORM subscriptions
+/// Use a useShape hook or DiscreteOrmSubscription to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn orm_start_discrete(
     nuri: String,
@@ -1940,7 +1940,7 @@ pub async fn orm_start_discrete(
 }
 
 /// Not to be used by frontend directly.
-/// Use a useShape hook or OrmConnection to establish ORM subscriptions
+/// Use a useShape hook or OrmSubscription to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn orm_start_graph(
     graph_scope: Array,
@@ -1987,7 +1987,7 @@ pub async fn orm_start_graph(
 }
 
 /// Not to be used by frontend directly.
-/// Use a useShape hook or OrmConnection to establish ORM subscriptions
+/// Use a useShape hook or OrmSubscription to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn graph_orm_update(
     subscription_id: JsValue,
@@ -2021,7 +2021,7 @@ pub async fn graph_orm_update(
 }
 
 /// Not to be used by frontend directly.
-/// Use a useShape hook or DiscreteOrmConnection to establish ORM subscriptions
+/// Use a useShape hook or DiscreteOrmSubscription to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn discrete_orm_update(
     subscription_id: JsValue,

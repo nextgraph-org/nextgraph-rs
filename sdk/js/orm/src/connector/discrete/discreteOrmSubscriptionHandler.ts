@@ -37,14 +37,14 @@ const WAIT_BEFORE_CLOSE = 500;
  *
  * You have two options on how to interact with the ORM:
  * - Use a hook for your favorite framework under `@ng-org/orm/react|vue|svelte`
- * - Call {@link OrmConnection.getOrCreate} to create a subscription manually
+ * - Call {@link OrmSubscription.getOrCreate} to create a subscription manually
  *
  * For more information about RDF-based ORM subscriptions,
- * see the README and follow the tutorial.
+ * see the [README](../../../README.md) and follow the tutorial.
  */
-export class DiscreteOrmConnection {
+export class DiscreteOrmSubscription {
     /** Global store of all subscriptions. We use that for pooling. */
-    private static idToEntry = new Map<string, DiscreteOrmConnection>();
+    private static idToEntry = new Map<string, DiscreteOrmSubscription>();
 
     /** The document id (IRI) of the subscribed document. */
     readonly documentId: string;
@@ -54,7 +54,7 @@ export class DiscreteOrmConnection {
     private stopSignalListening: undefined | (() => void);
     /** The subscription id kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
-    /** The number of OrmConnections with the same shape and scope (for pooling). */
+    /** The number of OrmSubscriptions with the same shape and scope (for pooling). */
     private refCount: number;
     /** When true, modifications from the signalObject are not processed. */
     suspendDeepWatcher: boolean;
@@ -64,21 +64,21 @@ export class DiscreteOrmConnection {
     pendingPatches: Patch[] | undefined;
     /** **Await to ensure that the subscription is established and the data arrived.** */
     readyPromise: Promise<void>;
-    private closeOrmConnection: () => void;
+    private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
     private resolveReady!: () => void;
 
     private constructor(documentId: string) {
         // @ts-expect-error
-        window.ormDiscreteSignalConnections = DiscreteOrmConnection.idToEntry;
+        window.ormDiscreteSignalConnections = DiscreteOrmSubscription.idToEntry;
         // @ts-expect-error
-        window.OrmDiscreteConnection = DiscreteOrmConnection;
+        window.OrmDiscreteConnection = DiscreteOrmSubscription;
         // @ts-expect-error
         window.OrmDiscreteIncomingPatches = [];
 
         this.documentId = documentId;
         this.refCount = 1;
-        this.closeOrmConnection = () => {};
+        this.closeOrmSubscription = () => {};
         this.suspendDeepWatcher = false;
 
         // Initialize per-entry readiness promise that resolves in setUpConnection
@@ -88,7 +88,7 @@ export class DiscreteOrmConnection {
 
         ngSession.then(async ({ ng, session }) => {
             try {
-                this.closeOrmConnection = await ng.orm_start_discrete(
+                this.closeOrmSubscription = await ng.orm_start_discrete(
                     documentId,
                     session.session_id,
                     this.onBackendMessage
@@ -104,7 +104,7 @@ export class DiscreteOrmConnection {
     }
 
     /**
-     * Returns an OrmConnection which subscribes to the given
+     * Returns an OrmSubscription which subscribes to the given
      * document in a 2-way binding.
      *
      * You **find the document data** in the **`signalObject`**
@@ -131,7 +131,7 @@ export class DiscreteOrmConnection {
      *
      * Note: If another call to `getOrCreate` was previously made
      * and {@link close} was not called on it (or only shortly after),
-     * it will return the same OrmConnection.
+     * it will return the same OrmSubscription.
      *
      * @param documentId The document ID (IRI) of the CRDT
      *
@@ -145,7 +145,7 @@ export class DiscreteOrmConnection {
      * //     "store",
      * //     undefined
      * // );
-     * const subscription = DiscreteOrmConnection.getOrCreate(documentId);
+     * const subscription = DiscreteOrmSubscription.getOrCreate(documentId);
      * // Wait for data.
      * await subscription.readyPromise;
      *
@@ -171,7 +171,7 @@ export class DiscreteOrmConnection {
      * // If you create a new subscription with the same document within a couple of 100ms,
      * // The subscription hasn't been closed and the old one is returned so that the data
      * // is available instantly. This is especially useful in the context of frontend frameworks.
-     * const subscription2 = DiscreteOrmConnection.getOrCreate(documentId);
+     * const subscription2 = DiscreteOrmSubscription.getOrCreate(documentId);
      *
      * subscription2.signalObject.expenses.push({
      *     name: "Second expense",
@@ -183,18 +183,18 @@ export class DiscreteOrmConnection {
      */
     public static getOrCreate = <T extends BaseType>(
         documentId: string
-    ): DiscreteOrmConnection => {
+    ): DiscreteOrmSubscription => {
         // If we already have a connection open,
         // return that signal object and just increase the reference count.
         // Otherwise, open a new one.
         const existingConnection =
-            DiscreteOrmConnection.idToEntry.get(documentId);
+            DiscreteOrmSubscription.idToEntry.get(documentId);
         if (existingConnection) {
             existingConnection.refCount += 1;
             return existingConnection;
         } else {
-            const newConnection = new DiscreteOrmConnection(documentId);
-            DiscreteOrmConnection.idToEntry.set(documentId, newConnection);
+            const newConnection = new DiscreteOrmSubscription(documentId);
+            DiscreteOrmSubscription.idToEntry.set(documentId, newConnection);
             return newConnection;
         }
     };
@@ -214,9 +214,9 @@ export class DiscreteOrmConnection {
         setTimeout(() => {
             if (this.refCount > 0) this.refCount--;
             if (this.refCount === 0) {
-                DiscreteOrmConnection.idToEntry.delete(this.documentId);
+                DiscreteOrmSubscription.idToEntry.delete(this.documentId);
 
-                this.closeOrmConnection();
+                this.closeOrmSubscription();
             }
         }, WAIT_BEFORE_CLOSE);
     };

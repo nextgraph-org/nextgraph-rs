@@ -19,23 +19,23 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 ## Table of Contents
 
 - [NextGraph ORM SDK](#nextgraph-orm-sdk)
-  - [Why?](#why)
-  - [Table of Contents](#table-of-contents)
-  - [Installation](#installation)
-  - [Start](#start)
-  - [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
-  - [Framework Usage](#framework-usage)
-    - [React](#react)
-    - [Vue](#vue)
-    - [Svelte](#svelte)
-  - [Working with Data](#working-with-data)
-    - [Adding Objects](#adding-objects)
-    - [Modifying Objects](#modifying-objects)
-    - [Deleting Objects](#deleting-objects)
-    - [Working with Sets](#working-with-sets)
-    - [Relationships](#relationships)
-  - [About NextGraph](#about-nextgraph)
-  - [License](#license)
+    - [Why?](#why)
+    - [Table of Contents](#table-of-contents)
+    - [Installation](#installation)
+    - [Start](#start)
+    - [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
+    - [Framework Usage](#framework-usage)
+        - [React](#react)
+        - [Vue](#vue)
+        - [Svelte](#svelte)
+    - [Working with Data](#working-with-data)
+        - [Adding Objects](#adding-objects)
+        - [Modifying Objects](#modifying-objects)
+        - [Deleting Objects](#deleting-objects)
+        - [Working with Sets](#working-with-sets)
+        - [Relationships](#relationships)
+    - [About NextGraph](#about-nextgraph)
+    - [License](#license)
 
 ---
 
@@ -78,10 +78,10 @@ Then use `useShape()` for graph, or `useDiscrete()` for discrete documents.
 In some cases, you may want to use advanced features managing subscriptions with the engine.
 For that, you can directly use:
 
-- `OrmConnection.getOrCreate(ShapeType, scope)` for graphs
-- `DiscreteOrmConnection.getOrCreate(documentId)` for discrete documents
+- `OrmSubscription.getOrCreate(ShapeType, scope)` for graphs
+- `DiscreteOrmSubscription.getOrCreate(documentId)` for discrete documents
 
-Internally, the OrmConnection keeps a signalObject, a proxied, reactive object. When modifications are made, this makes the frontend components rerender and sends the update to the engine to be persisted.
+Internally, the OrmSubscription keeps a signalObject, a proxied, reactive object. When modifications are made, this makes the frontend components rerender and sends the update to the engine to be persisted.
 In all cases, you have to create a document first with `ng.doc_create()`. For more details, you can consult the example apps and the inline jsdoc documentation.
 
 ## Graph ORM: Defining Schemas
@@ -235,7 +235,7 @@ dogs.add({
 
 > **Note**: For nested sub-objects, `@graph` is optional — the parent's graph IRI is used.
 >
-> **Note**: If you want to use the ORM signal object in a non-component context, you can create an ORM connection manually using `OrmConnection.getOrCreate()`.
+> **Note**: If you want to use the ORM signal object in a non-component context, you can create an ORM connection manually using `OrmSubscription.getOrCreate()`.
 
 ### Modifying Objects
 

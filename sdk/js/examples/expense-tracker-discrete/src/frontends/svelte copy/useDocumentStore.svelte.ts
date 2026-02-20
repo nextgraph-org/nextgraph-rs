@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -10,15 +10,14 @@
 
 import type { DocumentStore } from "../../types";
 import { ormSubscriptionPromise } from "../../utils/ngSession";
-import { useDiscrete } from "@ng-org/orm/svelte4";
-import type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
+import { useDiscrete } from "@ng-org/orm/svelte";
 
 export function useDocumentStore() {
     const documentIdPromise = ormSubscriptionPromise.then(
         (connection) => connection.documentId
     );
 
-    return useDiscrete(documentIdPromise) as UseDeepSignalResult<
-        DocumentStore | undefined
-    >;
+    const { doc } = useDiscrete(documentIdPromise);
+
+    return doc as DocumentStore | undefined;
 }

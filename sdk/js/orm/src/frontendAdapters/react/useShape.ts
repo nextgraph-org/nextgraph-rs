@@ -13,7 +13,7 @@ import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
 import { useEffect, useMemo, useRef } from "react";
 import { normalizeScope, type Scope } from "../../types.ts";
-import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
+import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 /**
@@ -87,26 +87,31 @@ const useShape = <T extends BaseType>(
 ) => {
     const parsedScope = !scope ? undefined : normalizeScope(scope);
 
-    const prevOrmConnection = useRef<undefined | OrmConnection<T>>(undefined);
+    const prevOrmSubscription = useRef<undefined | OrmSubscription<T>>(
+        undefined
+    );
 
-    const ormConnection = useMemo(() => {
+    const ormSubscription = useMemo(() => {
         if (parsedScope === undefined) return undefined;
-        if (prevOrmConnection.current) prevOrmConnection.current.close();
+        if (prevOrmSubscription.current) prevOrmSubscription.current.close();
         // TODO: Add flag to indicate that we want branch replacement of proxies on nested changes.
-        const newOrmConnection = OrmConnection.getOrCreate(shape, parsedScope);
-        prevOrmConnection.current = newOrmConnection;
-        return newOrmConnection;
+        const newOrmSubscription = OrmSubscription.getOrCreate(
+            shape,
+            parsedScope
+        );
+        prevOrmSubscription.current = newOrmSubscription;
+        return newOrmSubscription;
     }, [shape, scope, parsedScope?.graphs, parsedScope?.subjects]);
 
     useEffect(() => {
-        if (!ormConnection) return;
+        if (!ormSubscription) return;
 
         return () => {
-            ormConnection.close();
+            ormSubscription.close();
         };
-    }, [ormConnection]);
+    }, [ormSubscription]);
 
-    const state = useDeepSignal(ormConnection?.signalObject ?? readOnlySet);
+    const state = useDeepSignal(ormSubscription?.signalObject ?? readOnlySet);
 
     return state as DeepSignalSet<T>;
 };

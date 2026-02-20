@@ -98,11 +98,8 @@ export interface RootState {
     pendingPatches: DeepPatch[];
 }
 
-type WritableSignalFunction<T> = typeof alienSignal<T>;
-type ComputedSignalFunction<T> = typeof alienComputed<T>;
-
-export type WritableSignal<T = any> = ReturnType<WritableSignalFunction<T>>;
-export type ComputedSignal<T = any> = ReturnType<ComputedSignalFunction<T>>;
+export type WritableSignal<T = any> = ReturnType<typeof alienSignal<T>>;
+export type ComputedSignal<T = any> = ReturnType<typeof alienComputed<T>>;
 export type SignalLike<T = any> = WritableSignal<T> | ComputedSignal<T>;
 
 /** Raw and meta key. */

@@ -38,14 +38,14 @@ const WAIT_BEFORE_CLOSE = 500;
  *
  * You have two options on how to interact with the ORM:
  * - Use a hook for your favorite framework under `@ng-org/orm/react|vue|svelte`
- * - Call {@link OrmConnection.getOrCreate} to create a subscription manually
+ * - Call {@link OrmSubscription.getOrCreate} to create a subscription manually
  *
  * For more information about RDF-based ORM subscriptions,
  * see the README and follow the tutorial.
  */
-export class OrmConnection<T extends BaseType> {
+export class OrmSubscription<T extends BaseType> {
     /** Global store of all subscriptions. We use that for pooling. */
-    private static idToEntry = new Map<string, OrmConnection<any>>();
+    private static idToEntry = new Map<string, OrmSubscription<any>>();
 
     /** The shape type that is subscribed to. */
     readonly shapeType: ShapeType<T>;
@@ -68,7 +68,7 @@ export class OrmConnection<T extends BaseType> {
     private stopSignalListening: () => void;
     /** The subscription id kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
-    /** The number of OrmConnections with the same shape and scope (for pooling). */
+    /** The number of OrmSubscriptions with the same shape and scope (for pooling). */
     private refCount: number;
     /** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
@@ -80,7 +80,7 @@ export class OrmConnection<T extends BaseType> {
     pendingPatches: Patch[] | undefined;
     /** **Await to ensure that the subscription is established and the data arrived.** */
     readyPromise: Promise<void>;
-    private closeOrmConnection: () => void;
+    private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
     private resolveReady!: () => void;
 
@@ -99,15 +99,15 @@ export class OrmConnection<T extends BaseType> {
 
     private constructor(shapeType: ShapeType<T>, scope: Scope) {
         // @ts-expect-error
-        window.ormSignalConnections = OrmConnection.idToEntry;
+        window.ormSignalConnections = OrmSubscription.idToEntry;
         // @ts-expect-error
-        window.OrmConnection = OrmConnection;
+        window.OrmSubscription = OrmSubscription;
 
         this.shapeType = shapeType;
         const normalizedScope = normalizeScope(scope);
         this.scope = normalizedScope;
         this.refCount = 1;
-        this.closeOrmConnection = () => {};
+        this.closeOrmSubscription = () => {};
         this.suspendDeepWatcher = false;
         this.identifier = `${shapeType.shape}|${canonicalScope(normalizedScope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
@@ -117,7 +117,7 @@ export class OrmConnection<T extends BaseType> {
         });
 
         // Schedule cleanup of the connection when the signal object is GC'd.
-        OrmConnection.cleanupSignalRegistry?.register(
+        OrmSubscription.cleanupSignalRegistry?.register(
             this.signalObject,
             this.identifier,
             this.signalObject
@@ -137,7 +137,7 @@ export class OrmConnection<T extends BaseType> {
 
         ngSession.then(async ({ ng, session }) => {
             try {
-                this.closeOrmConnection = await ng.orm_start_graph(
+                this.closeOrmSubscription = await ng.orm_start_graph(
                     normalizedScope.graphs,
                     normalizedScope.subjects,
                     shapeType,
@@ -151,7 +151,7 @@ export class OrmConnection<T extends BaseType> {
     }
 
     /**
-     * Returns an OrmConnection which subscribes to the given
+     * Returns an OrmSubscription which subscribes to the given
      * {@link ShapeType} and {@link Scope} in a 2-way binding.
      *
      * You **find the data** and objects matching the shape and scope
@@ -179,7 +179,7 @@ export class OrmConnection<T extends BaseType> {
      *
      * Note: If another call to `getOrCreate` was previously made
      * and `close` was not called on it (or only shortly after),
-     * it will return the same OrmConnection.
+     * it will return the same OrmSubscription.
      *
      * @param shapeType The {@link ShapeType}
      * @param scope The {@link Scope}. If no scope is given, the whole store is considered.
@@ -194,7 +194,7 @@ export class OrmConnection<T extends BaseType> {
      * //     "store",
      * //     undefined
      * // );
-     * const subscription = OrmConnection.getOrCreate(ExpenseShapeType, {graphs: [graphIri]});
+     * const subscription = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [graphIri]});
      * // Wait for data.
      * await subscription.readyPromise;
      *
@@ -214,7 +214,7 @@ export class OrmConnection<T extends BaseType> {
      * // If you create a new subscription with the same document within a couple of 100ms,
      * // The subscription hasn't been closed and the old one is returned so that the data
      * // is available instantly. This is especially useful in the context of frontend frameworks.
-     * const subscription2 = OrmConnection.getOrCreate(ExpenseShapeType, {graphs: [graphIri]});
+     * const subscription2 = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [graphIri]});
      *
      * subscription2.signalObject.add({
      *    "@graph": graphIri,
@@ -228,7 +228,7 @@ export class OrmConnection<T extends BaseType> {
     public static getOrCreate = <T extends BaseType>(
         shapeType: ShapeType<T>,
         scope: Scope
-    ): OrmConnection<T> => {
+    ): OrmSubscription<T> => {
         const scopeKey = canonicalScope(scope);
 
         // Unique identifier for a given shape type and scope.
@@ -237,13 +237,13 @@ export class OrmConnection<T extends BaseType> {
         // If we already have an object for this shape+scope,
         // return it and just increase the reference count.
         // Otherwise, create new one.
-        const existingConnection = OrmConnection.idToEntry.get(identifier);
+        const existingConnection = OrmSubscription.idToEntry.get(identifier);
         if (existingConnection) {
             existingConnection.refCount += 1;
             return existingConnection;
         } else {
-            const newConnection = new OrmConnection(shapeType, scope);
-            OrmConnection.idToEntry.set(identifier, newConnection);
+            const newConnection = new OrmSubscription(shapeType, scope);
+            OrmSubscription.idToEntry.set(identifier, newConnection);
             return newConnection;
         }
     };
@@ -262,12 +262,12 @@ export class OrmConnection<T extends BaseType> {
         setTimeout(() => {
             if (this.refCount > 0) this.refCount--;
             if (this.refCount === 0) {
-                OrmConnection.idToEntry.delete(this.identifier);
+                OrmSubscription.idToEntry.delete(this.identifier);
 
-                OrmConnection.cleanupSignalRegistry?.unregister(
+                OrmSubscription.cleanupSignalRegistry?.unregister(
                     this.signalObject
                 );
-                this.closeOrmConnection();
+                this.closeOrmSubscription();
             }
         }, WAIT_BEFORE_CLOSE);
     };

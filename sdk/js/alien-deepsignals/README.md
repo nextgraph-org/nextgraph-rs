@@ -440,32 +440,6 @@ import { shallow } from "alien-deepsignals";
 state.config = shallow({ huge: { blob: true } });
 ```
 
-## TypeScript ergonomics
-
-`DeepSignal<T>` exposes both plain properties and optional `$prop` signal accessors (excluded for function members). Arrays add `$` (index signal map) and `$length`.
-
-```ts
-const state = deepSignal({ count: 0, user: { name: "A" } });
-state.count++; // ok
-state.$count!.set(9); // write via signal
-const n: number = state.$count!(); // typed number
-```
-
-## API surface
-
-| Function                           | Description                                                        |
-| ---------------------------------- | ------------------------------------------------------------------ |
-| `deepSignal(obj, options?)`        | Create (or reuse) reactive deep proxy with optional configuration. |
-| `watch(root, cb, opts?)`           | Observe batched deep mutations.                                    |
-| `observe(root, cb, opts?)`         | Alias of `watch`.                                                  |
-| `peek(obj,key)`                    | Untracked property read.                                           |
-| `shallow(obj)`                     | Mark object to skip deep proxying.                                 |
-| `isDeepSignal(val)`                | Runtime predicate.                                                 |
-| `isShallow(val)`                   | Was value marked shallow.                                          |
-| `setSetEntrySyntheticId(obj,id)`   | Assign custom Set entry id (highest priority).                     |
-| `addWithId(set, entry, id)`        | Insert with desired synthetic id (convenience).                    |
-| `subscribeDeepMutations(root, cb)` | Low-level patch stream (used by watch).                            |
-
 ## License
 
 This project is a fork of https://github.com/CCherry07/alien-deepsignals, forked at commit `b691dc9202c58f63c1bf78675577c811316396db`. All code previous to this commit is licensed under MIT, and author is CCherry. No copyright attribution is present. This codebase is therefor relicensed under dual MIT and Apache 2.0 licensing.

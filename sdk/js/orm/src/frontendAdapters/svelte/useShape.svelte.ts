@@ -8,22 +8,12 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { normalizeScope, type Scope } from "../../types.ts";
+import { type Scope } from "../../types.ts";
 import { onDestroy } from "svelte";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
-import {
-    useDeepSignal,
-    type UseDeepSignalResult,
-} from "@ng-org/alien-deepsignals/svelte";
-import { OrmConnection } from "../../connector/ormConnectionHandler.ts";
-
-export type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte";
-
-/** Extended result including the originating root signal wrapper from shape logic. */
-export interface UseShapeRuneResult<T extends object>
-    extends UseDeepSignalResult<T> {
-    root: any;
-}
+import { DeepSignalSet } from "@ng-org/alien-deepsignals";
+import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
+import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 
 /**
  * Svelte 5 hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
@@ -104,15 +94,15 @@ export interface UseShapeRuneResult<T extends object>
 export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope
-) {
-    const { signalObject: rootSignal, close } = OrmConnection.getOrCreate(
+): DeepSignalSet<T> {
+    const { signalObject: rootSignal, close } = OrmSubscription.getOrCreate(
         shape,
         scope
     );
 
     onDestroy(close);
 
-    const shapeSignalSet = useDeepSignal<Set<T>>(rootSignal as Set<T>);
+    const shapeSignalSet = useDeepSignal(rootSignal);
     return shapeSignalSet;
 }
 

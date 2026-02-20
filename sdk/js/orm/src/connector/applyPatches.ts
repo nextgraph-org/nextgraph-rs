@@ -10,6 +10,7 @@
 
 import { batch } from "@ng-org/alien-deepsignals";
 
+/** @internal */
 export type Patch = {
     /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
     path: string;
@@ -17,6 +18,7 @@ export type Patch = {
     value?: unknown;
 } & (SetAddPatch | SetRemovePatch | RemovePatch | LiteralAddPatch);
 
+/** @internal */
 export interface SetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -29,6 +31,7 @@ export interface SetAddPatch {
     value: number | string | boolean | (number | string | boolean)[];
 }
 
+/** @internal */
 export interface SetRemovePatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "remove";
@@ -46,11 +49,13 @@ export interface SetRemovePatch {
         | (number | string | boolean | object)[];
 }
 
+/** @internal */
 export interface RemovePatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "remove";
 }
 
+/** @internal */
 export interface LiteralAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -98,17 +103,19 @@ function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
 }
 
 /**
+ * @internal
+ *
  * Apply a diff to an object.
  *
  * The syntax is inspired by RFC 6902 but it is not compatible.
  *
  * It supports Sets for multi-valued properties:
  *   - Primitive values are added as Sets (Set<string | number | boolean>)
- *   - Multi-valued objects are stored in Sets, accessed by their @id property
- *   - Single objects are plain objects with an @id property
+ *   - Multi-valued objects are stored in Sets, accessed by their `@id` property
+ *   - Single objects are plain objects with an `@id` property
  *
  * Path traversal:
- *   - When traversing through a Set, the path segment is treated as an @id to find the object
+ *   - When traversing through a Set, the path segment is treated as an `@id` to find the object
  *   - When traversing through a plain object, the path segment is a property name
  *
  * @example operations
@@ -149,7 +156,7 @@ function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
  * @param patches An array of patches to apply to the object.
  * @param ensurePathExists If true, create nested objects along the path if the path does not exist.
  *
- * @note When creating new objects, this function pre-scans upcoming patches to find @id and @graph
+ * Note: When creating new objects, this function pre-scans upcoming patches to find `@id` and `@graph`
  *       values that will be assigned to the object. This prevents the signal library's propGenerator
  *       from being triggered before these identity fields are set, which would cause it to generate
  *       random IDs unnecessarily.
@@ -414,6 +421,8 @@ export function applyPatches(
 }
 
 /**
+ * @internal
+ *
  * See documentation for applyPatches
  */
 export function applyPatchesToDeepSignal(
