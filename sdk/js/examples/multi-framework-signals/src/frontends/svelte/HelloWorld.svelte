@@ -15,7 +15,7 @@
   import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
   import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
-  const shapeObjects = useShape(TestObjectShapeType);
+  const shapeObjects = useShape(TestObjectShapeType, {graphs: [""]});
 
   function getNestedValue(obj: any, path: string) {
     return path
