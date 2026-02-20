@@ -15,17 +15,14 @@ import type {
     Expense,
     ExpenseCategory,
 } from "../../shapes/orm/expenseShapes.typings";
-import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
-import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
+import type { DeepSignal } from "@ng-org/orm";
 
 const props = defineProps<{
-    expense: Expense;
-    availableCategories: DeepSignalSet<ExpenseCategory>;
+    expense: DeepSignal<Expense>;
+    availableCategories: DeepSignal<Set<ExpenseCategory>>;
 }>();
 
-// Important!
-// In vue, you need to wrap children into useDeepSignal hooks, to ensure the component re-renders.
-const expense = useDeepSignal(props.expense);
+const expense = props.expense;
 
 const isEditing = ref(false);
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {

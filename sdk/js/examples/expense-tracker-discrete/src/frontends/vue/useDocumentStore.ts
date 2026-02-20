@@ -8,8 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { ref, watchEffect, type ComputedRef, type Ref } from "vue";
-import type { DeepSignal } from "@ng-org/orm";
+import { ref, type Ref } from "vue";
 import { useDiscrete } from "@ng-org/orm/vue";
 import type { DocumentStore } from "../../types";
 import { ormSubscription, ormSubscriptionPromise } from "../../utils/ngSession";
