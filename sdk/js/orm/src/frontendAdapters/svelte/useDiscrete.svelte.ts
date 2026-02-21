@@ -11,7 +11,8 @@
 import { onDestroy } from "svelte";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
-import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
+import { DiscreteRoot } from "../../types.ts";
+import { DeepSignal } from "@ng-org/alien-deepsignals";
 
 /**
  * Svelte 5 hook to subscribe to existing discrete (JSON) CRDT documents.
@@ -102,14 +103,14 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  * </div>
  * ```
  */
-export function useDiscrete(documentIdOrPromise: string | Promise<string>): {
-    doc: DiscreteRootArray | DiscreteRootObject | undefined;
+export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+    documentIdOrPromise: string | Promise<string>
+): {
+    doc: DeepSignal<T | undefined>;
 } {
     let connection: DiscreteOrmSubscription | undefined;
     let isDestroyed = false;
-    let doc = $state.raw<DiscreteRootArray | DiscreteRootObject | undefined>(
-        undefined
-    );
+    let doc = $state.raw<DeepSignal<T> | undefined>(undefined);
 
     const init = (docId: string) => {
         if (isDestroyed) return;
@@ -119,10 +120,7 @@ export function useDiscrete(documentIdOrPromise: string | Promise<string>): {
                 connection?.close();
                 return;
             }
-            doc = useDeepSignal(connection!.signalObject!) as
-                | DiscreteRootArray
-                | DiscreteRootObject
-                | undefined;
+            doc = useDeepSignal(connection!.signalObject!) as DeepSignal<T>;
         });
     };
 

@@ -87,6 +87,9 @@ export interface DiscreteRootObject {
         | DiscreteRootArray;
 }
 
+/** A discrete root object where it is unknown if the root is an array or an object. */
+export type DiscreteRoot = DiscreteRootArray | DiscreteRootObject;
+
 /**
  * The supported discrete (JSON) CRDTs.
  * Automerge and YMap require objects as roots.

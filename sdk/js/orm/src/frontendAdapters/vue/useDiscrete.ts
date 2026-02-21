@@ -20,7 +20,7 @@ import {
 } from "vue";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
-import { DiscreteRootObject } from "../../types.ts";
+import { DiscreteRoot } from "../../types.ts";
 
 /**
  * Hook to subscribe to an existing discrete (JSON) CRDT document.
@@ -115,14 +115,16 @@ import { DiscreteRootObject } from "../../types.ts";
  * </template>
  * ```
  */
-export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
+export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+    documentId: MaybeRefOrGetter<string | undefined>
+) {
     const ormSubscription = computed(() => {
         const id = toValue(documentId);
         return id ? DiscreteOrmSubscription.getOrCreate(id) : undefined;
     });
 
     const ret = shallowReactive({
-        doc: undefined as undefined | DiscreteRootObject,
+        doc: undefined as undefined | T,
     });
     watchEffect(() => {
         ormSubscription.value?.readyPromise.then(() => {
@@ -134,5 +136,5 @@ export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
         ormSubscription.value?.close();
     });
 
-    return toRefs(ret) as ToRefs<{ doc: DiscreteRootObject }>;
+    return toRefs(ret) as ToRefs<{ doc: T }>;
 }

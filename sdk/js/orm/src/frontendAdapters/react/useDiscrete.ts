@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import { DeepSignal } from "@ng-org/alien-deepsignals";
-import { DiscreteArray, DiscreteObject } from "../../types.ts";
+import { DiscreteRoot } from "../../types.ts";
 
 const EMPTY_OBJECT = {} as const;
 
@@ -115,7 +115,9 @@ const EMPTY_OBJECT = {} as const;
  * ```
  */
 
-export function useDiscrete(documentId: string | undefined) {
+export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+    documentId: string | undefined
+) {
     const prevDocumentId = useRef<string | undefined>(undefined);
     const prevOrmSubscription = useRef<DiscreteOrmSubscription | undefined>(
         undefined
@@ -158,9 +160,7 @@ export function useDiscrete(documentId: string | undefined) {
 
     // useDeepSignal requires an object, so pass empty object when no connection.
     const signalSource = ormConnection?.signalObject ?? EMPTY_OBJECT;
-    const deepSignalValue = useDeepSignal(signalSource) as DeepSignal<
-        DiscreteArray | DiscreteObject
-    >;
+    const deepSignalValue = useDeepSignal(signalSource) as DeepSignal<T>;
 
     // Only return data if we have a valid connection with a signal object.
     const dataOrUndefined = ormConnection?.signalObject
