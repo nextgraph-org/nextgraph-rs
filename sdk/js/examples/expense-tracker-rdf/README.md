@@ -73,7 +73,7 @@ If you want to create your own app, you can walk through the following steps.
 Install the required NextGraph packages:
 
 ```bash
-pnpm add @ng-org/web@latest @ng-org/orm@latest @ng-org/shex-orm@latest @ng-org/alien-deepsignals@latest
+pnpm add @ng-org/web@latest @ng-org/orm@latest @ng-org/shex-orm@latest
 ```
 
 | Package            | Purpose                                 |
