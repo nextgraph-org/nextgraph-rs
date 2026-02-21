@@ -119,7 +119,7 @@ import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import type { Dog } from "./shapes/orm/dogShape.typings";
 
 export function DogList() {
-    const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
+    const dogs = useShape(DogShapeType);
 
     return (
         <ul>
@@ -149,7 +149,7 @@ import { useShape } from "@ng-org/orm/vue";
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import DogCard from "./DogCard.vue";
 
-const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
+const dogs = useShape(DogShapeType);
 </script>
 
 <template>
@@ -182,19 +182,17 @@ const dog = props.dog;
     import { useShape } from "@ng-org/orm/svelte";
     import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
-    const dogs = useShape(DogShapeType); // Reactive store
+    const dogs = useShape(DogShapeType);
 </script>
 
 <ul>
-    {#each [...$dogs] as dog (dog["@id"])}
+    {#each dogs as dog (dog["@id"])}
         <li>
             <input bind:value={dog.name} />
         </li>
     {/each}
 </ul>
 ```
-
-> **Note**: Access the store value with `$dogs`. Standard Svelte binding works.
 
 ---
 
