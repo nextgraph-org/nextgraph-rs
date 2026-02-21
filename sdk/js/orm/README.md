@@ -42,7 +42,7 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 ## Installation
 
 ```bash
-pnpm add @ng-org/orm @ng-org/web @ng-org/alien-deepsignals
+pnpm add @ng-org/orm @ng-org/web
 ```
 
 For schema generation, also install:
@@ -161,13 +161,11 @@ const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
 
 ```vue
 <script setup lang="ts">
-import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import type { Dog } from "./shapes/orm/dogShape.typings";
 
 const props = defineProps<{ dog: Dog }>();
 
-// Required for reactivity in child components!
-const dog = useDeepSignal(props.dog);
+const dog = props.dog;
 </script>
 
 <template>
@@ -176,8 +174,6 @@ const dog = useDeepSignal(props.dog);
     </div>
 </template>
 ```
-
-> **Important**: In Vue child components, wrap props with `useDeepSignal()` to enable reactivity.
 
 ### Svelte
 
