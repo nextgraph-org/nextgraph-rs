@@ -18,24 +18,19 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 ## Table of Contents
 
-- [NextGraph ORM SDK](#nextgraph-orm-sdk)
-    - [Why?](#why)
-    - [Table of Contents](#table-of-contents)
-    - [Installation](#installation)
-    - [Start](#start)
-    - [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
-    - [Framework Usage](#framework-usage)
-        - [React](#react)
-        - [Vue](#vue)
-        - [Svelte](#svelte)
-    - [Working with Data](#working-with-data)
-        - [Adding Objects](#adding-objects)
-        - [Modifying Objects](#modifying-objects)
-        - [Deleting Objects](#deleting-objects)
-        - [Working with Sets](#working-with-sets)
-        - [Relationships](#relationships)
-    - [About NextGraph](#about-nextgraph)
-    - [License](#license)
+- [Installation](#installation)
+- [Start](#start)
+- [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
+- [Framework Usage](#framework-usage)
+    - [React](#react)
+    - [Vue](#vue)
+    - [Svelte](#svelte)
+- [Working with Data](#working-with-data)
+    - [Adding Objects](#adding-objects)
+    - [Modifying Objects](#modifying-objects)
+    - [Deleting Objects](#deleting-objects)
+    - [Working with Sets](#working-with-sets)
+    - [Relationships](#relationships)
 
 ---
 

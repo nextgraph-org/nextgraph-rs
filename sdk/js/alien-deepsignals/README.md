@@ -54,7 +54,8 @@ Note that you can pass existing deepSignal objects (that you are using elsewhere
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 
 const users = useDeepSignal([{ username: "Bob" }]);
-// Note: Instead of calling `setState`, you just need to modify a property. That will trigger the required re-render.
+// Note: Instead of calling `setState`, you just need to modify a property.
+// That will trigger the required re-render.
 ```
 
 ### Vue
@@ -245,7 +246,7 @@ const state = deepSignal({
 });
 
 // Create a computed signal that derives from reactive state
-const fullNaAdd documentationme = computed(() => `${state.firstName} ${state.lastName}`);
+const fullName = computed(() => `${state.firstName} ${state.lastName}`);
 const itemCount = computed(() => state.items.length);
 
 console.log(fullName()); // "Ada Lovelace" - computes on first access
@@ -325,7 +326,7 @@ Notes:
 - `Set.add(entry)` emits object vs primitive form depending on entry type; path ends with synthetic id.
 - `Set.clear()` emits one structural patch and suppresses per‑entry removals in same batch.
 
-## Sets & synthetic ids
+## Sets & synthetic IDs
 
 Object entries inside Sets need a stable key for patch paths. The synthetic ID resolution follows this priority:
 
