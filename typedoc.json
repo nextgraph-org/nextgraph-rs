@@ -12,5 +12,5 @@
   "packageOptions": {
     "entryPoints": ["src/index.ts"]
   },
-  "router": "structure"
+  "router": "module"
 }
