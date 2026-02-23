@@ -103,7 +103,7 @@ import { DeepSignal } from "@ng-org/alien-deepsignals";
  * ```
  */
 export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
-    documentIdOrPromise: string | Promise<string>
+    documentIdOrPromise: string | Promise<string> | undefined
 ): {
     doc: DeepSignal<T | undefined>;
 } {
@@ -125,6 +125,8 @@ export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
 
     if (typeof documentIdOrPromise === "string") {
         init(documentIdOrPromise);
+    } else if (documentIdOrPromise === undefined) {
+        // There is nothing to initialize.
     } else {
         documentIdOrPromise.then(init);
     }

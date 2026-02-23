@@ -97,7 +97,7 @@ import { DiscreteRoot } from "../../types.ts";
  *
  */
 export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
-    documentIdOrPromise: string | Promise<string>
+    documentIdOrPromise: string | Promise<string> | undefined
 ): UseDeepSignalResult<T | undefined> {
     let connection: DiscreteOrmSubscription | undefined;
     let isDestroyed = false;
@@ -117,6 +117,8 @@ export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
 
         if (typeof documentIdOrPromise === "string") {
             init(documentIdOrPromise);
+        } else if (documentIdOrPromise === undefined) {
+            // There is nothing to do without a document ID.
         } else {
             documentIdOrPromise.then(init);
         }
