@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { normalizeScope, type Scope } from "../../types.ts";
 import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
+import { readOnlySet } from "../utils.ts";
 
 /**
  * Hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
@@ -118,20 +119,5 @@ const useShape = <T extends BaseType>(
 
     return state as DeepSignalSet<T>;
 };
-
-const readOnlySet = new Proxy(new Set(), {
-    get(target, key, receiver) {
-        if (key === "add" || key === "delete" || key === "clear") {
-            return () => {
-                throw new Error("Set is readonly because scope is empty.");
-            };
-        }
-        const value = (target as any)[key];
-        if (typeof value === "function") {
-            return value.bind(target);
-        }
-        return value;
-    },
-});
 
 export default useShape;
