@@ -65,7 +65,6 @@ export interface DeepSignalOptions {
     replaceProxiesInBranchOnChange?: boolean;
     /*
      * External subscribers that are called when a signal updates or is read.
-     * When a
      */
     //  TODO: Is the an onDestroy fn necessary?
     subscriberFactories?: Set<ExternalSubscriberFactory>;
