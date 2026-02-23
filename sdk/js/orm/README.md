@@ -105,15 +105,15 @@ Generate TypeScript types. Add the following to your `package.json` scripts and 
 The SDK offers hooks for discrete and graph-based CRDTs for Svelte, Vue and React:
 
 - discrete CRDTs for
-    - Svelte 5: [useDiscrete](#svelteUseDiscrete)
-    - Svelte 3/4: [useDiscrete](#svelte4UseDiscrete)
-    - Vue: [useDiscrete](#vueUseDiscrete)
-    - React: [useDiscrete](#reactUseDiscrete)
+    - Svelte 5: [useDiscrete](#svelteusediscrete)
+    - Svelte 3/4: [useDiscrete](#svelte4usediscrete)
+    - Vue: [useDiscrete](#vueusediscrete)
+    - React: [useDiscrete](#reactusediscrete)
 - graph CRDTs for:
-    - Svelte 5: [useDiscrete](#svelteUseShape)
-    - Svelte 3/4: [useDiscrete](#svelte4UseShape)
-    - Vue: [useDiscrete](#vueUseShape)
-    - React: [useDiscrete](#reactUseShape)
+    - Svelte 5: [useShape](#svelteuseshape)
+    - Svelte 3/4: [useShape](#svelte4useshape)
+    - Vue: [useShape](#vueuseshape)
+    - React: [useShape](#reactuseshape)
 
 All of them have the same logic. They create a 2-way binding to the engine.
 You can modify the returned object like any other JSON object. Changes are immediately

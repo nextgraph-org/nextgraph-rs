@@ -72,18 +72,15 @@ export type WatchPatchCallback<T extends object> = (
  * });
  *
  * state.s.add({ data: "test" });
- * // Wil add log:
+ * // Will log:
  * // [
  * //   {"path":["s","did:ng:o:123"],"op":"add","type":"object"},
  * //   {"path":["s","did:ng:o:123","@id"],"op":"add","value":"did:ng:o:123"},
  * //   {"path":["s","did:ng:o:123","data"],"op":"add","value":"test"}
  * // ]
  *
- * ```
- *
- * const user = { test:  };
- * state.users.getById("did:ng:o:123")!.data = "new value"
- * // Will add log:
+ * state.s.getById("did:ng:o:123")!.data = "new value"
+ * // Will log:
  * // [
  * //   {"path":["s","did:ng:o:123","data"],"op":"add","value":"new value"}
  * // ]
