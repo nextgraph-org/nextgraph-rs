@@ -32,7 +32,7 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
  * @example
  * ```tsx
  * function Expenses() {
- *     const expenses = useShape(ExpenseShapeType, {graphs: ["<graph IRI>"]});
+ *     const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType, {graphs: ["<graph IRI>"]});
  *
  *     const createExpense = useCallback(
  *         () => {
@@ -52,7 +52,7 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
  *     );
  *
  *     // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- *     // If it is not, use the combination of `@graph` and `@id`.
+ *     // If it is not (i.e. there are two graphs with the same subject), use the combination of `@graph` and `@id`.
  *
  *     return (
  *         <div>
@@ -68,10 +68,11 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
  *                     </p>
  *                 ) : (
  *                     expensesSorted.map((expense) => (
+ *                         // You can modify the expense's properties in the ExpenseCard component
+ *                         // which will instantly trigger a rerender.
  *                         <ExpenseCard
  *                             key={expense["@id"]}
  *                             expense={expense}
- *                             availableCategories={expenseCategories}
  *                         />
  *                     ))
  *                 )}
@@ -94,7 +95,7 @@ const useShape = <T extends BaseType>(
     const ormSubscription = useMemo(() => {
         if (parsedScope === undefined) return undefined;
         if (prevOrmSubscription.current) prevOrmSubscription.current.close();
-        // TODO: Add flag to indicate that we want branch replacement of proxies on nested changes.
+
         const newOrmSubscription = OrmSubscription.getOrCreate(
             shape,
             parsedScope
@@ -111,7 +112,9 @@ const useShape = <T extends BaseType>(
         };
     }, [ormSubscription]);
 
-    const state = useDeepSignal(ormSubscription?.signalObject ?? readOnlySet);
+    const state = useDeepSignal(ormSubscription?.signalObject ?? readOnlySet, {
+        replaceProxiesInBranchOnChange: true,
+    });
 
     return state as DeepSignalSet<T>;
 };

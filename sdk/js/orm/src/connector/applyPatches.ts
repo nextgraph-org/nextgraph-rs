@@ -10,7 +10,7 @@
 
 import { batch } from "@ng-org/alien-deepsignals";
 
-/** @internal */
+/** @ignore */
 export type Patch = {
     /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
     path: string;
@@ -18,7 +18,7 @@ export type Patch = {
     value?: unknown;
 } & (SetAddPatch | SetRemovePatch | RemovePatch | LiteralAddPatch);
 
-/** @internal */
+/** @ignore */
 export interface SetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -31,7 +31,7 @@ export interface SetAddPatch {
     value: number | string | boolean | (number | string | boolean)[];
 }
 
-/** @internal */
+/** @ignore */
 export interface SetRemovePatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "remove";
@@ -49,13 +49,13 @@ export interface SetRemovePatch {
         | (number | string | boolean | object)[];
 }
 
-/** @internal */
+/** @ignore */
 export interface RemovePatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "remove";
 }
 
-/** @internal */
+/** @ignore */
 export interface LiteralAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -83,7 +83,7 @@ function parseGraphId(input: string): { graph?: string; id: string } {
 }
 
 /**
- * Find an object in a Set by its @id property.
+ * Find an object in a Set by its `@id` property.
  * Returns the object if found, otherwise undefined.
  */
 function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
@@ -103,7 +103,7 @@ function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
 }
 
 /**
- * @internal
+ * @ignore
  *
  * Apply a diff to an object.
  *
@@ -421,7 +421,7 @@ export function applyPatches(
 }
 
 /**
- * @internal
+ * @ignore
  *
  * See documentation for applyPatches
  */

@@ -21,14 +21,14 @@ const EMPTY_OBJECT = {} as const;
  * You can modify the returned object like any other JSON object. Changes are immediately
  * reflected in the CRDT document.
  *
- * Establishes a 2-way binding: Modifications to the object are immediately committed,
+ * Establishes a 2-way binding: Modifications to the object are immediately committed;
  * changes coming from the engine (or other components) cause an immediate rerender.
  *
  * In comparison to {@link reactUseShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentId The IRI of the CRDT document.
- * @returns An object that contains as `data` the reactive DeepSignal object or undefined if `documentId` is undefined.
+ * @param documentId The NURI of the CRDT document.
+ * @returns An object that contains as `doc` the reactive DeepSignal object or undefined if `documentId` is undefined.
  *
  * @example
  * ```tsx
@@ -42,20 +42,20 @@ const EMPTY_OBJECT = {} as const;
  * // );
  *
  * function Expenses({documentId}: {documentId: string}) {
- *     const { data } = useDiscrete(documentId);
+ *     const { doc } = useDiscrete(documentId);
  *
  *     // If the CRDT document is still empty, we need to initialize it.
- *     if (data && !data.expenses) {
- *         data.expenses = [];
+ *     if (doc && !doc.expenses) {
+ *         doc.expenses = [];
  *     }
- *     const expenses = data?.expenses;
+ *     const expenses = doc?.expenses;
  *
  *     const createExpense = useCallback(() => {
  *             // Note that we use *expense["@id"]* as a key in the expense list.
  *             // Every object added to a CRDT array gets a stable `@id` property assigned
  *             // which you can use for referencing objects in arrays even as
  *             // objects are removed or added from the array.
- *             // The `@id` is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *             // The `@id` is a NURI with the schema `<documentId>:d:<object-specific id>`.
  *             // Since the `@id` is generated in the engine, the object is
  *             // *preliminarily given a mock id* which will be replaced immediately.
  *             expenses.push({
@@ -66,8 +66,8 @@ const EMPTY_OBJECT = {} as const;
  *         [expenses]
  *     );
  *
- *     // Still loading (data undefined)?
- *     if (!data) return <div>Loading...</div>;
+ *     // Still loading?
+ *     if (!doc) return <div>Loading...</div>;
  *
  *     return (
  *         <div>
@@ -108,7 +108,7 @@ const EMPTY_OBJECT = {} as const;
  *        />
  *        <div>
  *            <p>Date</p>
- *            <p>{expense.data}
+ *            <p>{expense.doc}
  *        </div
  *    );
  * }
@@ -160,12 +160,14 @@ export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
 
     // useDeepSignal requires an object, so pass empty object when no connection.
     const signalSource = ormConnection?.signalObject ?? EMPTY_OBJECT;
-    const deepSignalValue = useDeepSignal(signalSource) as DeepSignal<T>;
+    const deepSignalValue = useDeepSignal(signalSource, {
+        replaceProxiesInBranchOnChange: true,
+    }) as DeepSignal<T>;
 
-    // Only return data if we have a valid connection with a signal object.
-    const dataOrUndefined = ormConnection?.signalObject
+    // Only return doc if we have a valid connection with a signal object.
+    const docOrUndefined = ormConnection?.signalObject
         ? deepSignalValue
         : undefined;
 
-    return { doc: dataOrUndefined };
+    return { doc: docOrUndefined };
 }

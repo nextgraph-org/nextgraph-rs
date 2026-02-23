@@ -24,19 +24,19 @@ export interface DeepPatchBatch {
     patches: DeepPatch[];
 }
 
-/** @internal Batched patch payload for justInTime listeners. */
+/** @ignore Batched patch payload for justInTime listeners. */
 export interface DeepPatchJITBatch {
     patches: DeepPatch[];
 }
 
-/** @internal */
+/** @ignore */
 export type DeepPatchSubscriber = (batch: DeepPatchBatch) => void;
-/** @internal */
+/** @ignore */
 export type DeepPatchJITSubscriber = (batch: DeepPatchJITBatch) => void;
 
 /**
- * @internal
  * Options to pass to {@link deepSignal}
+ * @internal
  */
 export interface DeepSignalOptions {
     /**
@@ -119,7 +119,7 @@ export type DeepSignalPropGenFn = (props: {
     extraProps?: Record<string, unknown>;
 };
 
-/** @internal */
+/**@ignore*/
 export interface ProxyMeta {
     raw: object;
     parent?: ProxyMeta;
@@ -130,13 +130,13 @@ export interface ProxyMeta {
     setInfo?: SetMeta;
 }
 
-/** @internal */
+/** @hidden */
 export interface SetMeta {
     idForObject: WeakMap<object, string>;
     objectForId: Map<string, object>;
 }
 
-/** @internal */
+/**@ignore*/
 export interface RootState {
     options?: DeepSignalOptions;
     version: number;
@@ -145,16 +145,16 @@ export interface RootState {
     pendingPatches: DeepPatch[];
 }
 
-/** @internal */
+/** @ignore */
 export type WritableSignal<T = any> = ReturnType<typeof alienSignal<T>>;
 export type ComputedSignal<T = any> = ReturnType<typeof computed<T>>;
 export type SignalLike<T = any> = WritableSignal<T> | ComputedSignal<T>;
 
-/** Raw and meta key. */
+/** @ignore Raw and meta key. */
 export type DeepSignalObjectProps<T> = {
     /** The original raw object. */
     __raw__: T;
-    /** @internal meta information */
+    /** @ignore meta information */
     __meta__: ProxyMeta;
 };
 

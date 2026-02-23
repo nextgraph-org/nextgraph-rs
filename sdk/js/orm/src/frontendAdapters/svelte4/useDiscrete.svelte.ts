@@ -27,10 +27,10 @@ import { DiscreteRoot } from "../../types.ts";
  * In comparison to {@link svelte4UseShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentIdOrPromise The IRI of the CRDT document or a promise to that.
- * @returns The reactive JSON object of the CRDT document.
+ * @param documentIdOrPromise The NURI of the CRDT document or a promise to that.
+ * @returns The store of the reactive JSON object of the CRDT document or undefined.
  *
- *@example
+ * @example
  * ```svelte
  * <script lang="ts">
  *
@@ -50,7 +50,6 @@ import { DiscreteRoot } from "../../types.ts";
  *     }
  *
  *     // Call doc.expenses.push({title: "Example title"}), to add new elements.
- *
  *
  *     // Note that we use expense["@id"] as a key in the expense list.
  *     // Every object added to a CRDT array gets a stable `@id` property assigned

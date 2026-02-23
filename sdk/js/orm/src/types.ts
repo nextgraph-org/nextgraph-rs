@@ -16,15 +16,15 @@
  *
  * @example
  * ```typescript
- * // Contains all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 IRI> or <g2 IRI>
+ * // Contains all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
  * const expenses: DeepSignalSet<Expense = useShape(ExpenseShape,
- *      {graphs: ["<graph1 IRI>", "<graph2 IRI>"],
+ *      {graphs: ["<graph1 NURI>", "<graph2 NURI>"],
  *       subjects: ["<subject1 IRI>", "<subject2 IRI>"]});
  * ```
  */
 export type Scope = {
     /**
-     * The graphs to filter for. If more than one IRI is provided, the union of all graphs is considered.
+     * The graphs to filter for. If more than one NURI is provided, the union of all graphs is considered.
      *
      * - Set value to `["did:ng:i"]` or `[""]` for whole dataset.
      * - Setting value to `[]` or leaving it `undefined`, no objects are returned.
@@ -32,12 +32,15 @@ export type Scope = {
     graphs?: string[];
 
     /**
-     * Subjects to filter for. Set to `[]` or leaving it `undefined` for no filtering.
+     * Subjects to filter for. Set to `[]` or leave it `undefined` for no filtering.
      */
     subjects?: string[];
 };
 
-/** Convert undefined to [] and for graphs "" to "did:ng:i". If scope is string, that means {graphs: [\<scope string>], subjects: []}. */
+/**
+ * Converts undefined to [] and for graphs "" to "did:ng:i". If scope is string, it means {graphs: [\<scope string>], subjects: []}.
+ * @ignore
+ */
 export const normalizeScope = (scope: Scope | string | undefined = {}) => {
     if (typeof scope === "string") {
         return { graphs: [scope], subjects: [] };
@@ -87,7 +90,7 @@ export interface DiscreteRootObject {
         | DiscreteRootArray;
 }
 
-/** A discrete root object where it is unknown if the root is an array or an object. */
+/** A discrete document's root object, either an array or an object. */
 export type DiscreteRoot = DiscreteRootArray | DiscreteRootObject;
 
 /**

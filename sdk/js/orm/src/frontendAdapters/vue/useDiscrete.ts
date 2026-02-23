@@ -33,7 +33,7 @@ import { DiscreteRoot } from "../../types.ts";
  * In comparison to `useShape`, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentId The IRI of the CRDT document or `undefined` as MaybeRefOrGetter.
+ * @param documentId The NURI of the CRDT document or `undefined` as MaybeRefOrGetter.
  * @returns An object that contains as `data` the reactive DeepSignal object or undefined if not loaded yet or `documentId` is undefined.
  *
  *@example
@@ -61,7 +61,7 @@ import { DiscreteRoot } from "../../types.ts";
  *     // Every object added to a CRDT array gets a stable `@id` property assigned
  *     // which you can use for referencing objects in arrays even as
  *     // objects are removed or added from the array.
- *     // The `@id` is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *     // The `@id` is an NURI with the schema `<documentId>:d:<object-specific id>`.
  *     // Since the `@id` is generated in the engine, the object is
  *     // *preliminarily given a mock id* which will be replaced immediately.
  *     doc.value.expenses.push({
@@ -103,7 +103,7 @@ import { DiscreteRoot } from "../../types.ts";
  * }>();
  *
  * // If you modify expense in the component,
- * // the changes are immediately propagated to the other components
+ * // the changes are immediately propagated to other consuming components
  * // And persisted in the database.
  * </script>
  *

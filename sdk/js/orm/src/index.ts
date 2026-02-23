@@ -15,6 +15,10 @@ import {
     useDiscrete as svelteUseDiscrete,
 } from "./frontendAdapters/svelte/index.ts";
 import {
+    useShape as svelte4UseShape,
+    useDiscrete as svelte4UseDiscrete,
+} from "./frontendAdapters/svelte4/index.ts";
+import {
     useShape as reactUseShape,
     useDiscrete as reactUseDiscrete,
 } from "./frontendAdapters/react/index.ts";
@@ -43,6 +47,8 @@ export {
     DiscreteOrmSubscription,
     svelteUseShape,
     svelteUseDiscrete,
+    svelte4UseShape,
+    svelte4UseDiscrete,
     reactUseShape,
     reactUseDiscrete,
     vueUseShape,

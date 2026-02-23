@@ -53,8 +53,8 @@ import { DeepSignal } from "@ng-org/alien-deepsignals";
  *         // Note that we use *expense["@id"]* as a key in the expense list.
  *         // Every object added to a CRDT array gets a stable `@id` property assigned
  *         // which you can use for referencing objects in arrays even as
- *         // objects are removed or added from the array.
- *         // The `@id` is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *         // preceding objects are removed or added from the array.
+ *         // The `@id` is an NURI with the schema `<documentId>:d:<object-specific id>`.
  *         // Since the `@id` is generated in the engine, the object is
  *         // *preliminarily given a mock id* which will be replaced immediately.
  *         expenses.push({
@@ -97,8 +97,7 @@ import { DeepSignal } from "@ng-org/alien-deepsignals";
  *
  * <div>
  *     <input
- *         value={expense.title ?? ""}
- *         oninput={(event) => {expense.title = event.currentTarget?.value ?? ""}}
+ *         bind:value={expense.title}
  *     />
  * </div>
  * ```

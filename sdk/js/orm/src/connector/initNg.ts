@@ -10,11 +10,13 @@
 
 import * as NG from "@ng-org/lib-wasm";
 
-type Session = {
+export type Session = {
     session_id: string | number;
     protected_store_id: string;
     private_store_id: string;
     public_store_id: string;
+    ng: typeof NG;
+    [key: string]: unknown;
 };
 
 let resolveNgSession: (value: { ng: typeof NG; session: Session }) => void;
@@ -29,21 +31,16 @@ export const ngSession = new Promise<{ ng: typeof NG; session: Session }>(
 /**
  * Initialize the ORM by passing the ng implementation and session.
  *
- * @param ngImpl
- * @param session
+ * **This is the first thing you need to to before using the ORM.**
+ *
+ * @param ngImpl The NextGraph API, e.g. exported from `@ng-org/web`.
+ * @param session The established NextGraph session.
  *
  * @example
  * ```typescript
  * import { ng, init } from "@ng-org/web";
- * import { initNg as initNgSignals } from "@ng-org/orm";
- * let session: {
- *     ng: typeof NG;
- *     session_id: string;
- *     protected_store_id: string;
- *     private_store_id: string;
- *     public_store_id: string;
- *     [key: string]: unknown;
- * };
+ * import { initNg as initNgSignals, Session } from "@ng-org/orm";
+ * let session: Session;
  *
  * // Call as early as possible as it will redirect to the auth page.
  * await init(

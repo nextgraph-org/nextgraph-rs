@@ -32,15 +32,15 @@ export interface UseDeepSignalResult<T> extends Readable<T> {
 }
 
 /**
- * Create a rune from a deepSignal object (creates one if it is just a regular object).
+ * Create a store from a deepSignal object (creates one if it is just a regular object).
  *
  * Modifications to the returned deepSignal object cause an immediate rerender.
  * If modifications of the object are made from somewhere else, the component
  * is rerendered as well.
  *
  * @param object The object that should become reactive
- * @param deepSignalObjects When the object is not a deepSignal already, options passed to `deepSignal`.
- * @returns A rune for using the deepSignal object in svelte.
+ * @param options Options passed to {@link deepSignal}.
+ * @returns A store for using the deepSignal object in svelte.
  */
 export function useDeepSignal<T extends object>(
     object: T | Promise<T>,

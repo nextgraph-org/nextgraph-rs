@@ -39,10 +39,10 @@ export interface UseShapeRuneResult<T extends object>
  * @example
  * ```svelte
  * <script lang="ts">
- *     // Gets all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 IRI> or <g2 IRI>
+ *     // Gets all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
  *     const expenses: DeepSignalSet<Expense> = useShape(ExpenseShape,
- *         {graphs: ["<g1 IRI>", "<g2 IRI>"],
- *         subjects: ["<s1 IRI>", "<s2 IRI>"]});
+ *         {graphs: ["<g1 IRI>", "<g2 NURI>"],
+ *         subjects: ["<s1 IRI>", "<s2 NURI>"]});
  *
  *     const expensesSorted = computed(() => expenses.sort((a, b) =>
  *         a.dateOfPurchase.localeCompare(b.dateOfPurchase)
@@ -51,8 +51,8 @@ export interface UseShapeRuneResult<T extends object>
  *     // Call expenses.add({"@graph": "<g1 or g2 IRI>", "@id": "", title: "Example title"}), to add new elements.
  *     // Leave `@id` an empty string to auto-generate a subject IRI (adjust your scope accordingly).
  *
- *     // Not that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- *     // If it is not, use the combination of `@graph` and `@id`.
+ *     // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
+ *     // If it is not (i.e. there are two graphs with the same subject), use the combination of `@graph` and `@id`.
  * </script>
  *
  * <section>
@@ -64,7 +64,7 @@ export interface UseShapeRuneResult<T extends object>
  *         {:else}
  *         {#each expensesSorted as expense, index (expense['@id']) }
  *             <ExpenseCard
- *             expense={expense}
+ *                 expense={expense}
  *             />
  *         {/each}
  *         {/if}
@@ -83,8 +83,7 @@ export interface UseShapeRuneResult<T extends object>
  *
  * <div>
  *   <input
- *     value={expense.title ?? ""}
- *     oninput={(event) => {expense.title = event.currentTarget!.value}}
+ *     bind:value={expense.title}
  *     placeholder="Expense title"
  *   />
  * </div>
