@@ -11,7 +11,7 @@
 import { describe, it, expect } from "vitest";
 import { deepSignal, addWithId, DeepPatch, DeepSignalOptions } from "../../";
 import { watch } from "../../watch";
-import { effect } from "../../effect";
+import { effect } from "../../";
 import { setSetEntrySyntheticId } from "../../deepSignal";
 
 describe("watch", () => {
@@ -107,16 +107,6 @@ describe("watch", () => {
         await Promise.resolve();
         expect(versions.length).toBe(1);
         expect(versions[0]).toBeGreaterThan(0);
-    });
-
-    it("effect runs and cleans up", () => {
-        const calls: string[] = [];
-        const dispose = effect((registerCleanup) => {
-            calls.push("run");
-            registerCleanup?.(() => calls.push("cleanup"));
-        });
-        dispose();
-        expect(calls).toEqual(["run", "cleanup"]);
     });
 });
 

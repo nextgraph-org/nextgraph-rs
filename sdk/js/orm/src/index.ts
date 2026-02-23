@@ -15,6 +15,10 @@ import {
     useDiscrete as svelteUseDiscrete,
 } from "./frontendAdapters/svelte/index.ts";
 import {
+    useShape as svelte4UseShape,
+    useDiscrete as svelte4UseDiscrete,
+} from "./frontendAdapters/svelte4/index.ts";
+import {
     useShape as reactUseShape,
     useDiscrete as reactUseDiscrete,
 } from "./frontendAdapters/react/index.ts";
@@ -28,7 +32,11 @@ import { getObjects } from "./connector/getObjects.ts";
 export * from "./connector/applyPatches.ts";
 export * from "./types.ts";
 
-export type { DeepSignal, DeepSignalObject } from "@ng-org/alien-deepsignals";
+export type {
+    DeepSignal,
+    DeepSignalObject,
+    DeepSignalSet,
+} from "@ng-org/alien-deepsignals";
 
 export { getRaw, watch, effect } from "@ng-org/alien-deepsignals";
 
@@ -39,6 +47,8 @@ export {
     DiscreteOrmSubscription,
     svelteUseShape,
     svelteUseDiscrete,
+    svelte4UseShape,
+    svelte4UseDiscrete,
     reactUseShape,
     reactUseDiscrete,
     vueUseShape,

@@ -11,7 +11,8 @@
 import { onDestroy } from "svelte";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
-import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
+import { DiscreteRoot } from "../../types.ts";
+import { DeepSignal } from "@ng-org/alien-deepsignals";
 
 /**
  * Svelte 5 hook to subscribe to existing discrete (JSON) CRDT documents.
@@ -24,7 +25,7 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  * In comparison to {@link svelteUseShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentIdOrPromise The IRI of the CRDT document or a promise to that.
+ * @param documentIdOrPromise The NURI of the CRDT document or a promise to that.
  * @returns The reactive JSON object of the CRDT document.
  *
  *@example
@@ -52,8 +53,8 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *         // Note that we use *expense["@id"]* as a key in the expense list.
  *         // Every object added to a CRDT array gets a stable `@id` property assigned
  *         // which you can use for referencing objects in arrays even as
- *         // objects are removed or added from the array.
- *         // The `@id` is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *         // preceding objects are removed or added from the array.
+ *         // The `@id` is an NURI with the schema `<documentId>:d:<object-specific id>`.
  *         // Since the `@id` is generated in the engine, the object is
  *         // *preliminarily given a mock id* which will be replaced immediately.
  *         expenses.push({
@@ -96,20 +97,19 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *
  * <div>
  *     <input
- *         value={expense.title ?? ""}
- *         oninput={(event) => {expense.title = event.currentTarget?.value ?? ""}}
+ *         bind:value={expense.title}
  *     />
  * </div>
  * ```
  */
-export function useDiscrete(documentIdOrPromise: string | Promise<string>): {
-    doc: DiscreteRootArray | DiscreteRootObject | undefined;
+export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+    documentIdOrPromise: string | Promise<string> | undefined
+): {
+    doc: DeepSignal<T | undefined>;
 } {
     let connection: DiscreteOrmSubscription | undefined;
     let isDestroyed = false;
-    let doc = $state.raw<DiscreteRootArray | DiscreteRootObject | undefined>(
-        undefined
-    );
+    let doc = $state.raw<DeepSignal<T> | undefined>(undefined);
 
     const init = (docId: string) => {
         if (isDestroyed) return;
@@ -119,15 +119,14 @@ export function useDiscrete(documentIdOrPromise: string | Promise<string>): {
                 connection?.close();
                 return;
             }
-            doc = useDeepSignal(connection!.signalObject!) as
-                | DiscreteRootArray
-                | DiscreteRootObject
-                | undefined;
+            doc = useDeepSignal(connection!.signalObject!) as DeepSignal<T>;
         });
     };
 
     if (typeof documentIdOrPromise === "string") {
         init(documentIdOrPromise);
+    } else if (documentIdOrPromise === undefined) {
+        // There is nothing to initialize.
     } else {
         documentIdOrPromise.then(init);
     }

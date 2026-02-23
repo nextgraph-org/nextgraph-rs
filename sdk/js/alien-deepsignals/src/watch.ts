@@ -54,11 +54,40 @@ export type WatchPatchCallback<T extends object> = (
 /**
  * Watch for changes to a deepSignal.
  *
- * Whenever a change is made, `callback` with the patches describing the change and the current value.
+ * Whenever a change is made, `callback` is called with the patches describing the change and the new value.
  * If you set `triggerInstantly`, the callback is called on every property change.
  * If not, all changes are aggregated and `callback` is called in a microtask when
  * the current task finishes, e.g. `await` is called (meaning it supports batching).
  *
+ * When objects are added to Sets, their **synthetic ID (usually `@id`) becomes part of the patch path**. This allows patches to uniquely identify which Set entry is being mutated.
+ *
+ * ```ts
+ * const state = deepSignal(
+ *     { s: new Set() },
+ *     { ...}
+ * );
+ *
+ * watch(state, ({ patches }) => {
+ *     console.log(JSON.stringify(patches));
+ * });
+ *
+ * state.s.add({ data: "test" });
+ * // Wil add log:
+ * // [
+ * //   {"path":["s","did:ng:o:123"],"op":"add","type":"object"},
+ * //   {"path":["s","did:ng:o:123","@id"],"op":"add","value":"did:ng:o:123"},
+ * //   {"path":["s","did:ng:o:123","data"],"op":"add","value":"test"}
+ * // ]
+ *
+ * ```
+ *
+ * const user = { test:  };
+ * state.users.getById("did:ng:o:123")!.data = "new value"
+ * // Will add log:
+ * // [
+ * //   {"path":["s","did:ng:o:123","data"],"op":"add","value":"new value"}
+ * // ]
+ * ```
  */
 export function watch<T extends object>(
     source: DeepSignalSet<T> | DeepSignalObject<T> | DeepSignal<T>,

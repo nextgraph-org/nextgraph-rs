@@ -42,12 +42,12 @@ export interface TaggedObject {
 const buildDefaultObjectSetEntries = (): TaggedObject[] => {
     const baseEntries: TaggedObject[] = [
         {
-            "@id": "urn:object:alpha",
+            "@id": "did:ng:x:alpha",
             label: "Alpha",
             count: 1,
         },
         {
-            "@id": "urn:object:beta",
+            "@id": "did:ng:x:beta",
             label: "Beta",
             count: 3,
         },
@@ -55,7 +55,7 @@ const buildDefaultObjectSetEntries = (): TaggedObject[] => {
     const extraEntries = Array.from({ length: 2 }, (_, index) => {
         const idNumber = (index + 1).toString().padStart(3, "0");
         return {
-            "@id": `urn:object:item-${idNumber}`,
+            "@id": `did:ng:x:item-${idNumber}`,
             label: `Item ${idNumber}`,
             count: 5 + index,
         } satisfies TaggedObject;

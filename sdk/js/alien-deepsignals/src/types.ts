@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { alienComputed, alienSignal } from "./core";
+import { computed, alienSignal } from "./core";
 
 /** Deep mutation emitted from a deepSignal root. */
 export type DeepPatch = {
@@ -24,22 +24,31 @@ export interface DeepPatchBatch {
     patches: DeepPatch[];
 }
 
-/** Batched patch payload for justInTime listeners. */
+/** @ignore Batched patch payload for justInTime listeners. */
 export interface DeepPatchJITBatch {
     patches: DeepPatch[];
 }
 
+/** @ignore */
 export type DeepPatchSubscriber = (batch: DeepPatchBatch) => void;
+/** @ignore */
 export type DeepPatchJITSubscriber = (batch: DeepPatchJITBatch) => void;
 
-/** Options to pass to {@link deepSignal} */
+/**
+ * Options to pass to {@link deepSignal}
+ * @internal
+ */
 export interface DeepSignalOptions {
-    /** An optional function that is called when new objects are attached and that may return additional properties to be attached. */
+    /**
+     * An optional function that is called when new objects are attached and
+     * that may return additional properties to be attached.
+     */
     propGenerator?: DeepSignalPropGenFn;
     /**
      * The property name which should be used as an object identifier in sets.
      * You will see it when patches are generated with a path to an object in a set.
      * The `syntheticId` will be a patch element then.
+     * Objects with existing properties matching `syntheticIdPropertyName` keep their values (not overwritten).
      */
     syntheticIdPropertyName?: string;
     /**
@@ -56,8 +65,8 @@ export interface DeepSignalOptions {
     replaceProxiesInBranchOnChange?: boolean;
     /*
      * External subscribers that are called when a signal updates or is read.
-     * TODO: Is the an onDestroy fn necessary?
      */
+    //  TODO: Is the an onDestroy fn necessary?
     subscriberFactories?: Set<ExternalSubscriberFactory>;
 }
 
@@ -66,15 +75,50 @@ export type ExternalSubscriberFactory<T = any> = () => {
     onSet: (newVal: T) => void;
 };
 
+/**
+ * @internal
+ *
+ * The `propGenerator` function is called when a new object is added to the deep signal tree.
+ * @example
+ * ```ts
+ * let counter = 0;
+ * const state = deepSignal(
+ *     { items: new Set() },
+ *     {
+ *         propGenerator: ({ path, inSet, object }) => ({
+ *             syntheticId: inSet
+ *                 ? `urn:item:${++counter}`
+ *                 : `urn:obj:${path.join("-")}`,
+ *             extraProps: { createdAt: new Date().toISOString() },
+ *         }),
+ *         syntheticIdPropertyName: "@id",
+ *     }
+ * );
+ *
+ * state.items.add({ name: "Item 1" });
+ * // Attaches `{ name: "Item 1", `@id`: "urn:item:1", createdAt: <current date>`
+ *
+ * state.foo = {bar: 42};
+ * // Attaches `{bar: 42, "@id": "urn:obj:foo", createdAt: <current date>}`
+ * ```
+ */
 export type DeepSignalPropGenFn = (props: {
+    /**
+     * The path of the newly added object.
+     */
     path: (string | number)[];
+    /** Whether the object is being added to a Set (true) or not (false) */
     inSet: boolean;
+    /** The newly added object itself */
     object: any;
 }) => {
+    /** A custom identifier for the object (used in Set entry paths and optionally as a property). */
     syntheticId?: string | number;
+    /** Additional properties to be added to the object (overwriting existing ones). */
     extraProps?: Record<string, unknown>;
 };
 
+/**@ignore*/
 export interface ProxyMeta {
     raw: object;
     parent?: ProxyMeta;
@@ -85,11 +129,13 @@ export interface ProxyMeta {
     setInfo?: SetMeta;
 }
 
+/** @hidden */
 export interface SetMeta {
     idForObject: WeakMap<object, string>;
     objectForId: Map<string, object>;
 }
 
+/**@ignore*/
 export interface RootState {
     options?: DeepSignalOptions;
     version: number;
@@ -98,13 +144,16 @@ export interface RootState {
     pendingPatches: DeepPatch[];
 }
 
+/** @ignore */
 export type WritableSignal<T = any> = ReturnType<typeof alienSignal<T>>;
-export type ComputedSignal<T = any> = ReturnType<typeof alienComputed<T>>;
+export type ComputedSignal<T = any> = ReturnType<typeof computed<T>>;
 export type SignalLike<T = any> = WritableSignal<T> | ComputedSignal<T>;
 
-/** Raw and meta key. */
+/** @ignore Raw and meta key. */
 export type DeepSignalObjectProps<T> = {
+    /** The original raw object. */
     __raw__: T;
+    /** @ignore meta information */
     __meta__: ProxyMeta;
 };
 
@@ -123,14 +172,17 @@ export type DeepSignalSetProps<T> = {
     /**
      * Retrieve an object from the Set by its `@graph` and `@id`.
      *
-     * @param graphIri - The `@graph` IRI of the object.
+     * @param graphIri - The `@graph` NURI of the object.
      * @param subjectIri - The `@subject` IRI of the object.
      * @returns The proxied entry if found, undefined otherwise.
      */
     getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
 };
 
-/** Reactive Set wrapper that accepts raw or proxied entries. */
+/**
+ * Type alias for `DeepSignal<Set<T>>` and reactive Set wrapper that accepts raw or proxied entries.
+ * Additionally it is decorated with {@link DeepSignalSetProps}.
+ */
 export interface DeepSignalSet<T>
     extends Set<DeepSignal<T>>,
         DeepSignalObjectProps<Set<T>>,
@@ -154,10 +206,9 @@ export interface DeepSignalSet<T>
 }
 
 /**
- * The object returned by the @see deepSignal function.
- * It is decorated with utility functions for sets and a
- * `__raw__` prop to get the underlying non-reactive object
- * and `__meta__` prop, to get the internal metadata.
+ * The object returned by the {@link deepSignal} function.
+ * It is decorated with utility functions for sets, see {@link DeepSignalSetProps}
+ * and a `__raw__` prop to get the underlying non-reactive object.
  */
 export type DeepSignal<T> = T extends Function
     ? T
@@ -177,7 +228,7 @@ export type DeepSignalObject<T extends object> = {
     [K in keyof T]: DeepSignal<T[K]>;
 }; // DeepSignalObjectProps<T>;
 
-export type RevertDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
+export type UnwrapDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
 
 /** Union allowing a plain value or a writable signal wrapping that value. */
 export type MaybeSignal<T = any> = T | ReturnType<typeof alienSignal>;

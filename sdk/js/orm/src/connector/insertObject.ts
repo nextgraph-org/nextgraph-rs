@@ -13,6 +13,7 @@ import { OrmSubscription } from "./ormSubscriptionHandler.ts";
 
 /**
  * Utility for adding ORM-typed objects to the database without the need for subscribing to documents.
+ *
  * @param shapeType The shape type of the objects to be inserted.
  * @param object The object to be inserted.
  */

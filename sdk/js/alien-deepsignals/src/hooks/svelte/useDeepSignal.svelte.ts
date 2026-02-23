@@ -19,7 +19,7 @@ import { DeepSignalOptions, deepSignal, DeepSignal } from "../../index";
  * is rerendered as well.
  *
  * @param object The object that should become reactive
- * @param deepSignalObjects When the object is not a deepSignal already, options passed to `deepSignal`.
+ * @param options Options passed to {@link deepSignal}.
  * @returns A rune for using the deepSignal object in svelte.
  */
 export function useDeepSignal<T extends object>(
@@ -37,7 +37,7 @@ export function useDeepSignal<T extends object>(
     //     // TODO: Tell signal that subscriber can be removed?
     // });
 
-    return ret as T extends DeepSignal<any> ? T : DeepSignal<T> | undefined;
+    return ret as T extends DeepSignal<any> ? T : DeepSignal<T>;
 }
 
 /**

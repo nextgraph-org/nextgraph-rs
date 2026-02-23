@@ -21,7 +21,7 @@ export async function loadStore(crdt: AllowedCrdt) {
     const APPLICATION_CLASS_IRI = `did:ng:z:ExpenseTrackerDiscreteApp-${crdt}`;
 
     // First, find or create the document that we use for this document.
-    // We find its document id / IRI with a sparql query.
+    // We find its document ID / NURI with a sparql query.
     const { ng, session_id } = await sessionPromise;
 
     // If a document already exists, we have added an RDF triple with type APPLICATION_CLASS_IRI

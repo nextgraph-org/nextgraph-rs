@@ -66,7 +66,7 @@ export class OrmSubscription<T extends BaseType> {
      */
     readonly signalObject: DeepSignalSet<T>;
     private stopSignalListening: () => void;
-    /** The subscription id kept as an identifier for communicating with the verifier. */
+    /** The subscription ID kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
     /** The number of OrmSubscriptions with the same shape and scope (for pooling). */
     private refCount: number;
@@ -343,7 +343,7 @@ export class OrmSubscription<T extends BaseType> {
         });
     };
 
-    /** Function to create random subject IRIs for newly created nested objects. */
+    /** Function to create random subject NURIs for newly created nested objects. */
     private signalObjectPropGenerator: DeepSignalPropGenFn = ({
         path,
         object,
@@ -351,10 +351,10 @@ export class OrmSubscription<T extends BaseType> {
         let graphIri: string | undefined = undefined;
         let subjectIri: string | undefined = undefined;
 
-        // If no @graph is set, add the parent's graph IRI. If there is no parent, throw.
+        // If no @graph is set, add the parent's graph NURI. If there is no parent, throw.
         if (!object["@graph"] || object["@graph"] === "") {
             if (path.length > 1) {
-                // The first part of the path is the <graphIri>|<subjectIri> composition.
+                // The first part of the path is the <graphNuri>|<subjectIri> composition.
                 graphIri = (path[0] as string).split("|")[0];
             } else {
                 throw new Error(

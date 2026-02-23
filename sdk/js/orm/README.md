@@ -14,23 +14,20 @@ We offer this for **React, Vue, and Svelte**.
 Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 - For graphs, you specify a schema using a SHEX shape and optionally a scope. This provides you with typing support.
-- For discrete CRDTs, all you need is a document id.
+- For discrete CRDTs, all you need is a document ID (NURI).
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Start](#start)
-- [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
-- [Framework Usage](#framework-usage)
-    - [React](#react)
-    - [Vue](#vue)
-    - [Svelte](#svelte)
-- [Working with Data](#working-with-data)
-    - [Adding Objects](#adding-objects)
-    - [Modifying Objects](#modifying-objects)
-    - [Deleting Objects](#deleting-objects)
-    - [Working with Sets](#working-with-sets)
-    - [Relationships](#relationships)
+- [NextGraph ORM SDK](#nextgraph-orm-sdk)
+    - [Installation](#installation)
+    - [Start](#start)
+    - [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
+    - [Frontend Framework Usage](#frontend-framework-usage)
+    - [Working with Data](#working-with-data)
+        - [Creating a Document](#creating-a-document)
+        - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
+            - [Graph ORM: Relationships](#graph-orm-relationships)
+    - [About NextGraph](#about-nextgraph)
 
 ---
 
@@ -68,16 +65,17 @@ await init(
 );
 ```
 
-Then use `useShape()` for graph, or `useDiscrete()` for discrete documents.
+Then use `useShape()` for graphs, or `useDiscrete()` for discrete documents.
 
 In some cases, you may want to use advanced features managing subscriptions with the engine.
-For that, you can directly use:
-
-- `OrmSubscription.getOrCreate(ShapeType, scope)` for graphs
-- `DiscreteOrmSubscription.getOrCreate(documentId)` for discrete documents
+With an OrmSubscription, you can manage things like transactions manually.
+This is useful for example when you want to manage a state across components.
+See [`OrmSubscription.getOrCreate(ShapeType, scope)`](#getorcreate-1) for graphs
+and [`DiscreteOrmSubscription.getOrCreate(documentId)`](#getorcreate) for discrete documents.
 
 Internally, the OrmSubscription keeps a signalObject, a proxied, reactive object. When modifications are made, this makes the frontend components rerender and sends the update to the engine to be persisted.
-In all cases, you have to create a document first with `ng.doc_create()`. For more details, you can consult the example apps and the inline jsdoc documentation.
+
+In all cases, you have to create a document first with `ng.doc_create()`.
 
 ## Graph ORM: Defining Schemas
 
@@ -104,191 +102,141 @@ Generate TypeScript types. Add the following to your `package.json` scripts and 
 "build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
 ```
 
-## Framework Usage
+## Frontend Framework Usage
 
-### React
+The SDK offers hooks for discrete and graph-based CRDTs for Svelte, Vue and React:
 
-```tsx
-import { useShape } from "@ng-org/orm/react";
-import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
-import type { Dog } from "./shapes/orm/dogShape.typings";
+- discrete CRDTs for
+    - Svelte 5: [useDiscrete](#svelteUseDiscrete)
+    - Svelte 3/4: [useDiscrete](#svelte4UseDiscrete)
+    - Vue: [useDiscrete](#vueUseDiscrete)
+    - React: [useDiscrete](#reactUseDiscrete)
+- graph CRDTs for:
+    - Svelte 5: [useDiscrete](#svelteUseShape)
+    - Svelte 3/4: [useDiscrete](#svelte4UseShape)
+    - Vue: [useDiscrete](#vueUseShape)
+    - React: [useDiscrete](#reactUseShape)
 
-export function DogList() {
-    const dogs = useShape(DogShapeType);
+All of them have the same logic. They create a 2-way binding to the engine.
+You can modify the returned object like any other JSON object. Changes are immediately
+reflected in the CRDT and the components rerender.
+When the component unmounts, the subscription is closed.
 
-    return (
-        <ul>
-            {[...dogs].map((dog) => (
-                <li key={dog["@id"]}>
-                    {/* Direct mutation triggers re-render */}
-                    <input
-                        value={dog.name}
-                        onChange={(e) => (dog.name = e.target.value)}
-                    />
-                </li>
-            ))}
-        </ul>
-    );
-}
-```
+```ts
+// Queries the graphs with NURI did:ng:o:g1 and did:ng:o:g2 and with subject s1 or s2.
+const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType, {
+    graphs: ["did:ng:o:g1", "did:ng:o:g2"],
+    subjects: ["<s1 IRI>", "<s2 IRI>"],
+});
 
-> **Note**: No `setState` needed — just mutate the object directly.
-
-### Vue
-
-**Parent component** (`DogList.vue`):
-
-```vue
-<script setup lang="ts">
-import { useShape } from "@ng-org/orm/vue";
-import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
-import DogCard from "./DogCard.vue";
-
-const dogs = useShape(DogShapeType);
-</script>
-
-<template>
-    <DogCard v-for="dog in dogs" :key="dog['@id']" :dog="dog" />
-</template>
-```
-
-**Child component** (`DogCard.vue`):
-
-```vue
-<script setup lang="ts">
-import type { Dog } from "./shapes/orm/dogShape.typings";
-
-const props = defineProps<{ dog: Dog }>();
-
-const dog = props.dog;
-</script>
-
-<template>
-    <div>
-        <input v-model="dog.name" />
-    </div>
-</template>
-```
-
-### Svelte
-
-```svelte
-<script lang="ts">
-    import { useShape } from "@ng-org/orm/svelte";
-    import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
-
-    const dogs = useShape(DogShapeType);
-</script>
-
-<ul>
-    {#each dogs as dog (dog["@id"])}
-        <li>
-            <input bind:value={dog.name} />
-        </li>
-    {/each}
-</ul>
+// Use expenses in your component
+// and modify them to trigger a rerender and persist them.
+// ...
 ```
 
 ---
 
 ## Working with Data
 
-### Adding Objects
+The ORM is designed to make working with data as normal as possible.
+You get an object as you are used to it and when you change properties,
+they are automatically persisted and synced with other devices. Conversely,
+modifications arrive at the ORM objects immediately and your components rerender.
 
-To add a new object, you need a document IRI (`@graph`). Create a document first:
+### Creating a Document
 
-```typescript
-import { sessionPromise } from "./utils/ngSession";
+First, you need a document to store and get your data.
+With the document NURI, you can then create ORM objects.
 
-const session = await sessionPromise;
-
+```ts
 // Create a new NextGraph document
-const docIri = await session.ng.doc_create(
-    session.session_id,
-    "Graph",
-    "data:graph",
+const docNuri = await ng.doc_create(
+    session_id,
+    "Graph", // Or "YMap" or "Automerge", for discrete
+    "data:graph", // Or "data:json" : "data:map" for Automerge or YJs
     "store",
     undefined
 );
 
-// Add to the reactive set
+// Add class to RDF part of the document so we can find it again.
+await ng.sparql_update(
+    session_id,
+    `INSERT DATA { GRAPH <${documentId}> {<${documentId}> a <${APPLICATION_CLASS_IRI}> } }`,
+    documentId
+);
+```
+
+To find your document, you can make a sparql query as well:
+
+```ts
+const ret = await ng.sparql_query(
+    session_id,
+    `SELECT ?storeId WHERE { GRAPH ?storeId { ?s a <${APPLICATION_CLASS_IRI}> } }`,
+    undefined,
+    undefined
+);
+let documentId = ret?.results.bindings?.[0]?.storeId?.value;
+```
+
+### Using and Modifying ORM Objects
+
+There are multiple ways to get and modify data:
+
+- Get and modify the data returned by a `useShape()` or `useDiscrete()` hook inside a component.
+- Get and modify the signalObject of the subscription returned by `Orm(Discrete)Subscription.getOrCreate()`.
+- For graph ORMs: Call [`insertObject()`](#insertobject) or [`getObjects`](#getobjects) (no 2-way binding).
+
+```typescript
+const dogSubscription = OrmSubscription.getOrCreate(DogShape, {
+    graphs: [docNuri],
+});
+await dogSubscription.readyPromise;
+
+// If we used OrmDiscreteSubscription, the signalObject type would be array or object.
+const dogSet: DeepSignal<Set<Dog>> = dogSubscription.signalObject;
+
 dogs.add({
-    "@graph": docIri, // Required: document IRI
-    "@type": "http://example.org/Dog", // Required: RDF type
-    "@id": "", // Empty = auto-generate subject IRI
-    name: "Buddy",
-    age: 3,
+    // Required: The document NURI. May be set to `""` for nested objects (will be inherited from parent object then).
+    "@graph": docNuri,
+    "@type": "did:ng:x:Dog", // Required: RDF type
+    "@id": "", // Empty string = auto-generate subject IRI
+    name: "Mr Puppy",
+    age: 2,
     toys: new Set(["ball", "rope"]),
 });
+
+// When you know that only one element is in the set, you can call `.first()` to get it.
+const aDog = dogs.first();
+aDog.age += 1;
+aDog.toy.add("bone");
+
+// Utility to find objects in sets:
+const sameDog = dogs.getBy(aDog["@graph"], aDog["@id"]);
+// sameSog === aDog.
+
+dogs.delete(aDog);
 ```
 
-> **Note**: For nested sub-objects, `@graph` is optional — the parent's graph IRI is used.
->
-> **Note**: If you want to use the ORM signal object in a non-component context, you can create an ORM connection manually using `OrmSubscription.getOrCreate()`.
+Note that the graph CRDT supports sets only, the discrete CRDTs arrays only.
 
-### Modifying Objects
+#### Graph ORM: Relationships
 
-Simply assign new values:
+To reference external objects, you can use their `@id`.
 
 ```typescript
-dog.name = "Max";
-dog.age = 4;
-```
+casey.friends.add(jackNuri);
 
-Changes are:
+// When the child object is a nested object that you do not have in memory,
+// you can establish the link by adding an object that contains the `@id` property only.
+shoppingExpense.category.add({ "@id": "<Subject IRI of expense category>" });
+// Link objects by storing the target's `@id` NURI/IRI:
 
-- Immediately reflected in all components using the same shape
-- Automatically persisted to NextGraph storage
-- Synced to other devices in real-time
-
-### Deleting Objects
-
-```typescript
-dogs.delete(dog);
-```
-
-### Working with Sets
-
-Properties with SHEX cardinality `*` or `+` become reactive Sets:
-
-```typescript
-// Add items
-dog.toys.add("frisbee");
-
-// Remove items
-dog.toys.delete("ball");
-
-// Check membership
-if (dog.toys.has("rope")) { ... }
-
-// Iterate
-for (const toy of dog.toys) {
-    console.log(toy);
-}
-
-// Get size
-console.log(dog.toys.size);
-
-// NOTE: For ES2025 environment, set iterator objects are directly attached:
-dogs.forEach((dog) => {
-    console.log(dog.toys.size);
-});
-```
-
-### Relationships
-
-Link objects by storing the target's `@id` IRI:
-
-```typescript
-// In your SHEX schema:
-// ex:owner IRI ;
-
-// Link to another object
-dog.owner = person["@id"];
-
+dog.owner = jackNuri;
 // Resolve the relationship
-const owner = people.find((p) => p["@id"] === dog.owner);
+const jack = people.find((p) => p["@id"] === dog.owner);
 ```
+
+Note that when you delete a nested object from a parent, _only the linkage_ to it is removed. The nested object itself (its quads) are not deleted.
 
 ---
 

@@ -20,7 +20,7 @@ import {
 } from "vue";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
-import { DiscreteRootObject } from "../../types.ts";
+import { DiscreteRoot } from "../../types.ts";
 
 /**
  * Hook to subscribe to an existing discrete (JSON) CRDT document.
@@ -33,7 +33,7 @@ import { DiscreteRootObject } from "../../types.ts";
  * In comparison to `useShape`, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentId The IRI of the CRDT document or `undefined` as MaybeRefOrGetter.
+ * @param documentId The NURI of the CRDT document or `undefined` as MaybeRefOrGetter.
  * @returns An object that contains as `data` the reactive DeepSignal object or undefined if not loaded yet or `documentId` is undefined.
  *
  *@example
@@ -61,7 +61,7 @@ import { DiscreteRootObject } from "../../types.ts";
  *     // Every object added to a CRDT array gets a stable `@id` property assigned
  *     // which you can use for referencing objects in arrays even as
  *     // objects are removed or added from the array.
- *     // The `@id` is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *     // The `@id` is an NURI with the schema `<documentId>:d:<object-specific id>`.
  *     // Since the `@id` is generated in the engine, the object is
  *     // *preliminarily given a mock id* which will be replaced immediately.
  *     doc.value.expenses.push({
@@ -103,7 +103,7 @@ import { DiscreteRootObject } from "../../types.ts";
  * }>();
  *
  * // If you modify expense in the component,
- * // the changes are immediately propagated to the other components
+ * // the changes are immediately propagated to other consuming components
  * // And persisted in the database.
  * </script>
  *
@@ -115,14 +115,16 @@ import { DiscreteRootObject } from "../../types.ts";
  * </template>
  * ```
  */
-export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
+export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+    documentId: MaybeRefOrGetter<string | undefined>
+) {
     const ormSubscription = computed(() => {
         const id = toValue(documentId);
         return id ? DiscreteOrmSubscription.getOrCreate(id) : undefined;
     });
 
     const ret = shallowReactive({
-        doc: undefined as undefined | DiscreteRootObject,
+        doc: undefined as undefined | T,
     });
     watchEffect(() => {
         ormSubscription.value?.readyPromise.then(() => {
@@ -134,5 +136,5 @@ export function useDiscrete(documentId: MaybeRefOrGetter<string | undefined>) {
         ormSubscription.value?.close();
     });
 
-    return toRefs(ret) as ToRefs<{ doc: DiscreteRootObject }>;
+    return toRefs(ret) as ToRefs<{ doc: T }>;
 }

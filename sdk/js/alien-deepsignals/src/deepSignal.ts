@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { alienComputed, alienSignal } from "./core";
+import { computed, alienSignal } from "./core";
 import {
     DeepPatch,
     DeepPatchBatch,
@@ -20,7 +20,6 @@ import {
     ProxyMeta,
     RootState,
     SetMeta,
-    SignalLike,
     WritableSignal,
 } from "./types";
 import {
@@ -202,9 +201,7 @@ function ensureProxiedGetter(
         typeof Object.getOwnPropertyDescriptor(target, key)?.get === "function" // If we have a getter?
     ) {
         signals.set(key, {
-            alienSignal: alienComputed(() =>
-                Reflect.get(target, key, receiver)
-            ),
+            alienSignal: computed(() => Reflect.get(target, key, receiver)),
             externalSubscribers: new Map(),
         });
     }
@@ -509,8 +506,8 @@ function ensureSetInfo(meta: ProxyMeta): SetMeta {
  * Assign (or reuse) a synthetic identifier for a Set entry, respecting user options:
  * - Use user-provided propGenerator for synthetic ids and add add returned extra properties
  * - Check if the object has a property of `syntheticIdPropertyName` (default `@id`)
- * - Use a blank node id as a fallback.
- * - Add object and id to `idForObject` and `objectForId` maps.
+ * - Use a blank node ID as a fallback.
+ * - Add object and ID to `idForObject` and `objectForId` maps.
  */
 function assignSyntheticId(
     meta: ProxyMeta,
@@ -1319,9 +1316,14 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
 }
 
 /**
- * Create a deep reactive proxy for objects, arrays or Sets.
- * Returns the input itself, if it's a deepSignal already.
- * Throws if provided with unsupported input types.
+ * MAIN ENTRY POINT to create a deep reactive proxy for objects, arrays or Sets.
+ *
+ * If input is a deepSignal already and options are provided,
+ * the added subscriberFactories are joined with the existing ones
+ * and `replaceProxiesInBranchOnChange` is or-ed with the current value.
+ *
+ *
+ * @throws if provided with unsupported input types.
  */
 export function deepSignal<T extends object>(
     input: T,
@@ -1330,7 +1332,6 @@ export function deepSignal<T extends object>(
     // Is the input already a signal?
     if (isDeepSignal(input)) {
         // Add possibly new external subscribers to existing ones.
-        // TODO: Document this behavior.
         const meta = rawToMeta.get((input as any)[RAW_KEY]!)!;
         meta.options.subscriberFactories =
             meta.options.subscriberFactories!.union(
@@ -1414,7 +1415,14 @@ export function getDeepSignalVersion(
     return rootStates.get(rootId)?.version;
 }
 
-/** Mark an object so deepSignal skips proxying it (shallow boundary). */
+/** Mark an object so deepSignal skips proxying it (shallow boundary).
+ *
+ * @example
+ * ```ts
+ * import { shallow } from "alien-deepsignals";
+ * state.config = shallow({ huge: { blob: true } });
+ * ```
+ */
 export function shallow<T extends object>(obj: T): T {
     ignored.add(obj);
     return obj;
