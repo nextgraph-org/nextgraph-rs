@@ -13,11 +13,15 @@
  * `rdf-orm build --input ./path/to/shex-files --output ./path/to/shape-types`
  */
 export interface ShapeType<T extends BaseType> {
+    /** The schema object of the shape. */
     schema: Schema;
+    /** The ID (IRI) of the shape. */
     shape: string;
 }
 
+/** The base type that all generated objects inherit from. */
 export interface BaseType extends Record<string, any> {
+    /** The IRI of the subject. */
     "@id": string;
     /* TODO: add
     "@graph": string;
@@ -28,11 +32,15 @@ export type Schema = {
     [id: string]: Shape;
 };
 
+/** Shape of an object. */
 export interface Shape {
+    /** The ID (IRI) of the shape. */
     iri: string;
+    /** The predicates (properties) of the shape. */
     predicates: Predicate[];
 }
 
+/** An allowed data type or literal. */
 export type DataType = {
     /** The required literal value(s). Additional values are allowed, if `extra` is true. */
     literals?: number[] | string[] | boolean;
@@ -42,6 +50,7 @@ export type DataType = {
     valType: "number" | "string" | "boolean" | "iri" | "shape";
 };
 
+/** The schema of a property. */
 export interface Predicate {
     /** Allowed type of object. If more than one is present, either of them is allowed. */
     dataTypes: DataType[];
@@ -51,7 +60,7 @@ export interface Predicate {
     readablePredicate: string;
     /** Maximum allowed number of values. `-1` means infinite. */
     maxCardinality: number;
-    /** Minimum required number of values */
+    /** Minimum required number of values. */
     minCardinality: number;
     /** If other (additional) values are permitted. Useful for literals. */
     extra?: boolean;
