@@ -15,6 +15,7 @@ import {
     useDeepSignal,
     type UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte4";
+import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 
 export type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
@@ -40,7 +41,7 @@ export interface UseShapeRuneResult<T extends object>
  * ```svelte
  * <script lang="ts">
  *     // Gets all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
- *     const expenses: DeepSignalSet<Expense> = useShape(ExpenseShape,
+ *     const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShape,
  *         {graphs: ["<g1 NURI>", "<g2 NURI>"],
  *         subjects: ["<s1 NURI>", "<s2 NURI>"]});
  *

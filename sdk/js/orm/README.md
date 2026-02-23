@@ -124,7 +124,7 @@ When the component unmounts, the subscription is closed.
 
 ```ts
 // Queries the graphs with NURI did:ng:o:g1 and did:ng:o:g2 and with subject s1 or s2.
-const expenses: DeepSignalSet<Expense> = useShape(ExpenseShapeType, {
+const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType, {
     graphs: ["did:ng:o:g1", "did:ng:o:g2"],
     subjects: ["<s1 IRI>", "<s2 IRI>"],
 });

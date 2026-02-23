@@ -31,7 +31,7 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
  * ```html
  * <script lang="ts">
  * // Contains all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
- * const expenses: DeepSignalSet<Expense> = useShape(ExpenseShapeType,
+ * const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType,
  *      {graphs: ["<g1 NURI>", "<g2 NURI>"],
  *       subjects: ["<s1 IRI>", "<s2 IRI>"]});
  *

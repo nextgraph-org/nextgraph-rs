@@ -1316,9 +1316,14 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
 }
 
 /**
- * Create a deep reactive proxy for objects, arrays or Sets.
- * Returns the input itself, if it's a deepSignal already.
- * Throws if provided with unsupported input types.
+ * MAIN ENTRY POINT to create a deep reactive proxy for objects, arrays or Sets.
+ *
+ * If input is a deepSignal already and options are provided,
+ * the added subscriberFactories are joined with the existing ones
+ * and `replaceProxiesInBranchOnChange` is or-ed with the current value.
+ *
+ *
+ * @throws if provided with unsupported input types.
  */
 export function deepSignal<T extends object>(
     input: T,
@@ -1327,7 +1332,6 @@ export function deepSignal<T extends object>(
     // Is the input already a signal?
     if (isDeepSignal(input)) {
         // Add possibly new external subscribers to existing ones.
-        // TODO: Document this behavior.
         const meta = rawToMeta.get((input as any)[RAW_KEY]!)!;
         meta.options.subscriberFactories =
             meta.options.subscriberFactories!.union(

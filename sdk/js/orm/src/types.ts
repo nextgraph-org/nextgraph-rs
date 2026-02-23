@@ -17,7 +17,7 @@
  * @example
  * ```typescript
  * // Contains all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
- * const expenses: DeepSignalSet<Expense = useShape(ExpenseShape,
+ * const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShape,
  *      {graphs: ["<graph1 NURI>", "<graph2 NURI>"],
  *       subjects: ["<subject1 IRI>", "<subject2 IRI>"]});
  * ```

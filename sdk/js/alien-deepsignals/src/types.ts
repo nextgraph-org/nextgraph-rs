@@ -181,7 +181,7 @@ export type DeepSignalSetProps<T> = {
 };
 
 /**
- * Reactive Set wrapper that accepts raw or proxied entries.
+ * Type alias for `DeepSignal<Set<T>>` and reactive Set wrapper that accepts raw or proxied entries.
  * Additionally it is decorated with {@link DeepSignalSetProps}.
  */
 export interface DeepSignalSet<T>
@@ -207,10 +207,9 @@ export interface DeepSignalSet<T>
 }
 
 /**
- * The object returned by the @see deepSignal function.
+ * The object returned by the {@link deepSignal} function.
  * It is decorated with utility functions for sets, see {@link DeepSignalSetProps}
- * and a `__raw__` prop to get the underlying non-reactive object
- * and `__meta__` prop, to get the internal metadata.
+ * and a `__raw__` prop to get the underlying non-reactive object.
  */
 export type DeepSignal<T> = T extends Function
     ? T
