@@ -25,7 +25,7 @@ import { DeepSignal } from "@ng-org/alien-deepsignals";
  * In comparison to {@link svelteUseShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentIdOrPromise The IRI of the CRDT document or a promise to that.
+ * @param documentIdOrPromise The NURI of the CRDT document or a promise to that.
  * @returns The reactive JSON object of the CRDT document.
  *
  *@example

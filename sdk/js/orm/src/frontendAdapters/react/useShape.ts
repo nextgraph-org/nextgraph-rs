@@ -32,14 +32,14 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
  * @example
  * ```tsx
  * function Expenses() {
- *     const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType, {graphs: ["<graph IRI>"]});
+ *     const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType, {graphs: ["<graph NURI>"]});
  *
  *     const createExpense = useCallback(
  *         () => {
  *             expenses.add({
- *                 "@graph": `<graph IRI>`,
+ *                 "@graph": `<graph NURI>`,
  *                 "@type": "http://example.org/Expense",
- *                 "@id": "", // Assigns id automatically, if set to "".
+ *                 "@id": "", // Assigns ID automatically, if set to "".
  *                 title: "New expense",
  *                 dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
  *             });

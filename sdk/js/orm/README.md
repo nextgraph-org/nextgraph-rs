@@ -14,7 +14,7 @@ We offer this for **React, Vue, and Svelte**.
 Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 - For graphs, you specify a schema using a SHEX shape and optionally a scope. This provides you with typing support.
-- For discrete CRDTs, all you need is a document id (NURI).
+- For discrete CRDTs, all you need is a document ID (NURI).
 
 ## Table of Contents
 
@@ -229,7 +229,7 @@ casey.friends.add(jackNuri);
 // When the child object is a nested object that you do not have in memory,
 // you can establish the link by adding an object that contains the `@id` property only.
 shoppingExpense.category.add({ "@id": "<Subject IRI of expense category>" });
-// Link objects by storing the target's `@id` IRI:
+// Link objects by storing the target's `@id` NURI/IRI:
 
 dog.owner = jackNuri;
 // Resolve the relationship

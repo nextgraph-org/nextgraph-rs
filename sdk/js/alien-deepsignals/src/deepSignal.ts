@@ -506,8 +506,8 @@ function ensureSetInfo(meta: ProxyMeta): SetMeta {
  * Assign (or reuse) a synthetic identifier for a Set entry, respecting user options:
  * - Use user-provided propGenerator for synthetic ids and add add returned extra properties
  * - Check if the object has a property of `syntheticIdPropertyName` (default `@id`)
- * - Use a blank node id as a fallback.
- * - Add object and id to `idForObject` and `objectForId` maps.
+ * - Use a blank node ID as a fallback.
+ * - Add object and ID to `idForObject` and `objectForId` maps.
  */
 function assignSyntheticId(
     meta: ProxyMeta,

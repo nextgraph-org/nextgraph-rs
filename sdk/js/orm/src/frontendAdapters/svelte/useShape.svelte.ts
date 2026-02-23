@@ -31,8 +31,8 @@ import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
  * <script lang="ts">
  *     // Gets all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
  *     const expenses: DeepSignalSet<Expense> = useShape(ExpenseShapeType,
- *         {graphs: ["<g1 IRI>", "<g2 NURI>"],
- *         subjects: ["<s1 IRI>", "<s2 NURI>"]});
+ *         {graphs: ["<g1 NURI>", "<g2 NURI>"],
+ *         subjects: ["<s1 NURI>", "<s2 NURI>"]});
  *
  *     const expensesSorted = computed(() => expenses.sort((a, b) =>
  *         a.dateOfPurchase.localeCompare(b.dateOfPurchase)
@@ -42,7 +42,7 @@ import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
  *         expenses.add({
  *             "@graph": `<graph NURI>`,
  *             "@type": "http://example.org/Expense",
- *             "@id": "", // Assigns id automatically, if set to "".
+ *             "@id": "", // Assigns ID automatically, if set to "".
  *             title: "New expense",
  *             dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
  *         });

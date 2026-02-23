@@ -395,7 +395,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                             dom.create.namedTypeReference("IRI"),
                             dom.DeclarationFlags.ReadOnly
                         );
-                        graphProp.jsDocComment = "The graph IRI.";
+                        graphProp.jsDocComment = "The graph NURI.";
                         propsToAdd.push(graphProp);
                     }
                     if (!hasId) {

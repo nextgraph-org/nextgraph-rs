@@ -173,7 +173,7 @@ export type DeepSignalSetProps<T> = {
     /**
      * Retrieve an object from the Set by its `@graph` and `@id`.
      *
-     * @param graphIri - The `@graph` IRI of the object.
+     * @param graphIri - The `@graph` NURI of the object.
      * @param subjectIri - The `@subject` IRI of the object.
      * @returns The proxied entry if found, undefined otherwise.
      */

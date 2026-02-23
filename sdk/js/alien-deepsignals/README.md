@@ -13,7 +13,7 @@ Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signal
 - Patch stream: microtask‑batched granular mutations (paths + op) for syncing external stores / framework adapters.
 - Getter => computed: property getters become derived (readonly) signals automatically.
 - Sets: `add/delete/clear/...` methods emit patches; object entries get synthetic stable ids.
-- Configurable synthetic IDs: custom property generator - the synthetic id is used in the paths of patches to identify objects in sets. By default attached as `@id` property.
+- Configurable synthetic IDs: custom property generator - the synthetic ID is used in the paths of patches to identify objects in sets. By default attached as `@id` property.
 - Read-only properties: protect specific properties from modification.
 - Shallow escape hatch: wrap sub-objects with `shallow(obj)` to track only reference replacement.
 

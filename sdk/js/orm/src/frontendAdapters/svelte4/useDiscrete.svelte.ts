@@ -51,12 +51,12 @@ import { DiscreteRoot } from "../../types.ts";
  *
  *     // Call doc.expenses.push({title: "Example title"}), to add new elements.
  *
- *     // Note that we use expense["@id"] as a key in the expense list.
+ *     // Note that we use expense["@id"] NURI as a key in the expense list.
  *     // Every object added to a CRDT array gets a stable `@id` property assigned
  *     // which you can use for referencing objects in arrays even as
- *     // objects are removed from the array. The ID is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *     // objects are removed from the array.
  *     // Since the `@id` is generated in the backend, the object is preliminarily
- *     // given a mock id which will be replaced immediately
+ *     // given a mock ID which will be replaced immediately
  * </script>
  *
  * <section>

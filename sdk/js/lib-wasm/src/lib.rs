@@ -1562,7 +1562,7 @@ pub async fn app_request_with_nuri_command(
 /// @param class_name Currently you should set to `data:json` if crdt == "Automerge", to "data:map" if crdt == "YMap and to `data:array` ` if crdt == "YArray"
 /// @param destination Storage location (you can set to `store`)
 /// @param store_repo Store repo, private store if undefined
-/// @returns The document id (an ng IRI)
+/// @returns The document id (an ng NURI)
 ///
 #[cfg(not(wasmpack_target = "nodejs"))]
 #[wasm_bindgen]
@@ -1605,7 +1605,7 @@ pub async fn doc_create(
 /// @param destination Storage location (you can set to `store`)
 /// @param store_type Store type
 /// @param store_repo Store repo, private store if undefined
-/// @returns The document id (an ng IRI)
+/// @returns The document id (an ng NURI)
 ///
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]

@@ -45,13 +45,13 @@ export class DiscreteOrmSubscription {
     /** Global store of all subscriptions. We use that for pooling. */
     private static idToEntry = new Map<string, DiscreteOrmSubscription>();
 
-    /** The document id (IRI) of the subscribed document. */
+    /** The document ID (NURI) of the subscribed document. */
     readonly documentId: string;
     private _signalObject:
         | DeepSignal<DiscreteArray | DiscreteObject>
         | undefined;
     private stopSignalListening: undefined | (() => void);
-    /** The subscription id kept as an identifier for communicating with the verifier. */
+    /** The subscription ID kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
     /** The number of OrmSubscriptions with the same shape and scope (for pooling). */
     private refCount: number;
@@ -141,7 +141,7 @@ export class DiscreteOrmSubscription {
      * and {@link close} was not called on it (or only shortly after),
      * it will return the same OrmSubscription (pooling).
      *
-     * @param documentId The document ID (IRI) of the CRDT
+     * @param documentId The document ID (NURI) of the CRDT
      *
      * @example
      * ```typescript

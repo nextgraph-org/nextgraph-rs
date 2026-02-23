@@ -41,7 +41,7 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
  * ));
  *
  * // Simply call expenses.add({"@graph": "<g1 or g2 NURI>", "@id": "", title: "Example title"}), to add new elements.
- * // Leave `@id` an empty string to auto-generate a subject IRI (adjust your scope accordingly).
+ * // Leave `@id` an empty string to auto-generate a subject NURI (adjust your scope accordingly).
  *
  * // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
  * // If it is not (i.e. there are two graphs with the same subject), use the combination of `@graph` and `@id`.
