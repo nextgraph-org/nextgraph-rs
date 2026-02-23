@@ -66,7 +66,7 @@ export function TestComponent() {
 }
 ```
 
-For an example, see the [expense-tracker-rdf example application](../examples/expense-tracker-rdf/README.md).
+For an example, see the [expense-tracker-graph example application](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
 
 ## Generated Output
 
