@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { alienComputed, alienSignal } from "./core";
+import { computed, alienSignal } from "./core";
 import {
     DeepPatch,
     DeepPatchBatch,
@@ -20,7 +20,6 @@ import {
     ProxyMeta,
     RootState,
     SetMeta,
-    SignalLike,
     WritableSignal,
 } from "./types";
 import {
@@ -202,9 +201,7 @@ function ensureProxiedGetter(
         typeof Object.getOwnPropertyDescriptor(target, key)?.get === "function" // If we have a getter?
     ) {
         signals.set(key, {
-            alienSignal: alienComputed(() =>
-                Reflect.get(target, key, receiver)
-            ),
+            alienSignal: computed(() => Reflect.get(target, key, receiver)),
             externalSubscribers: new Map(),
         });
     }
@@ -1414,7 +1411,14 @@ export function getDeepSignalVersion(
     return rootStates.get(rootId)?.version;
 }
 
-/** Mark an object so deepSignal skips proxying it (shallow boundary). */
+/** Mark an object so deepSignal skips proxying it (shallow boundary).
+ *
+ * @example
+ * ```ts
+ * import { shallow } from "alien-deepsignals";
+ * state.config = shallow({ huge: { blob: true } });
+ * ```
+ */
 export function shallow<T extends object>(obj: T): T {
     ignored.add(obj);
     return obj;

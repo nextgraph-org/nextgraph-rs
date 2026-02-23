@@ -65,7 +65,7 @@ export type DiscreteType =
     | boolean;
 
 /**
- * The root root array for reading and modifying the CRDT as a plain object.
+ * The root array for reading and modifying the CRDT as a plain object.
  */
 export type DiscreteRootArray = (
     | DiscreteArray

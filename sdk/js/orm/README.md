@@ -101,7 +101,7 @@ ex:Dog {
 Generate TypeScript types. Add the following to your `package.json` scripts and run `build:orm`:
 
 ```json
-    "build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
+"build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
 ```
 
 ## Framework Usage

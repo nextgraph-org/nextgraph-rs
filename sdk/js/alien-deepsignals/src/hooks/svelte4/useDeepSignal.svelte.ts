@@ -15,7 +15,7 @@ import {
     type DeepPatchBatch,
     DeepSignalOptions,
     deepSignal,
-    RevertDeepSignal,
+    UnwrapDeepSignal,
 } from "../../index";
 import { getDeepSignalRootId, getDeepSignalVersion } from "../../deepSignal";
 
@@ -45,7 +45,7 @@ export interface UseDeepSignalResult<T> extends Readable<T> {
 export function useDeepSignal<T extends object>(
     object: T | Promise<T>,
     options?: DeepSignalOptions
-): UseDeepSignalResult<RevertDeepSignal<T>> {
+): UseDeepSignalResult<UnwrapDeepSignal<T>> {
     const version = writable(-1);
 
     let deepProxy: T;
