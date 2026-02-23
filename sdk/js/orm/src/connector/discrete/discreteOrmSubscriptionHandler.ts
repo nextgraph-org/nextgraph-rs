@@ -205,8 +205,8 @@ export class DiscreteOrmSubscription {
      * the orm subscription will persist.**
      *
      * Additionally, the closing of the subscription is delayed by a couple hundred milliseconds
-     * so that when frontend frameworks unmount and soon mound a component again with the same
-     * shape type and scope, no new orm subscription has be set up with the engine.
+     * so that when frontend frameworks unmount and soon mount a component again with the same
+     * shape type and scope, we reuse the same orm subscription.
      */
 
     public close = () => {

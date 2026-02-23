@@ -175,7 +175,7 @@ export class OrmSubscription<T extends BaseType> {
      * favorite framework under `@ng-org/orm/react|vue|svelte`
      * instead of calling `getOrCreate` directly.
      *
-     * Call `{@link close}, to close the subscription.
+     * Call {@link close}, to close the subscription.
      *
      * Note: If another call to `getOrCreate` was previously made
      * and `close` was not called on it (or only shortly after),
@@ -224,6 +224,7 @@ export class OrmSubscription<T extends BaseType> {
      * });
      *
      * subscription2.close()
+     * ```
      */
     public static getOrCreate = <T extends BaseType>(
         shapeType: ShapeType<T>,
@@ -255,8 +256,8 @@ export class OrmSubscription<T extends BaseType> {
      * the orm subscription will persist.**
      *
      * Additionally, the closing of the subscription is delayed by a couple hundred milliseconds
-     * so that when frontend frameworks unmount and soon mound a component again with the same
-     * shape type and scope, no new orm subscription has be set up with the engine.
+     * so that when frontend frameworks unmount and soon mount a component again with the same
+     * shape type and scope,  we reuse the same orm subscription.
      */
     public close = () => {
         setTimeout(() => {

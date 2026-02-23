@@ -18,31 +18,26 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 ## Table of Contents
 
-- [NextGraph ORM SDK](#nextgraph-orm-sdk)
-    - [Why?](#why)
-    - [Table of Contents](#table-of-contents)
-    - [Installation](#installation)
-    - [Start](#start)
-    - [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
-    - [Framework Usage](#framework-usage)
-        - [React](#react)
-        - [Vue](#vue)
-        - [Svelte](#svelte)
-    - [Working with Data](#working-with-data)
-        - [Adding Objects](#adding-objects)
-        - [Modifying Objects](#modifying-objects)
-        - [Deleting Objects](#deleting-objects)
-        - [Working with Sets](#working-with-sets)
-        - [Relationships](#relationships)
-    - [About NextGraph](#about-nextgraph)
-    - [License](#license)
+- [Installation](#installation)
+- [Start](#start)
+- [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
+- [Framework Usage](#framework-usage)
+    - [React](#react)
+    - [Vue](#vue)
+    - [Svelte](#svelte)
+- [Working with Data](#working-with-data)
+    - [Adding Objects](#adding-objects)
+    - [Modifying Objects](#modifying-objects)
+    - [Deleting Objects](#deleting-objects)
+    - [Working with Sets](#working-with-sets)
+    - [Relationships](#relationships)
 
 ---
 
 ## Installation
 
 ```bash
-pnpm add @ng-org/orm @ng-org/web @ng-org/alien-deepsignals
+pnpm add @ng-org/orm @ng-org/web
 ```
 
 For schema generation, also install:
@@ -106,7 +101,7 @@ ex:Dog {
 Generate TypeScript types. Add the following to your `package.json` scripts and run `build:orm`:
 
 ```json
-    "build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
+"build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
 ```
 
 ## Framework Usage
@@ -119,7 +114,7 @@ import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import type { Dog } from "./shapes/orm/dogShape.typings";
 
 export function DogList() {
-    const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
+    const dogs = useShape(DogShapeType);
 
     return (
         <ul>
@@ -149,7 +144,7 @@ import { useShape } from "@ng-org/orm/vue";
 import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 import DogCard from "./DogCard.vue";
 
-const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
+const dogs = useShape(DogShapeType);
 </script>
 
 <template>
@@ -161,13 +156,11 @@ const dogs = useShape(DogShapeType); // DeepSignalSet<Dog>
 
 ```vue
 <script setup lang="ts">
-import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import type { Dog } from "./shapes/orm/dogShape.typings";
 
 const props = defineProps<{ dog: Dog }>();
 
-// Required for reactivity in child components!
-const dog = useDeepSignal(props.dog);
+const dog = props.dog;
 </script>
 
 <template>
@@ -177,8 +170,6 @@ const dog = useDeepSignal(props.dog);
 </template>
 ```
 
-> **Important**: In Vue child components, wrap props with `useDeepSignal()` to enable reactivity.
-
 ### Svelte
 
 ```svelte
@@ -186,19 +177,17 @@ const dog = useDeepSignal(props.dog);
     import { useShape } from "@ng-org/orm/svelte";
     import { DogShapeType } from "./shapes/orm/dogShape.shapeTypes";
 
-    const dogs = useShape(DogShapeType); // Reactive store
+    const dogs = useShape(DogShapeType);
 </script>
 
 <ul>
-    {#each [...$dogs] as dog (dog["@id"])}
+    {#each dogs as dog (dog["@id"])}
         <li>
             <input bind:value={dog.name} />
         </li>
     {/each}
 </ul>
 ```
-
-> **Note**: Access the store value with `$dogs`. Standard Svelte binding works.
 
 ---
 

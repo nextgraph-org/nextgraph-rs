@@ -23,14 +23,14 @@ PREFIX ex: <http://example.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 ex:ExpenseShape {
-  a [ex:Person] ;                            # Required type <http://example.org/Person>
-  ex:name xsd:string ;                       # Required string
-  ex:email xsd:string * ;                    # Zero or more strings (set)
-  ex:height xsd:float ;                      # Required number
-  ex:age xsd:integer ;                       # Required integer
-  ex:friends IRI * ;                         # Set of IRIs
-  ex:isRecurring xsd:boolean ;               # A boolean value
-  ex:address @ex:AddressShape                # A nested object shape.
+  a [ex:Person] ;                  # Required type <http://example.org/Person>
+  ex:name xsd:string ;             # Required string
+  ex:email xsd:string * ;          # Zero or more strings (set)
+  ex:height xsd:float ;            # Required number
+  ex:age xsd:integer ;             # Required integer
+  ex:friends IRI * ;               # Set of IRIs
+  ex:isRecurring xsd:boolean ;     # A boolean value
+  ex:address @ex:AddressShape ;    # A nested object shape.
   ex:paymentStatus [ex:Paid ex:Pending ex:Overdue] ; # Enum
 }
 
@@ -66,7 +66,7 @@ export function TestComponent() {
 }
 ```
 
-For an example, see the [expense-tracker-rdf example application](../examples/expense-tracker-rdf/README.md).
+For an example, see the [expense-tracker-graph example application](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
 
 ## Generated Output
 
