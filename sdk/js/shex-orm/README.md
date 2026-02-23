@@ -61,7 +61,7 @@ import { useShape } from "@ng-org/orm/react";
 import { TestObjectShapeType } from "../shapes/orm/testShape.shapeTypes";
 
 export function TestComponent() {
-    const testObjects = useShape(TestObjectShapeType);
+    const testObjects = useShape(TestObjectShapeType, {graphs: ["did:ng:i"]});
     ...
 }
 ```
@@ -74,14 +74,14 @@ For each SHEX file, the tool creates three TypeScript files:
 
 - A schema file like `person.schema.ts`
 - A typings file like `person.typings.ts`
-- A shape type file like `person.shapeTypes.ts` which contains a `ShapeType` that consists of the schema, the type, and the IRI of the main shape
+- A shape type file like `person.shapeTypes.ts` which contains a `ShapeType` that consists of the schema, the type, and the IRI of the main shape. This is what you pass to the ORM.
 
 The transformers for converting SHEX to schema and typings files are based on `@ldo/traverser-shexj`.
 
 #### Default Properties
 
 - **`@type`**: The RDF type IRI (from `rdf:type`) is always converted to the property name `@type` by default
-- **`@id` (subject IRI) and `@graph` (graph IRI)**: These properties are automatically added to all typed objects as readonly properties
+- **`@id` (subject IRI) and `@graph` (graph NURI)**: These properties are automatically added to all typed objects as readonly properties
 
 ### Cardinality Handling
 

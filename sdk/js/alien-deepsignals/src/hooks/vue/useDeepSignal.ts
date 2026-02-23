@@ -8,14 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import {
-    ref,
-    onBeforeUnmount,
-    type MaybeRefOrGetter,
-    watch as vueWatch,
-    toValue,
-    customRef,
-} from "vue";
+import { type MaybeRefOrGetter, toValue, customRef } from "vue";
 
 import { DeepSignal, deepSignal, DeepSignalOptions, watch } from "../../";
 
@@ -26,7 +19,7 @@ import { DeepSignal, deepSignal, DeepSignalOptions, watch } from "../../";
  * is rerendered as well.
  *
  * @param object The object that should become reactive (can be a ref or getter)
- * @param options When the object is not a deepSignal already, options passed to `deepSignal`.
+ * @param options Options passed to {@link deepSignal}.
  * @returns The deepSignal object of the object param.
  *
  */

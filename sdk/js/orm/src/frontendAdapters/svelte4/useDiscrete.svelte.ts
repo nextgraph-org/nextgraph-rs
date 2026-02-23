@@ -14,7 +14,7 @@ import {
     UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte4";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
-import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
+import { DiscreteRoot } from "../../types.ts";
 
 /**
  * Svelte 3/4 hook to subscribe to discrete (JSON) CRDT documents.
@@ -27,10 +27,10 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  * In comparison to {@link svelte4UseShape}, discrete CRDTs are untyped.
  * You can put any JSON data inside and need to validate the schema yourself.
  *
- * @param documentIdOrPromise The IRI of the CRDT document or a promise to that.
- * @returns The reactive JSON object of the CRDT document.
+ * @param documentIdOrPromise The NURI of the CRDT document or a promise to that.
+ * @returns The store of the reactive JSON object of the CRDT document or undefined.
  *
- *@example
+ * @example
  * ```svelte
  * <script lang="ts">
  *
@@ -51,13 +51,12 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  *
  *     // Call doc.expenses.push({title: "Example title"}), to add new elements.
  *
- *
- *     // Note that we use expense["@id"] as a key in the expense list.
+ *     // Note that we use expense["@id"] NURI as a key in the expense list.
  *     // Every object added to a CRDT array gets a stable `@id` property assigned
  *     // which you can use for referencing objects in arrays even as
- *     // objects are removed from the array. The ID is an IRI with the schema `<documentId>:d:<object-specific id>`.
+ *     // objects are removed from the array.
  *     // Since the `@id` is generated in the backend, the object is preliminarily
- *     // given a mock id which will be replaced immediately
+ *     // given a mock ID which will be replaced immediately
  * </script>
  *
  * <section>
@@ -97,9 +96,9 @@ import { DiscreteRootArray, DiscreteRootObject } from "../../types.ts";
  * ```
  *
  */
-export function useDiscrete(
-    documentIdOrPromise: string | Promise<string>
-): UseDeepSignalResult<DiscreteRootArray | DiscreteRootObject | undefined> {
+export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+    documentIdOrPromise: string | Promise<string> | undefined
+): UseDeepSignalResult<T | undefined> {
     let connection: DiscreteOrmSubscription | undefined;
     let isDestroyed = false;
 
@@ -118,6 +117,8 @@ export function useDiscrete(
 
         if (typeof documentIdOrPromise === "string") {
             init(documentIdOrPromise);
+        } else if (documentIdOrPromise === undefined) {
+            // There is nothing to do without a document ID.
         } else {
             documentIdOrPromise.then(init);
         }

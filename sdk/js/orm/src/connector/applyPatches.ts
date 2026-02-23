@@ -10,7 +10,7 @@
 
 import { batch } from "@ng-org/alien-deepsignals";
 
-/** @internal */
+/** @ignore */
 export type Patch = {
     /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
     path: string;
@@ -18,7 +18,7 @@ export type Patch = {
     value?: unknown;
 } & (SetAddPatch | SetRemovePatch | RemovePatch | LiteralAddPatch);
 
-/** @internal */
+/** @ignore */
 export interface SetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -31,7 +31,7 @@ export interface SetAddPatch {
     value: number | string | boolean | (number | string | boolean)[];
 }
 
-/** @internal */
+/** @ignore */
 export interface SetRemovePatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "remove";
@@ -49,13 +49,13 @@ export interface SetRemovePatch {
         | (number | string | boolean | object)[];
 }
 
-/** @internal */
+/** @ignore */
 export interface RemovePatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "remove";
 }
 
-/** @internal */
+/** @ignore */
 export interface LiteralAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -83,7 +83,7 @@ function parseGraphId(input: string): { graph?: string; id: string } {
 }
 
 /**
- * Find an object in a Set by its @id property.
+ * Find an object in a Set by its `@id` property.
  * Returns the object if found, otherwise undefined.
  */
 function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
@@ -103,7 +103,7 @@ function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
 }
 
 /**
- * @internal
+ * @ignore
  *
  * Apply a diff to an object.
  *
@@ -117,40 +117,6 @@ function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
  * Path traversal:
  *   - When traversing through a Set, the path segment is treated as an `@id` to find the object
  *   - When traversing through a plain object, the path segment is a property name
- *
- * @example operations
- *   ```jsonc
- *     // === SINGLE OBJECT ===
- *     // Creating a single object (has @id at same level)
- *     { "op": "add", "path": "/urn:example:person1/address", "valType": "object" }
- *     { "op": "add", "path": "/urn:example:person1/address/@id", "value": "urn:test:address1" }
- *     // Adding primitives to single object
- *     { "op": "add", "path": "/urn:example:person1/address/street", "value": "1st street" }
- *     { "op": "add", "path": "/urn:example:person1/address/country", "value": "Greece" }
- *     // Remove a primitive from object
- *     { "op": "remove", "path": "/urn:example:person1/address/street" }
- *     // Remove the entire object
- *     { "op": "remove", "path": "/urn:example:person1/address" }
- *
- *     // === MULTI-VALUED OBJECTS (Set) ===
- *     // Creating a multi-object container (NO @id at this level -> creates Set)
- *     { "op": "add", "path": "/urn:example:person1/children", "valType": "object" }
- *     // Adding an object to the Set (path includes object's @id)
- *     { "op": "add", "path": "/urn:example:person1/children/urn:example:child1", "valType": "object" }
- *     { "op": "add", "path": "/urn:example:person1/children/urn:example:child1/@id", "value": "urn:example:child1" }
- *     // Adding properties to object in Set
- *     { "op": "add", "path": "/urn:example:person1/children/urn:example:child1/name", "value": "Alice" }
- *     // Remove an object from Set
- *     { "op": "remove", "path": "/urn:example:person1/children/urn:example:child1" }
- *     // Remove all objects (the Set itself)
- *     { "op": "remove", "path": "/urn:example:person1/children" }
- *
- *     // === PRIMITIVE SETS ===
- *     // Add primitive types to Sets
- *     { "op": "add", "valType": "set", "path": "/urn:example:person1/tags", "value": [1,2,3] }
- *     // Remove primitive types from a Set
- *     { "op": "remove", "valType": "set", "path": "/urn:example:person1/tags", "value": [1,2] }
- * ```
  *
  * @param currentState The object before the patch
  * @param patches An array of patches to apply to the object.
@@ -421,7 +387,7 @@ export function applyPatches(
 }
 
 /**
- * @internal
+ * @ignore
  *
  * See documentation for applyPatches
  */

@@ -15,6 +15,7 @@ import { deepClone } from "./utils.ts";
 
 /**
  * Utility for retrieving objects once without establishing a two-way subscription.
+ *
  * @param shapeType The shape type of the objects to be retrieved.
  * @param scope The scope of the objects to be retrieved.
  * @returns A set of all objects matching the shape and scope

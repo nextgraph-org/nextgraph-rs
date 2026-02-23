@@ -58,7 +58,7 @@ const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
         if (!expense.expenseCategory) {
             expense.expenseCategory = new Set([
                 category["@id"],
-            ]) as DeepSignalSet<string>;
+            ]) as DeepSignal<Set<string>>;
         } else {
             expense.expenseCategory.add(category["@id"]);
         }

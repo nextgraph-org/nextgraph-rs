@@ -45,19 +45,19 @@ export class DiscreteOrmSubscription {
     /** Global store of all subscriptions. We use that for pooling. */
     private static idToEntry = new Map<string, DiscreteOrmSubscription>();
 
-    /** The document id (IRI) of the subscribed document. */
+    /** The document ID (NURI) of the subscribed document. */
     readonly documentId: string;
     private _signalObject:
         | DeepSignal<DiscreteArray | DiscreteObject>
         | undefined;
     private stopSignalListening: undefined | (() => void);
-    /** The subscription id kept as an identifier for communicating with the verifier. */
+    /** The subscription ID kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
     /** The number of OrmSubscriptions with the same shape and scope (for pooling). */
     private refCount: number;
     /** When true, modifications from the signalObject are not processed. */
-    suspendDeepWatcher: boolean;
-    /** True, if a transaction is running. */
+    private suspendDeepWatcher: boolean;
+    /** @readonly True, if a transaction is running. */
     inTransaction: boolean = false;
     /** Aggregation of patches to be sent when in transaction. */
     pendingPatches: Patch[] | undefined;
@@ -98,6 +98,15 @@ export class DiscreteOrmSubscription {
         });
     }
 
+    /**
+     * The signalObject containing all data of the document
+     * (once subscription is established).
+     * The object behaves like a regular object or array with a couple of additions:
+     * - Modifications are immediately propagated back to the database.
+     * - Database changes are immediately reflected in the object.
+     * - Watch for object changes using {@link watchDeepSignal}.
+     * - Objects in arrays receive a unique `@id` property.
+     */
     public get signalObject() {
         return this._signalObject;
     }
@@ -106,7 +115,7 @@ export class DiscreteOrmSubscription {
      * Returns an OrmSubscription which subscribes to the given
      * document in a 2-way binding.
      *
-     * You **find the document data** in the **`signalObject`**
+     * You **find the document data** in the **`signalObject`**,
      * once {@link readyPromise} resolves.
      * This is a {@link DeepSignal} object or array, depending on
      * your CRDT document (e.g. YArray vs YMap). The signalObject
@@ -130,9 +139,9 @@ export class DiscreteOrmSubscription {
      *
      * Note: If another call to `getOrCreate` was previously made
      * and {@link close} was not called on it (or only shortly after),
-     * it will return the same OrmSubscription.
+     * it will return the same OrmSubscription (pooling).
      *
-     * @param documentId The document ID (IRI) of the CRDT
+     * @param documentId The document ID (NURI) of the CRDT
      *
      * @example
      * ```typescript
@@ -158,10 +167,10 @@ export class DiscreteOrmSubscription {
      * });
      *
      * // Await promise to run the below code in a new task.
-     * // That will push the changes to the database.
+     * // That will have push the changes to the database.
      * await Promise.resolve();
      *
-     * // Here, the expense modifications have been have been committed
+     * // Here, the expense modifications have been committed
      * // (unless you had previously called subscription.beginTransaction()).
      * // The data is available in subscriptions running on a different device too.
      *
@@ -169,7 +178,7 @@ export class DiscreteOrmSubscription {
      *
      * // If you create a new subscription with the same document within a couple of 100ms,
      * // The subscription hasn't been closed and the old one is returned so that the data
-     * // is available instantly. This is especially useful in the context of frontend frameworks.
+     * // is available instantly. This is especially useful in the context of unmounting and remounting frontend frameworks.
      * const subscription2 = DiscreteOrmSubscription.getOrCreate(documentId);
      *
      * subscription2.signalObject.expenses.push({
@@ -201,14 +210,13 @@ export class DiscreteOrmSubscription {
     /**
      * Stop the subscription.
      *
-     * **If there is more than one subscription with the same shape type and scope
-     * the orm subscription will persist.**
+     * **If there is more than one subscription with the document ID,
+     * the orm subscription won't close yet.**
      *
      * Additionally, the closing of the subscription is delayed by a couple hundred milliseconds
      * so that when frontend frameworks unmount and soon mount a component again with the same
-     * shape type and scope, we reuse the same orm subscription.
+     * document ID, we reuse the same orm subscription.
      */
-
     public close = () => {
         setTimeout(() => {
             if (this.refCount > 0) this.refCount--;
@@ -294,7 +302,7 @@ export class DiscreteOrmSubscription {
      * This is useful for performance reasons.
      *
      * Note that this does not disable reactivity of the `signalObject`.
-     * Modifications keep being rendered.
+     * Modifications keep being rendered instantly.
      */
     public beginTransaction = () => {
         this.inTransaction = true;
@@ -316,6 +324,7 @@ export class DiscreteOrmSubscription {
     /**
      * Commits a transactions sending all modifications made during the transaction
      * (started with `beginTransaction`) to the database.
+     * @throws if no transaction is open.
      */
     public commitTransaction = async () => {
         if (!this.inTransaction) {
@@ -357,6 +366,8 @@ export class DiscreteOrmSubscription {
  * Converts DeepSignal patches to ORM Wasm-compatible patches
  * @param patches DeepSignal patches
  * @returns Patches with stringified path
+ *
+ * @ignore
  */
 
 export function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {

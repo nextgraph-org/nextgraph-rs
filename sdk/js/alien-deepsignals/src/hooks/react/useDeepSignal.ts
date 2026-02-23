@@ -19,7 +19,7 @@ import { deepSignal, DeepSignalOptions } from "../..";
  * is rerendered as well.
  *
  * @param object The object that should become reactive
- * @param deepSignalOptions When the object is not a deepSignal already, options passed to `deepSignal`.
+ * @param options When the object is not a deepSignal already, options passed to {@link deepSignal}.
  * @returns The deepSignal object of the object param. On every change, the returned object will change (a new no-op proxy is created) around the deepSignal object.
  */
 const useSignal = <T extends object>(

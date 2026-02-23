@@ -13,7 +13,7 @@ import type {
     Expense,
     ExpenseCategory,
 } from "../shapes/orm/expenseShapes.typings";
-import type { DeepSignalSet } from "@ng-org/alien-deepsignals";
+import type { DeepSignal } from "@ng-org/alien-deepsignals";
 
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
     "http://example.org/Paid": "Paid",
@@ -33,7 +33,7 @@ export function ExpenseCard({
     availableCategories,
 }: {
     expense: Expense;
-    availableCategories: DeepSignalSet<ExpenseCategory>;
+    availableCategories: DeepSignal<Set<ExpenseCategory>>;
 }) {
     const [isEditing, setIsEditing] = useState(false);
 
