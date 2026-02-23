@@ -17,6 +17,10 @@ Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signal
 - Read-only properties: protect specific properties from modification.
 - Shallow escape hatch: wrap sub-objects with `shallow(obj)` to track only reference replacement.
 
+## Reference documentation
+
+[Reference documentation is available here on docs.nextgraph.org](https://docs.nextgraph.org/en/reference/alien-deepsignals/).
+
 ## Install
 
 ```bash

@@ -2,6 +2,10 @@
 
 CLI tool to convert SHEX shapes to schemas and TypeScript definitions ("shape types") that can be used for creating graph ORM objects.
 
+## Reference documentation
+
+[Reference documentation is available here on docs.nextgraph.org](https://docs.nextgraph.org/en/reference/shex-orm/).
+
 ## How to Use
 
 Install `@ng-org/shex-orm` as dev dependency or globally (`--global`).

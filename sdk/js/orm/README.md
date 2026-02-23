@@ -4,6 +4,10 @@ Reactive ORM library for NextGraph: use reactive (typed) objects that automatica
 
 For a walk-through you can see the the expense-tracker example apps for [discrete JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) or [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
 
+## Reference documentation
+
+[Reference documentation is available here on docs.nextgraph.org](https://docs.nextgraph.org/en/reference/orm/).
+
 ## Why?
 
 Different CRDTs have different APIs. We want to make it as easy as possible to use them in the same way:\
