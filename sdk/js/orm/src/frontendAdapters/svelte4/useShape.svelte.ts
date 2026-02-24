@@ -20,7 +20,7 @@ import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 import { readOnlySet } from "../utils.ts";
 
 /** Extended result including the originating root signal wrapper from shape logic. @ignore*/
-export interface UseShapeStoreResult<T extends object>
+export interface UseShapeStoreResult<T = object>
     extends UseDeepSignalResult<T> {
     root: any;
 }

@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { ref, type Ref } from "vue";
+import { ref } from "vue";
 import { useDiscrete } from "@ng-org/orm/vue";
 import type { DocumentStore } from "../../types";
 import { ormSubscription, ormSubscriptionPromise } from "../../utils/ngSession";
@@ -22,7 +22,5 @@ export function useDocumentStore() {
         });
     }
 
-    return useDiscrete(documentId) as any as {
-        doc: Ref<DocumentStore | undefined>;
-    };
+    return useDiscrete<DocumentStore>(documentId);
 }

@@ -115,9 +115,7 @@ const EMPTY_OBJECT = {} as const;
  * ```
  */
 
-export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
-    documentId: string | undefined
-) {
+export function useDiscrete<T = DiscreteRoot>(documentId: string | undefined) {
     const prevDocumentId = useRef<string | undefined>(undefined);
     const prevOrmSubscription = useRef<DiscreteOrmSubscription | undefined>(
         undefined

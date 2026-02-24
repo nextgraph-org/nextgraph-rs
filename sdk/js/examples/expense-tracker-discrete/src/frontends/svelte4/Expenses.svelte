@@ -15,8 +15,9 @@
   import ExpenseCard from "./ExpenseCard.svelte";
 
   const store = useDocumentStore();
-  $: expenses = $store?.expenses;
-  $: expenseCategories = $store?.expenseCategories;
+  $: doc = store.doc;
+  $: expenses = $doc?.expenses;
+  $: expenseCategories = $doc?.expenseCategories;
 
   function createExpense(obj: Partial<Expense> = {}) {
     if (!expenses) return;

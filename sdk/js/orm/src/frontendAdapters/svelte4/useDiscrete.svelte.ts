@@ -15,6 +15,7 @@ import {
 } from "@ng-org/alien-deepsignals/svelte4";
 import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
 import { DiscreteRoot } from "../../types.ts";
+import { UseShapeStoreResult } from "./useShape.svelte.ts";
 
 /**
  * Svelte 3/4 hook to subscribe to discrete (JSON) CRDT documents.
@@ -96,9 +97,9 @@ import { DiscreteRoot } from "../../types.ts";
  * ```
  *
  */
-export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+export function useDiscrete<T = DiscreteRoot>(
     documentIdOrPromise: string | Promise<string> | undefined
-): UseDeepSignalResult<T | undefined> {
+): { doc: UseDeepSignalResult<T | undefined> } {
     let connection: DiscreteOrmSubscription | undefined;
     let isDestroyed = false;
 
@@ -131,5 +132,5 @@ export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
         }
     });
 
-    return useDeepSignal(objectPromise as any);
+    return { doc: useDeepSignal(objectPromise) as UseShapeStoreResult<T> };
 }

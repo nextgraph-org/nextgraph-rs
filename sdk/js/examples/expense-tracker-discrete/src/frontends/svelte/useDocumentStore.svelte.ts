@@ -18,7 +18,5 @@ export function useDocumentStore() {
         (connection) => connection.documentId
     );
 
-    return useDiscrete(documentIdPromise) as {
-        doc: DeepSignal<DocumentStore> | undefined;
-    };
+    return useDiscrete<DocumentStore>(documentIdPromise);
 }
