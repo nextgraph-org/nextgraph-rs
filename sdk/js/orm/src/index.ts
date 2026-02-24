@@ -17,6 +17,7 @@ import {
 import {
     useShape as svelte4UseShape,
     useDiscrete as svelte4UseDiscrete,
+    type UseShapeStoreResult as Svelte4UseShapeStoreResult,
 } from "./frontendAdapters/svelte4/index.ts";
 import {
     useShape as reactUseShape,
@@ -26,7 +27,7 @@ import {
     useShape as vueUseShape,
     useDiscrete as vueUseDiscrete,
 } from "./frontendAdapters/vue/index.ts";
-import { initNgSignals, ngSession } from "./connector/initNg.ts";
+import { initNgSignals, ngSession, type Session } from "./connector/initNg.ts";
 import { insertObject } from "./connector/insertObject.ts";
 import { getObjects } from "./connector/getObjects.ts";
 export * from "./connector/applyPatches.ts";
@@ -43,12 +44,14 @@ export { getRaw, watch, effect } from "@ng-org/alien-deepsignals";
 export {
     initNgSignals as initNg,
     ngSession,
+    type Session,
     OrmSubscription as OrmSubscription,
     DiscreteOrmSubscription,
     svelteUseShape,
     svelteUseDiscrete,
     svelte4UseShape,
     svelte4UseDiscrete,
+    Svelte4UseShapeStoreResult,
     reactUseShape,
     reactUseDiscrete,
     vueUseShape,

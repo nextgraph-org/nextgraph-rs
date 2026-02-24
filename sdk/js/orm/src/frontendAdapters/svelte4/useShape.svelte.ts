@@ -19,10 +19,8 @@ import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
 import { readOnlySet } from "../utils.ts";
 
-export type { UseDeepSignalResult } from "@ng-org/alien-deepsignals/svelte4";
-
-/** Extended result including the originating root signal wrapper from shape logic. */
-export interface UseShapeRuneResult<T extends object>
+/** Extended result including the originating root signal wrapper from shape logic. @ignore*/
+export interface UseShapeStoreResult<T extends object>
     extends UseDeepSignalResult<T> {
     root: any;
 }
@@ -96,7 +94,7 @@ export interface UseShapeRuneResult<T extends object>
 export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope | string | undefined
-): UseShapeRuneResult<Set<T>> {
+): UseShapeStoreResult<Set<T>> {
     if (scope === undefined) {
         const ds = useDeepSignal(readOnlySet as Set<T>);
         return { root: readOnlySet, ...ds };
@@ -110,7 +108,7 @@ export function useShape<T extends BaseType>(
     onDestroy(close);
 
     const ds = useDeepSignal<Set<T>>(rootSignal as Set<T>);
-    return { root: rootSignal, ...ds } as UseShapeRuneResult<Set<T>>;
+    return { root: rootSignal, ...ds } as UseShapeStoreResult<Set<T>>;
 }
 
 export default useShape;

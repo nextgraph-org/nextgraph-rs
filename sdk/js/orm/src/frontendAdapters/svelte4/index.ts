@@ -10,5 +10,5 @@
 
 import useShape from "./useShape.svelte.ts";
 import { useDiscrete } from "./useDiscrete.svelte.ts";
-import { UseDeepSignalResult } from "./useShape.svelte.ts";
-export { useShape, useDiscrete, type UseDeepSignalResult };
+import type { UseShapeStoreResult } from "./useShape.svelte.ts";
+export { useShape, useDiscrete, type UseShapeStoreResult };
