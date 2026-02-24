@@ -14,7 +14,8 @@
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
 
   const store = useDocumentStore();
-  $: expenseCategories = $store?.expenseCategories;
+  $: doc = store.doc
+  $: expenseCategories = $doc?.expenseCategories;
 
   function createCategory() {
     if (!expenseCategories) return;

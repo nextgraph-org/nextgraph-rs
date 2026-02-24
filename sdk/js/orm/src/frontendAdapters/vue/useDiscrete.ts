@@ -115,7 +115,7 @@ import { DiscreteRoot } from "../../types.ts";
  * </template>
  * ```
  */
-export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+export function useDiscrete<T = DiscreteRoot>(
     documentId: MaybeRefOrGetter<string | undefined>
 ) {
     const ormSubscription = computed(() => {

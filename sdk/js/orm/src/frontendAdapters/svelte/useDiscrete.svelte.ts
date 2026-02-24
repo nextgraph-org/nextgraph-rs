@@ -102,7 +102,7 @@ import { DeepSignal } from "@ng-org/alien-deepsignals";
  * </div>
  * ```
  */
-export function useDiscrete<T extends DiscreteRoot = DiscreteRoot>(
+export function useDiscrete<T = DiscreteRoot>(
     documentIdOrPromise: string | Promise<string> | undefined
 ): {
     doc: DeepSignal<T | undefined>;

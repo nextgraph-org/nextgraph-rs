@@ -10,6 +10,7 @@
 
 import * as NG from "@ng-org/lib-wasm";
 
+/** A NextGraph session with an engine. */
 export type Session = {
     session_id: string | number;
     protected_store_id: string;
