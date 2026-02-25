@@ -8,8 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { OrmSubscription } from "./connector/ormSubscriptionHandler.ts";
-import { DiscreteOrmSubscription } from "./connector/discrete/discreteOrmSubscriptionHandler.ts";
 import {
     useShape as svelteUseShape,
     useDiscrete as svelteUseDiscrete,
@@ -27,26 +25,10 @@ import {
     useShape as vueUseShape,
     useDiscrete as vueUseDiscrete,
 } from "./frontendAdapters/vue/index.ts";
-import { initNgSignals, ngSession, type Session } from "./connector/initNg.ts";
-import { insertObject } from "./connector/insertObject.ts";
-import { getObjects } from "./connector/getObjects.ts";
-export * from "./connector/applyPatches.ts";
-export * from "./types.ts";
 
-export type {
-    DeepSignal,
-    DeepSignalObject,
-    DeepSignalSet,
-} from "@ng-org/alien-deepsignals";
-
-export { getRaw, watch, effect } from "@ng-org/alien-deepsignals";
+export * from "./core.ts";
 
 export {
-    initNgSignals as initNg,
-    ngSession,
-    type Session,
-    OrmSubscription as OrmSubscription,
-    DiscreteOrmSubscription,
     svelteUseShape,
     svelteUseDiscrete,
     svelte4UseShape,
@@ -56,6 +38,4 @@ export {
     reactUseDiscrete,
     vueUseShape,
     vueUseDiscrete,
-    insertObject,
-    getObjects,
 };

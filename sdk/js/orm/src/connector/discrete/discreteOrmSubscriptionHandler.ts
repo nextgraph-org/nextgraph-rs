@@ -59,7 +59,7 @@ export class DiscreteOrmSubscription {
     private suspendDeepWatcher: boolean;
     /** @readonly True, if a transaction is running. */
     inTransaction: boolean = false;
-    /** Aggregation of patches to be sent when in transaction. */
+    /** Aggregation of patches to be sent when in transaction. @ignore */
     pendingPatches: Patch[] | undefined;
     /** **Await to ensure that the subscription is established and the data arrived.** */
     readyPromise: Promise<void>;
