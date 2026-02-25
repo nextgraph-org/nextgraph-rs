@@ -59,7 +59,8 @@ import { initNg } from "@ng-org/orm";
 
 await init(
     async (event) => {
-        // The ORM needs to have access to ng, the interface to the engine running in WASM.
+        // The ORM needs to have access to ng,
+        // the interface to the engine running in WASM.
         initNg(ng, event.session);
     },
     true,

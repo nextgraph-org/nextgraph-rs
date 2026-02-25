@@ -32,7 +32,7 @@ export const ngSession = new Promise<{ ng: typeof NG; session: Session }>(
 /**
  * Initialize the ORM by passing the ng implementation and session.
  *
- * **This is the first thing you need to to before using the ORM.**
+ * **This is the first thing you need to do before using the ORM.**
  *
  * @param ngImpl The NextGraph API, e.g. exported from `@ng-org/web`.
  * @param session The established NextGraph session.
