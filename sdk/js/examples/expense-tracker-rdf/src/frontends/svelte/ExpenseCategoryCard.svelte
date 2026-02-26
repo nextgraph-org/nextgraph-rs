@@ -10,10 +10,9 @@ according to those terms.
 SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import type { DeepSignal } from "@ng-org/orm";
   import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
 
-  const { category }: { category: DeepSignal<ExpenseCategory> } = $props();
+  const { category }: { category: ExpenseCategory } = $props();
   let isEditing = $state(false);
 
   const idBase = $derived(

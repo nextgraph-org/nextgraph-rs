@@ -11,9 +11,8 @@
 -->
 <script lang="ts">
   import type { ExpenseCategory } from "../../types";
-  import type { DeepSignal } from "@ng-org/orm";
 
-  let { category }: { category: DeepSignal<ExpenseCategory> } = $props();
+  let { category }: { category: ExpenseCategory } = $props();
   let isEditing = $state(false);
 
   const idBase = $derived(

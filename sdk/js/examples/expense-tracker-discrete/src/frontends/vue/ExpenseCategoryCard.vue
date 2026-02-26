@@ -12,10 +12,9 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { ExpenseCategory } from "../../types";
-import type { DeepSignal } from "@ng-org/orm";
 
 const props = defineProps<{
-    category: DeepSignal<ExpenseCategory>;
+    category: ExpenseCategory;
 }>();
 
 const category = props.category;

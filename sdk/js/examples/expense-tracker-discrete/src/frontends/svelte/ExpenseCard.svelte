@@ -11,14 +11,13 @@
 -->
 <script lang="ts">
   import type { Expense, ExpenseCategory } from "../../types";
-  import type { DeepSignal } from "@ng-org/orm";
 
   let {
     expense = $bindable(),
     availableCategories = $bindable(),
   }: {
-    expense: DeepSignal<Expense>;
-    availableCategories: DeepSignal<ExpenseCategory[]>;
+    expense: Expense;
+    availableCategories: ExpenseCategory[];
   } = $props();
 
   let isEditing = $state(false);

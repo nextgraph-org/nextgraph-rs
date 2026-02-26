@@ -10,7 +10,6 @@ according to those terms.
 SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import type { DeepSignal } from "@ng-org/orm";
   import type {
     Expense,
     ExpenseCategory,
@@ -20,8 +19,8 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     expense = $bindable(),
     availableCategories = $bindable(),
   }: {
-    expense: DeepSignal<Expense>;
-    availableCategories: DeepSignal<Set<ExpenseCategory>>;
+    expense: Expense;
+    availableCategories: Set<ExpenseCategory>;
   } = $props();
 
   let isEditing = $state(false);
@@ -55,9 +54,7 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
     if (checked) {
       if (!expense.expenseCategory) {
-        expense.expenseCategory = new Set([category["@id"]]) as DeepSignal<
-          Set<any>
-        >;
+        expense.expenseCategory = new Set([category["@id"]]);
       } else {
         expense.expenseCategory.add(category["@id"]);
       }

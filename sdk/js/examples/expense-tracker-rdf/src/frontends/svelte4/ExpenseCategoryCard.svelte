@@ -10,10 +10,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import type { DeepSignal } from "@ng-org/orm";
   import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
 
-  export let category: DeepSignal<ExpenseCategory>;
+  export let category: ExpenseCategory;
   let isEditing = false;
 
   $: idBase = category["@id"] ?? category.categoryName ?? "category";

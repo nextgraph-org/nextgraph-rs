@@ -10,12 +10,11 @@
 
 import { useState } from "react";
 import type { ExpenseCategory } from "../../types";
-import type { DeepSignal } from "@ng-org/orm";
 
 export function ExpenseCategoryCard({
     category,
 }: {
-    category: DeepSignal<ExpenseCategory>;
+    category: ExpenseCategory;
 }) {
     const [isEditing, setIsEditing] = useState(false);
     const idBase = category["@id"] ?? category.categoryName ?? "category";

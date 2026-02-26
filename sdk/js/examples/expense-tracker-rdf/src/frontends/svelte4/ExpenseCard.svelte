@@ -10,13 +10,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
-  import type { DeepSignal } from "@ng-org/orm";
   import type {
     Expense,
     ExpenseCategory,
   } from "../../shapes/orm/expenseShapes.typings";
 
-  export let expense: DeepSignal<Expense>;
+  export let expense: Expense;
   export let availableCategories: Set<ExpenseCategory>;
 
   let isEditing = false;
@@ -46,9 +45,7 @@
   const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
     if (checked) {
       if (!expense.expenseCategory) {
-        expense.expenseCategory = new Set([category["@id"]]) as DeepSignal<
-          Set<any>
-        >;
+        expense.expenseCategory = new Set([category["@id"]]);
       } else {
         expense.expenseCategory.add(category["@id"]);
       }
