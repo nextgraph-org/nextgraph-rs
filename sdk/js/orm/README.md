@@ -51,9 +51,22 @@ pnpm add -D @ng-org/shex-orm
 
 ## Start
 
-You are strongly advised to look at the example apps for [discrete JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) and [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
-TODO: You can find apps for Svelte, Vue, and React here
-where you can find framework and crdt-specific walkthroughs.
+Before writing your own app, you are strongly advised to look at the example apps below, where you can find framework and crdt-specific walkthroughs.
+
+- Discrete CRDTs [with all frameworks running in the same environment](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
+    - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte)
+    - [Svelte 3/4](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte4)
+    - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-vue)
+    - [React](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-react)
+- RDF CRDTs for [with all frameworks running in the same environment](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
+    - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte)
+    - [Svelte 3/4](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte4)
+    - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-graph-vue)
+    - [React](https://git.nextgraph.org/NextGraph/expense-tracker-graph-react)
+
+The app looks the same in all implementations. You can see that the `useShape()` and `useDiscrete()` frontend hooks to interact with data share the same syntax across all frameworks.
+
+---
 
 Before using the ORM, initialize NextGraph in your app entry point:
 
@@ -61,6 +74,9 @@ Before using the ORM, initialize NextGraph in your app entry point:
 import { ng, init } from "@ng-org/web";
 import { initNg } from "@ng-org/orm";
 
+// Call init as early as possible (e.g. in the header of your `index.html`).
+// If your app is not running in an iframe, it will redirect you to log in with your wallet.
+// In that case, there is no need to render the rest of the app.
 await init(
     async (event) => {
         // The ORM needs to have access to ng,
@@ -72,19 +88,7 @@ await init(
 );
 ```
 
-Then use `useShape()` for graphs, or `useDiscrete()` for discrete documents.
-
-In some cases, you may want to use advanced features managing subscriptions with the engine.
-With an OrmSubscription, you can manage things like transactions manually.
-This is useful for example when you want to manage a state across components.
-See [`OrmSubscription.getOrCreate(ShapeType, scope)`](#getorcreate-1) for graphs
-and [`DiscreteOrmSubscription.getOrCreate(documentId)`](#getorcreate) for discrete documents.
-
-Internally, the OrmSubscription keeps a signalObject, a proxied, reactive object. When modifications are made, this makes the frontend components refresh and sends the update to the engine to be persisted.
-
-In all cases, you have to create a document first with `ng.doc_create()`.
-
-## Graph ORM: Defining Schemas
+## RDF (graph) ORM: Defining Schemas
 
 Define your data model using [SHEX (Shape Expressions)](https://shex.io/):
 See [@ng-org/shex-orm](../shex-orm/README.md) for details.
@@ -104,13 +108,13 @@ ex:Dog {
 }
 ```
 
-Generate TypeScript types. Add the following to your `package.json` scripts and run `build:orm` (assuming you installed `@ng-org/shex-orm` as dev dependency):
+Add the following to your `package.json` scripts and run `build:orm` (assuming you installed `@ng-org/shex-orm` as dev dependency):
 
 ```json
 "build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
 ```
 
-This will generate three files: one for TypeScript types, one with generated schemas, and one that exports objects with the schema, type definition and shape name: The so called _shape types_. When you request data from the engine, you will pass a shape type in your request that defines what your object looks like.
+This will generate three files: one for TypeScript type definitions, one with generated schemas, and one that exports objects with the schema, type definition and shape name: The so called _shape types_. When you request data from the engine, you will pass a shape type in your request that defines what your object looks like.
 
 ## Frontend Framework Usage
 
@@ -127,7 +131,7 @@ The SDK offers hooks for discrete and graph-based CRDTs for Svelte, Vue and Reac
     - Vue: [useShape](#vueuseshape)
     - React: [useShape](#reactuseshape)
 
-All of them have the same logic. They create a 2-way binding to the engine.
+All of them share the same logic. They create a 2-way binding to the engine.
 You can modify the returned object like any other JSON object. Changes are immediately
 reflected in the CRDT and the components refresh.
 When the component unmounts, the subscription is closed.
@@ -140,8 +144,9 @@ const expenses = useShape(ExpenseShapeType, {
 });
 // Note: While the returned `expenses` object has type `DeepSignal<Set<Expense>>`, you can treat and type it as `Set<Expense>` as well, for convenience.
 
-// Use expenses in your component
+// Now you can use expenses in your component
 // and modify them to trigger a refresh and persist them.
+
 
 // In analogy:
 const expense: DeepSignal<Expense[]> = useDiscrete(expenseDocumentNuri);
@@ -180,7 +185,7 @@ await ng.sparql_update(
 );
 ```
 
-To find your document, you make a sparql query:
+To find your document NURI, you make a sparql query:
 
 ```ts
 const ret = await ng.sparql_query(
@@ -197,10 +202,10 @@ let documentId = ret?.results.bindings?.[0]?.storeId?.value;
 There are multiple ways to get and modify data:
 
 - Get and modify the signalObject of the subscription returned by [`Orm(Discrete)Subscription.getOrCreate()`](#the-discreteormsubscription-class).
-- Get and modify the data returned by a `useShape()` or `useDiscrete()` hook inside a component.
+- Get and modify the data returned by a `useShape()` or `useDiscrete()` hook inside of a component.
 - For graph ORMs (no 2-way binding):
     - [`getObjects(shapeType, scope)`](#getobjects) Gets all object with the given shape type within the `scope`. The returned objects are _not_ `DeepSignal` objects - modifications to them do not trigger updates and changes from other sources do not update the returned object.
-    - [`insertObject(shapeType, object)`](#insertobject): A convenience function to add objects of a given shape to the database. With `useShape()` and `OrmSubscription`, you can just add objects to the returned set or `subscription.signalObject`, respectively.
+    - [`insertObject(shapeType, object)`](#insertobject): A convenience function to add objects of a given shape to the database. While with `useShape()` and `OrmSubscription`, you can just add objects to the returned set or `subscription.signalObject`, respectively.
       This function spares you of creating an `OrmSubscription` and can be used outside of components, where you can't call `useShape`.
 
 ### The (Discrete)OrmSubscription Class
@@ -216,7 +221,7 @@ To improve performance, you can start transactions with subscriptions using `.be
 
 Note that even in non-transaction mode, changes are batched and only committed after the current task finished. The changes are sent to the engine in a [microtask](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide). You can end the current task and flush, for example, by awaiting a promise: `await Promise.resolve()`.
 
-Note that you can use the signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use `useDeepSignal(signalObject)` from `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the loading time when creating new subscriptions.
+Note that you can use the signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use `useDeepSignal(signalObject)` from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the loading time when creating new subscriptions.
 
 Example of using an OrmSubscription:
 
@@ -226,7 +231,7 @@ const dogSubscription = OrmSubscription.getOrCreate(DogShape, {
 });
 await dogSubscription.readyPromise;
 
-// If we used OrmDiscreteSubscription, the signalObject type would be array or object.
+// If we used OrmDiscreteSubscription, the signalObject type would be an array or object.
 const dogSet: DeepSignal<Set<Dog>> = dogSubscription.signalObject;
 
 dogs.add({

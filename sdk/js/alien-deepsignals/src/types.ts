@@ -188,6 +188,7 @@ export type DeepSignalSetProps<T> = {
  * Note that you can assign plain `Set`s to properties with type DeepSignalSet,
  * however Typescript will give you a warning. That is a limitation of TypeScript's capability.
  * Internally, the object will be converted to a DeepSignalSet.
+ * You can instruct TypeScript to ignore this with `parent.children = new Set() as DeepSignal<Set<any>>`.
  */
 export type DeepSignalSet<T> = DeepSignalSet_<T> &
     DeepSignalSetProps<T> &

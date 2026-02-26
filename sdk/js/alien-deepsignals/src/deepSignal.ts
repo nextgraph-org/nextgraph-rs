@@ -1335,7 +1335,7 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
  *   can update the frontend.
  *   The utilities that DeepSignal objects include are:
  *
- *   - For sets (with the RDF ORM):
+ *   - For sets:
  *       - iterator helper methods (e.g. `map()`, `filter()`, `reduce()`, `any()`, ...)
  *       - `first()` to get one element from the set -- useful if you know that there is only one.
  *       - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
