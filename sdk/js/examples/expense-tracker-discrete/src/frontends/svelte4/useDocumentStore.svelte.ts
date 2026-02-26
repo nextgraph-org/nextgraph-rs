@@ -12,10 +12,12 @@ import type { DocumentStore } from "../../types";
 import { ormSubscriptionPromise } from "../../utils/ngSession";
 import { useDiscrete } from "@ng-org/orm/svelte4";
 
-export function useDocumentStore() {
-    const documentIdPromise = ormSubscriptionPromise.then(
-        (subscription) => subscription.documentId
-    );
+type UseDocumentStoreReturn = ReturnType<typeof useDiscrete<DocumentStore>>;
 
-    return useDiscrete<DocumentStore>(documentIdPromise);
+export function useDocumentStore(): UseDocumentStoreReturn {
+  const documentIdPromise = ormSubscriptionPromise.then(
+    (subscription) => subscription.documentId,
+  );
+
+  return useDiscrete<DocumentStore>(documentIdPromise);
 }

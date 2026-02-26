@@ -10,7 +10,7 @@ import { sessionPromise, session } from "../../utils/ngSession";
 import ExpenseCard from "./ExpenseCard.vue";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const expenses = useShape(ExpenseShapeType, { graphs: [privateNuri || ""] });
+const expenses = useShape(ExpenseShapeType, privateNuri);
 const categories = useShape(ExpenseCategoryShapeType, {
     graphs: [privateNuri || ""],
 });

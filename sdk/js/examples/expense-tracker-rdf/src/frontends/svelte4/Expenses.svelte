@@ -20,8 +20,8 @@
   import ExpenseCard from "./ExpenseCard.svelte";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenses = useShape(ExpenseShapeType, { graphs: [privateNuri || ""] });
-  const categories = useShape(ExpenseCategoryShapeType, { graphs: [privateNuri || ""] });
+  const expenses = useShape(ExpenseShapeType, privateNuri);
+  const categories = useShape(ExpenseCategoryShapeType, privateNuri);
 
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
@@ -42,7 +42,7 @@
     });
   }
   $: expensesSorted = [...$expenses].sort((a, b) =>
-      a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+    a.dateOfPurchase.localeCompare(b.dateOfPurchase),
   );
 
   const expenseKey = (expense: Expense) =>

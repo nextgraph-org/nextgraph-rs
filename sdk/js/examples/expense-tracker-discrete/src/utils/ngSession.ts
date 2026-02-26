@@ -9,8 +9,11 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { ng, init as initNgWeb } from "@ng-org/web";
-import { DiscreteOrmSubscription, initNg as initNgSignals } from "@ng-org/orm";
-import type * as NG from "@ng-org/lib-wasm";
+import {
+    DiscreteOrmSubscription,
+    initNg as initNgSignals,
+    type Session as NextGraphSession,
+} from "@ng-org/orm";
 import { loadStore } from "./loadStore";
 import type { AllowedCrdt } from "../types";
 
@@ -28,7 +31,10 @@ export let sessionPromise: Promise<NextGraphSession> = new Promise(
     }
 );
 
+/** CRDT of the document, depending on the environment variable. */
 export let PREFERRED_CRDT: AllowedCrdt;
+
+/** Call as early in your app as possible so that the page is redirected to auth. */
 export async function init(crdtIfNew: AllowedCrdt) {
     PREFERRED_CRDT = crdtIfNew;
     await initNgWeb(
@@ -53,12 +59,3 @@ export let ormSubscriptionPromise = sessionPromise.then(async (session) => {
     return _store;
 });
 export let ormSubscription: DiscreteOrmSubscription | undefined = undefined;
-
-export interface NextGraphSession {
-    ng: typeof NG;
-    session_id: string;
-    protected_store_id: string;
-    private_store_id: string;
-    public_store_id: string;
-    [key: string]: unknown;
-}

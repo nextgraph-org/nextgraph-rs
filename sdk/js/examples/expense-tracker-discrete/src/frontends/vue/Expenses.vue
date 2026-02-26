@@ -1,31 +1,19 @@
-<!--
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
-// All rights reserved.
-// Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
-// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
-// at your option. All files in the project carrying such
-// notice may not be copied, modified, or distributed except
-// according to those terms.
-// SPDX-License-Identifier: Apache-2.0 OR MIT
--->
-
 <script setup lang="ts">
 import { computed } from "vue";
 
 import ExpenseCard from "./ExpenseCard.vue";
-import { useDocumentStore } from "./useDocumentStore";
-import type { Expense } from "../../types";
+import { useDocumentStore } from "./useDocumentStore.ts";
+import type { Expense } from "../../types.ts";
 
-const { doc } = useDocumentStore();
+const {doc} = useDocumentStore();
 const expenses = computed(() => doc.value?.expenses);
 const expenseCategories = computed(
     () => doc.value?.expenseCategories ?? []
 );
 
 function createExpense(obj: Partial<Expense> = {}) {
-    if (!expenses) return;
-    expenses.value?.push({
+    if (!expenses.value) return;
+    expenses.value.push({
         amount: obj.amount ?? 1,
         recurrenceInterval: obj.recurrenceInterval ?? "",
         description: obj.description ?? undefined,

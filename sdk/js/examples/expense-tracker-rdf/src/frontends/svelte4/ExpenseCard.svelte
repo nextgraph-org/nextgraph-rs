@@ -10,14 +10,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script lang="ts">
+  import type { DeepSignal } from "@ng-org/orm";
   import type {
     Expense,
     ExpenseCategory,
   } from "../../shapes/orm/expenseShapes.typings";
 
-  export let expense: Expense;
+  export let expense: DeepSignal<Expense>;
   export let availableCategories: Set<ExpenseCategory>;
-    
+
   let isEditing = false;
 
   const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
@@ -34,11 +35,9 @@
     minimumFractionDigits: 2,
   });
 
-  $: purchaseDate = (
-    expense.dateOfPurchase
-      ? new Date(expense.dateOfPurchase).toLocaleDateString()
-      : "Date not set"
-  );
+  $: purchaseDate = expense.dateOfPurchase
+    ? new Date(expense.dateOfPurchase).toLocaleDateString()
+    : "Date not set";
   $: totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
 
   const isCategorySelected = (category: ExpenseCategory) =>
@@ -47,7 +46,9 @@
   const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
     if (checked) {
       if (!expense.expenseCategory) {
-        expense.expenseCategory = new Set([category["@id"]]);
+        expense.expenseCategory = new Set([category["@id"]]) as DeepSignal<
+          Set<any>
+        >;
       } else {
         expense.expenseCategory.add(category["@id"]);
       }
@@ -84,13 +85,37 @@
       aria-label={isEditing ? "Close editing" : "Edit expense"}
       onclick={() => (isEditing = !isEditing)}
     >
-      {#if isEditing }
-        <svg data-slot="icon" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"></path>
+      {#if isEditing}
+        <svg
+          data-slot="icon"
+          fill="none"
+          stroke-width="1.5"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M6 18 18 6M6 6l12 12"
+          ></path>
         </svg>
       {:else}
-        <svg data-slot="icon" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"></path>
+        <svg
+          data-slot="icon"
+          fill="none"
+          stroke-width="1.5"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+          ></path>
         </svg>
       {/if}
     </button>
@@ -181,7 +206,7 @@
                 onchange={(event) =>
                   toggleCategory(
                     category,
-                    event.currentTarget?.checked ?? false
+                    event.currentTarget?.checked ?? false,
                   )}
               />
               <span class="category-text">

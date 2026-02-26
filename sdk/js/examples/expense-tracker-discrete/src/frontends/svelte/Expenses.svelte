@@ -15,10 +15,9 @@
   import ExpenseCard from "./ExpenseCard.svelte";
 
   const store = useDocumentStore();
-
   const expenses = $derived(store.doc?.expenses);
   const expenseCategories = $derived(store.doc?.expenseCategories);
-  
+
   function createExpense(obj: Partial<Expense> = {}) {
     if (!expenses) return;
     expenses.push({
@@ -36,9 +35,10 @@
 
   const expensesSorted = $derived(
     expenses &&
-      [...expenses].sort((a, b) => a.dateOfPurchase.localeCompare(b.dateOfPurchase))
+      [...expenses].sort((a, b) =>
+        a.dateOfPurchase.localeCompare(b.dateOfPurchase),
+      ),
   );
-
 </script>
 
 <section class="panel">
@@ -59,7 +59,7 @@
         Nothing tracked yet - log your first purchase to kick things off.
       </p>
     {:else}
-      {#each expensesSorted as expense, index (expense['@id']) }
+      {#each expensesSorted as expense, index (expense["@id"])}
         <ExpenseCard
           expense={expensesSorted![index]}
           availableCategories={expenseCategories!}

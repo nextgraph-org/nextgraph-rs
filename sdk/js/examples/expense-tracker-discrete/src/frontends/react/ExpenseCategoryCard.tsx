@@ -8,13 +8,14 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ExpenseCategory } from "../../types";
+import type { DeepSignal } from "@ng-org/orm";
 
 export function ExpenseCategoryCard({
     category,
 }: {
-    category: ExpenseCategory;
+    category: DeepSignal<ExpenseCategory>;
 }) {
     const [isEditing, setIsEditing] = useState(false);
     const idBase = category["@id"] ?? category.categoryName ?? "category";
