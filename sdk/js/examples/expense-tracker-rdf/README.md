@@ -3,8 +3,6 @@
 A complete example app demonstrating the **NextGraph RDF ORM SDK** with React, Vue, and Svelte frontends running side-by-side.
 Changes made in one framework instantly sync to the others. All data is encrypted. Data types are generated from a SHEX schema.
 
-You can find the example app in separate repositories for Svelte, Vue, or React and with the Discrete (one-document JSON-based) ORM [in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
-
 You can find this example app in separate repositories for Svelte, Vue, or React and also with the Discrete (one-document JSON-based) ORM instead of Graph/RDF, in the [getting started guide in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
 
 Note that we use those examples here for internally testing the monorepo of NextGraph and its orm and web packages. You don't need to clone the whole monorepo in order to test those examples. Instead, we also publish a separate [repo for graph-based expense tracker here](https://git.nextgraph.org/NextGraph/expense-tracker-graph) that still has the 4 supported frontend-frameworks displayed side-by-side, thanks to Astro. If you prefer to see separate repos specific to each frontend-framework, that you can clone to start your own project, you will find them listed in the [getting started guide in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
