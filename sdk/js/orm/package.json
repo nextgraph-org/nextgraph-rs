@@ -10,7 +10,6 @@
   "main": "./src/core.ts",
   "scripts": {
     "test": "vitest",
-    "test:e2e": "playwright test",
     "build:ts": "rm -rf dist && tsc",
     "prepublishOnly": "pnpm build:ts"
   },
