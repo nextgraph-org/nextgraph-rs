@@ -31,22 +31,17 @@ pnpm dev
 - You can open the app in a second tab to see how the data is propagated.
 - **Note:** If the data hasn't loaded yet, the set appears empty.
 
-## Repository Structure
+## Project Structure
 
 ```
 src/
-├── shapes/                    # Data model definitions
-│   ├── shex/
-│   │   └── expenseShapes.shex           # SHEX schema (source of truth)
-│   └── orm/
-│       ├── expenseShapes.typings.ts     # Generated TypeScript interfaces
-│       ├── expenseShapes.shapeTypes.ts  # Generated shape type objects
-│       └── expenseShapes.schema.ts      # Generated schema metadata
 ├── frontends/
 │   ├── react/                 # React components
 │   ├── vue/                   # Vue components
 │   └── svelte/                # Svelte components
-├── utils/
+│
+├── utils/                     # Useful for your own applications utils, too!
+│   ├── loadStore.ts           # Creates or loads the CRDT document
 │   └── ngSession.ts           # NextGraph session initialization
 └── app-wrapper/               # Astro app shell (hosts all frameworks)
 ```
