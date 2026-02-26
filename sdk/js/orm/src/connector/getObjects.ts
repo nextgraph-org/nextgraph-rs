@@ -10,21 +10,24 @@
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { OrmSubscription } from "./ormSubscriptionHandler.ts";
-import { Scope } from "../types.ts";
+import { normalizeScope, Scope } from "../types.ts";
 import { deepClone } from "./utils.ts";
 
 /**
  * Utility for retrieving objects once without establishing a two-way subscription.
  *
  * @param shapeType The shape type of the objects to be retrieved.
- * @param scope The scope of the objects to be retrieved.
+ * @param scope The scope of the objects to be retrieved as Scope object or as graph NURI string.
  * @returns A set of all objects matching the shape and scope
  */
 export async function getObjects<T extends BaseType>(
     shapeType: ShapeType<T>,
-    scope: Scope = {}
+    scope: Scope | string
 ) {
-    const connection = OrmSubscription.getOrCreate(shapeType, scope);
+    const connection = OrmSubscription.getOrCreate(
+        shapeType,
+        normalizeScope(scope)
+    );
     await connection.readyPromise;
 
     setTimeout(() => {

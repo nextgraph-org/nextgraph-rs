@@ -73,13 +73,13 @@ export class OrmSubscription<T extends BaseType> {
     /** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
     /** When true, modifications from the signalObject are not processed. */
-    suspendDeepWatcher: boolean;
+    private suspendDeepWatcher: boolean;
     /** True, if a transaction is running. */
-    inTransaction: boolean = false;
+    private inTransaction_: boolean = false;
     /** Aggregation of patches to be sent when in transaction. @ignore */
-    pendingPatches: Patch[] | undefined;
+    private pendingPatches: Patch[] | undefined;
     /** **Await to ensure that the subscription is established and the data arrived.** */
-    readyPromise: Promise<void>;
+    private readyPromise_: Promise<void>;
     private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
     private resolveReady!: () => void;
@@ -131,7 +131,7 @@ export class OrmSubscription<T extends BaseType> {
         this.stopSignalListening = stopListening;
 
         // Set promise to be resolved when data arrived from engine.
-        this.readyPromise = new Promise<void>((resolve) => {
+        this.readyPromise_ = new Promise<void>((resolve) => {
             this.resolveReady = resolve;
         });
 
@@ -249,6 +249,15 @@ export class OrmSubscription<T extends BaseType> {
         }
     };
 
+    /** True, if a transaction is running. */
+    get inTransaction() {
+        return this.inTransaction_;
+    }
+    /** **Await to ensure that the subscription is established and the data arrived.** */
+    get readyPromise() {
+        return this.readyPromise_;
+    }
+
     /**
      * Stop the subscription.
      *
@@ -280,14 +289,14 @@ export class OrmSubscription<T extends BaseType> {
         const ormPatches = deepPatchesToWasm(patches);
 
         // If in transaction, collect patches immediately (no await before).
-        if (this.inTransaction) {
+        if (this.inTransaction_) {
             this.pendingPatches?.push(...ormPatches);
             return;
         }
 
         // Wait for session and subscription to be initialized.
         const { ng, session } = await ngSession;
-        await this.readyPromise;
+        await this.readyPromise_;
 
         ng.graph_orm_update(
             this.subscriptionId!,
@@ -402,7 +411,7 @@ export class OrmSubscription<T extends BaseType> {
      * Modifications keep being rendered.
      */
     public beginTransaction = () => {
-        this.inTransaction = true;
+        this.inTransaction_ = true;
         this.pendingPatches = [];
 
         // Use a listener that immediately triggers on object modifications.
@@ -421,16 +430,16 @@ export class OrmSubscription<T extends BaseType> {
      * (started with `beginTransaction`) to the database.
      */
     public commitTransaction = async () => {
-        if (!this.inTransaction) {
+        if (!this.inTransaction_) {
             throw new Error(
                 "No transaction is open. Call `beginTransaction` first."
             );
         }
 
         const { ng, session } = await ngSession;
-        await this.readyPromise;
+        await this.readyPromise_;
 
-        this.inTransaction = false;
+        this.inTransaction_ = false;
 
         if (this.pendingPatches?.length == 0) {
             // Nothing to send to the engine.

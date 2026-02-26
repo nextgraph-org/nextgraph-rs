@@ -8,12 +8,12 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { ng, init as initNgWeb } from "@ng-org/web";
 import {
-    DiscreteOrmSubscription,
-    initNg as initNgSignals,
+    ng,
+    init as initNgWeb,
     type Session as NextGraphSession,
-} from "@ng-org/orm";
+} from "@ng-org/web";
+import { DiscreteOrmSubscription, initNg as initNgSignals } from "@ng-org/orm";
 import { loadStore } from "./loadStore";
 import type { AllowedCrdt } from "../types";
 

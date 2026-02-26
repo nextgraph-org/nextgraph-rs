@@ -10,7 +10,7 @@
 
 import { OrmSubscription } from "./connector/ormSubscriptionHandler.ts";
 import { DiscreteOrmSubscription } from "./connector/discrete/discreteOrmSubscriptionHandler.ts";
-import { initNgSignals, ngSession, type Session } from "./connector/initNg.ts";
+import { initNgSignals, ngSession } from "./connector/initNg.ts";
 import { insertObject } from "./connector/insertObject.ts";
 import { getObjects } from "./connector/getObjects.ts";
 
@@ -27,7 +27,6 @@ export { getRaw, watch, effect } from "@ng-org/alien-deepsignals";
 export {
     initNgSignals as initNg,
     ngSession,
-    type Session,
     OrmSubscription,
     DiscreteOrmSubscription,
     insertObject,

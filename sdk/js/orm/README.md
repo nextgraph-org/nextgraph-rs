@@ -29,6 +29,8 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 - [Working with Data](#working-with-data)
     - [Creating a Document](#creating-a-document)
     - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
+    - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
+        - [The DeepSignal\<\> type](#the-deepsignal-type)
         - [Graph ORM: Relationships](#graph-orm-relationships)
 
 ---
@@ -50,6 +52,8 @@ pnpm add -D @ng-org/shex-orm
 ## Start
 
 You are strongly advised to look at the example apps for [discrete JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) and [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
+TODO: You can find apps for Svelte, Vue, and React here
+where you can find framework and crdt-specific walkthroughs.
 
 Before using the ORM, initialize NextGraph in your app entry point:
 
@@ -76,7 +80,7 @@ This is useful for example when you want to manage a state across components.
 See [`OrmSubscription.getOrCreate(ShapeType, scope)`](#getorcreate-1) for graphs
 and [`DiscreteOrmSubscription.getOrCreate(documentId)`](#getorcreate) for discrete documents.
 
-Internally, the OrmSubscription keeps a signalObject, a proxied, reactive object. When modifications are made, this makes the frontend components rerender and sends the update to the engine to be persisted.
+Internally, the OrmSubscription keeps a signalObject, a proxied, reactive object. When modifications are made, this makes the frontend components refresh and sends the update to the engine to be persisted.
 
 In all cases, you have to create a document first with `ng.doc_create()`.
 
@@ -96,14 +100,17 @@ ex:Dog {
     ex:name xsd:string ;
     ex:age xsd:integer ? ;
     ex:toys xsd:string * ;
+    ex:owner IRI ? ;
 }
 ```
 
-Generate TypeScript types. Add the following to your `package.json` scripts and run `build:orm`:
+Generate TypeScript types. Add the following to your `package.json` scripts and run `build:orm` (assuming you installed `@ng-org/shex-orm` as dev dependency):
 
 ```json
 "build:orm": "rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm"
 ```
+
+This will generate three files: one for TypeScript types, one with generated schemas, and one that exports objects with the schema, type definition and shape name: The so called _shape types_. When you request data from the engine, you will pass a shape type in your request that defines what your object looks like.
 
 ## Frontend Framework Usage
 
@@ -122,19 +129,23 @@ The SDK offers hooks for discrete and graph-based CRDTs for Svelte, Vue and Reac
 
 All of them have the same logic. They create a 2-way binding to the engine.
 You can modify the returned object like any other JSON object. Changes are immediately
-reflected in the CRDT and the components rerender.
+reflected in the CRDT and the components refresh.
 When the component unmounts, the subscription is closed.
 
 ```ts
 // Queries the graphs with NURI did:ng:o:g1 and did:ng:o:g2 and with subject s1 or s2.
-const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType, {
+const expenses = useShape(ExpenseShapeType, {
     graphs: ["did:ng:o:g1", "did:ng:o:g2"],
     subjects: ["<s1 IRI>", "<s2 IRI>"],
 });
+// Note: While the returned `expenses` object has type `DeepSignal<Set<Expense>>`, you can treat and type it as `Set<Expense>` as well, for convenience.
 
 // Use expenses in your component
-// and modify them to trigger a rerender and persist them.
-// ...
+// and modify them to trigger a refresh and persist them.
+
+// In analogy:
+const expense: DeepSignal<Expense[]> = useDiscrete(expenseDocumentNuri);
+// Note: While the returned `expenses` object has type `DeepSignal<Expense[]>`, you can treat and type it as `Expense[]` as well, for convenience.
 ```
 
 ---
@@ -144,7 +155,7 @@ const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType, {
 The ORM is designed to make working with data as normal as possible.
 You get an object as you are used to it and when you change properties,
 they are automatically persisted and synced with other devices. Conversely,
-modifications arrive at the ORM objects immediately and your components rerender.
+modifications coming from other devices update the ORM objects too and your components refresh.
 
 ### Creating a Document
 
@@ -169,7 +180,7 @@ await ng.sparql_update(
 );
 ```
 
-To find your document, you can make a sparql query as well:
+To find your document, you make a sparql query:
 
 ```ts
 const ret = await ng.sparql_query(
@@ -185,9 +196,29 @@ let documentId = ret?.results.bindings?.[0]?.storeId?.value;
 
 There are multiple ways to get and modify data:
 
+- Get and modify the signalObject of the subscription returned by [`Orm(Discrete)Subscription.getOrCreate()`](#the-discreteormsubscription-class).
 - Get and modify the data returned by a `useShape()` or `useDiscrete()` hook inside a component.
-- Get and modify the signalObject of the subscription returned by `Orm(Discrete)Subscription.getOrCreate()`.
-- For graph ORMs: Call [`insertObject()`](#insertobject) or [`getObjects`](#getobjects) (no 2-way binding).
+- For graph ORMs (no 2-way binding):
+    - [`getObjects(shapeType, scope)`](#getobjects) Gets all object with the given shape type within the `scope`. The returned objects are _not_ `DeepSignal` objects - modifications to them do not trigger updates and changes from other sources do not update the returned object.
+    - [`insertObject(shapeType, object)`](#insertobject): A convenience function to add objects of a given shape to the database. With `useShape()` and `OrmSubscription`, you can just add objects to the returned set or `subscription.signalObject`, respectively.
+      This function spares you of creating an `OrmSubscription` and can be used outside of components, where you can't call `useShape`.
+
+### The (Discrete)OrmSubscription Class
+
+You can establish subscriptions outside of frontend components using the (Discrete)OrmSubscription class. DiscreteOrmSubscriptions are scoped to one document, (RDF-based) OrmSubscriptions can have a `Scope` of more than one document and require a shape type. Once a subscription is established, its `.readyPromise` resolves and the `.signalObject` contains the 2-way bound data.
+
+You can create a new subscription using `(Discrete)OrmSubscription.getOrCreate()`. If a subscription with the same document or scope exists already, a reference to that object is returned. Otherwise, a new one is created.
+The pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useShape()` or `useDiscrete()`. This reduces load and the data is available instantly.
+
+Subscriptions are open until `.close()` is called on all references of this object. The `useShape` and `useDiscrete` hooks call `.close()` on their reference when their component unmounts.
+
+To improve performance, you can start transactions with subscriptions using `.beginTransaction()` and `.commitTransaction()`. This will delay the persistence until `.commitTransaction()` is called. Transactions do not affect updates to the frontend and incoming updates from the engine / other devices. When more than one reference to a subscription exists, the transaction affects all of them.
+
+Note that even in non-transaction mode, changes are batched and only committed after the current task finished. The changes are sent to the engine in a [microtask](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide). You can end the current task and flush, for example, by awaiting a promise: `await Promise.resolve()`.
+
+Note that you can use the signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use `useDeepSignal(signalObject)` from `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the loading time when creating new subscriptions.
+
+Example of using an OrmSubscription:
 
 ```typescript
 const dogSubscription = OrmSubscription.getOrCreate(DogShape, {
@@ -215,12 +246,26 @@ aDog.toy.add("bone");
 
 // Utility to find objects in sets:
 const sameDog = dogs.getBy(aDog["@graph"], aDog["@id"]);
-// sameSog === aDog.
+// sameDog === aDog.
 
 dogs.delete(aDog);
 ```
 
-Note that the graph CRDT supports sets only, the discrete CRDTs arrays only.
+Note that the RDF CRDT supports sets only, the discrete CRDTs arrays only.
+
+#### The DeepSignal<> type
+
+Data returned by the ORM is of type `DeepSignal<T>`. It behaves like plain objects of type `T` but with some extras. Under the hood, the object is proxied. The proxy tracks modifications and will immediately update the frontend and propagate to the engine.
+
+In your code however, you _do not have to to wrap your type definitions in `DeepSignal<>`_. Nevertheless, it can be instructive for TypeScript to show you the additional utilities that DeepSignal objects expose. Also, it might keep you aware that modifications you make to those objects are persisted and update the frontend.
+The utilities that DeepSignal objects include are:
+
+- For sets (with the RDF ORM):
+    - iterator helper methods (e.g. `map()`, `filter()`, `reduce()`, `any()`, ...)
+    - `first()` to get one element from the set -- useful if you know that there is only one.
+    - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
+    - **NOTE**: When assigning a set to `DeepSignal<Set>`, TypeScript will warn you. You can safely ignore this by writing (`parent.children = new Set() as DeepSignal<Set<any>>`). Internally, the set is automatically converted but this is not expressible in TypeScript.
+- For all objects: `__raw__` which gives you the non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh. If you use `__raw__`, that won't work anymore.
 
 #### Graph ORM: Relationships
 
@@ -232,9 +277,10 @@ casey.friends.add(jackNuri);
 // When the child object is a nested object that you do not have in memory,
 // you can establish the link by adding an object that contains the `@id` property only.
 shoppingExpense.category.add({ "@id": "<Subject IRI of expense category>" });
-// Link objects by storing the target's `@id` NURI/IRI:
 
+// Link objects by storing the target's `@id` NURI/IRI:
 dog.owner = jackNuri;
+
 // Resolve the relationship
 const jack = people.find((p) => p["@id"] === dog.owner);
 ```

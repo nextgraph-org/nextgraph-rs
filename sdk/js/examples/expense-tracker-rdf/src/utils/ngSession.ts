@@ -1,8 +1,6 @@
 import { ng, init as initNgWeb } from "@ng-org/web";
-import {
-    initNg as initNgSignals,
-    type Session as NextGraphSession,
-} from "@ng-org/orm";
+import { initNg as initNgSignals } from "@ng-org/orm";
+import type { Session as NextGraphSession } from "@ng-org/web";
 
 /** The session with the NextGraph engine or undefined if not loaded. */
 export let session: NextGraphSession | undefined;

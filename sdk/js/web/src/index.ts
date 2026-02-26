@@ -11,20 +11,34 @@ import { createAsyncProxy } from "async-proxy";
 import type * as NGModule from "@ng-org/lib-wasm";
 export type NG = typeof NGModule;
 
+/** A NextGraph session with an engine. */
+export type Session = {
+    session_id: string | number;
+    protected_store_id: string;
+    private_store_id: string;
+    public_store_id: string;
+    ng: typeof NGModule;
+    [key: string]: unknown;
+};
+
 let initialized = false;
 
+// @ts-ignore
 const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
+// @ts-ignore
 const config = import.meta.env.NG_DEV3
     ? {
           redirect: "http://127.0.0.1:3033/redir/#/?o=",
           origin: "http://127.0.0.1:3033",
       }
-    : import.meta.env.NG_DEV
+    : // @ts-ignore
+      import.meta.env.NG_DEV
       ? {
             redirect: "http://localhost:14402/#/?o=",
             origin: "http://localhost:14404",
         }
-      : import.meta.env.NG_DEV_LOCAL_BROKER
+      : // @ts-ignore
+        import.meta.env.NG_DEV_LOCAL_BROKER
         ? {
               redirect: "http://localhost:1421/redir.html#/?o=",
               origin: "http://localhost:1421",
