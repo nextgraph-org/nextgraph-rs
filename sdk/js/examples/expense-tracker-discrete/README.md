@@ -3,7 +3,7 @@
 A complete example app demonstrating the **NextGraph Discrete (json) ORM SDK** with React, Vue, and Svelte frontends running side-by-side.
 Changes made in one framework instantly sync to the others. All data is encrypted. Data types are generated from a SHEX schema.
 
-You can find the example app in separate repositories for Svelte, Vue, or React and with the Discrete (one-document JSON-based) ORM [in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
+You can find the example app in separate repositories for Svelte, Vue, or React and with the RDF (graph) ORM [in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
 
 Note that you can install this example app as standalone as well so that you don't have to install all the other NextGraph-related dependencies. You can find all information [in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
 
