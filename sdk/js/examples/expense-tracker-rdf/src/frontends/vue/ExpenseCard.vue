@@ -25,10 +25,10 @@ const expense = props.expense;
 
 const isEditing = ref(false);
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
-    "http://example.org/Paid": "Paid",
-    "http://example.org/Pending": "Pending",
-    "http://example.org/Overdue": "Overdue",
-    "http://example.org/Refunded": "Refunded",
+    "did:ng:z:Paid": "Paid",
+    "did:ng:z:Pending": "Pending",
+    "did:ng:z:Overdue": "Overdue",
+    "did:ng:z:Refunded": "Refunded",
 };
 
 const paymentStatusEntries = Object.entries(paymentStatusLabels);

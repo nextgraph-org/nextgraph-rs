@@ -98,7 +98,7 @@ See [@ng-org/shex-orm](../shex-orm/README.md) for details.
 **`shapes/shex/dogShape.shex`**:
 
 ```shex
-PREFIX ex: <http://example.org/>
+PREFIX ex: <did:ng:z:>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 ex:Dog {

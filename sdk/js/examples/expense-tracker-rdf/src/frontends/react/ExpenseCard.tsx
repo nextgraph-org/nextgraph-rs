@@ -15,10 +15,10 @@ import type {
 } from "../../shapes/orm/expenseShapes.typings";
 
 const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
-    "http://example.org/Paid": "Paid",
-    "http://example.org/Pending": "Pending",
-    "http://example.org/Overdue": "Overdue",
-    "http://example.org/Refunded": "Refunded",
+    "did:ng:z:Paid": "Paid",
+    "did:ng:z:Pending": "Pending",
+    "did:ng:z:Overdue": "Overdue",
+    "did:ng:z:Refunded": "Refunded",
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {

@@ -44,7 +44,7 @@ import { readOnlySet } from "../utils.ts";
  *     const createExpense = () => {
  *         expenses.add({
  *             "@graph": `<graph NURI>`,
- *             "@type": "http://example.org/Expense",
+ *             "@type": "did:ng:z:Expense",
  *             "@id": "", // Assigns ID automatically, if set to "".
  *             title: "New expense",
  *             dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),

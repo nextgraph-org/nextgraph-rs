@@ -28,12 +28,12 @@ export function Expenses() {
 
             expenses.add({
                 "@graph": `did:ng:${session.private_store_id}`,
-                "@type": "http://example.org/Expense",
+                "@type": "did:ng:z:Expense",
                 "@id": "",
                 amount: obj.amount ?? 1,
                 description: obj.description ?? "",
                 totalPrice: obj.totalPrice ?? 0,
-                paymentStatus: obj.paymentStatus ?? "http://example.org/Paid",
+                paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
                 isRecurring: obj.isRecurring ?? false,
                 expenseCategory: obj.expenseCategory ?? new Set<string>(),
                 dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),

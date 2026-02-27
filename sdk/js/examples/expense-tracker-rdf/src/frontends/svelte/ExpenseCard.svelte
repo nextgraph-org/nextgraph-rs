@@ -26,10 +26,10 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   let isEditing = $state(false);
 
   const paymentStatusLabels: Record<Expense["paymentStatus"], string> = {
-    "http://example.org/Paid": "Paid",
-    "http://example.org/Pending": "Pending",
-    "http://example.org/Overdue": "Overdue",
-    "http://example.org/Refunded": "Refunded",
+    "did:ng:z:Paid": "Paid",
+    "did:ng:z:Pending": "Pending",
+    "did:ng:z:Overdue": "Overdue",
+    "did:ng:z:Refunded": "Refunded",
   };
   const paymentStatusEntries = Object.entries(paymentStatusLabels);
 
@@ -42,10 +42,10 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   const purchaseDate = $derived(
     expense.dateOfPurchase
       ? new Date(expense.dateOfPurchase).toLocaleDateString()
-      : "Date not set",
+      : "Date not set"
   );
   const totalPriceDisplay = $derived(
-    currencyFormatter.format(expense.totalPrice ?? 0),
+    currencyFormatter.format(expense.totalPrice ?? 0)
   );
 
   const isCategorySelected = (category: ExpenseCategory) =>
@@ -212,7 +212,7 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
                 onchange={(event) =>
                   toggleCategory(
                     category,
-                    event.currentTarget?.checked ?? false,
+                    event.currentTarget?.checked ?? false
                   )}
               />
               <span class="category-text">

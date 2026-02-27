@@ -22,7 +22,7 @@
     const session = await sessionPromise;
     $expenseCategories.add({
       "@graph": `did:ng:${session.private_store_id}`,
-      "@type": new Set(["http://example.org/ExpenseCategory"]),
+      "@type": new Set(["did:ng:z:ExpenseCategory"]),
       "@id": "",
       categoryName: "New category",
       description: "",
