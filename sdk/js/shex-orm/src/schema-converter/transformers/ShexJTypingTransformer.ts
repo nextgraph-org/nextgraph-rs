@@ -59,7 +59,7 @@ export function iriToName(iri: string): string {
         if (url.hash) {
             name = url.hash.slice(1);
         } else {
-            const splitPathname = url.pathname.split("/");
+            const splitPathname = url.pathname.split(/[\/:#?@&=]/);
             name = splitPathname[splitPathname.length - 1];
         }
         return name.replace(/(?<!^)Shape$/, "");
