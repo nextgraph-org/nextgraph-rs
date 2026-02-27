@@ -12,5 +12,5 @@ export default defineConfig({
     },
   },
   envPrefix: ["VITE_", "NG_"],
-  plugins: [dts()],
+  plugins: [dts({ rollupTypes: true, bundledPackages: ['@ng-org/lib-wasm'] })],
 });

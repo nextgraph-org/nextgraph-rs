@@ -53,19 +53,9 @@ export function toCamelCase(text: string) {
  * Name functions
  */
 export function iriToName(iri: string): string {
-    try {
-        const url = new URL(iri);
-        let name: string;
-        if (url.hash) {
-            name = url.hash.slice(1);
-        } else {
-            const splitPathname = url.pathname.split("/");
-            name = splitPathname[splitPathname.length - 1];
-        }
-        return name.replace(/(?<!^)Shape$/, "");
-    } catch (err) {
-        return iri;
-    }
+    const lastSegment = iri.split(/[\/:#?@&=]/).at(-1)!;
+    // Remove *Shape part of name, if it exists.
+    return lastSegment.replace(/(?<!^)Shape$/, "");
 }
 
 export function nameFromAnnotationOrId(obj: {

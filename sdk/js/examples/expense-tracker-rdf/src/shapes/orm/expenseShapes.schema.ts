@@ -6,14 +6,14 @@ import type { Schema } from "@ng-org/shex-orm";
  * =============================================================================
  */
 export const expenseShapesSchema: Schema = {
-  "http://example.org/ExpenseShape": {
-    iri: "http://example.org/ExpenseShape",
+  "did:ng:z:ExpenseShape": {
+    iri: "did:ng:z:ExpenseShape",
     predicates: [
       {
         dataTypes: [
           {
             valType: "iri",
-            literals: ["http://example.org/Expense"],
+            literals: ["did:ng:z:Expense"],
           },
         ],
         maxCardinality: 1,
@@ -29,7 +29,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/title",
+        iri: "did:ng:z:title",
         readablePredicate: "title",
       },
       {
@@ -40,7 +40,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 0,
-        iri: "http://example.org/description",
+        iri: "did:ng:z:description",
         readablePredicate: "description",
       },
       {
@@ -51,7 +51,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/totalPrice",
+        iri: "did:ng:z:totalPrice",
         readablePredicate: "totalPrice",
       },
       {
@@ -62,7 +62,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/amount",
+        iri: "did:ng:z:amount",
         readablePredicate: "amount",
       },
       {
@@ -73,7 +73,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/dateOfPurchase",
+        iri: "did:ng:z:dateOfPurchase",
         readablePredicate: "dateOfPurchase",
       },
       {
@@ -84,7 +84,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: -1,
         minCardinality: 0,
-        iri: "http://example.org/expenseCategory",
+        iri: "did:ng:z:expenseCategory",
         readablePredicate: "expenseCategory",
       },
       {
@@ -95,7 +95,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/isRecurring",
+        iri: "did:ng:z:isRecurring",
         readablePredicate: "isRecurring",
       },
       {
@@ -106,43 +106,43 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 0,
-        iri: "http://example.org/recurrenceInterval",
+        iri: "did:ng:z:recurrenceInterval",
         readablePredicate: "recurrenceInterval",
       },
       {
         dataTypes: [
           {
             valType: "iri",
-            literals: ["http://example.org/Paid"],
+            literals: ["did:ng:z:Paid"],
           },
           {
             valType: "iri",
-            literals: ["http://example.org/Pending"],
+            literals: ["did:ng:z:Pending"],
           },
           {
             valType: "iri",
-            literals: ["http://example.org/Overdue"],
+            literals: ["did:ng:z:Overdue"],
           },
           {
             valType: "iri",
-            literals: ["http://example.org/Refunded"],
+            literals: ["did:ng:z:Refunded"],
           },
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/paymentStatus",
+        iri: "did:ng:z:paymentStatus",
         readablePredicate: "paymentStatus",
       },
     ],
   },
-  "http://example.org/ExpenseCategoryShape": {
-    iri: "http://example.org/ExpenseCategoryShape",
+  "did:ng:z:ExpenseCategoryShape": {
+    iri: "did:ng:z:ExpenseCategoryShape",
     predicates: [
       {
         dataTypes: [
           {
             valType: "iri",
-            literals: ["http://example.org/ExpenseCategory"],
+            literals: ["did:ng:z:ExpenseCategory"],
           },
         ],
         maxCardinality: 1,
@@ -159,7 +159,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/categoryName",
+        iri: "did:ng:z:categoryName",
         readablePredicate: "categoryName",
       },
       {
@@ -170,7 +170,7 @@ export const expenseShapesSchema: Schema = {
         ],
         maxCardinality: 1,
         minCardinality: 1,
-        iri: "http://example.org/description",
+        iri: "did:ng:z:description",
         readablePredicate: "description",
       },
     ],

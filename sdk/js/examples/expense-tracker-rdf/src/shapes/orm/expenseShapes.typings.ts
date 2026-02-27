@@ -11,7 +11,7 @@ export type IRI = string;
  */
 export interface Expense {
   /**
-   * The graph IRI.
+   * The graph NURI.
    */
   readonly "@graph": IRI;
   /**
@@ -21,65 +21,65 @@ export interface Expense {
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": "http://example.org/Expense";
+  "@type": "did:ng:z:Expense";
   /**
    * The name of the expense
    *
-   * Original IRI: http://example.org/title
+   * Original IRI: did:ng:z:title
    */
   title: string;
   /**
    * A readable description
    *
-   * Original IRI: http://example.org/description
+   * Original IRI: did:ng:z:description
    */
   description?: string;
   /**
    * The total price
    *
-   * Original IRI: http://example.org/totalPrice
+   * Original IRI: did:ng:z:totalPrice
    */
   totalPrice: number;
   /**
    * The number of items bought
    *
-   * Original IRI: http://example.org/amount
+   * Original IRI: did:ng:z:amount
    */
   amount: number;
   /**
    * The date of purchase
    *
-   * Original IRI: http://example.org/dateOfPurchase
+   * Original IRI: did:ng:z:dateOfPurchase
    */
   dateOfPurchase: string;
   /**
    * The use category of the product
    *
-   * Original IRI: http://example.org/expenseCategory
+   * Original IRI: did:ng:z:expenseCategory
    */
   expenseCategory?: Set<string>;
   /**
    * True, if this is a recurring expense (e.g. bus pass)
    *
-   * Original IRI: http://example.org/isRecurring
+   * Original IRI: did:ng:z:isRecurring
    */
   isRecurring: boolean;
   /**
    * For recurring events, the interval of recurrence
    *
-   * Original IRI: http://example.org/recurrenceInterval
+   * Original IRI: did:ng:z:recurrenceInterval
    */
   recurrenceInterval?: string;
   /**
    * The payment status of the expense
    *
-   * Original IRI: http://example.org/paymentStatus
+   * Original IRI: did:ng:z:paymentStatus
    */
   paymentStatus:
-    | "http://example.org/Paid"
-    | "http://example.org/Pending"
-    | "http://example.org/Overdue"
-    | "http://example.org/Refunded";
+    | "did:ng:z:Paid"
+    | "did:ng:z:Pending"
+    | "did:ng:z:Overdue"
+    | "did:ng:z:Refunded";
 }
 
 /**
@@ -87,7 +87,7 @@ export interface Expense {
  */
 export interface ExpenseCategory {
   /**
-   * The graph IRI.
+   * The graph NURI.
    */
   readonly "@graph": IRI;
   /**
@@ -97,17 +97,17 @@ export interface ExpenseCategory {
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": Set<"http://example.org/ExpenseCategory" | (IRI & {})>;
+  "@type": Set<"did:ng:z:ExpenseCategory" | (IRI & {})>;
   /**
    * Name of expense category
    *
-   * Original IRI: http://example.org/categoryName
+   * Original IRI: did:ng:z:categoryName
    */
   categoryName: string;
   /**
    * Human-readable description of category
    *
-   * Original IRI: http://example.org/description
+   * Original IRI: did:ng:z:description
    */
   description: string;
 }

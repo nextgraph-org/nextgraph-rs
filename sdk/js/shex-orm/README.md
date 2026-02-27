@@ -23,11 +23,11 @@ npx rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm
 The input directory needs to contain shex files with one or more shape definitions each, for example:
 
 ```shex
-PREFIX ex: <http://example.org/>
+PREFIX ex: <did:ng:z:>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 ex:ExpenseShape {
-  a [ex:Person] ;                  # Required type <http://example.org/Person>
+  a [ex:Person] ;                  # Required type <did:ng:z:Person>
   ex:name xsd:string ;             # Required string
   ex:email xsd:string * ;          # Zero or more strings (set)
   ex:height xsd:float ;            # Required number

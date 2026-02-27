@@ -2,7 +2,7 @@
 
 Deep structural reactivity for plain objects / arrays / Sets built on top of `alien-signals`.
 
-Hooks for Svelte, Vue, and React.
+Hooks for Svelte (5 and 4), Vue, and React.
 
 Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signals the first time you read them. Deep mutations emit batched patch objects (in a JSON-patch inspired style) that you can track with `watch()`.
 
@@ -49,7 +49,7 @@ state.settings.add("beta");
 
 ## Frontend Hooks
 
-We provide hooks for Svelte 3/4, Svelte 5, Vue, and React so that you can use deepSignal objects in your frontend framework. Modifying the object within those components works as usual, just that the component will rerender automatically when the object changed (by a modification in the component or a modification from elsewhere).
+We provide hooks for Svelte 4, Svelte 5, Vue, and React so that you can use deepSignal objects in your frontend framework. Modifying the object within those components works as usual, just that the component will rerender automatically when the object changed (by a modification in the component or a modification from elsewhere).
 
 Note that you can pass existing deepSignal objects to useDeepSignal (that you are using elsewhere too, for example as shared state) as well as plain JavaScript objects (which are then wrapped).
 
@@ -118,7 +118,7 @@ const user = props.user;
 </template>
 ```
 
-### Svelte 3 / 4
+### Svelte 4
 
 ```ts
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte4";

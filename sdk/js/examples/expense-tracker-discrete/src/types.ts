@@ -37,7 +37,6 @@ export interface Expense {
     /**
      * The use category of the product
      *
-     * Original IRI: http://example.org/expenseCategory
      */
     expenseCategories: string[];
     /**

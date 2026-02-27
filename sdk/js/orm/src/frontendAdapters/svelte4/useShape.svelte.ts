@@ -26,7 +26,7 @@ export interface UseShapeStoreResult<T = object>
 }
 
 /**
- * Svelte 3/4 hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
+ * Svelte 4 hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
  *
  * Returns a {@link DeepSignalSet} store containing the objects matching the shape and that are within the scope.
  * Establishes a 2-way binding: Modifications to the object are immediately committed,
