@@ -24,12 +24,13 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 - [Installation](#installation)
 - [Start](#start)
-- [Graph ORM: Defining Schemas](#graph-orm-defining-schemas)
+- [RDF (graph) ORM: Defining Schemas](#rdf-graph-orm-defining-schemas)
 - [Frontend Framework Usage](#frontend-framework-usage)
 - [Working with Data](#working-with-data)
     - [Creating a Document](#creating-a-document)
     - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
     - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
+    - [Transactions](#transactions)
         - [The DeepSignal\<\> type](#the-deepsignal-type)
         - [Graph ORM: Relationships](#graph-orm-relationships)
 
@@ -53,16 +54,14 @@ pnpm add -D @ng-org/shex-orm
 
 Before writing your own app, you are strongly advised to look at the example apps below, where you can find framework and crdt-specific walkthroughs.
 
-- Discrete CRDTs
-    - [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
-    - [Svelte 5 Runes](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte)
-    - [Svelte 3/4](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte4)
+- Discrete CRDTs [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
+    - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte)
+    - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte4)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-vue)
     - [React](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-react)
-- RDF/Graph CRDT
-    - [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
-    - [Svelte 5 Runes](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte)
-    - [Svelte 3/4](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte4)
+- RDF CRDTs for [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
+    - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte)
+    - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte4)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-graph-vue)
     - [React](https://git.nextgraph.org/NextGraph/expense-tracker-graph-react)
 
@@ -125,12 +124,12 @@ The SDK offers hooks for discrete and graph-based CRDTs for Svelte, Vue and Reac
 
 - discrete CRDTs for
     - Svelte 5: [useDiscrete](#svelteusediscrete)
-    - Svelte 3/4: [useDiscrete](#svelte4usediscrete)
+    - Svelte 4: [useDiscrete](#svelte4usediscrete)
     - Vue: [useDiscrete](#vueusediscrete)
     - React: [useDiscrete](#reactusediscrete)
 - graph CRDTs for:
     - Svelte 5: [useShape](#svelteuseshape)
-    - Svelte 3/4: [useShape](#svelte4useshape)
+    - Svelte 4: [useShape](#svelte4useshape)
     - Vue: [useShape](#vueuseshape)
     - React: [useShape](#reactuseshape)
 

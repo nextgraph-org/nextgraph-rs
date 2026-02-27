@@ -18,7 +18,7 @@ import { DiscreteRoot } from "../../types.ts";
 import { UseShapeStoreResult } from "./useShape.svelte.ts";
 
 /**
- * Svelte 3/4 hook to subscribe to discrete (JSON) CRDT documents.
+ * Svelte 4 hook to subscribe to discrete (JSON) CRDT documents.
  * You can modify the returned object like any other JSON object. Changes are immediately
  * reflected in the CRDT.
  *

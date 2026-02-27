@@ -49,7 +49,7 @@ state.settings.add("beta");
 
 ## Frontend Hooks
 
-We provide hooks for Svelte 3/4, Svelte 5, Vue, and React so that you can use deepSignal objects in your frontend framework. Modifying the object within those components works as usual, just that the component will rerender automatically when the object changed (by a modification in the component or a modification from elsewhere).
+We provide hooks for Svelte 4, Svelte 5, Vue, and React so that you can use deepSignal objects in your frontend framework. Modifying the object within those components works as usual, just that the component will rerender automatically when the object changed (by a modification in the component or a modification from elsewhere).
 
 Note that you can pass existing deepSignal objects to useDeepSignal (that you are using elsewhere too, for example as shared state) as well as plain JavaScript objects (which are then wrapped).
 
