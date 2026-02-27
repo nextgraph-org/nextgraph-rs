@@ -964,9 +964,6 @@ importers:
       '@types/react-dom':
         specifier: 19.1.7
         version: 19.1.7(@types/react@19.1.10)
-      '@types/shexj':
-        specifier: ^2.1.7
-        version: 2.1.7
       alien-signals:
         specifier: ^2.0.7
         version: 2.0.7
