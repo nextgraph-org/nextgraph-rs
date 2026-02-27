@@ -86,7 +86,6 @@
   "devDependencies": {
     "@ng-org/shex-orm": "workspace:*",
     "@ng-org/web": "workspace:*",
-    "@types/shexj": "^2.1.7",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "vite": "7.3.1",

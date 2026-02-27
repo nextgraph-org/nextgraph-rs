@@ -17,6 +17,9 @@ export default defineConfig({
         },
         envPrefix: ["NG_"],
     },
+    server: {
+        port: 5183,
+    },
     devToolbar: {
         enabled: false,
     },

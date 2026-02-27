@@ -53,18 +53,20 @@ pnpm add -D @ng-org/shex-orm
 
 Before writing your own app, you are strongly advised to look at the example apps below, where you can find framework and crdt-specific walkthroughs.
 
-- Discrete CRDTs [with all frameworks running in the same environment](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
-    - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte)
+- Discrete CRDTs
+    - [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
+    - [Svelte 5 Runes](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte)
     - [Svelte 3/4](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte4)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-vue)
     - [React](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-react)
-- RDF CRDTs for [with all frameworks running in the same environment](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
-    - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte)
+- RDF/Graph CRDT
+    - [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
+    - [Svelte 5 Runes](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte)
     - [Svelte 3/4](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte4)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-graph-vue)
     - [React](https://git.nextgraph.org/NextGraph/expense-tracker-graph-react)
 
-The app looks the same in all implementations. You can see that the `useShape()` and `useDiscrete()` frontend hooks to interact with data share the same syntax across all frameworks.
+The app looks the same in all implementations. You can see that the `useShape()` and `useDiscrete()` frontend hooks that interact with the data, share the same syntax across all frameworks.
 
 ---
 
@@ -74,9 +76,10 @@ Before using the ORM, initialize NextGraph in your app entry point:
 import { ng, init } from "@ng-org/web";
 import { initNg } from "@ng-org/orm";
 
-// Call init as early as possible (e.g. in the header of your `index.html`).
-// If your app is not running in an iframe, it will redirect you to log in with your wallet.
+// Call init as early as possible when your app loads.
+// At the first call, it will redirect the user to login with their wallet.
 // In that case, there is no need to render the rest of the app.
+// Then your app will reload, and this time, this call back will be called:
 await init(
     async (event) => {
         // The ORM needs to have access to ng,
@@ -147,7 +150,6 @@ const expenses = useShape(ExpenseShapeType, {
 // Now you can use expenses in your component
 // and modify them to trigger a refresh and persist them.
 
-
 // In analogy:
 const expense: DeepSignal<Expense[]> = useDiscrete(expenseDocumentNuri);
 // Note: While the returned `expenses` object has type `DeepSignal<Expense[]>`, you can treat and type it as `Expense[]` as well, for convenience.
@@ -216,6 +218,8 @@ You can create a new subscription using `(Discrete)OrmSubscription.getOrCreate()
 The pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useShape()` or `useDiscrete()`. This reduces load and the data is available instantly.
 
 Subscriptions are open until `.close()` is called on all references of this object. The `useShape` and `useDiscrete` hooks call `.close()` on their reference when their component unmounts.
+
+### Transactions
 
 To improve performance, you can start transactions with subscriptions using `.beginTransaction()` and `.commitTransaction()`. This will delay the persistence until `.commitTransaction()` is called. Transactions do not affect updates to the frontend and incoming updates from the engine / other devices. When more than one reference to a subscription exists, the transaction affects all of them.
 
