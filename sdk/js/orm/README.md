@@ -266,7 +266,7 @@ Note that the RDF CRDT supports sets only, the discrete CRDTs arrays only.
 
 Data returned by the ORM is of type `DeepSignal<T>`. It behaves like plain objects of type `T` but with some extras. Under the hood, the object is proxied. The proxy tracks modifications and will immediately update the frontend and propagate to the engine.
 
-In your code however, you _do not have to to wrap your type definitions in `DeepSignal<>`_. Nevertheless, it can be instructive for TypeScript to show you the additional utilities that DeepSignal objects expose. Also, it might keep you aware that modifications you make to those objects are persisted and update the frontend.
+In your code however, you _do not have to to wrap your type definitions in `DeepSignal<>`_. Nevertheless, it can be instructive for TypeScript to show you the additional utilities that DeepSignal objects expose. Also, it might keep you aware that modifications you make to those objects are persisted and that they update the frontend.
 The utilities that DeepSignal objects include are:
 
 - For sets (with the RDF ORM):
