@@ -2,7 +2,7 @@
 
 Deep structural reactivity for plain objects / arrays / Sets built on top of `alien-signals`.
 
-Hooks for Svelte, Vue, and React.
+Hooks for Svelte (5 and 4), Vue, and React.
 
 Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signals the first time you read them. Deep mutations emit batched patch objects (in a JSON-patch inspired style) that you can track with `watch()`.
 
@@ -118,7 +118,7 @@ const user = props.user;
 </template>
 ```
 
-### Svelte 3 / 4
+### Svelte 4
 
 ```ts
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte4";

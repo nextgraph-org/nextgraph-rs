@@ -36,7 +36,7 @@
 </script>
 
 <section>
-  <h2 class="title">Svelte 3 / 4</h2>
+  <h2 class="title">Svelte 4</h2>
 
 
   <div class="field-grid">

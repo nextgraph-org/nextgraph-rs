@@ -13,7 +13,7 @@ For a walk-through you can see the the expense-tracker example apps for [discret
 Different CRDTs have different APIs. We want to make it as easy as possible to use them in the same way:\
 **You modify a plain old TypeScript object and that updates the CRDT.**\
 Vice versa, the CRDT is modified and that is reflected in your TS object.\
-We offer this for **React, Vue, and Svelte**.
+We offer this for **React, Vue, and Svelte (5 and 4)**.
 
 Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
@@ -22,17 +22,19 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 ## Table of Contents
 
+- [Reference documentation](#reference-documentation)
+- [Why?](#why)
 - [Installation](#installation)
 - [Start](#start)
 - [RDF (graph) ORM: Defining Schemas](#rdf-graph-orm-defining-schemas)
 - [Frontend Framework Usage](#frontend-framework-usage)
 - [Working with Data](#working-with-data)
-    - [Creating a Document](#creating-a-document)
-    - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
-    - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
-    - [Transactions](#transactions)
-        - [The DeepSignal\<\> type](#the-deepsignal-type)
-        - [Graph ORM: Relationships](#graph-orm-relationships)
+  - [Creating a Document](#creating-a-document)
+  - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
+  - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
+  - [Transactions](#transactions)
+    - [The DeepSignal\<\> type](#the-deepsignal-type)
+    - [Graph ORM: Relationships](#graph-orm-relationships)
 
 ---
 
@@ -56,12 +58,12 @@ Before writing your own app, you are strongly advised to look at the example app
 
 - Discrete CRDTs [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
     - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte)
-    - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte4)
+    - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte4) (no support for Svelte 3)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-vue)
     - [React](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-react)
 - RDF CRDTs for [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
     - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte)
-    - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte4)
+    - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte4) (no support for Svelte 3)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-graph-vue)
     - [React](https://git.nextgraph.org/NextGraph/expense-tracker-graph-react)
 
