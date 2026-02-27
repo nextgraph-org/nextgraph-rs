@@ -13,8 +13,7 @@
   import { useDocumentStore } from "./useDocumentStore.svelte";
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
 
-  const store = useDocumentStore();
-  $: doc = store.doc
+  const { doc } = useDocumentStore();
   $: expenseCategories = $doc?.expenseCategories;
 
   function createCategory() {

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -9,21 +9,22 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useDiscrete } from "@ng-org/orm/react";
-import type { DocumentStore } from "../../types";
-import { ormSubscription, ormSubscriptionPromise } from "../../utils/ngSession";
+import type { DocumentStore } from "../../types.ts";
+import {
+  ormSubscription,
+  ormSubscriptionPromise,
+} from "../../utils/ngSession.ts";
 import { useEffect, useState } from "react";
 
 export function useDocumentStore() {
-    const [documentId, setDocumentId] = useState(ormSubscription?.documentId);
+  const [documentId, setDocumentId] = useState(ormSubscription?.documentId);
 
-    useEffect(() => {
-        // If the connection hasn't been established, wait for it.
-        if (!documentId) {
-            ormSubscriptionPromise.then((con) => setDocumentId(con.documentId));
-        }
-    });
+  useEffect(() => {
+    // If the connection hasn't been established, wait for it.
+    if (!documentId) {
+      ormSubscriptionPromise.then((con) => setDocumentId(con.documentId));
+    }
+  });
 
-    const { doc } = useDiscrete<DocumentStore>(documentId);
-
-    return doc;
+  return useDiscrete<DocumentStore>(documentId);
 }

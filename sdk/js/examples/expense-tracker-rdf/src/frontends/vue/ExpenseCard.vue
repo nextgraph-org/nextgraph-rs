@@ -15,11 +15,10 @@ import type {
     Expense,
     ExpenseCategory,
 } from "../../shapes/orm/expenseShapes.typings";
-import type { DeepSignal } from "@ng-org/orm";
 
 const props = defineProps<{
-    expense: DeepSignal<Expense>;
-    availableCategories: DeepSignal<Set<ExpenseCategory>>;
+    expense: Expense;
+    availableCategories: Set<ExpenseCategory>;
 }>();
 
 const expense = props.expense;
@@ -58,7 +57,7 @@ const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
         if (!expense.expenseCategory) {
             expense.expenseCategory = new Set([
                 category["@id"],
-            ]) as DeepSignal<Set<string>>;
+            ]);
         } else {
             expense.expenseCategory.add(category["@id"]);
         }
@@ -68,7 +67,7 @@ const toggleCategory = (category: ExpenseCategory, checked: boolean) => {
 };
 
 function nameOfCategory(categoryIri: string) {
-    return props.availableCategories.find((c) => c["@id"] === categoryIri)
+    return props.availableCategories.values().find((c) => c["@id"] === categoryIri)
         ?.categoryName;
 }
 

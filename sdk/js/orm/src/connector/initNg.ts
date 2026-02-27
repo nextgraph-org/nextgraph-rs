@@ -8,22 +8,12 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import * as NG from "@ng-org/lib-wasm";
+import type { Session, NG } from "@ng-org/web";
 
-/** A NextGraph session with an engine. */
-export type Session = {
-    session_id: string | number;
-    protected_store_id: string;
-    private_store_id: string;
-    public_store_id: string;
-    ng: typeof NG;
-    [key: string]: unknown;
-};
-
-let resolveNgSession: (value: { ng: typeof NG; session: Session }) => void;
+let resolveNgSession: (value: { ng: NG; session: Session }) => void;
 
 /** Resolves to the NG session and the ng implementation. */
-export const ngSession = new Promise<{ ng: typeof NG; session: Session }>(
+export const ngSession = new Promise<{ ng: NG; session: Session }>(
     (resolve) => {
         resolveNgSession = resolve;
     }
@@ -58,6 +48,6 @@ export const ngSession = new Promise<{ ng: typeof NG; session: Session }>(
  * ```
  *
  */
-export function initNgSignals(ngImpl: typeof NG, session: Session) {
+export function initNgSignals(ngImpl: NG, session: Session) {
     resolveNgSession({ ng: ngImpl, session });
 }

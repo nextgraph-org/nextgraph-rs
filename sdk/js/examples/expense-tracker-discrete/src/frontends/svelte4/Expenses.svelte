@@ -14,8 +14,7 @@
   import { useDocumentStore } from "./useDocumentStore.svelte";
   import ExpenseCard from "./ExpenseCard.svelte";
 
-  const store = useDocumentStore();
-  $: doc = store.doc;
+  const {doc} = useDocumentStore();
   $: expenses = $doc?.expenses;
   $: expenseCategories = $doc?.expenseCategories;
 

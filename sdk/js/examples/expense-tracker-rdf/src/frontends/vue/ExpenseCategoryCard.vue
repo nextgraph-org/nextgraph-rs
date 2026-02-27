@@ -16,7 +16,6 @@ import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
 const props = defineProps<{
     category: ExpenseCategory;
 }>();
-
 const category = props.category;
 
 const isEditing = ref(false);

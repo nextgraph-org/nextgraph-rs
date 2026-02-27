@@ -6,9 +6,7 @@ import { sessionPromise, session } from "../../utils/ngSession";
 import ExpenseCategoryCard from "./ExpenseCategoryCard.vue";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const expenseCategories = useShape(ExpenseCategoryShapeType, {
-    graphs: [privateNuri || ""],
-});
+const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
 
 async function createCategory() {
     const session = await sessionPromise;

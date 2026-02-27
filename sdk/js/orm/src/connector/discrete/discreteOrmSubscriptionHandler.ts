@@ -57,12 +57,12 @@ export class DiscreteOrmSubscription {
     private refCount: number;
     /** When true, modifications from the signalObject are not processed. */
     private suspendDeepWatcher: boolean;
-    /** @readonly True, if a transaction is running. */
-    inTransaction: boolean = false;
-    /** Aggregation of patches to be sent when in transaction. */
-    pendingPatches: Patch[] | undefined;
+    /** True, if a transaction is running. */
+    private inTransaction_: boolean = false;
+    /** Aggregation of patches to be sent when in transaction. @ignore */
+    private pendingPatches: Patch[] | undefined;
     /** **Await to ensure that the subscription is established and the data arrived.** */
-    readyPromise: Promise<void>;
+    private readyPromise_: Promise<void>;
     private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
     private resolveReady!: () => void;
@@ -81,7 +81,7 @@ export class DiscreteOrmSubscription {
         this.suspendDeepWatcher = false;
 
         // Initialize per-entry readiness promise that resolves in setUpConnection
-        this.readyPromise = new Promise<void>((resolve) => {
+        this.readyPromise_ = new Promise<void>((resolve) => {
             this.resolveReady = resolve;
         });
 
@@ -207,6 +207,15 @@ export class DiscreteOrmSubscription {
         }
     };
 
+    /** True, if a transaction is running. */
+    get inTransaction() {
+        return this.inTransaction_;
+    }
+    /** **Await to ensure that the subscription is established and the data arrived.** */
+    get readyPromise() {
+        return this.readyPromise_;
+    }
+
     /**
      * Stop the subscription.
      *
@@ -237,14 +246,14 @@ export class DiscreteOrmSubscription {
         const ormPatches = deepPatchesToWasm(patches);
 
         // If in transaction, collect patches immediately (no await before).
-        if (this.inTransaction) {
+        if (this.inTransaction_) {
             this.pendingPatches?.push(...ormPatches);
             return;
         }
 
         // Wait for session and subscription to be initialized.
         const { ng, session } = await ngSession;
-        await this.readyPromise;
+        await this.readyPromise_;
 
         ng.discrete_orm_update(
             this.subscriptionId!,
@@ -305,10 +314,10 @@ export class DiscreteOrmSubscription {
      * Modifications keep being rendered instantly.
      */
     public beginTransaction = () => {
-        this.inTransaction = true;
+        this.inTransaction_ = true;
         this.pendingPatches = [];
 
-        this.readyPromise.then(() => {
+        this.readyPromise_.then(() => {
             // Use a listener that immediately triggers on object modifications.
             // We don't need the deep-signal's batching (through microtasks) here.
             this.stopSignalListening?.();
@@ -327,16 +336,16 @@ export class DiscreteOrmSubscription {
      * @throws if no transaction is open.
      */
     public commitTransaction = async () => {
-        if (!this.inTransaction) {
+        if (!this.inTransaction_) {
             throw new Error(
                 "No transaction is open. Call `beginTransaction` first."
             );
         }
 
         const { ng, session } = await ngSession;
-        await this.readyPromise;
+        await this.readyPromise_;
 
-        this.inTransaction = false;
+        this.inTransaction_ = false;
 
         if (this.pendingPatches?.length == 0) {
             // Nothing to send to the backend.

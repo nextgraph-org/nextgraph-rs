@@ -9,7 +9,6 @@ notice may not be copied, modified, or distributed except
 according to those terms.
 SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
-
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { ExpenseCategory } from "../../types";

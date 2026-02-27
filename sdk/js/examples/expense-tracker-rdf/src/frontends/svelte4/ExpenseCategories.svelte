@@ -16,7 +16,7 @@
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenseCategories = useShape(ExpenseCategoryShapeType, { graphs: [privateNuri || ""] });
+  const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
 
   async function createCategory() {
     const session = await sessionPromise;

@@ -154,7 +154,7 @@ export type SignalLike<T = any> = WritableSignal<T> | ComputedSignal<T>;
 export type DeepSignalObjectProps<T> = {
     /** The original raw object. */
     __raw__: T;
-    /** @ignore meta information */
+    /** @internal meta information @ignore */
     __meta__: ProxyMeta;
 };
 
@@ -182,9 +182,23 @@ export type DeepSignalSetProps<T> = {
 
 /**
  * Type alias for `DeepSignal<Set<T>>` and reactive Set wrapper that accepts raw or proxied entries.
- * Additionally it is decorated with {@link DeepSignalSetProps}.
+ * Additionally it is decorated with {@link DeepSignalSetProps}
+ * and iterator utilities like `.map()`, `.filter()`, `.some()`, ....
+ *
+ * Note that you can assign plain `Set`s to properties with type DeepSignalSet,
+ * however Typescript will give you a warning. That is a limitation of TypeScript's capability.
+ * Internally, the object will be converted to a DeepSignalSet.
+ * You can instruct TypeScript to ignore this with `parent.children = new Set() as DeepSignal<Set<any>>`.
  */
-export interface DeepSignalSet<T>
+export type DeepSignalSet<T> = DeepSignalSet_<T> &
+    DeepSignalSetProps<T> &
+    DeepSignalObjectProps<T>;
+
+/**
+ * Helper type to prevent excessive documentation to be generated for each property.
+ * @ignore
+ */
+export interface DeepSignalSet_<T>
     extends Set<DeepSignal<T>>,
         DeepSignalObjectProps<Set<T>>,
         SetIterator<DeepSignal<T>>,

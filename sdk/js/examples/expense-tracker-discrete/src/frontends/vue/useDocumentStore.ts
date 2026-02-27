@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -14,13 +14,13 @@ import type { DocumentStore } from "../../types";
 import { ormSubscription, ormSubscriptionPromise } from "../../utils/ngSession";
 
 export function useDocumentStore() {
-    const documentId = ref<string | undefined>(ormSubscription?.documentId);
+  const documentId = ref<string | undefined>(ormSubscription?.documentId);
 
-    if (!documentId.value) {
-        ormSubscriptionPromise.then((con) => {
-            documentId.value = con.documentId;
-        });
-    }
+  if (!documentId.value) {
+    ormSubscriptionPromise.then((con) => {
+      documentId.value = con.documentId;
+    });
+  }
 
-    return useDiscrete<DocumentStore>(documentId);
+  return useDiscrete<DocumentStore>(documentId);
 }
