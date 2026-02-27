@@ -13,8 +13,8 @@ import { ExpenseCategoryCard } from "./ExpenseCategoryCard";
 import { useDocumentStore } from "./useDocumentStore";
 
 export function ExpenseCategories() {
-    const store = useDocumentStore();
-    const expenseCategories = store?.expenseCategories;
+    const { doc } = useDocumentStore();
+    const expenseCategories = doc?.expenseCategories;
 
     const createCategory = useCallback(async () => {
         if (!expenseCategories) return;

@@ -12,7 +12,8 @@ import { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { OrmSubscription } from "./ormSubscriptionHandler.ts";
 
 /**
- * Utility for adding ORM-typed objects to the database without the need for subscribing to documents.
+ * Utility for adding ORM-typed objects to the database without
+ * the need for subscribing to documents using an {@link OrmSubscription}.
  *
  * @param shapeType The shape type of the objects to be inserted.
  * @param object The object to be inserted.

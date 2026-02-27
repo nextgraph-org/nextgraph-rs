@@ -1,11 +1,11 @@
-# NextGraph Expense Tracker Example with Graph/RDF documents
+# NextGraph Expense Tracker Example with Discrete (JSON) documents
 
-A complete example app demonstrating the **NextGraph RDF ORM SDK** with React, Vue, and Svelte frontends running side-by-side.
+A complete example app demonstrating the **NextGraph Discrete (json) ORM SDK** with React, Vue, and Svelte frontends running side-by-side.
 Changes made in one framework instantly sync to the others. All data is encrypted. Data types are generated from a SHEX schema.
 
-You can find this example app in separate repositories for Svelte, Vue, or React and also with the Discrete (one-document JSON-based) ORM instead of Graph/RDF, in the [getting started guide in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
+You can find this example app in separate repositories for Svelte, Vue, or React and also with the RDF (graph) ORM instead of discrete, in the [getting started guide in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
 
-Note that we use those examples here for internally testing the monorepo of NextGraph and its orm and web packages. You don't need to clone the whole monorepo in order to test those examples. Instead, we also publish a separate [repo for graph-based expense tracker here](https://git.nextgraph.org/NextGraph/expense-tracker-graph) that still has the 4 supported frontend-frameworks displayed side-by-side, thanks to Astro. If you prefer to see separate repos specific to each frontend-framework, that you can clone to start your own project, you will find them listed in the [getting started guide in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
+Note that we use those examples here for internally testing the monorepo of NextGraph and its orm and web packages. You don't need to clone the whole monorepo in order to test those examples. Instead, we also publish a separate [repo for discrete-based expense tracker here](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) that still has the 4 supported frontend-frameworks displayed side-by-side, thanks to Astro. If you prefer to see separate repos specific to each frontend-framework, that you can clone to start your own project, you will find them listed in the [getting started guide in the docs](https://docs.nextgraph.org/en/framework/getting-started/).
 
 ## Quick Start
 
@@ -31,22 +31,17 @@ pnpm dev
 - You can open the app in a second tab to see how the data is propagated.
 - **Note:** If the data hasn't loaded yet, the set appears empty.
 
-## Repository Structure
+## Project Structure
 
 ```
 src/
-├── shapes/                    # Data model definitions
-│   ├── shex/
-│   │   └── expenseShapes.shex           # SHEX schema (source of truth)
-│   └── orm/
-│       ├── expenseShapes.typings.ts     # Generated TypeScript interfaces
-│       ├── expenseShapes.shapeTypes.ts  # Generated shape type objects
-│       └── expenseShapes.schema.ts      # Generated schema metadata
 ├── frontends/
 │   ├── react/                 # React components
 │   ├── vue/                   # Vue components
 │   └── svelte/                # Svelte components
-├── utils/
+│
+├── utils/                     # Useful for your own applications utils, too!
+│   ├── loadStore.ts           # Creates or loads the CRDT document
 │   └── ngSession.ts           # NextGraph session initialization
 └── app-wrapper/               # Astro app shell (hosts all frameworks)
 ```

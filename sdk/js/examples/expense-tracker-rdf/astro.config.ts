@@ -15,19 +15,15 @@ export default defineConfig({
         plugins: [topLevelAwait(), wasm()],
         server: {
             strictPort: true,
-            hmr : {
+            hmr: {
                 clientPort: 5183,
             },
         },
-        envPrefix: ["VITE_", "NG_"],
+        envPrefix: ["NG_"],
     },
     server: {
-            
-            port: 5183,
-            headers: {
-                "Access-Control-Allow-Private-Network": "true",
-            },
-        },
+        port: 5183,
+    },
     devToolbar: {
         enabled: false,
     },

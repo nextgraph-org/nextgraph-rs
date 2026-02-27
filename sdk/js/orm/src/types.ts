@@ -52,7 +52,7 @@ export const normalizeScope = (scope: Scope | string | undefined = {}) => {
     return { graphs, subjects };
 };
 
-/** An allowed array in the CRDT. */
+/** An allowed array in the CRDT. @ignore */
 export interface DiscreteArray extends Array<DiscreteType> {}
 
 /** An allowed object in the CRDT. */

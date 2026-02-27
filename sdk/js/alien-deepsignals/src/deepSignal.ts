@@ -1322,12 +1322,31 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
  * the added subscriberFactories are joined with the existing ones
  * and `replaceProxiesInBranchOnChange` is or-ed with the current value.
  *
+ * @param input An object that you want to use as reactive, deepSignal object.
+ *              If the input object is a DeepSignal object already, returns the same object.
+ * @param specialOptions Additional configuration options.
+ *
+ * @returns A {@link DeepSignal} object.
+ *   You can use the returned DeepSignal as you would use your input object.
+ *   You _do not have to to wrap your type definitions in `DeepSignal<>`_.
+ *   Nevertheless, it can be instructive for TypeScript to show you the
+ *   additional utilities that DeepSignal objects expose. Also, it might keep
+ *   you aware that modifications you make to those objects are persisted and
+ *   can update the frontend.
+ *   The utilities that DeepSignal objects include are:
+ *
+ *   - For sets:
+ *       - iterator helper methods (e.g. `map()`, `filter()`, `reduce()`, `any()`, ...)
+ *       - `first()` to get one element from the set -- useful if you know that there is only one.
+ *       - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
+ *       - **NOTE**: When assigning a set to `DeepSignal<Set>`, TypeScript will warn you. You can safely ignore this by writing (`parent.children = new Set() as DeepSignal<Set<any>>`). Internally, the set is automatically converted but this is not expressible in TypeScript.
+ *   - For all objects: `__raw__` which gives you the non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh. If you use `__raw__`, that won't work anymore.
  *
  * @throws if provided with unsupported input types.
  */
 export function deepSignal<T extends object>(
     input: T,
-    options?: DeepSignalOptions
+    specialOptions?: DeepSignalOptions
 ): DeepSignal<T> {
     // Is the input already a signal?
     if (isDeepSignal(input)) {
@@ -1335,12 +1354,12 @@ export function deepSignal<T extends object>(
         const meta = rawToMeta.get((input as any)[RAW_KEY]!)!;
         meta.options.subscriberFactories =
             meta.options.subscriberFactories!.union(
-                options?.subscriberFactories ?? new Set()
+                specialOptions?.subscriberFactories ?? new Set()
             );
 
         meta.options.replaceProxiesInBranchOnChange =
             meta?.options.replaceProxiesInBranchOnChange ||
-            options?.replaceProxiesInBranchOnChange;
+            specialOptions?.replaceProxiesInBranchOnChange;
 
         return input as DeepSignal<T>;
     }
@@ -1356,7 +1375,7 @@ export function deepSignal<T extends object>(
             syntheticIdPropertyName: DEFAULT_SYNTHETIC_ID_PROPERTY_NAME,
             replaceProxiesInBranchOnChange: false,
             subscriberFactories: new Set(),
-            ...options,
+            ...specialOptions,
         },
         version: 0,
         listeners: new Set<DeepPatchSubscriber>(),

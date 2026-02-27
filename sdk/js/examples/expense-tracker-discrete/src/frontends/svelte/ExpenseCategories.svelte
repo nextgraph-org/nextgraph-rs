@@ -23,7 +23,6 @@
       description: "",
     });
   }
-
 </script>
 
 <section class="panel">
@@ -47,7 +46,7 @@
     <p class="muted">No categories yet</p>
   {:else}
     <div class="cards-grid">
-      {#each expenseCategories as category (category['@id'])}
+      {#each expenseCategories as category (category["@id"])}
         <ExpenseCategoryCard {category} />
       {/each}
     </div>

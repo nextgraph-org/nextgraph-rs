@@ -1,7 +1,8 @@
 import { ng, init as initNgWeb } from "@ng-org/web";
 import { initNg as initNgSignals } from "@ng-org/orm";
-import type * as NG from "@ng-org/lib-wasm";
+import type { Session as NextGraphSession } from "@ng-org/web";
 
+/** The session with the NextGraph engine or undefined if not loaded. */
 export let session: NextGraphSession | undefined;
 
 let resolveSessionPromise: (
@@ -9,6 +10,7 @@ let resolveSessionPromise: (
 ) => void;
 let rejectSessionPromise: (reason?: any) => void;
 
+/** Resolves to the current NextGraph session. */
 export let sessionPromise: Promise<NextGraphSession> = new Promise(
     (resolve, reject) => {
         resolveSessionPromise = resolve;
@@ -16,6 +18,7 @@ export let sessionPromise: Promise<NextGraphSession> = new Promise(
     }
 );
 
+/** Call as early in your app as possible so that the page is redirected to auth. */
 export async function init() {
     await initNgWeb(
         async (event: any) => {
@@ -31,13 +34,4 @@ export async function init() {
     ).catch((error) => {
         rejectSessionPromise(error);
     });
-}
-
-export interface NextGraphSession {
-    ng: typeof NG;
-    session_id: string;
-    protected_store_id: string;
-    private_store_id: string;
-    public_store_id: string;
-    [key: string]: unknown;
 }
