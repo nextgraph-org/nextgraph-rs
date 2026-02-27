@@ -4,10 +4,10 @@ import type { Expense, ExpenseCategory } from "./expenseShapes.typings";
 
 // ShapeTypes for expenseShapes
 export const ExpenseShapeType: ShapeType<Expense> = {
-  schema: expenseShapesSchema,
-  shape: "http://example.org/Expense",
+    schema: expenseShapesSchema,
+    shape: "did:ng:z:Expense",
 };
 export const ExpenseCategoryShapeType: ShapeType<ExpenseCategory> = {
-  schema: expenseShapesSchema,
-  shape: "http://example.org/ExpenseCategory",
+    schema: expenseShapesSchema,
+    shape: "did:ng:z:ExpenseCategory",
 };
