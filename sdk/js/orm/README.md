@@ -22,19 +22,17 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 ## Table of Contents
 
-- [Reference documentation](#reference-documentation)
-- [Why?](#why)
 - [Installation](#installation)
 - [Start](#start)
 - [RDF (graph) ORM: Defining Schemas](#rdf-graph-orm-defining-schemas)
 - [Frontend Framework Usage](#frontend-framework-usage)
 - [Working with Data](#working-with-data)
-  - [Creating a Document](#creating-a-document)
-  - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
-  - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
-  - [Transactions](#transactions)
-    - [The DeepSignal\<\> type](#the-deepsignal-type)
-    - [Graph ORM: Relationships](#graph-orm-relationships)
+    - [Creating a Document](#creating-a-document)
+    - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
+    - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
+    - [Transactions](#transactions)
+        - [The DeepSignal\<\> type](#the-deepsignal-type)
+        - [Graph ORM: Relationships](#graph-orm-relationships)
 
 ---
 
@@ -56,12 +54,14 @@ pnpm add -D @ng-org/shex-orm
 
 Before writing your own app, you are strongly advised to look at the example apps below, where you can find framework and crdt-specific walkthroughs.
 
-- Discrete CRDTs [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
+- Discrete CRDTs
+    - [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-discrete)
     - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte)
     - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-svelte4) (no support for Svelte 3)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-vue)
     - [React](https://git.nextgraph.org/NextGraph/expense-tracker-discrete-react)
-- RDF CRDTs for [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
+- RDF CRDT
+    - [all frameworks running in the same window with Astro](https://git.nextgraph.org/NextGraph/expense-tracker-graph)
     - [Svelte 5](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte)
     - [Svelte 4](https://git.nextgraph.org/NextGraph/expense-tracker-graph-svelte4) (no support for Svelte 3)
     - [Vue](https://git.nextgraph.org/NextGraph/expense-tracker-graph-vue)
@@ -129,7 +129,7 @@ The SDK offers hooks for discrete and graph-based CRDTs for Svelte, Vue and Reac
     - Svelte 4: [useDiscrete](#svelte4usediscrete)
     - Vue: [useDiscrete](#vueusediscrete)
     - React: [useDiscrete](#reactusediscrete)
-- graph CRDTs for:
+- graph CRDT for:
     - Svelte 5: [useShape](#svelteuseshape)
     - Svelte 4: [useShape](#svelte4useshape)
     - Vue: [useShape](#vueuseshape)
@@ -216,7 +216,7 @@ There are multiple ways to get and modify data:
 You can establish subscriptions outside of frontend components using the (Discrete)OrmSubscription class. DiscreteOrmSubscriptions are scoped to one document, (RDF-based) OrmSubscriptions can have a `Scope` of more than one document and require a shape type. Once a subscription is established, its `.readyPromise` resolves and the `.signalObject` contains the 2-way bound data.
 
 You can create a new subscription using `(Discrete)OrmSubscription.getOrCreate()`. If a subscription with the same document or scope exists already, a reference to that object is returned. Otherwise, a new one is created.
-The pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useShape()` or `useDiscrete()`. This reduces load and the data is available instantly.
+This pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useShape()` or `useDiscrete()`. This reduces load and the data is available instantly.
 
 Subscriptions are open until `.close()` is called on all references of this object. The `useShape` and `useDiscrete` hooks call `.close()` on their reference when their component unmounts.
 
