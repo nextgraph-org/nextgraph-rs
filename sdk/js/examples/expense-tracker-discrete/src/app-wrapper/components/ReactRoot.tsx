@@ -8,10 +8,15 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { StrictMode } from "react";
 import { ReactExpenseTracker } from "../../frontends/react/Main";
 
 const Root = () => {
-    return <ReactExpenseTracker />;
+    return (
+        <StrictMode>
+            <ReactExpenseTracker />
+        </StrictMode>
+    );
 };
 
 export default Root;
