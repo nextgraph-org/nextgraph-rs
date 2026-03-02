@@ -87,7 +87,10 @@ const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope | string | undefined
 ) => {
-    const parsedScope = !scope ? undefined : normalizeScope(scope);
+    const parsedScope = useMemo(
+        () => (!scope ? undefined : normalizeScope(scope)),
+        [scope, (scope as Scope)?.graphs, (scope as Scope)?.subjects]
+    );
 
     const prevOrmSubscription = useRef<undefined | OrmSubscription<T>>(
         undefined
@@ -103,7 +106,7 @@ const useShape = <T extends BaseType>(
         );
         prevOrmSubscription.current = newOrmSubscription;
         return newOrmSubscription;
-    }, [shape, scope, parsedScope?.graphs, parsedScope?.subjects]);
+    }, [shape, parsedScope, parsedScope?.graphs, parsedScope?.subjects]);
 
     useEffect(() => {
         if (!ormSubscription) return;
