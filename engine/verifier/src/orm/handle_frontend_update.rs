@@ -262,6 +262,8 @@ fn create_sparql_update_query_for_patches(
     // intermediate objects before deeper nested primitive updates (e.g., companyName before headquarter/street).
     let mut ordered_patches = patches.clone();
     ordered_patches.sort_by_key(|p| p.path.matches('/').count());
+    // Collect newly generated objects.
+    // Store them in staged_children with key being the path.
     for p in ordered_patches.iter() {
         if p.op != OrmPatchOp::add {
             continue;
@@ -409,6 +411,8 @@ fn create_sparql_update_query_for_patches(
                     );
                     return None;
                 }
+                let parent_graph = current_graph.clone();
+                let parent_subject = current_subject.clone();
                 let mut cs = composite.split('|');
                 let raw_child_graph = cs.next()?.to_string();
                 let raw_child_subj = cs.next()?.to_string();
@@ -421,8 +425,8 @@ fn create_sparql_update_query_for_patches(
                     // link to child object itself
                     let child_iri = Some(child_subj_decoded);
                     return Some(PathTarget {
-                        graph: graph,
-                        subject: subject,
+                        graph: parent_graph,
+                        subject: parent_subject,
                         predicate_iri: pred_schema.iri.clone(),
                         pred_schema: pred_schema.clone(),
                         child_iri,
@@ -437,8 +441,8 @@ fn create_sparql_update_query_for_patches(
                 // single-valued object predicate, like `/root/pred/<object>`
                 if idx == segs.len() {
                     return Some(PathTarget {
-                        graph: graph,
-                        subject: subject,
+                        graph: current_graph.clone(),
+                        subject: current_subject.clone(),
                         predicate_iri: pred_schema.iri.clone(),
                         pred_schema: pred_schema.clone(),
                         child_iri: None,

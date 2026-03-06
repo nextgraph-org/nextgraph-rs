@@ -8,10 +8,11 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{doc_sparql_select, orm_update};
+use crate::local_broker::{doc_create, doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, await_graph_patches, create_doc_with_data, create_orm_connection,
+    assert_json_eq, augment_expected_with_graph_fields, await_graph_patches, create_doc_with_data,
+    create_orm_connection, rewrite_expected_paths_with_graph,
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
@@ -20,6 +21,7 @@ use ng_net::orm::{
     BasicType, OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate,
     OrmSchemaShape, OrmSchemaValType, OrmShapeType,
 };
+use ng_oxigraph::oxrdf::Subject as OxSubject;
 use ng_repo::log::*;
 use serde_json::json;
 use std::collections::HashMap;
@@ -135,6 +137,12 @@ async fn test_orm_apply_patches() {
 
     // Test 22: Allow EXTRA values
     test_patch_add_extra_value(session_id).await;
+
+    // Test 23: Video Editor nested-nested patches
+    test_nested_nested_object_creation(session_id).await;
+
+    // Test 24: Multi-valued link under non-root parent
+    test_patch_multi_link_parent_not_root(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -195,7 +203,7 @@ INSERT DATA {
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add name
@@ -1050,7 +1058,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
@@ -1415,7 +1423,7 @@ INSERT DATA {
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add a second address.
@@ -1947,7 +1955,7 @@ INSERT DATA {
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) = create_orm_connection(
+    let (_receiver, _cancel_fn, subscription_id, _initial) = create_orm_connection(
         vec![doc_nuri.clone()],
         vec![],
         shape_type.clone(),
@@ -1955,7 +1963,7 @@ INSERT DATA {
     )
     .await;
 
-    let (mut receiver2, _cancel_fn, subscription_id2, initial2) =
+    let (mut receiver2, _cancel_fn, _subscription_id2, _initial2) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Change type to something invalid by schema.
@@ -2095,7 +2103,7 @@ INSERT DATA {
         shape: "http://example.org/Person".to_string(),
         schema,
     };
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:personML");
@@ -2511,7 +2519,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:noopr1");
@@ -2612,7 +2620,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:mix1");
@@ -2722,7 +2730,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:rar1");
@@ -2838,7 +2846,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     let root = root_path(&doc_nuri, "urn:test:personDL");
@@ -3306,4 +3314,433 @@ INSERT DATA {
     );
 
     log_info!("✓ Test passed: Add extra value");
+}
+
+/// Test that terminal multi-object links are anchored to the immediate parent (not root)
+/// when applied under a nested single-valued object path.
+async fn test_patch_multi_link_parent_not_root(session_id: u64) {
+    log_info!("\n\n=== TEST: Multi-object link parent is non-root ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example-non-root-multi.org/>
+INSERT DATA {
+    <http://example-non-root-multi.org/personNR> a <http://example-non-root-multi.org/Person> ;
+        <http://example-non-root-multi.org/name> "Nora" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example-non-root-multi.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example-non-root-multi.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example-non-root-multi.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example-non-root-multi.org/name".to_string(),
+                    readablePredicate: "name".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example-non-root-multi.org/company".to_string(),
+                    readablePredicate: "company".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example-non-root-multi.org/Company".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example-non-root-multi.org/Company".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example-non-root-multi.org/Company".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example-non-root-multi.org/Company".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example-non-root-multi.org/offices".to_string(),
+                    readablePredicate: "offices".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: -1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example-non-root-multi.org/Office".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example-non-root-multi.org/Office".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example-non-root-multi.org/Office".to_string(),
+            predicates: vec![Arc::new(OrmSchemaPredicate {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                extra: Some(false),
+                maxCardinality: 1,
+                minCardinality: 1,
+                readablePredicate: "type".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::iri,
+                    literals: Some(vec![BasicType::Str(
+                        "http://example-non-root-multi.org/Office".to_string(),
+                    )]),
+                    shape: None,
+                }],
+            })],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example-non-root-multi.org/Person".to_string(),
+        schema,
+    };
+
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    let person = "http://example-non-root-multi.org/personNR";
+    let company = "http://example-non-root-multi.org/companyNR";
+    let office = "http://example-non-root-multi.org/officeNR";
+
+    let root = root_path(&doc_nuri, person);
+    let office_child = composite_key(&doc_nuri, office);
+    let patches = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company", root),
+            valType: None,
+            value: Some(json!({})),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/@id", root),
+            valType: None,
+            value: Some(json!(company)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/@graph", root),
+            valType: None,
+            value: Some(json!(doc_nuri.clone())),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/type", root),
+            valType: None,
+            value: Some(json!("http://example-non-root-multi.org/Company")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/offices/{}", root, office_child),
+            valType: None,
+            value: Some(json!({})),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/offices/{}/@id", root, office_child),
+            valType: None,
+            value: Some(json!(office)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/offices/{}/@graph", root, office_child),
+            valType: None,
+            value: Some(json!(doc_nuri.clone())),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/company/offices/{}/type", root, office_child),
+            valType: None,
+            value: Some(json!("http://example-non-root-multi.org/Office")),
+        },
+    ];
+
+    orm_update(subscription_id, patches, session_id)
+        .await
+        .expect("orm_update failed");
+
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_company_office_link = quads.iter().any(|q| {
+        matches!(&q.subject, OxSubject::NamedNode(nn) if nn.as_str() == company)
+            && q.predicate.as_str() == "http://example-non-root-multi.org/offices"
+            && q.object.to_string().contains(office)
+            && quad_has_graph(q, &doc_nuri)
+    });
+
+    let has_root_office_link = quads.iter().any(|q| {
+        matches!(&q.subject, OxSubject::NamedNode(nn) if nn.as_str() == person)
+            && q.predicate.as_str() == "http://example-non-root-multi.org/offices"
+            && q.object.to_string().contains(office)
+            && quad_has_graph(q, &doc_nuri)
+    });
+
+    assert!(
+        has_company_office_link,
+        "Offices link should be anchored on nested company parent"
+    );
+    assert!(
+        !has_root_office_link,
+        "Offices link must not be anchored on root object"
+    );
+
+    log_info!("✓ Test passed: Multi-object link parent is non-root");
+}
+
+async fn test_nested_nested_object_creation(session_id: u64) {
+    log_info!("\n\n=== TEST: Video Editor nested-nested patches ===\n");
+
+    let doc_nuri = doc_create(
+        session_id,
+        "Graph".to_string(),
+        "test_nested_nested_object_creation".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .expect("error creating doc");
+
+    let root_subject = "did:ng:z:someVideoDoc";
+    let asset_subject = "did:ng:z:someMediaAsset";
+    let video_subject = "did:ng:z:someVideoAsset";
+
+    let video_document_schema = json!(
+        {
+            "did:ng:z:MiruVideoDocumentShape": {
+                "iri": "did:ng:z:MiruVideoDocumentShape",
+                "predicates": [
+                    {
+                        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruVideoDocument"] }],
+                        "maxCardinality": 1, "minCardinality": 1,
+                        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                        "readablePredicate": "@type"
+                    },
+                    {
+                        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruVideoDocumentShape||did:ng:z:assets" }],
+                        "maxCardinality": -1, "minCardinality": 0,
+                        "iri": "did:ng:z:assets",
+                        "readablePredicate": "assets"
+                    }
+                ]
+            },
+            "did:ng:z:MiruVideoDocumentShape||did:ng:z:assets": {
+                "iri": "did:ng:z:MiruVideoDocumentShape||did:ng:z:assets",
+                "predicates": [
+                    {
+                        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruMediaAsset"] }],
+                        "maxCardinality": 1, "minCardinality": 1,
+                        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                        "readablePredicate": "@type",
+                        "extra": true
+                    },
+                    {
+                        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruVideoDocumentShape||did:ng:z:assets||did:ng:z:video" }],
+                        "maxCardinality": 1, "minCardinality": 0,
+                        "iri": "did:ng:z:video",
+                        "readablePredicate": "video"
+                    },
+                ]
+            },
+            "did:ng:z:MiruVideoDocumentShape||did:ng:z:assets||did:ng:z:video": {
+                "iri": "did:ng:z:MiruVideoDocumentShape||did:ng:z:assets||did:ng:z:video",
+                "predicates": [
+                    {
+                        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruMediaAssetVideo"] }],
+                        "maxCardinality": 1, "minCardinality": 1,
+                        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                        "readablePredicate": "@type",
+                        "extra": true
+                    },
+                ]
+            }
+    });
+
+    let raw_schema: HashMap<String, OrmSchemaShape> =
+        serde_json::from_value(video_document_schema).expect("schema parse failed");
+    let schema = raw_schema
+        .into_iter()
+        .map(|(k, v)| (k, Arc::new(v)))
+        .collect();
+
+    let shape_type = OrmShapeType {
+        shape: "did:ng:z:MiruVideoDocumentShape".to_string(),
+        schema,
+    };
+
+    let (_receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    let mut patches = json!([
+        {
+            "path": "/did:ng:z:someVideoDoc",
+            "op": "add",
+            "value": {}
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/@id",
+            "op": "add",
+            "value": "did:ng:z:someVideoDoc"
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/@type",
+            "op": "add",
+            "value": "did:ng:z:MiruVideoDocument"
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/assets",
+            "op": "add",
+            "value": [],
+            "type": "set"
+        },
+        {
+            "path":"/did:ng:z:someVideoDoc/createdAt",
+            "op": "add",
+            "value": "2026-03-06T09:20:35.864Z"
+        },
+
+        {
+            "path": "/did:ng:z:someVideoDoc/assets/did:ng:z:someMediaAsset",
+            "op": "add",
+            "value": {}
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/assets/did:ng:z:someMediaAsset/@id",
+            "op": "add",
+            "value": "did:ng:z:someMediaAsset"
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/assets/did:ng:z:someMediaAsset/@type",
+            "op": "add",
+            "type": "set",
+            "value": ["did:ng:z:MiruMediaAsset"]
+        },
+
+        {
+            "path": "/did:ng:z:someVideoDoc/assets/did:ng:z:someMediaAsset/video",
+            "op": "add",
+            "value": {}
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/assets/did:ng:z:someMediaAsset/video/@id",
+            "op": "add",
+            "value": "did:ng:z:someVideoAsset"
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/assets/did:ng:z:someMediaAsset/video/@type",
+            "op": "add",
+            "type": "set",
+            "value": ["did:ng:z:MiruMediaAssetVideo"]
+        },
+
+    ]);
+
+    rewrite_expected_paths_with_graph(&mut patches, &doc_nuri);
+    augment_expected_with_graph_fields(&mut patches, &doc_nuri);
+    let patches: Vec<OrmPatch> = serde_json::from_value(patches).expect("patches parsing failed");
+
+    orm_update(subscription_id, patches, session_id)
+        .await
+        .expect("orm_update failed");
+
+    let quads = doc_sparql_select(
+        session_id,
+        format!("SELECT ?s ?p ?o ?g WHERE {{ GRAPH <{doc_nuri}> {{ ?s ?p ?o }} BIND(<{doc_nuri}> AS ?g) }}"),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_quad = |subject: &str, predicate: &str, object_contains: &str| {
+        quads.iter().any(|q| {
+            matches!(&q.subject, OxSubject::NamedNode(nn) if nn.as_str() == subject)
+                && q.predicate.as_str() == predicate
+                && q.object.to_string().contains(object_contains)
+                && quad_has_graph(q, &doc_nuri)
+        })
+    };
+
+    let expected: Vec<(&str, &str, &str)> = vec![
+        (
+            root_subject,
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "did:ng:z:MiruVideoDocument",
+        ),
+        (root_subject, "did:ng:z:assets", asset_subject),
+        (
+            asset_subject,
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "did:ng:z:MiruMediaAsset",
+        ),
+        (asset_subject, "did:ng:z:video", video_subject),
+        (
+            video_subject,
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "did:ng:z:MiruMediaAssetVideo",
+        ),
+    ];
+
+    for (subject, predicate, object_contains) in expected {
+        assert!(
+            has_quad(subject, predicate, object_contains),
+            "Missing quad: subject='{}' predicate='{}' object contains '{}'",
+            subject,
+            predicate,
+            object_contains
+        );
+    }
+
+    log_info!("✓ Test passed: Video Editor nested-nested patches");
 }
