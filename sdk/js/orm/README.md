@@ -242,7 +242,7 @@ const dogSet: DeepSignal<Set<Dog>> = dogSubscription.signalObject;
 dogs.add({
     // Required: The document NURI. May be set to `""` for nested objects (will be inherited from parent object then).
     "@graph": docNuri,
-    "@type": "did:ng:x:Dog", // Required: RDF type
+    "@type": "did:ng:z:Dog", // Required: RDF type
     "@id": "", // Empty string = auto-generate subject IRI
     name: "Mr Puppy",
     age: 2,

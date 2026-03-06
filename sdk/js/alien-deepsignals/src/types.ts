@@ -164,9 +164,13 @@ export type DeepSignalSetProps<T> = {
     first(): undefined | (T extends object ? DeepSignal<T> : T);
 
     /**
+     * @internal This is only useful when you are using custom ids for sets.
+     *           You should probably use {@link DeepSignalSetProps.getBy}.
+     *
      * Retrieve an entry from the Set by its synthetic set ID.
      * @param id - The synthetic ID (string or number) assigned to the entry.
      * @returns The proxied entry if found, undefined otherwise.
+     * @ignore
      */
     getById(id: string | number): DeepSignal<T> | undefined;
 
