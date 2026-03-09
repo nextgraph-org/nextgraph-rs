@@ -10,7 +10,7 @@
 
 import { describe, test, expect, beforeEach } from "vitest";
 import { initNgSignals } from "./initNg.ts";
-import { OrmSubscription } from "./ormConnectionHandler.ts";
+import { OrmSubscription } from "./ormSubscriptionHandler.ts";
 import type { Patch } from "./applyPatches.ts";
 
 // Provide a minimal window mock for Node.js environment.
