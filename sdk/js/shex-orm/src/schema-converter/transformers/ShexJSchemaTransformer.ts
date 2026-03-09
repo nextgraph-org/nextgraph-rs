@@ -104,7 +104,13 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             _shape.closed;
 
             const transformedChildren = await getTransformedChildren();
-            const compactShape = transformedChildren.expression as Shape;
+            const expr = transformedChildren.expression;
+            // EachOf returns a Shape ({ iri, predicates }), but a single
+            // TripleConstraint returns a bare Predicate. Normalize both.
+            const compactShape: Shape =
+                expr && "predicates" in (expr as Shape)
+                    ? (expr as Shape)
+                    : { iri: "", predicates: [expr as Predicate] };
 
             for (const extra of _shape.extra || []) {
                 const extraPredicate = compactShape.predicates.find(
