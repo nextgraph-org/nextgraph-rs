@@ -43,9 +43,9 @@ export interface Shape {
 /** An allowed data type or literal. */
 export type DataType = {
     /** The required literal value(s). Additional values are allowed, if `extra` is true. */
-    literals?: number[] | string[] | boolean;
-    /** If `valType` is `"shape"`, the nested shape or its reference. Use reference for serialization. */
-    shape?: string | Shape;
+    literals?: number[] | string[] | boolean[];
+    /** If `valType` is `"shape"`, the IRI of the nested shape. */
+    shape?: string;
     /** The type of object value for a triple constraint. */
     valType: "number" | "string" | "boolean" | "iri" | "shape";
 };
