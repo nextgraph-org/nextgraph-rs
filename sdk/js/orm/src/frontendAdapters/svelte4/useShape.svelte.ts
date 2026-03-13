@@ -16,7 +16,7 @@ import {
     type UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte4";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
-import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
+import { OrmSubscription } from "../../connector/GraphOrmSubscription.ts";
 import { readOnlySet } from "../utils.ts";
 
 /** Extended result including the originating root signal wrapper from shape logic. @ignore*/

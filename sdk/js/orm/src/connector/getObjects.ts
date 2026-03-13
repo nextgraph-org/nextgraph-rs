@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { OrmSubscription } from "./ormSubscriptionHandler.ts";
+import { OrmSubscription } from "./GraphOrmSubscription.ts";
 import { normalizeScope, Scope } from "../types.ts";
 import { deepClone } from "./utils.ts";
 

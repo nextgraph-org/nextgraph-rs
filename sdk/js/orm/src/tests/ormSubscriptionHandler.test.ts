@@ -9,9 +9,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, test, expect, beforeEach } from "vitest";
-import { initNgSignals } from "./initNg.ts";
-import { OrmSubscription } from "./ormSubscriptionHandler.ts";
-import type { Patch } from "./applyPatches.ts";
+import { initNgSignals } from "../connector/initNg.ts";
+import { OrmSubscription } from "../connector/graphOrmSubscriptionHandler.ts";
+import type { Patch } from "../connector/applyPatches.ts";
 
 // Provide a minimal window mock for Node.js environment.
 // (It is used for debugging purposes in ormConnectionHandler)
@@ -74,6 +74,7 @@ const mockSession = {
     protected_store_id: "protected-store",
     private_store_id: "private-store",
     public_store_id: "public-store",
+    ng: null as any,
 };
 
 // Initialize mocks once before tests.
@@ -102,8 +103,11 @@ describe("orm connection handler transactions", () => {
             "@graph": "did:ng:test:graph1",
             name: "First",
         } as any);
+        // @ts-ignore
         expect(connection.pendingPatches).toBeDefined();
+        // @ts-ignore
         expect(connection.pendingPatches!.length).toBeGreaterThan(0);
+        // @ts-ignore
         const firstPatchCount = connection.pendingPatches!.length;
 
         // Await so all microtasks run in-between.
@@ -117,6 +121,7 @@ describe("orm connection handler transactions", () => {
         } as any);
 
         // New patches should be available
+        // @ts-ignore
         expect(connection.pendingPatches?.length).toBeGreaterThan(
             firstPatchCount
         );
@@ -134,6 +139,7 @@ describe("orm connection handler transactions", () => {
 
         // Expect transaction to be reset.
         expect(connection.inTransaction).toBe(false);
+        // @ts-ignore
         expect(connection.pendingPatches).toBeUndefined();
 
         connection.close();

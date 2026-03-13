@@ -12,7 +12,7 @@ import { normalizeScope, type Scope } from "../../types.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { onBeforeUnmount } from "vue";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
+import { OrmSubscription } from "../../connector/GraphOrmSubscription.ts";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { readOnlySet } from "../utils.ts";
 

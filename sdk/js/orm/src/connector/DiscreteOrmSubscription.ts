@@ -8,10 +8,10 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { DiscreteArray, DiscreteObject } from "../../types.ts";
-import { applyPatchesToDeepSignal, Patch } from "../applyPatches.ts";
+import { DiscreteArray, DiscreteObject } from "../types.ts";
+import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
 
-import { ngSession } from "../initNg.ts";
+import { ngSession } from "./initNg.ts";
 
 import {
     deepSignal,

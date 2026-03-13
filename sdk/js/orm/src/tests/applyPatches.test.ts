@@ -9,8 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, test, expect } from "vitest";
-import { applyPatches, Patch } from "./applyPatches";
-import path from "path";
+import { applyPatches, Patch } from "../connector/applyPatches.ts";
 
 /**
  * Build a patch path string from segments (auto-prefix /)
@@ -881,24 +880,24 @@ describe("applyDiff - ignored / invalid scenarios", () => {
 describe("applyDiff - array operations", () => {
     test("appends items to an array", () => {
         let obj = [1, 2, 3, 4, 5];
-        applyPatches(obj, [{ op: "add", path: "/-", value: 6 }], false);
+        applyPatches(obj, [{ op: "add", path: "/-", value: 6 }], "discrete");
         expect(obj).toEqual([1, 2, 3, 4, 5, 6]);
     });
     test("removes last item from array", () => {
         let obj = [1, 2, 3, 4, 5];
         // remove last
-        applyPatches(obj, [{ op: "remove", path: "/-" }], false);
+        applyPatches(obj, [{ op: "remove", path: "/-" }], "discrete");
         expect(obj).toEqual([1, 2, 3, 4]);
     });
 
     test("inserts item in array", () => {
         let obj = [1, 2, 3, 4, 5];
-        applyPatches(obj, [{ op: "add", path: "/1", value: 0 }], false);
+        applyPatches(obj, [{ op: "add", path: "/1", value: 0 }], "discrete");
         expect(obj).toEqual([1, 0, 2, 3, 4, 5]);
     });
     test("removes item from array", () => {
         let obj = [1, 2, 3, 4, 5];
-        applyPatches(obj, [{ op: "remove", path: "/1" }], false);
+        applyPatches(obj, [{ op: "remove", path: "/1" }], "discrete");
         expect(obj).toEqual([1, 3, 4, 5]);
     });
 });

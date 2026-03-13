@@ -16,6 +16,8 @@ import type {
     ShapeType,
 } from "@ng-org/shex-orm";
 import { deepClone } from "./connector/utils.ts";
+import { videoSchema } from "./tests/shapes/orm/video.schema.ts";
+import { MiruVideoDocumentShapeType } from "./tests/shapes/orm/video.shapeTypes.ts";
 
 /**
  * Extract a Shape entry from a ShapeType
@@ -106,10 +108,25 @@ type FilterParams<
     values: FilterValType[]; // TODO: We could infer the allowed types more narrowly (as subset of allowed types or literals)
 };
 
+type FilterConfig<
+    ST extends ShapeType<any>,
+    PredName extends PredicateNamesOf<ST, ST["shape"]> = PredicateNamesOf<
+        ST,
+        ST["shape"]
+    >,
+> = {
+    where: {
+        [P in PredName]: PredicateOf<ST, P, ST["shape"]>;
+    };
+};
+type A = typeof MiruVideoDocumentShapeType;
+type FCV = FilterConfig<A>;
+
 const createFilterShape = <ST extends ShapeType<any>>(
     shape: ST,
-    filters: FilterParams<ST>[]
+    config: FilterConfig<ST>
 ) => {
+    const filters: FilterParams<ST>[] = config.where;
     const shapeCopy = deepClone(shape);
     const newShape: ShapeType<any> = { shape: shapeCopy.shape, schema: {} };
 

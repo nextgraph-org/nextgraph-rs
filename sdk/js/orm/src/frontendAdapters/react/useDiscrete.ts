@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useEffect, useMemo, useRef } from "react";
-import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
+import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import { DeepSignal } from "@ng-org/alien-deepsignals";
 import { DiscreteRoot } from "../../types.ts";

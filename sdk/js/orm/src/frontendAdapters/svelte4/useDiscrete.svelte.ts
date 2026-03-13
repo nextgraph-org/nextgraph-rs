@@ -13,7 +13,7 @@ import {
     useDeepSignal,
     UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte4";
-import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
+import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
 import { DiscreteRoot } from "../../types.ts";
 import { UseShapeStoreResult } from "./useShape.svelte.ts";
 

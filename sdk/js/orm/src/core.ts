@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { OrmSubscription } from "./connector/ormSubscriptionHandler.ts";
+import { OrmSubscription } from "./connector/GraphOrmSubscription.ts";
 import { DiscreteOrmSubscription } from "./connector/discrete/discreteOrmSubscriptionHandler.ts";
 import { initNgSignals, ngSession } from "./connector/initNg.ts";
 import { insertObject } from "./connector/insertObject.ts";
