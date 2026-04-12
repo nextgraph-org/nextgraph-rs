@@ -15,6 +15,10 @@
 mod model;
 
 use async_std::prelude::Future;
+use ng_net::orm::OrmConfig;
+use ng_net::orm::OrmConfig;
+use ng_net::orm::OrmConfig;
+use ng_net::orm::WhereConfig;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -1951,6 +1955,7 @@ pub async fn orm_start_graph(
     shapeType: JsValue,
     session_id: JsValue,
     callback: &js_sys::Function,
+    config: JsValue,
 ) -> Result<JsValue, String> {
     let graph_scope: Vec<String> = graph_scope.iter().map(|s| s.as_string().unwrap()).collect();
     let subject_scope: Vec<String> = subject_scope
@@ -1984,7 +1989,8 @@ pub async fn orm_start_graph(
         graph_nuris
     };
 
-    let mut request = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type);
+    let mut request =
+        AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type, config);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }
@@ -2020,6 +2026,44 @@ pub async fn graph_orm_update(
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
+    Ok(())
+}
+
+/// Not to be used by frontend directly.
+/// Use a useShape hook or OrmSubscription to establish ORM subscriptions
+#[wasm_bindgen]
+pub async fn graph_orm_request(
+    subscription_id: JsValue,
+    diff: JsValue,
+    session_id: JsValue,
+) -> Result<(), String> {
+    // TODO: New request type for requesting next/previous page, etc.
+    // Also create new file and move graph-stuff in separate directory.
+
+    // let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
+    //     .map_err(|_| {
+    //         format!(
+    //             "Deserialization error of subscription_id {:?} graph_orm_request",
+    //             subscription_id
+    //         )
+    //     })?;
+    // let session_id: u64 =
+    //     serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+    //         format!(
+    //             "Deserialization error of session_id {:?} graph_orm_request",
+    //             session_id
+    //         )
+    //     })?;
+    // let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
+    //     .map_err(|e| format!("Deserialization error of diff {e}"))?;
+
+    // let mut request = AppRequest::new_orm_update(subscription_id, diff);
+    // request.set_session_id(session_id);
+
+    // let response = nextgraph::local_broker::app_request(request)
+    //     .await
+    //     .map_err(|e: NgError| e.to_string())?;
+
     Ok(())
 }
 

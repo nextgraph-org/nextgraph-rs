@@ -96,6 +96,7 @@ pub enum NgError {
     SparqlError(String),
     ContactNotFound,
     SocialQueryAlreadyStarted,
+    OrmError(String),
 }
 
 impl Error for NgError {}

@@ -11,7 +11,7 @@
 use crate::local_broker::doc_sparql_update;
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, augment_expected_with_graph_fields, create_doc_with_data,
+    assert_orm_json_eq, augment_expected_with_graph_fields, create_doc_with_data,
     create_orm_connection, extract_child_graph_from_actual, extract_graph_from_actual_paths,
     fix_child_segment_graph_in_expected, rewrite_expected_paths_with_graph,
 };
@@ -26,7 +26,6 @@ use std::time::Duration;
 
 use ng_repo::log::*;
 use serde_json::json;
-use serde_json::Value;
 use std::collections::HashMap;
 
 #[async_std::test]
@@ -233,7 +232,7 @@ INSERT DATA {
             }
         }
 
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
         break;
     }
 }
@@ -403,7 +402,7 @@ INSERT DATA {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
             augment_expected_with_graph_fields(&mut expected, &graph);
         }
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
 
         break;
     }
@@ -530,7 +529,7 @@ DELETE DATA {
         if let Some(graph) = extract_graph_from_actual_paths(&actual) {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
         }
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
 
         break;
     }
@@ -774,7 +773,7 @@ INSERT DATA {
         ]);
 
         let mut actual = json!(patches);
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
 
         break;
     }
@@ -1207,7 +1206,7 @@ INSERT DATA {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
             augment_expected_with_graph_fields(&mut expected, &graph);
         }
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
 
         break;
     }
@@ -1313,7 +1312,7 @@ INSERT DATA {
         if let Some(graph) = extract_graph_from_actual_paths(&actual) {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
         }
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
 
         break;
     }
@@ -1512,7 +1511,7 @@ INSERT DATA {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
         }
 
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
         break;
     }
 }
@@ -1748,7 +1747,7 @@ DELETE DATA {{
             }
         }
 
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
         break;
     }
 }

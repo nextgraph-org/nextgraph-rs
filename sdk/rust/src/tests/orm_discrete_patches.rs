@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 use crate::{
     local_broker::orm_discrete_update,
     tests::{
-        assert_json_eq, await_discrete_patches, create_discrete_doc, create_discrete_subscription,
-        create_or_open_wallet::create_or_open_wallet,
+        assert_orm_json_eq, await_discrete_patches, create_discrete_doc,
+        create_discrete_subscription, create_or_open_wallet::create_or_open_wallet,
     },
 };
 
@@ -275,7 +275,7 @@ async fn test_y_map(session_id: u64) {
 
     let mut expected_json = serde_json::to_value(&expected_emitted).unwrap();
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
-    assert_json_eq(&mut expected_json, &mut got_json);
+    assert_orm_json_eq(&mut expected_json, &mut got_json);
 
     let (mut initial_value_3, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
@@ -288,7 +288,7 @@ async fn test_y_map(session_id: u64) {
         .expect("@id missing in initial snapshot");
     assert!(initial_id.starts_with("did:ng:o"));
 
-    assert_json_eq(
+    assert_orm_json_eq(
         &mut json!({
           "someString": "root string",
           "someInteger": -25,
@@ -353,12 +353,12 @@ async fn test_y_map(session_id: u64) {
 
     let mut expected_patches_json = serde_json::to_value(&expected_patches).unwrap();
     let mut got_patches_json = serde_json::to_value(&got_patches).unwrap();
-    assert_json_eq(&mut expected_patches_json, &mut got_patches_json);
+    assert_orm_json_eq(&mut expected_patches_json, &mut got_patches_json);
 
     let (mut initial_value_4, receiver_4, subscription_id_4) =
         create_discrete_subscription(session_id, &nuri).await;
 
-    assert_json_eq(&mut json!({}), &mut initial_value_4);
+    assert_orm_json_eq(&mut json!({}), &mut initial_value_4);
 }
 
 async fn test_y_array(session_id: u64) {
@@ -531,7 +531,7 @@ async fn test_y_array(session_id: u64) {
 
     let mut expected_patches_json = serde_json::to_value(&expected_patches).unwrap();
     let mut got_patches_json = serde_json::to_value(&got_patches).unwrap();
-    assert_json_eq(&mut expected_patches_json, &mut got_patches_json);
+    assert_orm_json_eq(&mut expected_patches_json, &mut got_patches_json);
 
     let (mut initial_value_3, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
@@ -544,7 +544,7 @@ async fn test_y_array(session_id: u64) {
         .expect("@id missing in initial snapshot");
     assert!(initial_id.starts_with("did:ng:o"));
 
-    assert_json_eq(
+    assert_orm_json_eq(
         &mut json!([0,1,2,3,"4", {"someString": "some string", "someNumber": 42, "@id": initial_id}, [], false, Value::Null]),
         &mut initial_value_3,
     );
@@ -575,12 +575,12 @@ async fn test_y_array(session_id: u64) {
 
     let mut expected_json = serde_json::to_value(&expected_emitted).unwrap();
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
-    assert_json_eq(&mut expected_json, &mut got_json);
+    assert_orm_json_eq(&mut expected_json, &mut got_json);
 
     let (mut initial_value_4, receiver_4, subscription_id_4) =
         create_discrete_subscription(session_id, &nuri).await;
 
-    assert_json_eq(&mut json!([]), &mut initial_value_4);
+    assert_orm_json_eq(&mut json!([]), &mut initial_value_4);
 }
 
 async fn test_y_map_wrong_assignment(session_id: u64) {
@@ -618,7 +618,7 @@ async fn test_y_map_wrong_assignment(session_id: u64) {
     let (mut initial_value_2, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
-    assert_json_eq(
+    assert_orm_json_eq(
         &mut json!({"someString": "some string"}),
         &mut initial_value_2,
     );
@@ -660,7 +660,7 @@ async fn test_y_array_wrong_assignment(session_id: u64) {
         create_discrete_subscription(session_id, &nuri).await;
 
     // Object should be as before
-    assert_json_eq(&mut json!(["first value"]), &mut initial_value_2);
+    assert_orm_json_eq(&mut json!(["first value"]), &mut initial_value_2);
 }
 
 async fn test_automerge(session_id: u64) {
@@ -867,7 +867,7 @@ async fn test_automerge(session_id: u64) {
     ]);
     let mut got_json = serde_json::to_value(&got_patches).unwrap();
 
-    assert_json_eq(&mut expected_json, &mut got_json);
+    assert_orm_json_eq(&mut expected_json, &mut got_json);
 
     let (mut initial_value_3, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
@@ -880,7 +880,7 @@ async fn test_automerge(session_id: u64) {
         .expect("@id missing in initial snapshot");
     assert!(initial_id.starts_with("did:ng:o"));
 
-    assert_json_eq(
+    assert_orm_json_eq(
         &mut json!({
           "someString": "root string",
           "someInteger": -25,
@@ -945,12 +945,12 @@ async fn test_automerge(session_id: u64) {
 
     let mut expected_patches_json = serde_json::to_value(&expected_patches).unwrap();
     let mut got_patches_json = serde_json::to_value(&got_patches).unwrap();
-    assert_json_eq(&mut expected_patches_json, &mut got_patches_json);
+    assert_orm_json_eq(&mut expected_patches_json, &mut got_patches_json);
 
     let (mut initial_value_4, receiver_4, subscription_id_4) =
         create_discrete_subscription(session_id, &nuri).await;
 
-    assert_json_eq(&mut json!({}), &mut initial_value_4);
+    assert_orm_json_eq(&mut json!({}), &mut initial_value_4);
 }
 
 async fn test_automerge_wrong_assignment(session_id: u64) {
@@ -988,7 +988,7 @@ async fn test_automerge_wrong_assignment(session_id: u64) {
     let (mut initial_value_2, receiver_3, subscription_id_3) =
         create_discrete_subscription(session_id, &nuri).await;
 
-    assert_json_eq(
+    assert_orm_json_eq(
         &mut json!({"someString": "some string"}),
         &mut initial_value_2,
     );

@@ -13,6 +13,7 @@ use std::{collections::HashMap, sync::Arc};
 use ng_net::app_protocol::AppResponse;
 use ng_net::app_protocol::NuriV0;
 use ng_net::{orm::*, utils::Sender};
+use ng_repo::errors::NgError;
 use ng_repo::types::BranchId;
 use std::sync::{RwLock, Weak};
 
@@ -150,11 +151,22 @@ pub enum Term {
 }
 
 #[derive(Debug)]
+pub struct OrmSubscriptionPageInfo {
+    pub limit: u64,
+    pub offset: u64,
+    pub items: Vec<Arc<RwLock<TrackedOrmObject>>>,
+}
+
+#[derive(Debug)]
 pub struct OrmSubscription {
     pub shape_type: OrmShapeType,
     pub subscription_id: u64,
     pub graph_scope: Vec<String>,
     pub subject_scope: Vec<String>,
+    pub config: OrmConfig,
+
+    pub page_info: Option<OrmSubscriptionPageInfo>,
+
     pub sender: Sender<AppResponse>,
     // Keep private: always use the helper methods below to access/modify
     tracked_orm_objects:
@@ -182,14 +194,46 @@ pub type OrmChanges =
 
 impl OrmSubscription {
     /// Constructor to create a new subscription with an empty tracked object store.
+    ///
+    /// Note that as a heuristic, the page_info.limit is multiplied by 1.5 to account for possibly invalid results
+    /// from page-order queries.
+    ///
+    /// SIDE EFFECT: If a where config is given, the shape type schema is modified to reflect the restrictions.
     pub fn new(
-        shape_type: OrmShapeType,
+        mut shape_type: OrmShapeType,
         subscription_id: u64,
         graph_scope: Vec<String>,
         subject_scope: Vec<String>,
         sender: Sender<AppResponse>,
-    ) -> Self {
-        Self {
+        config: OrmConfig,
+    ) -> Result<Self, NgError> {
+        // Validate that shape_type.shape is present in shape_type.schema
+        if shape_type.schema.get(&shape_type.shape).is_none() {
+            return Err(NgError::OrmError(
+                "shape_type.shape must be present in shape_type.schema".into(),
+            ));
+        }
+        // If a where config is given, modify the shape type accordingly.
+        if let Some(where_config) = config.where_.as_ref() {
+            OrmSubscription::add_where_config_to_shape(
+                &mut shape_type.schema,
+                &shape_type.shape,
+                &shape_type.shape,
+                where_config,
+            )?;
+        }
+
+        let page_info = if config.page_size > 0 {
+            Some(OrmSubscriptionPageInfo {
+                items: vec![],
+                limit: (config.page_size as f64 * 1.5) as u64,
+                offset: 0,
+            })
+        } else {
+            None
+        };
+
+        Ok(Self {
             shape_type,
             subscription_id,
             graph_scope,
@@ -197,7 +241,248 @@ impl OrmSubscription {
             sender,
             tracked_orm_objects: HashMap::new(),
             tracked_nested_subjects: HashMap::new(),
+            config,
+            page_info,
+        })
+    }
+
+    /// Modifies the schema so that the restrictions from the where config are added.
+    /// Works for nested shapes too: Nested shapes are cloned, to prevent collisions.
+    fn add_where_config_to_shape(
+        schema: &mut OrmSchema,
+        source_shape_iri: &String,
+        target_shape_iri: &String,
+        where_config: &WhereConfig,
+    ) -> Result<(), NgError> {
+        let where_obj = where_config
+            .as_object()
+            .ok_or(NgError::OrmError("where-config root not an object.".into()))?;
+
+        let source_shape = schema.get(source_shape_iri).cloned().ok_or_else(|| {
+            NgError::OrmError(format!(
+                "Shape not found in source schema: {}",
+                source_shape_iri
+            ))
+        })?;
+
+        for (readable_pred, where_val) in where_obj {
+            let source_pred_schema = source_shape
+                .predicates
+                .iter()
+                .find(|p| p.readablePredicate == *readable_pred)
+                .cloned()
+                .ok_or(NgError::OrmError(format!(
+                    "Schema error: Could not find where config property {} in schema",
+                    readable_pred
+                )))?;
+            if source_pred_schema.dataTypes.is_empty() {
+                return Err(NgError::OrmError(format!(
+                    "Invalid schema: No dataTypes specified for {readable_pred}."
+                )));
+            }
+
+            let pred_allows_string = source_pred_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::string);
+            let pred_allows_iri = source_pred_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::iri);
+
+            // Normalize to a slice so we can iterate uniformly.
+            let where_values = where_val
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or(std::slice::from_ref(where_val));
+
+            for val in where_values {
+                match val {
+                    serde_json::Value::Number(num) => {
+                        let n = num.as_f64().ok_or_else(|| {
+                            NgError::OrmError(format!(
+                                "Invalid numeric where value for key {}.",
+                                readable_pred
+                            ))
+                        })?;
+                        Self::mutate_target_predicate(
+                            schema,
+                            target_shape_iri,
+                            readable_pred,
+                            move |target_pred_schema| {
+                                target_pred_schema.dataTypes.push(OrmSchemaDataType {
+                                    valType: OrmSchemaValType::number,
+                                    literals: Some(vec![BasicType::Num(n)]),
+                                    shape: None,
+                                });
+                            },
+                        )?;
+                    }
+                    serde_json::Value::Bool(b) => {
+                        let b = *b;
+                        Self::mutate_target_predicate(
+                            schema,
+                            target_shape_iri,
+                            readable_pred,
+                            move |target_pred_schema| {
+                                target_pred_schema.dataTypes.push(OrmSchemaDataType {
+                                    valType: OrmSchemaValType::boolean,
+                                    literals: Some(vec![BasicType::Bool(b)]),
+                                    shape: None,
+                                });
+                            },
+                        )?;
+                    }
+                    serde_json::Value::String(str_or_iri) => {
+                        let str_or_iri = str_or_iri.clone();
+                        let pred_allows_iri_local = pred_allows_iri;
+                        let pred_allows_string_local = pred_allows_string;
+                        // Allow that str_or_iri is added as iri _and_ string,
+                        // since we can't tell for sure by the value
+                        Self::mutate_target_predicate(
+                            schema,
+                            target_shape_iri,
+                            readable_pred,
+                            move |target_pred_schema| {
+                                if pred_allows_iri_local {
+                                    target_pred_schema.dataTypes.push(OrmSchemaDataType {
+                                        valType: OrmSchemaValType::iri,
+                                        literals: Some(vec![BasicType::Str(str_or_iri.clone())]),
+                                        shape: None,
+                                    });
+                                }
+                                if pred_allows_string_local {
+                                    target_pred_schema.dataTypes.push(OrmSchemaDataType {
+                                        valType: OrmSchemaValType::string,
+                                        literals: Some(vec![BasicType::Str(str_or_iri.clone())]),
+                                        shape: None,
+                                    });
+                                }
+                            },
+                        )?;
+                    }
+                    serde_json::Value::Object(_) => {
+                        if let Some(source_child_shape_iri) = source_pred_schema
+                            .dataTypes
+                            .first()
+                            .and_then(|dt| dt.shape.clone())
+                        {
+                            // We have a nested child restriction.
+                            // We clone the child shape and rewrite the dataType.shape to point there.
+                            // We need to clone since more than one where child could point to the same shape.
+
+                            // Create a new child shape id for the cloned child.
+                            let target_pred_iri = schema
+                                .get(target_shape_iri)
+                                .and_then(|shape| {
+                                    shape
+                                        .predicates
+                                        .iter()
+                                        .find(|p| p.readablePredicate == *readable_pred)
+                                        .map(|p| p.iri.clone())
+                                })
+                                .ok_or(NgError::OrmError(format!(
+                                    "Predicate schema not found for property {}",
+                                    readable_pred
+                                )))?;
+
+                            let target_child_shape_iri =
+                                format!("{}|||{}", target_shape_iri, target_pred_iri);
+
+                            let source_child_shape =
+                                schema.get(&source_child_shape_iri).ok_or_else(|| {
+                                    NgError::OrmError(format!(
+                                        "Source child shape {} not found in schema.",
+                                        source_child_shape_iri
+                                    ))
+                                })?;
+                            let mut target_child_shape = clone_shape(source_child_shape);
+                            target_child_shape.iri = target_child_shape_iri.clone();
+                            // Add to target schema.
+                            schema
+                                .entry(target_child_shape_iri.clone())
+                                .insert_entry(Arc::new(target_child_shape));
+
+                            // Set new child shape reference
+                            let target_child_shape_iri_for_pred = target_child_shape_iri.clone();
+                            Self::mutate_target_predicate(
+                                schema,
+                                target_shape_iri,
+                                readable_pred,
+                                move |target_pred_schema| {
+                                    target_pred_schema.dataTypes = vec![OrmSchemaDataType {
+                                        valType: OrmSchemaValType::shape,
+                                        literals: None,
+                                        shape: Some(target_child_shape_iri_for_pred),
+                                    }];
+                                },
+                            )?;
+
+                            Self::add_where_config_to_shape(
+                                schema,
+                                &source_child_shape_iri,
+                                &target_child_shape_iri,
+                                val,
+                            )?
+                        } else {
+                            // A where config object but not of a nested shape. That means it must be something like
+                            // greater than / less than.
+                            // We don't handle this in the shape but in SPARQL queries.
+                            continue;
+                        }
+                    }
+                    _ => {
+                        return Err(NgError::OrmError(format!(
+                            "Invalid where config value for key {}.",
+                            readable_pred
+                        )))
+                    }
+                }
+            }
         }
+
+        Ok(())
+    }
+
+    fn mutate_target_predicate<F>(
+        schema: &mut OrmSchema,
+        target_shape_iri: &str,
+        readable_pred: &str,
+        mutator: F,
+    ) -> Result<(), NgError>
+    where
+        F: FnOnce(&mut OrmSchemaPredicate),
+    {
+        let target_shape_arc = schema.get(target_shape_iri).cloned().ok_or_else(|| {
+            NgError::OrmError(format!(
+                "Shape not found in target schema: {}",
+                target_shape_iri
+            ))
+        })?;
+
+        let mut target_shape = clone_shape(&target_shape_arc);
+        let pred_idx = target_shape
+            .predicates
+            .iter()
+            .position(|p| p.readablePredicate == readable_pred)
+            .ok_or_else(|| {
+                NgError::OrmError(format!(
+                    "Predicate schema not found for property {}",
+                    readable_pred
+                ))
+            })?;
+
+        let mut target_pred_schema =
+            OrmSchemaPredicate::clone(target_shape.predicates[pred_idx].as_ref());
+        mutator(&mut target_pred_schema);
+        target_shape.predicates[pred_idx] = Arc::new(target_pred_schema);
+        schema.insert(target_shape_iri.to_string(), Arc::new(target_shape));
+
+        Ok(())
+    }
+
+    pub fn iter_graphs(&self) -> impl Iterator<Item = &GraphIri> + '_ {
+        self.tracked_orm_objects.keys()
     }
 
     /// Iterate lazily over all tracked ORM objects across all graphs, subjects, and shapes.
@@ -348,6 +633,24 @@ impl OrmSubscription {
             .collect()
     }
 
+    pub fn root_shape(&self) -> Arc<OrmSchemaShape> {
+        self.shape_type
+            .schema
+            .get(&self.shape_type.shape)
+            .expect("shape_type.shape must be present in shape_type.schema.")
+            .clone()
+    }
+
+    pub fn valid_object_count(&self) -> u64 {
+        self.iter_all_objects().fold(0, |valids, tormo| {
+            if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
+                valids + 1
+            } else {
+                valids
+            }
+        })
+    }
+
     /// Cleanup subjects marked for deletion and adjust parent/child relationships accordingly.
     /// TODO: Performance could probably be improved (not iterating all tracked orm objects every time).
     pub fn cleanup_tracked_orm_objects(&mut self) {
@@ -470,5 +773,16 @@ impl OrmSubscription {
                 }
             }
         }
+    }
+}
+
+fn clone_shape(shape: &OrmSchemaShape) -> OrmSchemaShape {
+    OrmSchemaShape {
+        iri: shape.iri.clone(),
+        predicates: shape
+            .predicates
+            .iter()
+            .map(|p| Arc::new(OrmSchemaPredicate::clone(p)))
+            .collect(),
     }
 }

@@ -99,8 +99,12 @@ impl Verifier {
         let subscription_ids: Vec<_> = self.orm_subscriptions.keys().cloned().collect();
 
         for subscription_id in subscription_ids {
-            // Temporarily take ownership of the subscription at this index to allow re-borrowing self
-            let mut subscription = self.orm_subscriptions.remove(&subscription_id).unwrap();
+            // Temporarily take ownership of the subscription to avoid borrowing self twice mutably
+            let Some(mut subscription) = self.orm_subscriptions.remove(&subscription_id) else {
+                continue;
+            };
+
+            // TODO: Handle page-order query cases - does quad need to be added as new tormo?
 
             // Check if this scope is affected by this backend update
             if !Self::is_scope_affected(&subscription, repo_id, &overlaylink) {
@@ -108,6 +112,7 @@ impl Verifier {
                 continue;
             }
 
+            // TODO: Also filter if it's within page-order.
             // Filter quads by subject scope if applicable
             let (inserts, removes) =
                 filter_quads_by_subject_scope_if_necessary(&subscription, inserts, removes);
@@ -130,13 +135,15 @@ impl Verifier {
                 log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
             }
 
+            // TODO: Check if this affects order and validity regarding possible page-order shifts.
+
             // Send patches if the subscription's session is different to the origin's session.
             if origin_subscription_id != subscription_id {
                 // send patches from changes
                 Verifier::send_orm_patches_from_changes(&subscription, &orm_changes).await;
             }
 
-            // Put the subscription back to preserve order
+            // Put the subscription back
             self.orm_subscriptions.insert(subscription_id, subscription);
         }
     }
@@ -147,6 +154,8 @@ impl Verifier {
         repo_id: RepoId,
         overlaylink: &OverlayLink,
     ) -> bool {
+        // TODO: Also check page
+
         // For each scope in graph...
         for scope in orm_subscription.graph_scope.iter() {
             let scope_nuri = NuriV0::new_from(scope).unwrap_or_else(|_| NuriV0::new_empty());
@@ -156,8 +165,8 @@ impl Verifier {
                     .as_ref()
                     .map_or(false, |ol| overlaylink == ol)
                 || scope_nuri.target == NuriTargetV0::Repo(repo_id)
+                // Listens to all (entire user site).
                 || scope == "did:ng:i"
-            // Listens to all (entire user site).
             {
                 return true;
             }
@@ -170,6 +179,11 @@ impl Verifier {
         orm_subscription: &OrmSubscription,
         orm_changes: &OrmChanges,
     ) {
+        // TODO:
+        // - adjust to `select` config
+        // - construct objects, not only atomic patches
+        // - find position in array
+
         // The JSON patches to send to JS land.
         let mut patches: Vec<OrmPatch> = vec![];
 

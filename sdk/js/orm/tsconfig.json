@@ -4,6 +4,6 @@
     "rootDir": "src/",
     "outDir": "dist/"
   },
-  "include": ["src/**/*", "src/tests/applyPatches.test.tst.ts"],
+  "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts"]
 }

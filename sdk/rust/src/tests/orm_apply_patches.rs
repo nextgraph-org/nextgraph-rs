@@ -11,9 +11,9 @@
 use crate::local_broker::{doc_create, doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_has_triples, assert_json_eq, augment_expected_with_graph_fields, await_graph_patches,
-    composite_key, create_doc_with_data, create_orm_connection, escape_pointer_segment,
-    quad_has_graph, quads_to_string, rewrite_expected_paths_with_graph, root_path,
+    assert_has_triples, assert_orm_json_eq, augment_expected_with_graph_fields,
+    await_graph_patches, composite_key, create_doc_with_data, create_orm_connection,
+    escape_pointer_segment, quad_has_graph, rewrite_expected_paths_with_graph, root_path,
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
@@ -1978,7 +1978,7 @@ INSERT DATA {
         ]);
 
         let mut actual = json!(patches);
-        assert_json_eq(&mut expected, &mut actual);
+        assert_orm_json_eq(&mut expected, &mut actual);
 
         break;
     }

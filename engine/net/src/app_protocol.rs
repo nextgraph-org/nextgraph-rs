@@ -859,6 +859,7 @@ impl AppRequest {
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,
+        config: Value,
     ) -> Self {
         AppRequest::new(
             AppRequestCommandV0::OrmStart,
@@ -867,6 +868,7 @@ impl AppRequest {
                 shape_type,
                 graph_scope,
                 subject_scope,
+                config,
             )))),
         )
     }
@@ -1125,7 +1127,7 @@ pub enum AppRequestPayloadV0 {
     //Invoke(InvokeArguments),
     QrCodeProfile(u32),
     QrCodeProfileImport(String),
-    OrmStart((OrmShapeType, Vec<NuriV0>, Vec<String>)),
+    OrmStart((OrmShapeType, Vec<NuriV0>, Vec<String>, Value)),
     OrmUpdate((OrmPatches, u64)),         // subscription id,
     OrmDiscreteUpdate((OrmPatches, u64)), // subscription id
 }

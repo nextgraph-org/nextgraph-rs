@@ -13,6 +13,8 @@ use futures::SinkExt;
 use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
+use ng_oxigraph::oxrdf::GraphName;
+use ng_oxigraph::oxrdf::Subject;
 use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
@@ -41,17 +43,16 @@ impl Verifier {
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,
+        config: Value,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-        let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
+        let config =
+            OrmConfig::from_json(&config, &shape_type).map_err(|e| NgError::OrmError(e))?;
 
-        // TODO: Validate schema:
-        // If multiple data types are present for the same predicate, they must be of of the same type.
-        // All referenced shapes must be available.
-        // All shapes must have predicate
+        let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
 
         self.orm_subscription_counter += 1;
         // Create new subscription and add to self.orm_subscriptions
-        let orm_subscription = OrmSubscription::new(
+        let orm_subscription = match OrmSubscription::new(
             shape_type,
             self.orm_subscription_counter,
             graph_scope
@@ -60,10 +61,20 @@ impl Verifier {
                 .collect(),
             subject_scope,
             tx.clone(),
-        );
+            config,
+        ) {
+            Ok(r) => r,
+            Err(error) => {
+                log_err!(
+                    "Error occurred while creating orm subscription: {:?}",
+                    error
+                );
+                return Err(error);
+            }
+        };
 
         if let Err(error) = self
-            .create_orm_object_for_shape_and_insert_subscription(orm_subscription, &mut tx)
+            .create_orm_objects_and_insert_subscription(orm_subscription, &mut tx)
             .await
         {
             log_err!(
@@ -82,11 +93,175 @@ impl Verifier {
     }
 
     /// For a nuri, session, and shape, create an ORM JSON object.
-    async fn create_orm_object_for_shape_and_insert_subscription(
+    async fn create_orm_objects_and_insert_subscription(
         &mut self,
         mut orm_subscription: OrmSubscription,
         tx: &mut UnboundedSender<AppResponse>,
     ) -> Result<(), NgError> {
+        let materialized_objects = if orm_subscription.config.order_by.is_some() {
+            // If ordering is active, make an additional query that queries ordered graph-subject pairs first.
+            // If pagination is activated, not all graph-subject pairs are fetched.
+
+            self.create_orm_objects_for_ordered(&mut orm_subscription)
+                .await?
+        } else {
+            self.create_orm_objects_for_unordered(&mut orm_subscription)
+                .await?
+        };
+
+        let _ = tx
+            .send(AppResponse::V0(AppResponseV0::GraphOrmInitial(
+                materialized_objects,
+                orm_subscription.subscription_id,
+            )))
+            .await;
+
+        // sync and subscribe to all the graphs found by ORM.
+        // This can have the side effect of sending more AppResponses to the stream
+        // (in case some new updates have been received while we were building the initial values).
+        // For this reason, it happens AFTER the GraphOrmInitial is sent (just above) because
+        // the client cannot apply OrmPatches if it didn't receive the GraphOrmInitial first.
+        for graph in orm_subscription.iter_graphs() {
+            let nuri = NuriV0::new_from_repo_graph(graph)?;
+            self.open_for_target(&nuri.target, true).await?;
+        }
+
+        // Add to verifier's map of subscriptions.
+        self.orm_subscriptions
+            .insert(orm_subscription.subscription_id, orm_subscription);
+
+        Ok(())
+    }
+
+    async fn create_orm_objects_for_ordered(
+        &mut self,
+        orm_subscription: &mut OrmSubscription,
+    ) -> Result<serde_json::Value, NgError> {
+        let mut changes: OrmChanges = HashMap::new();
+        let root_shape = orm_subscription.root_shape();
+
+        let mut limit_offset = orm_subscription
+            .page_info
+            .as_ref()
+            .map(|p| (p.limit, p.offset));
+
+        let mut ordered_page = vec![];
+        loop {
+            // Do order query.
+            let new_page = self.query_graph_subjects(&orm_subscription, limit_offset.clone())?;
+
+            // Query quads for this shape.
+            // TODO: This empty [] should be restructued
+            let shape_quads = if orm_subscription.graph_scope.is_empty() {
+                vec![]
+            } else {
+                // Query scoped to items from ordered_page.
+                self.query_quads_for_shape(
+                    &new_page.iter().map(|(g, _s)| g.clone()).collect(),
+                    &orm_subscription.shape_type.schema,
+                    &orm_subscription.shape_type.shape,
+                    Some(&new_page.iter().map(|(_g, s)| s.clone()).collect()),
+                )?
+            };
+
+            // Filter quads (only g-s pairs from page allowed) because the query_quads_for_shape is more loose.
+            let new_page_set: HashSet<_> = new_page.iter().cloned().collect();
+            ordered_page.extend(new_page);
+            let shape_quads = shape_quads
+                .into_iter()
+                .filter(|q| {
+                    let (GraphName::NamedNode(g), Subject::NamedNode(s)) =
+                        (&q.graph_name, &q.subject)
+                    else {
+                        return false;
+                    };
+                    let key = (g.as_str().to_string(), s.as_str().to_string());
+                    new_page_set.contains(&key)
+                })
+                .collect::<Vec<_>>();
+
+            // Add new quads to tracker.
+            self.process_changes_for_subscription(
+                orm_subscription,
+                &shape_quads,
+                &[],
+                &mut changes,
+                true,
+            )?;
+
+            let n_valid: u64 = orm_subscription.valid_object_count();
+
+            // Determine if we should extend the page-order query (because not enough valid items were returned).
+            if let Some(limit_offset_) = limit_offset {
+                if ordered_page.len() as u64 <= limit_offset_.0
+                    || n_valid >= orm_subscription.config.page_size
+                {
+                    // No more items retrievable for query
+                    // or enough valid ones were returned.
+                    break;
+                } else {
+                    // Not enough items were valid.
+                    limit_offset = Some((
+                        // Increase limit exponentially.
+                        limit_offset_.0 * 2,
+                        // Update offset (only in the loop so we don't query and apply the same data twice).
+                        limit_offset_.1 + limit_offset_.0,
+                    ));
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Persist adapted page limit for subsequent requests.
+        if let (Some((limit, _offset)), Some(page_info)) =
+            (limit_offset, orm_subscription.page_info.as_mut())
+        {
+            page_info.limit = limit;
+        }
+
+        // All data fetched. Now materialize.
+        let mut materialized_objects = json!([]);
+        let objects_vec = materialized_objects.as_array_mut().unwrap();
+
+        for (graph, subject) in ordered_page.iter() {
+            let tormo =
+                orm_subscription.get_or_create_tracked_orm_object(&graph, &subject, &root_shape);
+            if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
+                if let Some(change_ref) = changes
+                    .get(&orm_subscription.shape_type.shape)
+                    .and_then(|g| g.get(graph))
+                    .and_then(|s| s.get(subject))
+                {
+                    let new_val = materialize_orm_object(
+                        change_ref,
+                        &changes,
+                        &root_shape,
+                        &orm_subscription,
+                    );
+                    objects_vec.push(new_val);
+                }
+            }
+
+            // If pagination is on, only materialize as many as requested (for no pagination, page_size is 0, so nothing happens).
+            if objects_vec.len() as u64 == orm_subscription.config.page_size {
+                break;
+            }
+        }
+
+        // Return as first page.
+        Ok(json!({"0": {"items": materialized_objects}}))
+    }
+
+    /// No pagination, no sorting.
+    async fn create_orm_objects_for_unordered(
+        &mut self,
+        orm_subscription: &mut OrmSubscription,
+    ) -> Result<serde_json::Value, NgError> {
+        // Changes to tormos which we use for materialization.
+        let mut changes: OrmChanges = HashMap::new();
+        let root_shape = orm_subscription.root_shape();
+
         // Query quads for this shape
         let shape_quads = if orm_subscription.graph_scope.is_empty() {
             vec![]
@@ -99,23 +274,21 @@ impl Verifier {
             )?
         };
 
-        let mut changes: OrmChanges = HashMap::new();
-
         self.process_changes_for_subscription(
-            &mut orm_subscription,
+            orm_subscription,
             &shape_quads,
             &[],
             &mut changes,
             true,
         )?;
 
-        let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
-        let root_shape = schema.get(&orm_subscription.shape_type.shape).unwrap();
+        // === Materialization ===
+        let mut materialized_objects: serde_json::Value;
 
-        let mut orm_objects = json!({});
-        let obj_map = orm_objects.as_object_mut().unwrap();
+        // If the query was not ordered. We insert all materialized objects in a root map.
 
-        let mut graphs: HashSet<String> = HashSet::new();
+        materialized_objects = json!({});
+        let obj_map = materialized_objects.as_object_mut().unwrap();
 
         // For each valid change struct, we build an orm object.
         for (graph_iri, subject_iri, tracked_orm_object) in
@@ -129,38 +302,28 @@ impl Verifier {
                     .and_then(|g| g.get(&graph_iri))
                     .and_then(|s| s.get(&subject_iri))
                 {
-                    let new_val =
-                        materialize_orm_object(change_ref, &changes, root_shape, &orm_subscription);
+                    let new_val = materialize_orm_object(
+                        change_ref,
+                        &changes,
+                        &root_shape,
+                        &orm_subscription,
+                    );
                     obj_map.insert(
                         format!("{}|{}", tormo.graph_iri, tormo.subject_iri),
                         new_val,
                     );
-                    graphs.insert(graph_iri);
                 }
             }
         }
 
-        let _ = tx
-            .send(AppResponse::V0(AppResponseV0::GraphOrmInitial(
-                orm_objects,
-                orm_subscription.subscription_id,
-            )))
-            .await;
+        Ok(materialized_objects)
+    }
 
-        self.orm_subscriptions
-            .insert(orm_subscription.subscription_id, orm_subscription);
+    pub(crate) fn orm_frontend_request() {
+        // TODO: Handle pagination request.
 
-        // sync and subscribe to all the graphs found by ORM.
-        // This can have the side effect of sending more AppResponses to the stream
-        // (in case some new updates have been received while we were building the initial values).
-        // For this reason, it happens AFTER the GraphOrmInitial is sent (just above) because
-        // the client cannot apply OrmPatches if it didn't receive the GraphOrmInitial first.
-        for graph in graphs.iter() {
-            let nuri = NuriV0::new_from_repo_graph(graph)?;
-            self.open_for_target(&nuri.target, true).await?;
-        }
-
-        Ok(())
+        // Get next page
+        // drop because too many active pages
     }
 }
 
@@ -171,6 +334,8 @@ pub(crate) fn materialize_orm_object(
     shape: &OrmSchemaShape,
     orm_subscription: &OrmSubscription,
 ) -> Value {
+    // TODO: Only materialize select part.
+
     let tormo = change.tracked_orm_object.read().unwrap();
 
     let mut orm_obj = json!({"@id": tormo.subject_iri, "@graph": tormo.graph_iri});

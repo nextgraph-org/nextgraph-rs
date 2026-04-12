@@ -20,12 +20,11 @@ use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
 use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_oxigraph::oxrdf::Quad;
-use ng_oxigraph::oxrdf::Triple;
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
 use qrcode::{render::svg, QrCode};
 use serde_bare::to_vec;
-use serde_json::json;
+use serde_json::{json, Value};
 use svg2pdf::ConversionOptions;
 use zeroize::Zeroize;
 
@@ -2898,8 +2897,10 @@ pub async fn orm_start_graph(
     subject_scope: Vec<String>,
     shape_type: OrmShapeType,
     session_id: u64,
+    config: Value,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-    let mut request = AppRequest::new_orm_start_graph(graph_scope, subject_scope, shape_type);
+    let mut request =
+        AppRequest::new_orm_start_graph(graph_scope, subject_scope, shape_type, config);
     request.set_session_id(session_id);
     app_request_stream(request).await
 }
@@ -2936,16 +2937,6 @@ pub async fn orm_discrete_update(
         return Err(NgError::VerifierError(VerifierError::OtherError(err)));
     }
     Ok(())
-}
-
-pub async fn doc_sparql_construct(
-    session_id: u64,
-    sparql: String,
-    nuri: Option<String>,
-) -> Result<Vec<Triple>, NgError> {
-    let broker = get_broker().await?;
-    let session = broker.get_session(session_id)?;
-    session.verifier.query_sparql_construct(sparql, nuri)
 }
 
 pub async fn doc_sparql_select(

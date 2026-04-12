@@ -80,3 +80,36 @@ export function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
         return { ...patch, path };
     }) as Patch[];
 }
+
+export function guessIsIri(iriOrNot: string) {
+    const commonSchemes = [
+        "http",
+        "https",
+        "did",
+        "urn",
+        "ftp",
+        "ftps",
+        "ws",
+        "wss",
+        "data",
+        "file",
+        "mailto",
+        "tel",
+        "sms",
+        "blob",
+        "geo",
+        "ipfs",
+        "ipns",
+        "ldap",
+        "ldaps",
+        "rtsp",
+        "sftp",
+        "ssh",
+        "git",
+        "magnet",
+        "oid",
+        "doi",
+        "xmpp",
+    ];
+    return commonSchemes.some((s) => iriOrNot.startsWith(`${s}:`));
+}
