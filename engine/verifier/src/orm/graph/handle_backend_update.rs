@@ -17,9 +17,8 @@ use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::log::*;
 
-use crate::orm::types::*;
-use crate::orm::utils::*;
-use crate::orm::OrmChanges;
+use crate::orm::graph::types::*;
+use crate::orm::utils::escape_json_pointer_segment;
 use crate::types::*;
 use crate::verifier::*;
 use ng_net::types::OverlayLink;

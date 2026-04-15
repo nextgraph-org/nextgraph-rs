@@ -43,7 +43,7 @@ use ng_net::types::*;
 use ng_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use ng_net::{actor::*, actors::admin::*};
 
-use ng_verifier::orm::types::ShapeIri;
+use ng_verifier::orm::graph::types::ShapeIri;
 use ng_verifier::types::*;
 use ng_verifier::verifier::Verifier;
 

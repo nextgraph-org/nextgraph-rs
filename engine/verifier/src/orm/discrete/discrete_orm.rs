@@ -25,8 +25,8 @@ use yrs::{Out, Transact};
 use crate::orm::discrete::automerge_orm::{
     automerge_doc_to_json, automerge_handle_frontend_discrete_update,
 };
+use crate::orm::discrete::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::discrete::yrs_orm::{yrs_handle_frontend_discrete_update, yrs_out_to_json};
-use crate::orm::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::types::{CancelFn, DiscreteTransaction};
 
 use crate::verifier::Verifier;
@@ -365,16 +365,16 @@ fn convert_discrete_blob_to_orm_object(
             return Ok((root_json, BackendDiscreteState::YArray(doc)));
         }
         DiscreteState::Automerge(bytes) => {
-            let mut doc = automerge::Automerge::load(&bytes)
+            let doc = automerge::Automerge::load(&bytes)
                 .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
             let root_json = automerge_doc_to_json(&doc, nuri);
             return Ok((root_json, BackendDiscreteState::Automerge(doc)));
         }
-        DiscreteState::YXml(bytes) => {
+        DiscreteState::YXml(_bytes) => {
             log_warn!("YXml not implemented.");
             return Err(VerifierError::NotImplemented);
         }
-        DiscreteState::YText(bytes) => {
+        DiscreteState::YText(_bytes) => {
             log_warn!("YText not implemented.");
             return Err(VerifierError::NotImplemented);
         }

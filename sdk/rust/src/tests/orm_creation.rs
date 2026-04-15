@@ -23,7 +23,7 @@ use ng_net::orm::{
 };
 
 use ng_repo::log::*;
-use ng_verifier::orm::query::schema_shape_to_sparql;
+use ng_verifier::orm::graph::query::schema_shape_to_sparql;
 // use ng_verifier::orm::query::shape_type_to_sparql_select; // replaced by query_quads_for_shape_type
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -2918,10 +2918,14 @@ INSERT DATA {
     .await;
 
     assert_json_eq(
-        &json!([
-             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
-             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
-        ]),
+        &json!({
+            "0": {
+                "items": [
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+                ]
+            }
+        }),
         &initial,
     );
 }

@@ -19,11 +19,10 @@ use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
-use crate::orm::add_remove_quads::apply_quads_for_subject;
-use crate::orm::shape_validation::NeedEvalSelf;
-use crate::orm::types::*;
-use crate::orm::utils::*;
-use crate::orm::OrmChanges;
+use crate::orm::graph::add_remove_quads::apply_quads_for_subject;
+use crate::orm::graph::shape_validation::NeedEvalSelf;
+use crate::orm::graph::types::*;
+use crate::orm::graph::utils::*;
 use crate::verifier::*;
 
 impl Verifier {

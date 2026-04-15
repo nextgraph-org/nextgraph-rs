@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2026 Laurin Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -11,26 +11,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;
-use ng_net::app_protocol::NuriV0;
 use ng_net::{orm::*, utils::Sender};
 use ng_repo::errors::NgError;
-use ng_repo::types::BranchId;
 use std::sync::{RwLock, Weak};
 
-#[derive(Debug)]
-pub struct DiscreteOrmSubscription {
-    pub nuri: NuriV0,
-    pub branch_id: BranchId,
-    pub subscription_id: u64,
-    pub sender: Sender<AppResponse>,
-}
-
-#[derive(Debug)]
-pub enum BackendDiscreteState {
-    YMap(yrs::Doc),
-    YArray(yrs::Doc),
-    Automerge(automerge::Automerge),
-}
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
 #[derive(Clone, Debug)]

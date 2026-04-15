@@ -10,8 +10,8 @@
 
 use std::sync::{Arc, RwLock};
 
-use crate::orm::types::*;
-use crate::orm::utils::assess_and_rank_children;
+use crate::orm::graph::types::*;
+use crate::orm::graph::utils::assess_and_rank_children;
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_repo::log::*;

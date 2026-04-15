@@ -21,9 +21,7 @@ use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
 
 use ng_net::{app_protocol::*, types::*};
-use ng_oxigraph::oxrdf::{
-    GraphName, GraphNameRef, NamedNode, Quad, Subject, Term, Triple, TripleRef,
-};
+use ng_oxigraph::oxrdf::{NamedNode, Quad, Subject, Term, Triple};
 use ng_repo::{errors::*, types::*};
 
 pub const NG_ONTOLOGY: &str = "did:ng:x:ng#";

@@ -15,8 +15,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 
-use crate::orm::types::*;
-use crate::orm::utils::{escape_sparql_string, is_iri};
+use crate::orm::graph::types::*;
+use crate::orm::graph::utils::{escape_sparql_string, is_iri};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};

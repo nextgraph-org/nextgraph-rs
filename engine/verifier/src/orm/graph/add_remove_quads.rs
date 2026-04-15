@@ -12,9 +12,8 @@ use ng_oxigraph::oxrdf::Quad;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 
-use crate::orm::types::*;
+use crate::orm::graph::types::*;
 use ng_net::orm::*;
-use ng_repo::log::*;
 
 /// Add/remove quads to `subject_changes` for a single (graph,subject) and shape.
 /// Assumes all quads have the same subject and graph in a call.

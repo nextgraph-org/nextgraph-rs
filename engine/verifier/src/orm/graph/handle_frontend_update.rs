@@ -20,9 +20,10 @@ use ng_oxigraph::oxigraph::sparql::QueryResults;
 use ng_repo::log::*;
 use serde_json::json;
 
-use crate::orm::add_remove_quads::oxrdf_term_to_orm_basic_type;
-use crate::orm::types::*;
-use crate::orm::utils::{decode_json_pointer, json_to_sparql_val};
+use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
+use crate::orm::graph::types::*;
+use crate::orm::graph::utils::json_to_sparql_val;
+use crate::orm::utils::decode_json_pointer;
 use crate::verifier::*;
 
 impl Verifier {

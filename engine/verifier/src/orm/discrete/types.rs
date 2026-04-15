@@ -8,7 +8,22 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-pub mod automerge_orm;
-pub mod discrete_orm;
-pub mod types;
-pub mod yrs_orm;
+use ng_net::app_protocol::AppResponse;
+use ng_net::app_protocol::NuriV0;
+use ng_net::utils::Sender;
+use ng_repo::types::BranchId;
+
+#[derive(Debug)]
+pub struct DiscreteOrmSubscription {
+    pub nuri: NuriV0,
+    pub branch_id: BranchId,
+    pub subscription_id: u64,
+    pub sender: Sender<AppResponse>,
+}
+
+#[derive(Debug)]
+pub enum BackendDiscreteState {
+    YMap(yrs::Doc),
+    YArray(yrs::Doc),
+    Automerge(automerge::Automerge),
+}

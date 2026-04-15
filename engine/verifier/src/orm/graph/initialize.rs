@@ -23,8 +23,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use crate::orm::types::*;
-use crate::orm::utils::{assess_and_rank_children, nuri_to_string};
+use crate::orm::graph::types::*;
+use crate::orm::graph::utils::{assess_and_rank_children, nuri_to_string};
 use crate::types::CancelFn;
 use crate::verifier::Verifier;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
@@ -33,7 +33,7 @@ use ng_repo::errors::NgError;
 
 use futures::channel::mpsc;
 
-use crate::orm::{types::TrackedOrmObjectChange, OrmChanges};
+use crate::orm::graph::types::TrackedOrmObjectChange;
 
 impl Verifier {
     /// Entry point to create a new orm subscription.
@@ -249,8 +249,13 @@ impl Verifier {
             }
         }
 
-        // Return as first page.
-        Ok(json!({"0": {"items": materialized_objects}}))
+        if orm_subscription.page_info.is_some() {
+            // Return as page when pagination is set.
+            Ok(json!({"0": {"items": materialized_objects}}))
+        } else {
+            // Return as array when no pagination is set.
+            Ok(materialized_objects)
+        }
     }
 
     /// No pagination, no sorting.
