@@ -18,6 +18,7 @@ use ng_oxigraph::oxrdf::Subject;
 use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
+use std::cmp::min;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -133,128 +134,19 @@ impl Verifier {
         Ok(())
     }
 
+    /// This is still a TODO.
     async fn create_orm_objects_for_ordered(
         &mut self,
         orm_subscription: &mut OrmSubscription,
     ) -> Result<serde_json::Value, NgError> {
-        let mut changes: OrmChanges = HashMap::new();
-        let root_shape = orm_subscription.root_shape();
-
-        let mut limit_offset = orm_subscription
-            .page_info
-            .as_ref()
-            .map(|p| (p.limit, p.offset));
-
-        let mut ordered_page = vec![];
-        loop {
-            // Do order query.
-            let new_page = self.query_graph_subjects(&orm_subscription, limit_offset.clone())?;
-
-            // Query quads for this shape.
-            // TODO: This empty [] should be restructued
-            let shape_quads = if orm_subscription.graph_scope.is_empty() {
-                vec![]
-            } else {
-                // Query scoped to items from ordered_page.
-                self.query_quads_for_shape(
-                    &new_page.iter().map(|(g, _s)| g.clone()).collect(),
-                    &orm_subscription.shape_type.schema,
-                    &orm_subscription.shape_type.shape,
-                    Some(&new_page.iter().map(|(_g, s)| s.clone()).collect()),
-                )?
-            };
-
-            // Filter quads (only g-s pairs from page allowed) because the query_quads_for_shape is more loose.
-            let new_page_set: HashSet<_> = new_page.iter().cloned().collect();
-            ordered_page.extend(new_page);
-            let shape_quads = shape_quads
-                .into_iter()
-                .filter(|q| {
-                    let (GraphName::NamedNode(g), Subject::NamedNode(s)) =
-                        (&q.graph_name, &q.subject)
-                    else {
-                        return false;
-                    };
-                    let key = (g.as_str().to_string(), s.as_str().to_string());
-                    new_page_set.contains(&key)
-                })
-                .collect::<Vec<_>>();
-
-            // Add new quads to tracker.
-            self.process_changes_for_subscription(
-                orm_subscription,
-                &shape_quads,
-                &[],
-                &mut changes,
-                true,
-            )?;
-
-            let n_valid: u64 = orm_subscription.valid_object_count();
-
-            // Determine if we should extend the page-order query (because not enough valid items were returned).
-            if let Some(limit_offset_) = limit_offset {
-                if ordered_page.len() as u64 <= limit_offset_.0
-                    || n_valid >= orm_subscription.config.page_size
-                {
-                    // No more items retrievable for query
-                    // or enough valid ones were returned.
-                    break;
-                } else {
-                    // Not enough items were valid.
-                    limit_offset = Some((
-                        // Increase limit exponentially.
-                        limit_offset_.0 * 2,
-                        // Update offset (only in the loop so we don't query and apply the same data twice).
-                        limit_offset_.1 + limit_offset_.0,
-                    ));
-                }
-            } else {
-                break;
-            }
-        }
-
-        // Persist adapted page limit for subsequent requests.
-        if let (Some((limit, _offset)), Some(page_info)) =
-            (limit_offset, orm_subscription.page_info.as_mut())
-        {
-            page_info.limit = limit;
-        }
-
-        // All data fetched. Now materialize.
-        let mut materialized_objects = json!([]);
-        let objects_vec = materialized_objects.as_array_mut().unwrap();
-
-        for (graph, subject) in ordered_page.iter() {
-            let tormo =
-                orm_subscription.get_or_create_tracked_orm_object(&graph, &subject, &root_shape);
-            if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
-                if let Some(change_ref) = changes
-                    .get(&orm_subscription.shape_type.shape)
-                    .and_then(|g| g.get(graph))
-                    .and_then(|s| s.get(subject))
-                {
-                    let new_val = materialize_orm_object(
-                        change_ref,
-                        &changes,
-                        &root_shape,
-                        &orm_subscription,
-                    );
-                    objects_vec.push(new_val);
-                }
-            }
-
-            // If pagination is on, only materialize as many as requested (for no pagination, page_size is 0, so nothing happens).
-            if objects_vec.len() as u64 == orm_subscription.config.page_size {
-                break;
-            }
-        }
+        let queried_page = self.query_page(orm_subscription, true).await?;
 
         if orm_subscription.page_info.is_some() {
             // Return as page when pagination is set.
-            Ok(json!({"0": {"items": materialized_objects}}))
+            Ok(json!({"0": {"items": queried_page}}))
         } else {
             // Return as array when no pagination is set.
-            Ok(materialized_objects)
+            Ok(queried_page)
         }
     }
 
@@ -324,11 +216,448 @@ impl Verifier {
         Ok(materialized_objects)
     }
 
-    pub(crate) fn orm_frontend_request() {
-        // TODO: Handle pagination request.
+    /// This is still a TODO.
+    pub(crate) async fn orm_load_next_page(
+        &mut self,
+        subscription_id: u64,
+        forward: bool,
+    ) -> Result<(), NgError> {
+        let mut orm_subscription =
+            self.orm_subscriptions
+                .remove(&subscription_id)
+                .ok_or_else(|| {
+                    NgError::OrmError(format!("Subscription {subscription_id} not found"))
+                })?;
 
-        // Get next page
-        // drop because too many active pages
+        // Check if there are any more pages to fetch.
+        if orm_subscription.page_info.is_none() {
+            self.orm_subscriptions
+                .insert(subscription_id, orm_subscription);
+            return Err(NgError::OrmError(format!(
+                "Cannot load next page. Pagination is not active for subscription {}.",
+                subscription_id
+            )));
+        };
+
+        // A new query is started with an updated range.
+        let next_page = self.query_page(&mut orm_subscription, forward).await;
+
+        let page_num = {
+            let page_info = orm_subscription.page_info.as_ref().unwrap();
+            if forward {
+                page_info.highest_active_page.clone()
+            } else {
+                page_info.lowest_active_page.clone()
+            }
+        };
+
+        let patch = OrmPatch {
+            op: OrmPatchOp::add,
+            valType: None,
+            value: Some(next_page?),
+            path: format!("/{}", page_num),
+        };
+
+        // A new, materialized page is sent.
+        let _ = orm_subscription
+            .sender
+            .clone()
+            .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(vec![patch])))
+            .await;
+
+        self.orm_subscriptions
+            .insert(subscription_id, orm_subscription);
+
+        Ok(())
+    }
+
+    async fn query_page(
+        &mut self,
+        orm_subscription: &mut OrmSubscription,
+        forward: bool,
+    ) -> Result<Value, NgError> {
+        let mut changes: OrmChanges = HashMap::new();
+        let root_shape = orm_subscription.root_shape();
+
+        // We query the next page with a greater range to assure that we acquire our desired results.
+        // One the one hand, the previous offset might have shifted, on the other, not enough valid graph-subject pairs
+        // might be returned with a small query window.
+        let mut limit_offset = if forward {
+            // For queries of the _next_ page, we adjust the offset by adding to the current window's offset position the number of items in the window.
+            // and subtract the potential_offset_shift.
+            orm_subscription.page_info.as_ref().map(|page_info| {
+                (
+                    page_info.limit_heuristic + page_info.potential_offset_shift,
+                    (page_info.offset + page_info.items_in_window.len() as u64)
+                        .saturating_sub(page_info.potential_offset_shift),
+                )
+            })
+        } else {
+            // For queries of the _previous_ page, we subtract from the current window's offset a page limit and the potential offset shift.
+            orm_subscription.page_info.as_ref().map(|page_info| {
+                (
+                    page_info.limit_heuristic + page_info.potential_offset_shift * 2 + 1, // added shift to both sides + 1 for overlap to old value, for offset shift alignment.
+                    page_info
+                        .offset
+                        .saturating_sub(page_info.potential_offset_shift)
+                        .saturating_sub(page_info.limit_heuristic),
+                )
+            })
+        };
+
+        let mut n_valid: u64;
+        let mut ordered_page = vec![];
+        loop {
+            // Do order query.
+            let mut graph_subject_page =
+                self.query_graph_subjects(&orm_subscription, limit_offset.clone())?;
+
+            // In case of shifted offsets, align result with current window.
+            if let Some(adjusted_limit_offset) = self.align_offset_shift(
+                orm_subscription,
+                &mut graph_subject_page,
+                &limit_offset,
+                forward,
+            )? {
+                limit_offset = Some(adjusted_limit_offset);
+            }
+
+            // Query quads for this shape.
+            // TODO: This empty [] should be restructued
+            let shape_quads = if orm_subscription.graph_scope.is_empty() {
+                vec![]
+            } else {
+                // Query scoped to items from ordered_page.
+                self.query_quads_for_shape(
+                    &graph_subject_page.iter().map(|(g, _s)| g.clone()).collect(),
+                    &orm_subscription.shape_type.schema,
+                    &orm_subscription.shape_type.shape,
+                    Some(&graph_subject_page.iter().map(|(_g, s)| s.clone()).collect()),
+                )?
+            };
+
+            // Filter quads (only g-s pairs from page allowed) because the query_quads_for_shape query is more loose.
+            let new_page_set: HashSet<_> = graph_subject_page.iter().cloned().collect();
+            ordered_page.extend(graph_subject_page);
+            let shape_quads = shape_quads
+                .into_iter()
+                .filter(|q| {
+                    let (GraphName::NamedNode(g), Subject::NamedNode(s)) =
+                        (&q.graph_name, &q.subject)
+                    else {
+                        return false;
+                    };
+                    let key = (g.as_str().to_string(), s.as_str().to_string());
+                    new_page_set.contains(&key)
+                })
+                .collect::<Vec<_>>();
+
+            // Add new quads to tracker.
+            self.process_changes_for_subscription(
+                orm_subscription,
+                &shape_quads,
+                &[],
+                &mut changes,
+                true,
+            )?;
+
+            n_valid = orm_subscription.valid_object_count();
+
+            // Determine if we should extend the page-order query (because not enough valid items were returned).
+            if let Some((old_limit, old_offset)) = limit_offset {
+                if ordered_page.len() as u64 <= old_limit
+                    || n_valid >= orm_subscription.config.page_size
+                {
+                    // No more items retrievable for query
+                    // or enough valid ones were returned.
+                    break;
+                } else {
+                    // Not enough items were valid.
+                    if forward {
+                        limit_offset = Some((
+                            // Increase limit exponentially.
+                            old_limit * 2,
+                            // Update offset (only in the loop so we don't query and apply the same data twice).
+                            old_offset + old_limit,
+                        ));
+                    } else {
+                        let new_offset = old_offset.saturating_sub(old_limit * 3);
+                        limit_offset = Some((
+                            // Increase limit exponentially.
+                            old_offset - new_offset,
+                            // Update offset (only in the loop so we don't query and apply the same data twice).
+                            new_offset,
+                        ));
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        // If pagination is active...
+        if orm_subscription.page_info.is_some() {
+            // Update limit_heuristic: page_size * (#all+1) / (#valid+1) * 1.5
+
+            let page_info = orm_subscription.page_info.as_mut().unwrap();
+
+            let n_objects = page_info.items_in_window.len();
+            page_info.limit_heuristic = (orm_subscription.config.page_size as f64
+                * (n_objects + 1) as f64
+                / (n_valid + 1) as f64
+                * 1.5) as u64;
+
+            // Update the range of active pages present in JS-land.
+            if forward {
+                page_info.highest_active_page += 1;
+            } else {
+                page_info.lowest_active_page -= 1;
+            }
+
+            // If a previous page was loaded, update the offset.
+            if !forward {
+                page_info.offset -= ordered_page.len() as u64;
+            }
+
+            // Drop last / first page, if we now have more pages than max_active_pages allows.
+            let highest_active_page = page_info.highest_active_page;
+            let lowest_active_page = page_info.lowest_active_page;
+
+            if orm_subscription.config.max_active_pages > 0
+                && highest_active_page - lowest_active_page
+                    > orm_subscription.config.max_active_pages as i64
+            {
+                if forward {
+                    let removed_objects: Vec<(GraphIri, SubjectIri)> =
+                        self.untrack_page(orm_subscription, forward).await?;
+
+                    // Also add them to the all_up_to_offset (since we don't track them anymore but changes might affect the offset).
+                    orm_subscription
+                        .page_info
+                        .as_mut()
+                        .unwrap()
+                        .all_up_to_offset
+                        .extend(removed_objects);
+                } else {
+                    let _ = self.untrack_page(orm_subscription, forward).await?;
+                }
+            }
+            let page_info = orm_subscription.page_info.as_mut().unwrap();
+
+            if !forward {
+                // Remove the re-fetched page from all_up_to_offset because we now track it again.
+                let page_set: HashSet<(GraphIri, SubjectIri)> =
+                    HashSet::from_iter(ordered_page.iter().cloned());
+                page_info.all_up_to_offset = page_info
+                    .all_up_to_offset
+                    .difference(&page_set)
+                    .cloned()
+                    .collect();
+            }
+
+            // Remove all items above page_size from ordered_page
+            let removed_gs = ordered_page.drain(orm_subscription.config.page_size as usize..);
+            // Use the removed items to remove them from tracked orm objects
+            for (graph_iri, subject_iri) in removed_gs {
+                orm_subscription.remove_tracked_orm_object(
+                    &graph_iri,
+                    &subject_iri,
+                    &root_shape.iri,
+                );
+            }
+        }
+
+        // All data available. Now materialize.
+        let mut materialized_objects = json!([]);
+        let objects_vec = materialized_objects.as_array_mut().unwrap();
+
+        for (graph, subject) in ordered_page.iter() {
+            let tormo =
+                orm_subscription.get_or_create_tracked_orm_object(&graph, &subject, &root_shape);
+            if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
+                if let Some(change_ref) = changes
+                    .get(&orm_subscription.shape_type.shape)
+                    .and_then(|g| g.get(graph))
+                    .and_then(|s| s.get(subject))
+                {
+                    let new_val = materialize_orm_object(
+                        change_ref,
+                        &changes,
+                        &root_shape,
+                        &orm_subscription,
+                    );
+                    objects_vec.push(new_val);
+                }
+            }
+        }
+        Ok(materialized_objects)
+    }
+
+    fn align_offset_shift(
+        &self,
+        orm_subscription: &mut OrmSubscription,
+        graph_subject_page: &mut Vec<(GraphIri, SubjectIri)>,
+        used_limit_offset: &Option<(u64, u64)>,
+        forward: bool,
+    ) -> Result<Option<(u64, u64)>, NgError> {
+        let mut res: Option<((u64, u64), i64)> = None;
+
+        if let Some(page_info) = orm_subscription.page_info.as_ref() {
+            if page_info.potential_offset_shift > 0
+                && graph_subject_page.len() > 0
+                && !orm_subscription.is_empty()
+            {
+                if forward {
+                    // Find the right-most item of our window in the graph_subject_page result.
+                    if let Some(right_most) = page_info
+                        .items_in_window
+                        .last()
+                        .and_then(|rm| rm.read().ok())
+                    {
+                        let index_of_rm_in_gs = graph_subject_page
+                            .iter()
+                            .position(|(g, s)| {
+                                *g == right_most.graph_iri && *s == right_most.subject_iri
+                            })
+                            .ok_or_else(|| {
+                                NgError::OrmError(format!(
+                                    "Could not find left-most value when fetching next page"
+                                ))
+                            })?;
+
+                        // Remove all previous items (already tracked) from graph_subject_page.
+                        // We only want the new values here.
+                        graph_subject_page.drain(..(index_of_rm_in_gs + 1));
+
+                        if let Some((used_limit, used_offset)) = used_limit_offset {
+                            // New offset points to the element after the previously active window.
+                            let new_offset = used_offset + index_of_rm_in_gs as u64;
+
+                            let adjusted_limit_offset = (*used_limit, new_offset);
+                            // Calculate by how much the offset shifted since our last query.
+                            let offset_shift =
+                                new_offset as i64 - orm_subscription.object_count() as i64;
+
+                            res = Some((adjusted_limit_offset, offset_shift));
+                        }
+                    }
+                } else {
+                    // Get the left-most item of our window in graph_subject_page result.
+                    if let Some(left_most) = page_info
+                        .items_in_window
+                        .get(0)
+                        .and_then(|lm| lm.read().ok())
+                    {
+                        // Adjust offset, if necessary.
+                        let index_of_lm_in_gs = graph_subject_page
+                            .iter()
+                            .position(|(g, s)| {
+                                *g == left_most.graph_iri && *s == left_most.subject_iri
+                            })
+                            .ok_or_else(|| {
+                                NgError::OrmError(format!(
+                                    "Could not find left-most value when fetching next page"
+                                ))
+                            })?;
+
+                        // We only want new items in the graph_subject page.
+                        // Therefore, we cut off all items above the found one.
+                        graph_subject_page.truncate(index_of_lm_in_gs);
+
+                        // If we made a backward query, we expect our item to be at the end of the queried page.
+                        // We update the limit so that the item with pos. offset+limit + 1 is the current window's left-most item.
+                        if let Some((_used_limit, used_offset)) = used_limit_offset {
+                            let adjusted_limit_offset = (index_of_lm_in_gs as u64, *used_offset);
+                            // Identify the shift of the offset between the previous page query and now.
+                            let offset_shift = *used_offset as i64 + index_of_lm_in_gs as i64
+                                - page_info.offset as i64;
+
+                            res = Some((adjusted_limit_offset, offset_shift));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Reset potential offset shift.
+        if let Some(page_info) = orm_subscription.page_info.as_mut() {
+            page_info.potential_offset_shift = 0;
+            if let Some((adjusted_limit_offset, offset_shift)) = res {
+                page_info.offset = (page_info.offset as i64 + offset_shift) as u64;
+                return Ok(Some(adjusted_limit_offset));
+            }
+        }
+
+        Ok(None)
+    }
+
+    async fn untrack_page(
+        &mut self,
+        orm_subscription: &mut OrmSubscription,
+        forward: bool,
+    ) -> Result<Vec<(GraphIri, SubjectIri)>, NgError> {
+        // Collect all objects to remove from tracking.
+        let Some(page_info) = orm_subscription.page_info.as_mut() else {
+            return Err(NgError::OrmError(format!(
+                "page_info not found for removing page."
+            )));
+        };
+
+        let page_size = orm_subscription.config.page_size as usize;
+        let lower_pos = if forward {
+            0
+        } else {
+            page_size * (page_info.highest_active_page - page_info.lowest_active_page - 1) as usize
+        };
+        let upper_pos = if forward {
+            min(page_size as usize, page_info.items_in_window.len())
+        } else {
+            page_info.items_in_window.len() as usize
+        };
+
+        let removed_objects: Vec<(String, String)> = page_info
+            .items_in_window
+            .drain(lower_pos..upper_pos)
+            .map(|tormo| {
+                let tormo = tormo.read().unwrap();
+                (tormo.graph_iri.clone(), tormo.subject_iri.clone())
+            })
+            .collect();
+
+        // Remove objects from tracking.
+        let root_shape = &orm_subscription.root_shape().iri;
+        for (rm_graph, rm_subject) in removed_objects.iter() {
+            orm_subscription.remove_tracked_orm_object(&rm_graph, &rm_subject, root_shape);
+        }
+
+        let page_info = orm_subscription.page_info.as_mut().unwrap();
+        let page_num = if forward {
+            page_info.lowest_active_page
+        } else {
+            page_info.highest_active_page
+        };
+
+        // Adjust the active page num info.
+        if forward {
+            page_info.lowest_active_page += 1;
+        } else {
+            page_info.highest_active_page -= 1;
+        }
+
+        // Send a remove patch to frontend that targets whole page.
+        let remove_patch: Vec<OrmPatch> = vec![OrmPatch {
+            op: OrmPatchOp::remove,
+            valType: None,
+            path: format!("/{}", page_num),
+            value: None,
+        }];
+        let _ = orm_subscription
+            .sender
+            .clone()
+            .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(remove_patch)))
+            .await;
+
+        Ok(removed_objects)
     }
 }
 

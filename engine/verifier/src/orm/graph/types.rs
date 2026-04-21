@@ -8,6 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::collections::{HashSet, LinkedList};
 use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;
@@ -136,9 +137,31 @@ pub enum Term {
 
 #[derive(Debug)]
 pub struct OrmSubscriptionPageInfo {
-    pub limit: u64,
+    pub limit_heuristic: u64,
+    /// The lowest active page presented to JS-land.
+    pub lowest_active_page: i64,
+    /// The highest active page presented to JS-land.
+    pub highest_active_page: i64,
+    /// The offset in the sparql queries for the lowest page.
     pub offset: u64,
-    pub items: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    /// The number of changes that might have affected the current offset.
+    /// This value is reset whenever a new page is queried.
+    pub potential_offset_shift: u64,
+    /// All items that are below the current window and whose changes therefore
+    /// might affect shifts in the offset. Also see potential_offset_shift.
+    pub all_up_to_offset: HashSet<(String, String)>,
+    pub items_in_window: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    /// TODO: The logic for this is not implemented yet.
+    ///
+    /// The idea of this property is that we need to track which object belongs to which page.
+    /// `items_in_window` keeps the order and config.page_size tells us the page size.
+    ///
+    /// But when we go back to a page that was previously dropped but loading the page
+    /// does not yield as many objects as config.page_size, we document the
+    /// number of returned objects to know where the page ends.
+    ///
+    /// Alternatively, we could store the page for each object.
+    pub backwards_page_offset: u64,
 }
 
 #[derive(Debug)]
@@ -209,9 +232,14 @@ impl OrmSubscription {
 
         let page_info = if config.page_size > 0 {
             Some(OrmSubscriptionPageInfo {
-                items: vec![],
-                limit: (config.page_size as f64 * 1.5) as u64,
+                all_up_to_offset: HashSet::new(),
+                items_in_window: vec![],
+                limit_heuristic: (config.page_size as f64 * 1.5) as u64,
                 offset: 0,
+                lowest_active_page: 0,
+                highest_active_page: 0,
+                potential_offset_shift: 0,
+                backwards_page_offset: 0,
             })
         } else {
             None
@@ -626,13 +654,30 @@ impl OrmSubscription {
     }
 
     pub fn valid_object_count(&self) -> u64 {
-        self.iter_all_objects().fold(0, |valids, tormo| {
-            if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
-                valids + 1
-            } else {
-                valids
-            }
-        })
+        self.tracked_orm_objects
+            .values()
+            .flat_map(|subjects| subjects.values())
+            .flat_map(|shapes| shapes.values())
+            .fold(0, |valids, tormo| {
+                if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
+                    valids + 1
+                } else {
+                    valids
+                }
+            })
+    }
+
+    pub fn object_count(&self) -> u64 {
+        self.tracked_orm_objects
+            .values()
+            .flat_map(|subjects| subjects.values())
+            .flat_map(|shapes| shapes.values())
+            .count() as u64
+    }
+
+    /// Returns true if there are no tracked ORM objects in this subscription.
+    pub fn is_empty(&self) -> bool {
+        self.iter_all_objects().any(|_| true)
     }
 
     /// Cleanup subjects marked for deletion and adjust parent/child relationships accordingly.
