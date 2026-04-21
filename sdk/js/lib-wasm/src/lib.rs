@@ -239,14 +239,17 @@ pub fn wallet_open_with_mnemonic_words(
         .map_err(|_| "Deserialization error of wallet")?;
     let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(pin)
         .map_err(|_| "Deserialization error of pin")?;
-    let mnemonic_vec: Vec<String> = mnemonic_words
+    let mnemonic_vec: Result<Vec<String>, JsValue> = mnemonic_words
         .iter()
-        .map(|word| word.as_string().unwrap())
+        .map(|word| {
+            word.as_string()
+                .ok_or("Deserialization error of string in mnemonic_words".into())
+        })
         .collect();
 
     let res = nextgraph::local_broker::wallet_open_with_mnemonic_words(
         &encrypted_wallet,
-        &mnemonic_vec,
+        &mnemonic_vec?,
         pin,
     );
     match res {
