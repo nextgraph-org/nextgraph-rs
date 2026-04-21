@@ -670,12 +670,12 @@ impl Verifier {
                         };
 
                         let mut to_remove_from_inserts: HashSet<usize> = HashSet::new();
-                        let mut to_remove_from_removes: HashSet<Triple> = HashSet::new();
+                        //let mut to_remove_from_removes: HashSet<Triple> = HashSet::new();
                         for (pos, triple) in update.transaction.inserts.iter().enumerate() {
-                            if update.transaction.removes.contains(triple) {
-                                to_remove_from_removes.insert(triple.clone());
-                                //log_info!("BOTH ADDED AND REMOVED {:?}", triple);
-                            }
+                            // if update.transaction.removes.contains(triple) {
+                            //     to_remove_from_removes.insert(triple.clone());
+                            //     //log_info!("BOTH ADDED AND REMOVED {:?}", triple);
+                            // }
                             let triple_ref: TripleRef = triple.into();
                             let quad_ref = triple_ref.in_graph(cv_graphname_ref);
                             transaction.insert(quad_ref, value, true)?;
@@ -689,10 +689,10 @@ impl Verifier {
                                 }
                             }
                         }
-                        update
-                            .transaction
-                            .removes
-                            .retain(|triple| !to_remove_from_removes.remove(triple));
+                        // update
+                        //     .transaction
+                        //     .removes
+                        //     .retain(|triple| !to_remove_from_removes.remove(triple));
 
                         // removing the inserts that where already present in the dataset for main branch
                         let mut idx: usize = 0;
@@ -805,7 +805,9 @@ impl Verifier {
                                             GraphNameRef::NamedNode(ov_graphname.into());
                                         let triple_ref: TripleRef = remove.into();
                                         let quad_ref = triple_ref.in_graph(ov_graphname_ref);
-                                        transaction.remove(quad_ref)?;
+                                        if !transaction.remove(quad_ref)? {
+                                            to_remove_from_removes.insert(pos);
+                                        }
                                     } else {
                                         to_remove_from_removes.insert(pos);
                                     }

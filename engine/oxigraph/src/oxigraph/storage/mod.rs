@@ -1885,6 +1885,7 @@ impl<'a> CommitWriter<'a> {
             ))
         } else {
             let quad = quad.into_owned();
+            self.removes.remove(&quad);
             Ok(self.inserts.insert(quad))
         }
     }
@@ -1905,7 +1906,12 @@ impl<'a> CommitWriter<'a> {
             ))
         } else {
             let quad = quad.into_owned();
-            Ok(self.removes.insert(quad))
+            if self.inserts.remove(&quad) {
+                Ok(true)
+            } else {
+                Ok(self.removes.insert(quad))
+            }
+            //Ok(self.removes.insert(quad))
         }
     }
 
