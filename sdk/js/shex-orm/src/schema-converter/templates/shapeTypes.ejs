@@ -7,8 +7,9 @@ import { <%- fileName %>Schema } from "./<%- fileName %>.schema";
 
             // ShapeTypes for <%- fileName %>
               <% typings.forEach((typing)=> { if (!/Id$/.test(typing.dts.name)) { -%>
-                export const <%- typing.dts.name %>ShapeType: ShapeType<<%- typing.dts.name %>> = {
-                    schema: <%- fileName %>Schema,
-                      shape: "<%- typing.dts.shapeId %>",
-                        };
+                export const <%- typing.dts.name %>ShapeType = {
+                  schema: <%- fileName %>Schema,
+                    shape: "<%- typing.dts.shapeId %>",
+                      } as const satisfies ShapeType<<%- typing.dts.name %>>;
+
                         <% } }); -%>

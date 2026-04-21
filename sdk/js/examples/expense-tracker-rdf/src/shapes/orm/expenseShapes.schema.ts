@@ -5,7 +5,7 @@ import type { Schema } from "@ng-org/shex-orm";
  * expenseShapesSchema: Schema for expenseShapes
  * =============================================================================
  */
-export const expenseShapesSchema: Schema = {
+export const expenseShapesSchema = {
   "did:ng:z:ExpenseShape": {
     iri: "did:ng:z:ExpenseShape",
     predicates: [
@@ -79,7 +79,7 @@ export const expenseShapesSchema: Schema = {
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "iri",
           },
         ],
         maxCardinality: -1,
@@ -175,4 +175,4 @@ export const expenseShapesSchema: Schema = {
       },
     ],
   },
-};
+} as const satisfies Schema;

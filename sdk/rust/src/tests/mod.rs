@@ -13,12 +13,15 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{OrmPatch, OrmShapeType};
+use ng_oxigraph::oxrdf::{Quad, Subject};
 use serde_json::{json, Value};
 use std::time::Duration;
 
 use ng_repo::log::*;
 
-use crate::local_broker::{doc_create, doc_sparql_update, orm_start_discrete, orm_start_graph};
+use crate::local_broker::{
+    doc_create, doc_sparql_select, doc_sparql_update, orm_start_discrete, orm_start_graph,
+};
 
 #[doc(hidden)]
 pub mod orm_creation;
@@ -355,4 +358,86 @@ fn fix_child_segment_graph_in_expected(
             }
         }
     }
+}
+
+pub(crate) async fn assert_has_triples(
+    session_id: u64,
+    expected: Vec<(&str, &str, &str)>,
+    nuri: &String,
+) -> Vec<Quad> {
+    let quads = doc_sparql_select(
+        session_id,
+        format!(
+            "SELECT ?s ?p ?o ?g WHERE {{ GRAPH <{nuri}> {{ ?s ?p ?o }} BIND(<{nuri}> AS ?g) }}"
+        ),
+        Some(nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_quad = |subject: &str, predicate: &str, object_contains: &str| {
+        quads.iter().any(|q| {
+            matches!(&q.subject, Subject::NamedNode(nn) if nn.as_str() == subject)
+                && q.predicate.as_str() == predicate
+                && q.object.to_string().contains(object_contains)
+                && quad_has_graph(q, nuri)
+        })
+    };
+
+    for (subject, predicate, object_contains) in expected {
+        assert!(
+            has_quad(subject, predicate, object_contains),
+            "Missing quad: subject='{}' predicate='{}' object contains '{}'\nAll quads: {:?}",
+            subject,
+            predicate,
+            object_contains,
+            quads
+        );
+    }
+
+    quads
+}
+
+pub(crate) fn quads_to_string(quads: &Vec<Quad>) -> String {
+    quads
+        .iter()
+        .map(|q| {
+            format!(
+                "{} {} {} {}",
+                q.subject, q.predicate, q.object, q.graph_name
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+// Helper: check if a quad's graph matches the expected graph IRI
+pub(crate) fn quad_has_graph(q: &ng_oxigraph::oxrdf::Quad, expected_graph: &str) -> bool {
+    match &q.graph_name {
+        ng_oxigraph::oxrdf::GraphName::NamedNode(n) => n.as_str() == expected_graph,
+        _ => false,
+    }
+}
+
+// Helper: escape a JSON Pointer segment (RFC 6901): ~ -> ~0, / -> ~1
+pub(crate) fn escape_pointer_segment(segment: &str) -> String {
+    segment.replace('~', "~0").replace('/', "~1")
+}
+
+// Helper: build root path prefix "/graph|subject" for a given graph and subject
+pub(crate) fn root_path(graph: &str, subject: &str) -> String {
+    format!(
+        "/{}|{}",
+        escape_pointer_segment(graph),
+        escape_pointer_segment(subject)
+    )
+}
+
+// Helper: build a composite key segment "graph|subject" for multi-children
+pub(crate) fn composite_key(graph: &str, subject: &str) -> String {
+    format!(
+        "{}|{}",
+        escape_pointer_segment(graph),
+        escape_pointer_segment(subject)
+    )
 }

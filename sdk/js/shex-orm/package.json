@@ -29,8 +29,11 @@
     "@types/fs-extra": "^9.0.13",
     "@types/jsonld": "^1.5.15",
     "@types/shexj": "^2.1.4",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "typescript": "^4.9.0 || ^5.0.0 || ^6.0.0"
   },
   "dependencies": {
     "@ldo/traverser-shexj": "1.0.0-alpha.28",

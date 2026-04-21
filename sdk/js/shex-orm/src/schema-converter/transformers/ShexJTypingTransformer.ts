@@ -707,6 +707,31 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
         transformer: async (nodeConstraint) => {
             if (nodeConstraint.datatype) {
                 switch (nodeConstraint.datatype) {
+                    case "http://www.w3.org/2001/XMLSchema#string":
+                    case "http://www.w3.org/2001/XMLSchema#ENTITIES":
+                    case "http://www.w3.org/2001/XMLSchema#ENTITY":
+                    case "http://www.w3.org/2001/XMLSchema#ID":
+                    case "http://www.w3.org/2001/XMLSchema#IDREF":
+                    case "http://www.w3.org/2001/XMLSchema#IDREFS":
+                    case "http://www.w3.org/2001/XMLSchema#language":
+                    case "http://www.w3.org/2001/XMLSchema#Name":
+                    case "http://www.w3.org/2001/XMLSchema#NCName":
+                    case "http://www.w3.org/2001/XMLSchema#NMTOKEN":
+                    case "http://www.w3.org/2001/XMLSchema#NMTOKENS":
+                    case "http://www.w3.org/2001/XMLSchema#normalizedString":
+                    case "http://www.w3.org/2001/XMLSchema#QName":
+                    case "http://www.w3.org/2001/XMLSchema#token":
+                    case "http://www.w3.org/2001/XMLSchema#date":
+                    case "http://www.w3.org/2001/XMLSchema#dateTime":
+                    case "http://www.w3.org/2001/XMLSchema#duration":
+                    case "http://www.w3.org/2001/XMLSchema#gDay":
+                    case "http://www.w3.org/2001/XMLSchema#gMonth":
+                    case "http://www.w3.org/2001/XMLSchema#gMonthDay":
+                    case "http://www.w3.org/2001/XMLSchema#gYear":
+                    case "http://www.w3.org/2001/XMLSchema#gYearMonth":
+                    case "http://www.w3.org/2001/XMLSchema#time":
+                    case "http://www.w3.org/2001/XMLSchema#hexBinary":
+                        return dom.type.string;
                     case "http://www.w3.org/2001/XMLSchema#boolean":
                         return dom.type.boolean;
                     case "http://www.w3.org/2001/XMLSchema#byte":
@@ -727,9 +752,10 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     case "http://www.w3.org/2001/XMLSchema#unsignedByte":
                         return dom.type.number;
                     default:
-                        return dom.type.string; // treat most as string
+                        return dom.create.namedTypeReference("IRI"); // treat others / references as IRI
                 }
             }
+
             if (nodeConstraint.nodeKind) {
                 switch (nodeConstraint.nodeKind) {
                     case "iri":

@@ -62,7 +62,7 @@ const rdfDataTypeToBasic = (dataType: string) => {
         case "http://www.w3.org/2001/XMLSchema#anyURI":
             return "iri";
         default:
-            return "string";
+            return "iri";
     }
 };
 
@@ -104,7 +104,13 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             _shape.closed;
 
             const transformedChildren = await getTransformedChildren();
-            const compactShape = transformedChildren.expression as Shape;
+            const expr = transformedChildren.expression;
+            // EachOf returns a Shape ({ iri, predicates }), but a single
+            // TripleConstraint returns a bare Predicate. Normalize both.
+            const compactShape: Shape =
+                expr && "predicates" in (expr as Shape)
+                    ? (expr as Shape)
+                    : { iri: "", predicates: [expr as Predicate] };
 
             for (const extra of _shape.extra || []) {
                 const extraPredicate = compactShape.predicates.find(
@@ -164,12 +170,25 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 transformedChildren.valueExpr &&
                 (transformedChildren.valueExpr as Shape).predicates
             ) {
-                // Nested object
+                const resolvedShape = transformedChildren.valueExpr as Shape;
+                if (resolvedShape.iri) {
+                    // Named shape reference: Use the IRI string.
+                    return {
+                        dataTypes: [
+                            {
+                                valType: "shape",
+                                shape: resolvedShape.iri,
+                            },
+                        ],
+                        ...commonProperties,
+                    } as Predicate;
+                }
+                // Anonymous inline shape: Pass as shape object for flattenSchema to convert.
                 return {
                     dataTypes: [
                         {
                             valType: "shape",
-                            shape: transformedChildren.valueExpr as Shape,
+                            shape: resolvedShape as any, // Make type fit as any (object will be flattened).
                         },
                     ],
                     ...commonProperties,
@@ -290,9 +309,23 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             // or a DataType[] (from NodeConstraint with multiple types).
             // We need to flatten arrays to get a single DataType[].
             const exprs = Array.isArray(shapeExprs) ? shapeExprs : [shapeExprs];
-            return exprs.flatMap((expr) =>
-                Array.isArray(expr) ? expr : [expr]
-            ) as DataType[];
+            return exprs.flatMap((expr) => {
+                if (Array.isArray(expr)) return expr;
+                // Resolved shape reference: Convert to DataType with shape IRI.
+                if (expr && typeof expr === "object" && "predicates" in expr) {
+                    return [
+                        {
+                            valType: "shape" as const,
+                            shape: expr.iri,
+                        },
+                    ];
+                }
+                // String shape reference
+                if (typeof expr === "string") {
+                    return [{ valType: "shape" as const, shape: expr }];
+                }
+                return [expr];
+            }) as DataType[];
         },
     },
 

@@ -57,7 +57,7 @@ export interface Expense {
    *
    * Original IRI: did:ng:z:expenseCategory
    */
-  expenseCategory?: Set<string>;
+  expenseCategory?: Set<IRI>;
   /**
    * True, if this is a recurring expense (e.g. bus pass)
    *
