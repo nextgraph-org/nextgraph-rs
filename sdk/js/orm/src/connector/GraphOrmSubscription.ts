@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { normalizeScope, type Scope } from "../types.ts";
+import { NormalizedScope, normalizeScope, type Scope } from "../types.ts";
 import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
@@ -97,19 +97,18 @@ export class OrmSubscription<T extends BaseType> {
               })
             : null;
 
-    private constructor(shapeType: ShapeType<T>, scope: Scope) {
+    private constructor(shapeType: ShapeType<T>, scope: NormalizedScope) {
         // @ts-expect-error
         window.ormSignalConnections = OrmSubscription.idToEntry;
         // @ts-expect-error
         window.OrmSubscription = OrmSubscription;
 
         this.shapeType = shapeType;
-        const normalizedScope = normalizeScope(scope);
-        this.scope = normalizedScope;
+        this.scope = scope;
         this.refCount = 1;
         this.closeOrmSubscription = () => {};
         this.suspendDeepWatcher = false;
-        this.identifier = `${shapeType.shape}|${canonicalScope(normalizedScope)}`;
+        this.identifier = `${shapeType.shape}|${canonicalScope(scope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
             propGenerator: this.signalObjectPropGenerator,
             // Don't set syntheticIdPropertyName - let propGenerator handle all ID logic
@@ -138,8 +137,8 @@ export class OrmSubscription<T extends BaseType> {
         ngSession.then(async ({ ng, session }) => {
             try {
                 this.closeOrmSubscription = await ng.orm_start_graph(
-                    normalizedScope.graphs,
-                    normalizedScope.subjects,
+                    scope.graphs,
+                    scope.subjects,
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
@@ -230,7 +229,8 @@ export class OrmSubscription<T extends BaseType> {
         shapeType: ShapeType<T>,
         scope: Scope
     ): OrmSubscription<T> => {
-        const scopeKey = canonicalScope(scope);
+        const normalizedScope = normalizeScope(scope);
+        const scopeKey = canonicalScope(normalizedScope);
 
         // Unique identifier for a given shape type and scope.
         const identifier = `${shapeType.shape}|${scopeKey}`;
@@ -243,7 +243,10 @@ export class OrmSubscription<T extends BaseType> {
             existingConnection.refCount += 1;
             return existingConnection;
         } else {
-            const newConnection = new OrmSubscription(shapeType, scope);
+            const newConnection = new OrmSubscription(
+                shapeType,
+                normalizedScope
+            );
             OrmSubscription.idToEntry.set(identifier, newConnection);
             return newConnection;
         }
@@ -488,7 +491,7 @@ const parseOrmInitialObject = (obj: any): any => {
  * Creates a string out of the scope in the format
  * `graphIri1,graphIri2|subjectIri1,subjectIri2`
  */
-function canonicalScope(scope: Scope): string {
+function canonicalScope(scope: NormalizedScope): string {
     if (!scope) return "";
     return `${(scope.graphs || []).slice().sort().join(",")}|${(scope.subjects || []).slice().sort().join(",")}`;
 }
