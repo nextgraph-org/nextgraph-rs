@@ -19,9 +19,10 @@ use serde_json;
 use serde_json::json;
 use serde_json::Value as JsonValue;
 
-use crate::orm::types::DiscreteOrmSubscription;
+use crate::orm::discrete::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::utils::{decode_json_pointer, escape_json_pointer_segment};
-use crate::{orm::types::BackendDiscreteState, types::DiscreteTransaction, verifier::Verifier};
+use crate::types::DiscreteTransaction;
+use crate::verifier::Verifier;
 
 impl Verifier {
     /// Applies blob batches and generates ORM JSON patches.

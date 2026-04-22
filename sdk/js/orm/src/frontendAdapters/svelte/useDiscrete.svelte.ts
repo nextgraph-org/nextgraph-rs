@@ -10,7 +10,7 @@
 
 import { onDestroy } from "svelte";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
-import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
+import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
 import { DiscreteRoot } from "../../types.ts";
 import { DeepSignal } from "@ng-org/alien-deepsignals";
 

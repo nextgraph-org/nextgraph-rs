@@ -9,7 +9,8 @@
   "license": "MIT/Apache-2.0",
   "main": "./src/core.ts",
   "scripts": {
-    "test": "vitest",
+    "test": "pnpm test:build:orm && vitest",
+    "test:build:orm": "rdf-orm build --input ./src/tests/shapes/shex --output ./src/tests/shapes/orm",
     "build:ts": "rm -rf dist && tsc",
     "prepublishOnly": "pnpm build:ts"
   },

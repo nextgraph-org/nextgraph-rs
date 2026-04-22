@@ -13,7 +13,7 @@ import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
 import { useEffect, useMemo, useRef } from "react";
 import { normalizeScope, type Scope } from "../../types.ts";
-import { OrmSubscription } from "../../connector/ormSubscriptionHandler.ts";
+import { OrmSubscription } from "../../connector/GraphOrmSubscription.ts";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { readOnlySet } from "../utils.ts";
 

@@ -8,7 +8,12 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-pub mod automerge_orm;
-pub mod discrete_orm;
+pub mod add_remove_quads;
+pub mod handle_backend_update;
+pub mod handle_frontend_update;
+pub mod initialize;
+pub mod process_changes;
+pub mod query;
+pub mod shape_validation;
 pub mod types;
-pub mod yrs_orm;
+pub mod utils;

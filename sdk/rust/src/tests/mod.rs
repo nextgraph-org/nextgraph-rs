@@ -8,6 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use assert_json_diff::assert_json_matches;
 use async_std::future::timeout;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
@@ -16,8 +17,6 @@ use ng_net::orm::{OrmPatch, OrmShapeType};
 use ng_oxigraph::oxrdf::{Quad, Subject};
 use serde_json::{json, Value};
 use std::time::Duration;
-
-use ng_repo::log::*;
 
 use crate::local_broker::{
     doc_create, doc_sparql_select, doc_sparql_update, orm_start_discrete, orm_start_graph,
@@ -57,20 +56,17 @@ pub(crate) async fn create_doc_with_data(session_id: u64, sparql_insert: String)
     return doc_nuri;
 }
 
-pub(crate) fn assert_json_eq(expected: &mut Value, actual: &mut Value) {
+pub(crate) fn assert_orm_json_eq(expected: &mut Value, actual: &mut Value) {
     sort_arrays(expected);
     sort_arrays(actual);
 
-    let diff = serde_json_diff::values(expected.clone(), actual.clone());
-    if let Some(diff_) = diff {
-        log_err!(
-            "Expected and actual JSON mismatch.\nDiff: {:?}\nExpected: {}\nActual: {}",
-            diff_,
-            expected,
-            actual
-        );
-        assert!(false);
-    }
+    assert_json_eq(expected, actual);
+}
+
+pub(crate) fn assert_json_eq(expected: &Value, actual: &Value) {
+    let json_diff_config = assert_json_diff::Config::new(assert_json_diff::CompareMode::Strict)
+        .numeric_mode(assert_json_diff::NumericMode::AssumeFloat);
+    assert_json_matches!(actual, expected, json_diff_config);
 }
 
 /// Helper to recursively sort all arrays in nested objects into a stable ordering.
@@ -109,10 +105,27 @@ async fn create_orm_connection(
     u64,
     serde_json::Value,
 ) {
+    create_orm_connection_with_conf(nuris, subjects, shape_type, session_id, json!({})).await
+}
+
+async fn create_orm_connection_with_conf(
+    nuris: Vec<String>,
+    subjects: Vec<String>,
+    shape_type: OrmShapeType,
+    session_id: u64,
+    config: Value,
+) -> (
+    UnboundedReceiver<ng_net::app_protocol::AppResponse>,
+    Box<dyn FnOnce() + Send + Sync>,
+    u64,
+    serde_json::Value,
+) {
     let nuris = nuris
         .iter()
         .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
         .collect();
+
+    // let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id, config)
     let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id)
         .await
         .expect("orm_start_graph failed");

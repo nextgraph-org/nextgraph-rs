@@ -1,0 +1,72 @@
+# PREFIX ex: <did:ng:z:>
+# 
+# SELECT ?subject ?predicate ?object WHERE {
+#    ?subject ?predicate ?object .
+#    ?subject ex:assets ?object .
+# } LIMIT 10
+
+PREFIX ex: <did:ng:z:>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+ex:RootShape {
+  a [ex:Root]
+    // rdfs:comment "A root type" ;
+
+  ex:aString xsd:string
+    // rdfs:comment "A string root" ;
+  ex:anInteger xsd:integer
+    // rdfs:comment "An integer root" ;
+  ex:aDate xsd:date
+    // rdfs:comment "A date root" ;
+  ex:aBoolean xsd:boolean
+    // rdfs:comment "A bool root" ;
+  ex:aStringOrBoolean xsd:boolean OR xsd:string
+    // rdfs:comment "A string or bool root" ;
+
+  ex:children1Or2 @ex:ChildShape1 OR @ex:ChildShape2 *
+    // rdfs:comment "Children of type Child1 or Child1" ;
+  ex:child3 @ex:ChildShape3
+    // rdfs:comment "Child3 object" ;
+}
+
+ex:ChildShape1 EXTRA a {
+  a [ex:MiruVideoEffectAsset]
+    // rdfs:comment "Shape1 type, extra" ;
+
+  ex:childString xsd:string
+    // rdfs:comment "Child string" ;
+
+  ex:childBoolean xsd:boolean
+    // rdfs:comment "Child string" ;
+}
+
+ex:ChildShape2 EXTRA a {
+  a [ex:Child ex:Child2] ;
+
+  ex:childString xsd:string
+    // rdfs:comment "Child string" ;
+  ex:childNumber: xsd:float
+    // rdfs:comment "Child number" ;
+
+  ex:childChild @ex:ChildChildShape
+    // rdfs:comment "Child child object" ;
+}
+
+ex:ChildShape3 {
+  a [ex:Child2 ex:Child]
+    // rdfs:comment "Child3 types" ;
+
+  ex:childBoolean: xsd:boolean
+    // rdfs:comment "Child boolean" ;
+
+  ex:childChild @ex:ChildChildShape
+    // rdfs:comment "Child child object" ;
+}
+
+ex:ChildChildShape EXTRA a {
+  a [ex:ChildChild]
+    // rdfs:comment "Child child type" ;
+  ex:childChildNum xsd:float
+    // rdfs:comment "Child child float" ;
+}

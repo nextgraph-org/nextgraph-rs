@@ -1,9 +1,9 @@
 import type { ShapeType } from "@ng-org/shex-orm";
-import { <%- fileName %>Schema } from "./<%- fileName %>.schema";
+import { <%- fileName %>Schema } from "./<%- fileName %>.schema.ts";
     import type {
     <% typings.forEach((typing)=> { if (!/Id$/.test(typing.dts.name)) { -%>
       <%- typing.dts.name %>,
-        <% } }); -%>} from "./<%- fileName %>.typings";
+        <% } }); -%>} from "./<%- fileName %>.typings.ts";
 
             // ShapeTypes for <%- fileName %>
               <% typings.forEach((typing)=> { if (!/Id$/.test(typing.dts.name)) { -%>

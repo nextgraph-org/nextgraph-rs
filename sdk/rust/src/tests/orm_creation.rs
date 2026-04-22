@@ -12,7 +12,9 @@ use crate::local_broker::{
     doc_create, doc_query_quads_for_shape_type, doc_sparql_update, orm_start_graph,
 };
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
-use crate::tests::{assert_json_eq, create_doc_with_data};
+use crate::tests::{
+    assert_json_eq, assert_orm_json_eq, create_doc_with_data, create_orm_connection_with_conf,
+};
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
@@ -21,7 +23,7 @@ use ng_net::orm::{
 };
 
 use ng_repo::log::*;
-use ng_verifier::orm::query::schema_shape_to_sparql;
+use ng_verifier::orm::graph::query::schema_shape_to_sparql;
 // use ng_verifier::orm::query::shape_type_to_sparql_select; // replaced by query_quads_for_shape_type
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -642,6 +644,15 @@ async fn test_orm_creation() {
     log_info!("=== Starting test test_orm_cardinality_scoping ===");
     test_orm_cardinality_scoping(session_id).await;
     log_info!("=== Test test_orm_cardinality_scoping ran successfully ===\n\n");
+
+    // TODO: Uncomment when sort etc. is implemented fully.
+    // log_info!("=== Starting test test_sort ===");
+    // test_sort(session_id).await;
+    // log_info!("=== Test test_sort ran successfully ===\n\n");
+    //
+    // log_info!("=== Starting test test_sort_paginated ===");
+    // test_sort_paginated(session_id).await;
+    // log_info!("=== Test test_sort_paginated ran successfully ===\n\n");
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -879,7 +890,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -938,8 +949,12 @@ fn test_basic_schema_shape_to_sparql_generation() {
 
     let q = schema_shape_to_sparql(
         &shape,
-        &Some(vec!["urn:s1".to_string()]),
+        Some(&vec!["urn:s1".to_string()]),
         Some(&vec!["urn:g1".to_string()]),
+        None,
+        None,
+        None,
+        false,
     );
 
     // Basic projections and GRAPH usage
@@ -1088,7 +1103,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
         break;
     }
     cancel_fn();
@@ -1242,7 +1257,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
         break;
     }
     cancel_fn();
@@ -1402,7 +1417,7 @@ INSERT DATA {
 
         let mut actual_mut = orm_json.clone();
         log_info!("actual data for orm_root_array:\n{:?}", actual_mut);
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -1498,7 +1513,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -1627,7 +1642,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -1729,7 +1744,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -1980,7 +1995,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -2126,7 +2141,7 @@ INSERT DATA {
             "JSON for nested2\n{}",
             serde_json::to_string(&actual_mut).unwrap()
         );
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -2317,7 +2332,7 @@ INSERT DATA {
         ]);
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -2492,7 +2507,7 @@ INSERT DATA {
         });
 
         let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        assert_orm_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -2643,6 +2658,265 @@ INSERT DATA {
         break;
     }
     cancel_fn();
+}
+
+async fn test_sort(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:sortObj2> a ex:SortObject ;
+                        ex:sortBy 2 ;
+                        ex:sortBy2 2 .
+    <did:ng:z:sortObj1> a ex:SortObject ;
+                        ex:sortBy 1 ;
+                        ex:sortBy2 1 .
+    <did:ng:z:sortObj4> a ex:SortObject ;
+                        ex:sortBy 4 ;
+                        ex:sortBy2 4 .
+    <did:ng:z:sortObj3> a ex:SortObject ;
+                        ex:sortBy 3 ;
+                        ex:sortBy2 3 .
+    <did:ng:z:sortObj51> a ex:SortObject ;
+                         ex:sortBy 5 ;
+                         ex:sortBy2 1 .
+    <did:ng:z:sortObj52> a ex:SortObject ;
+                         ex:sortBy 5 ;
+                         ex:sortBy2 2 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy2".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy2".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    // Ascending sort
+    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        // Only objects 1-4
+        vec![
+            "did:ng:z:sortObj1".into(),
+            "did:ng:z:sortObj2".into(),
+            "did:ng:z:sortObj3".into(),
+            "did:ng:z:sortObj4".into(),
+        ],
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": {"sortBy": "asc"}}),
+    )
+    .await;
+    assert_json_eq(
+        &json!([
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+        ]),
+        &initial,
+    );
+
+    // Descending sort
+    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![
+            // Only objects 1-4
+            "did:ng:z:sortObj1".into(),
+            "did:ng:z:sortObj2".into(),
+            "did:ng:z:sortObj3".into(),
+            "did:ng:z:sortObj4".into(),
+        ],
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": [{"sortBy": "desc"}]}),
+    )
+    .await;
+    assert_json_eq(
+        &json!([
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+        ]),
+        &initial,
+    );
+
+    // Sort by two predicates.
+    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}]}),
+    )
+    .await;
+
+    assert_json_eq(
+        &json!([
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+        ]),
+        &initial,
+    );
+}
+
+async fn test_sort_paginated(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:sortObj2> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 2 .
+    <did:ng:z:sortObj1> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 1 .
+    <did:ng:z:sortObj4> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 4 .
+    <did:ng:z:sortObj3> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 3 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:required".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "required".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: Some(vec![BasicType::Str("required".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2}),
+    )
+    .await;
+
+    assert_json_eq(
+        &json!({
+            "0": {
+                "items": [
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+                ]
+            }
+        }),
+        &initial,
+    );
 }
 
 //

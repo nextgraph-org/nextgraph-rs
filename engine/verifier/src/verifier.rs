@@ -65,9 +65,9 @@ use ng_net::{
 };
 
 use crate::commits::*;
-use crate::orm::types::BackendDiscreteState;
-use crate::orm::types::DiscreteOrmSubscription;
-use crate::orm::types::OrmSubscription;
+use crate::orm::discrete::types::BackendDiscreteState;
+use crate::orm::discrete::types::DiscreteOrmSubscription;
+use crate::orm::graph::types::OrmSubscription;
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
 use crate::types::*;

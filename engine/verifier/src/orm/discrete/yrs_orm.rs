@@ -22,9 +22,10 @@ use serde_json::Map as JsonMap;
 use yrs::types::{Change, EntryChange, Events, PathSegment};
 use yrs::{Array, DeepObservable, Doc, Map, ReadTxn, Transact};
 
-use crate::orm::types::DiscreteOrmSubscription;
+use crate::orm::discrete::types::{BackendDiscreteState, DiscreteOrmSubscription};
 use crate::orm::utils::decode_json_pointer;
-use crate::{orm::types::BackendDiscreteState, types::DiscreteTransaction, verifier::Verifier};
+use crate::types::DiscreteTransaction;
+use crate::verifier::Verifier;
 
 impl Verifier {
     /// Applies blob batches and generates ORM JSON patches.

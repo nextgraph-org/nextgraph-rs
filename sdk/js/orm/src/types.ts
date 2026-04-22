@@ -24,12 +24,12 @@
  */
 export type Scope = {
     /**
-     * The graphs to filter for. If more than one NURI is provided, the union of all graphs is considered.
+     * The graphs to filter for. If an array is provided, the union of all graphs is considered.
      *
      * - Set value to `["did:ng:i"]` or `[""]` for whole dataset.
      * - Setting value to `[]` or leaving it `undefined`, no objects are returned.
      */
-    graphs?: string[];
+    graphs?: string[] | string;
 
     /**
      * Subjects to filter for. Set to `[]` or leave it `undefined` for no filtering.
@@ -41,16 +41,22 @@ export type Scope = {
  * Converts undefined to [] and for graphs "" to "did:ng:i". If scope is string, it means {graphs: [\<scope string>], subjects: []}.
  * @ignore
  */
-export const normalizeScope = (scope: Scope | string | undefined = {}) => {
+export const normalizeScope = (
+    scope: Scope | string | undefined = {}
+): NormalizedScope => {
     if (typeof scope === "string") {
         return { graphs: [scope], subjects: [] };
     }
     // Convert "" to did:ng:i
-    const graphs = (scope.graphs ?? []).map((g) => (g === "" ? "did:ng:i" : g));
+    const graphs = (!scope.graphs ? [] : [scope.graphs])
+        .flat()
+        .map((g) => (g === "" ? "did:ng:i" : g));
     const subjects = scope.subjects ?? [];
 
     return { graphs, subjects };
 };
+
+export type NormalizedScope = { graphs: string[]; subjects: string[] };
 
 /** An allowed array in the CRDT. @ignore */
 export interface DiscreteArray extends Array<DiscreteType> {}

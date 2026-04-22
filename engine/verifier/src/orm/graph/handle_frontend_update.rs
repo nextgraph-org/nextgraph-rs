@@ -20,9 +20,10 @@ use ng_oxigraph::oxigraph::sparql::QueryResults;
 use ng_repo::log::*;
 use serde_json::json;
 
-use crate::orm::add_remove_quads::oxrdf_term_to_orm_basic_type;
-use crate::orm::types::*;
-use crate::orm::utils::{decode_json_pointer, json_to_sparql_val};
+use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
+use crate::orm::graph::types::*;
+use crate::orm::graph::utils::json_to_sparql_val;
+use crate::orm::utils::decode_json_pointer;
 use crate::verifier::*;
 
 impl Verifier {
@@ -42,7 +43,7 @@ impl Verifier {
                 .get(&subscription_id)
                 .ok_or_else(|| format!("Subscription {subscription_id} not found"))?;
 
-            // Hack to get any graph used in the patch. We don't need one because all statements are tied to a graph
+            // Hack to get a graph Nuri that's used in the patch. We don't need one because all statements are tied to a graph
             // but the subscription.nuri might be a scope, whereas `process_sparql_update` requires a default graph.
             let patch_strs: Vec<String> =
                 patches[0].path.split('/').map(|s| s.to_string()).collect();
@@ -274,6 +275,8 @@ fn create_sparql_update_query_for_patches(
     orm_subscription: &OrmSubscription,
     patches: &OrmPatches,
 ) -> (String, Vec<(OrmPatch, PathTarget)>) {
+    // TODO: Support patches by array id.
+
     // ------------------------- Schema Selection Helper ----------------------
     fn select_child_schema(
         subject_iri: Option<&String>,

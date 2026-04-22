@@ -19,7 +19,7 @@ import {
     watchEffect,
 } from "vue";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
-import { DiscreteOrmSubscription } from "../../connector/discrete/discreteOrmSubscriptionHandler.ts";
+import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
 import { DiscreteRoot } from "../../types.ts";
 
 /**

@@ -15,6 +15,10 @@
 mod model;
 
 use async_std::prelude::Future;
+use ng_net::orm::OrmConfig;
+use ng_net::orm::OrmPatches;
+use ng_net::orm::OrmShapeType;
+use ng_net::orm::WhereConfig;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -61,7 +65,6 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
-use nextgraph::verifier::orm::{OrmPatches, OrmShapeType};
 use nextgraph::verifier::CancelFn;
 
 use crate::model::*;

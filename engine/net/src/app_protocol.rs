@@ -752,9 +752,9 @@ pub enum AppRequestCommandV0 {
     SocialQueryCancel,
     QrCodeProfile,
     QrCodeProfileImport,
-    OrmStart,
+    OrmStartGraph,
     OrmStartDiscrete,
-    OrmUpdate,
+    OrmGraphUpdate,
     OrmDiscreteUpdate,
     OrmStop,
 }
@@ -764,7 +764,7 @@ impl AppRequestCommandV0 {
         match self {
             Self::Fetch(AppFetchContentV0::Subscribe)
             | Self::FileGet
-            | Self::OrmStart
+            | Self::OrmStartGraph
             | Self::OrmStartDiscrete => true,
             _ => false,
         }
@@ -861,7 +861,7 @@ impl AppRequest {
         shape_type: OrmShapeType,
     ) -> Self {
         AppRequest::new(
-            AppRequestCommandV0::OrmStart,
+            AppRequestCommandV0::OrmStartGraph,
             NuriV0::new_empty(),
             Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
                 shape_type,
@@ -877,7 +877,7 @@ impl AppRequest {
 
     pub fn new_orm_update(subscription_id: u64, diff: OrmPatches) -> Self {
         AppRequest::new(
-            AppRequestCommandV0::OrmUpdate,
+            AppRequestCommandV0::OrmGraphUpdate,
             NuriV0::new_empty(),
             Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
                 diff,

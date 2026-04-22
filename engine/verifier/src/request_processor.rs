@@ -50,7 +50,7 @@ impl Verifier {
         session_id: u64,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match command {
-            AppRequestCommandV0::OrmStart => match payload {
+            AppRequestCommandV0::OrmStartGraph => match payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
                     shape_type,
                     graph_scope,
@@ -972,7 +972,7 @@ impl Verifier {
         session_id: u64,
     ) -> Result<AppResponse, NgError> {
         match command {
-            AppRequestCommandV0::OrmUpdate => match payload {
+            AppRequestCommandV0::OrmGraphUpdate => match payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
                     patches,
                     subscription_id,

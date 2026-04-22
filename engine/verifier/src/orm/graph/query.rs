@@ -15,12 +15,12 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 
-use crate::orm::types::*;
-use crate::orm::utils::{escape_sparql_string, is_iri};
+use crate::orm::graph::types::*;
+use crate::orm::graph::utils::{escape_sparql_string, is_iri};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
-use ng_oxigraph::oxrdf::{Quad, Term, Triple};
+use ng_oxigraph::oxrdf::{Quad, Term};
 use ng_repo::errors::NgError;
 
 impl Verifier {
@@ -153,7 +153,15 @@ impl Verifier {
             }
 
             // Build and run the SELECT for this shape
-            let sparql = schema_shape_to_sparql(shape_ref, &subjects_vec_opt, filter_graphs);
+            let sparql = schema_shape_to_sparql(
+                shape_ref,
+                subjects_vec_opt.as_ref(),
+                filter_graphs,
+                None,
+                None,
+                None,
+                false,
+            );
 
             // log_debug!(
             //     "BFS query #{} for shape {}: {} subjects",
@@ -182,7 +190,7 @@ impl Verifier {
                 for q in &quads {
                     let pred_iri = q.predicate.as_str();
                     if let Some(nested_shapes) = pred_to_nested.get(pred_iri) {
-                        if let ng_oxigraph::oxrdf::Term::NamedNode(obj_node) = &q.object {
+                        if let Term::NamedNode(obj_node) = &q.object {
                             let obj_iri = obj_node.as_str();
                             for ns in nested_shapes.iter() {
                                 nested_to_enqueue.push((ns.clone(), obj_iri.to_string()));
@@ -236,7 +244,7 @@ impl Verifier {
         Ok(all_quads)
     }
 
-    /// Expects the select to have return 4 variables only: s, p, o, g
+    /// Expects the select to return 4 variables only: ?s, ?p, ?o, ?g
     /// Returns quads
     pub fn query_sparql_select(
         &self,
@@ -295,58 +303,90 @@ impl Verifier {
         }
     }
 
-    pub fn query_sparql_construct(
+    /// Expects the select to return 2 variables only: ?g and ?s
+    fn query_sparql_graph_subject(
         &self,
-        query: String,
+        query: &String,
         nuri: Option<String>,
-    ) -> Result<Vec<Triple>, NgError> {
+    ) -> Result<Vec<(GraphIri, SubjectIri)>, NgError> {
         let oxistore = self.graph_dataset.as_ref().unwrap();
 
-        // let graph_nuri = NuriV0::repo_graph_name(
-        //     &update.repo_id,
-        //     &update.overlay_id,
-        // );
-        //let base = NuriV0::repo_id(&repo.id);
-
-        let nuri_str = nuri.as_ref().map(|s| s.as_str());
-        // log_debug!("querying construct\n{}\n{}\n", nuri_str.unwrap(), query);
-
-        let parsed =
-            Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+        let parsed = Query::parse(&query, nuri.as_deref())
+            .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
             .query(parsed, nuri)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         match results {
-            QueryResults::Graph(triples) => {
-                let mut result_triples: Vec<Triple> = vec![];
-                for t in triples {
-                    match t {
+            QueryResults::Solutions(solutions) => {
+                let mut results: Vec<(GraphIri, SubjectIri)> = vec![];
+                for s in solutions {
+                    match s {
                         Err(e) => {
                             log_err!("{}", e.to_string());
                             return Err(NgError::SparqlError(e.to_string()));
                         }
-                        Ok(triple) => {
-                            // log_debug!("Triple fetched: {:?}", triple);
-                            result_triples.push(triple);
+                        Ok(solution) => {
+                            let s: String = match solution.get("s") {
+                                Some(Term::NamedNode(node)) => node.as_string().clone(),
+                                _ => return Err(NgError::InvalidResponse),
+                            };
+                            let g = match solution.get("g") {
+                                Some(Term::NamedNode(node)) => node.as_string().clone(),
+                                _ => return Err(NgError::InvalidResponse),
+                            };
+
+                            results.push((g, s));
                         }
                     }
                 }
-                log_debug!(
-                    "[query_sparql_construct]: #Fetched triples {}",
-                    result_triples.len()
-                );
-                Ok(result_triples)
+                Ok(results)
             }
             _ => return Err(NgError::InvalidResponse),
         }
+    }
+
+    /// Makes a (page)-order query that returns all graph-subject pairs
+    /// for the shape type and orm_subscription.page_info.limit/offset (if any).
+    pub fn query_graph_subjects(
+        &self,
+        orm_subscription: &OrmSubscription,
+        limit_offset: Option<(u64, u64)>,
+    ) -> Result<Vec<(GraphIri, SubjectIri)>, NgError> {
+        let nuris = &orm_subscription.graph_scope;
+        let graph_scope: Option<&Vec<String>> = if nuris.is_empty() {
+            None
+        } else if nuris[0] == "did:ng:i" {
+            None
+        } else {
+            Some(nuris)
+        };
+
+        // Parse order by config object to link to actual predicate schema objects?
+        let sparql_query = schema_shape_to_sparql(
+            orm_subscription
+                .shape_type
+                .schema
+                .get(&orm_subscription.shape_type.shape)
+                .unwrap(),
+            Some(&orm_subscription.subject_scope),
+            graph_scope,
+            orm_subscription.config.where_.as_ref(),
+            orm_subscription.config.order_by.as_ref(),
+            limit_offset,
+            true,
+        );
+
+        let res = self.query_sparql_graph_subject(&sparql_query, None);
+
+        res
     }
 }
 
 /// Build a simple, non-recursive SELECT for a given shape.
 ///
 /// Contract
-/// - Input: OrmSchemaShape, optional subject and graph filters (as IRI strings)
-/// - Output: SPARQL SELECT DISTINCT ?s ?p ?o ?g
+/// - Input: OrmSchemaShape, optional subject and graph filters (as IRI strings), optional where config
+/// - Output: "SPARQL SELECT DISTINCT ?s ?p ?o ?g" - or only with "?s ?g". of subject_and_graph_only
 /// - Semantics:
 ///   - Always include a generic triple pattern to return all triples: GRAPH ?g { ?s ?p ?o }
 ///   - For required predicates (minCardinality >= 1), add explicit triples (?s <pred> ?vN)
@@ -356,10 +396,15 @@ impl Verifier {
 ///   - If a predicate has enumerated literal values across its dataTypes, aggregate and
 ///     add a FILTER on the predicate’s object variable (?vN IN (...)).
 ///   - Shape-valued predicates are treated like value predicates here (no recursion).
+///   - If a where config is provided, greater than and less than restrictions are added too.
 pub fn schema_shape_to_sparql(
     shape: &OrmSchemaShape,
-    filter_subjects: &Option<Vec<String>>, // subject IRIs to include
+    filter_subjects: Option<&Vec<String>>, // subject IRIs to include
     filter_graphs: Option<&Vec<String>>,   // graph IRIs to include
+    where_config: Option<&WhereConfig>,
+    order_by_config: Option<&OrderByConfig>,
+    limit_offset: Option<(u64, u64)>,
+    subject_and_graph_only: bool,
 ) -> String {
     // Variable counter for internal object vars (avoid clashing with ?s ?p ?o ?g)
     let mut var_counter: i32 = 0;
@@ -374,8 +419,8 @@ pub fn schema_shape_to_sparql(
     let mut post_graph_filters: Vec<String> = vec![];
 
     for pred in &shape.predicates {
+        let obj_var = next_var();
         if pred.minCardinality >= 1 {
-            let obj_var = next_var();
             graph_lines.push(format!("  ?s <{}> ?{} .", pred.iri, obj_var));
 
             // Aggregate enumerated literal constraints across dataTypes
@@ -427,6 +472,38 @@ pub fn schema_shape_to_sparql(
                 ));
             }
         }
+
+        // If where config has less than or greater than restrictions...
+        if let Some(where_config) = where_config {
+            if let Some(where_value) = where_config.get(&pred.readablePredicate) {
+                if let Some(where_obj) = where_value.as_object() {
+                    if let Some(less_than) = where_obj.get("|lt") {
+                        if let Some(lt_str) = less_than.as_str() {
+                            post_graph_filters.push(format!(
+                                "   FILTER(?{} < \"{}\")",
+                                obj_var,
+                                escape_sparql_string(lt_str)
+                            ));
+                        } else if less_than.is_number() {
+                            post_graph_filters
+                                .push(format!("   FILTER(?{} < {})", obj_var, less_than));
+                        }
+                    }
+                    if let Some(greater_than) = where_obj.get("|gt") {
+                        if let Some(gt_str) = greater_than.as_str() {
+                            post_graph_filters.push(format!(
+                                "   FILTER(?{} > \"{}\")",
+                                obj_var,
+                                escape_sparql_string(gt_str)
+                            ));
+                        } else if greater_than.is_number() {
+                            post_graph_filters
+                                .push(format!("   FILTER(?{} > {})", obj_var, greater_than));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Assemble WHERE body with GRAPH block
@@ -463,8 +540,57 @@ pub fn schema_shape_to_sparql(
     // Filters that depend on internal object vars should come after GRAPH block
     where_lines.extend(post_graph_filters);
 
-    format!(
-        "SELECT DISTINCT ?s ?p ?o ?g\nWHERE {{\n{}\n}}",
-        where_lines.join("\n")
-    )
+    // Add order by config by adding where statements `?s <order by pred 1> ?order_by_var1`
+    // and ORDER BY string from the new oder_by_vars.
+    let mut order_by_str: String = "".to_string();
+    if let Some(order_by_preds) = order_by_config {
+        let mut order_by_vars: Vec<(String, bool)> = vec![];
+
+        // add order_by_vars to where.
+        for (order_by_p, is_asc) in order_by_preds {
+            let sparql_var = next_var();
+            // Keep order-by lookup in the same named graph scope as the main shape query.
+            where_lines.push(format!(
+                "  GRAPH ?g {{ ?s <{}> ?{} . }}",
+                order_by_p.iri, sparql_var
+            ));
+            order_by_vars.push((sparql_var, *is_asc));
+        }
+
+        // Add order_by_str with ASC or DESC for each var.
+        order_by_str = format!(
+            "ORDER BY {}",
+            order_by_vars
+                .iter()
+                .map(|(v, is_asc)| if *is_asc {
+                    format!("ASC(?{})", v)
+                } else {
+                    format!("DESC(?{})", v)
+                })
+                .collect::<Vec<String>>()
+                .join(" ")
+        );
+    }
+
+    let pagination_str = if let Some((limit, offset)) = limit_offset {
+        &format!("LIMIT {} OFFSET {}", limit, offset)
+    } else {
+        ""
+    };
+
+    if subject_and_graph_only {
+        format!(
+            "SELECT DISTINCT ?s ?g\nWHERE {{\n{}\n}}\n{}\n{}",
+            where_lines.join("\n"),
+            order_by_str,
+            pagination_str
+        )
+    } else {
+        format!(
+            "SELECT DISTINCT ?s ?p ?o ?g\nWHERE {{\n{}\n}}\n{}\n{}",
+            where_lines.join("\n"),
+            order_by_str,
+            pagination_str
+        )
+    }
 }
