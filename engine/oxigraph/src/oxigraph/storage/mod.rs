@@ -1809,9 +1809,14 @@ impl Iterator for DecodingNgQuadIterator {
         let term = self.encoding.decode(self.iter.key()?);
         match term {
             Ok(term) => {
-                let val = self.iter.value()?[0];
-                self.iter.next();
-                Some(Ok((term, val)))
+                let v = self.iter.value()?;
+                if v.is_empty() {
+                    None
+                } else {
+                    let val = v[0];
+                    self.iter.next();
+                    Some(Ok((term, val)))
+                }
             }
             Err(e) => {
                 self.iter.next();
@@ -1885,13 +1890,13 @@ impl<'a> CommitWriter<'a> {
             ))
         } else {
             let quad = quad.into_owned();
-            if self.removes.remove(&quad) {
-                Ok(false)
-            } else {
-                Ok(self.inserts.insert(quad))
-            }
-            //self.removes.remove(&quad);
-            //Ok(self.inserts.insert(quad))
+            // if self.removes.remove(&quad) {
+            //     Ok(false)
+            // } else {
+            //     Ok(self.inserts.insert(quad))
+            // }
+            // self.removes.remove(&quad);
+            Ok(self.inserts.insert(quad))
         }
     }
 

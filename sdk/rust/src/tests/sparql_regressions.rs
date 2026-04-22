@@ -20,6 +20,7 @@ use serde_json::json;
 async fn test_sparql_regressions() {
     let (_wallet, session_id) = create_or_open_wallet().await;
 
+    test_ineffective_delete_followed_by_add(session_id).await;
     test_consecutive_delete_insert_where_multi_insert_queries(session_id).await;
     test_overlap_delete_insert_where_multi_insert_queries(session_id).await;
     test_delete_insert_where_after_y_map_commit(session_id).await;
@@ -41,6 +42,20 @@ async fn setup_status_category_doc(
     .await;
 
     (doc_nuri, subject, status_predicate, category_predicate)
+}
+
+async fn test_ineffective_delete_followed_by_add(session_id: u64) {
+    let subject = "urn:test:item1";
+    let status_predicate = "http://example.org/status";
+    let category_predicate = "http://example.org/category";
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        format!(
+            "DELETE DATA {{ <{subject}> <{status_predicate}> \"old\" }}; INSERT DATA {{ <{subject}> <{status_predicate}> \"old\" }}"
+        ),
+    )
+    .await;
 }
 
 async fn test_consecutive_delete_insert_where_multi_insert_queries(session_id: u64) {
