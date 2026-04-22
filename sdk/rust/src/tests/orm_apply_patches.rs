@@ -81,9 +81,11 @@ async fn test_orm_apply_patches() {
     // Test 13: remove_all multi-valued literal
     test_patch_remove_all_multi_valued_literal(session_id).await;
 
-    // Currently failing due to bug in NG oxigraph engine.
-    // Test 14: Idempotent add literal
-    // test_patch_idempotent_add_literal(session_id).await;
+    // Test 14.1: Overwrite add literal
+    test_overwrite_add_literal(session_id).await;
+
+    // Test 14.2: Idempotent add literal
+    test_patch_idempotent_add_literal2(session_id).await;
 
     // Test 15: No-op remove nonexistent literal
     test_patch_noop_remove_nonexistent_literal(session_id).await;
@@ -2351,8 +2353,8 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
     log_info!("✓ Test passed: remove_all multi-valued literal");
 }
 
-// Test 14: Idempotent add literal
-async fn test_patch_idempotent_add_literal(session_id: u64) {
+// Test 14.1: Idempotent add literal
+async fn test_overwrite_add_literal(session_id: u64) {
     log_info!("\n\n=== TEST: Idempotent add literal ===\n");
     let doc_nuri = create_doc_with_data(
         session_id,
@@ -2363,9 +2365,9 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
     .await;
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2397,7 +2399,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
         }),
     );
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -2420,27 +2422,145 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
     orm_update(subscription_id, vec![patch, patch2], session_id)
         .await
         .unwrap();
-    let quads = doc_sparql_select(
-        session_id,
-        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
-        Some(doc_nuri.clone()),
-    )
-    .await
-    .unwrap();
-    // Limit to current document graph to avoid spillover and ensure idempotency
-    use ng_oxigraph::oxrdf::Subject as OxSubject;
-    let hobbies: Vec<_> = quads
-        .iter()
-        .filter(|q| {
-            q.predicate.as_str() == "http://example.org/hobby"
-                && quad_has_graph(q, &doc_nuri)
-                && match &q.subject {
-                    OxSubject::NamedNode(nn) => nn.as_str() == "urn:test:idem1",
-                    _ => false,
-                }
-        })
+
+    let expected: Vec<(&str, &str, &str)> = vec![
+        (
+            "urn:test:idem1",
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "http://example.org/Person",
+        ),
+        ("urn:test:idem1", "http://example.org/hobby", "Sleeping"),
+    ];
+    let quads = assert_has_triples(session_id, expected, &doc_nuri).await;
+
+    log_info!("Quads: {}", quads_to_string(&quads));
+
+    assert_eq!(quads.len(), 2, "Duplicate add should replace first.");
+
+    log_info!("✓ Test passed: Idempotent add literal");
+}
+
+// Test 14.2: Idempotent add literal
+async fn test_patch_idempotent_add_literal2(session_id: u64) {
+    log_info!("\n\n=== TEST: Idempotent add literal 2 ===\n");
+    let doc_nuri = create_doc_with_data(session_id, r#""#.to_string()).await;
+
+    let root_subject = "did:ng:z:someVideoDoc";
+
+    let video_document_schema = json!(
+        {
+            "did:ng:z:MiruVideoDocumentShape": {
+                "iri": "did:ng:z:MiruVideoDocumentShape",
+                "predicates": [
+                    {
+                        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruVideoDocument"] }],
+                        "maxCardinality": 1, "minCardinality": 1,
+                        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                        "readablePredicate": "@type"
+                    },
+                    {
+                        "dataTypes": [{ "valType": "string" }],
+                        "maxCardinality": 1, "minCardinality": 1,
+                        "iri": "did:ng:z:name",
+                        "readablePredicate": "name"
+                    },
+                    {
+                        "dataTypes": [{ "valType": "string" }],
+                        "maxCardinality": 1, "minCardinality": 1,
+                        "iri": "did:ng:z:createdAt",
+                        "readablePredicate": "createdAt"
+                    },
+                ]
+            },
+
+    });
+
+    let raw_schema: HashMap<String, OrmSchemaShape> =
+        serde_json::from_value(video_document_schema).expect("schema parse failed");
+    let schema = raw_schema
+        .into_iter()
+        .map(|(k, v)| (k, Arc::new(v)))
         .collect();
-    assert_eq!(hobbies.len(), 1, "Duplicate add should replace first.");
+
+    let shape_type = OrmShapeType {
+        shape: "did:ng:z:MiruVideoDocumentShape".to_string(),
+        schema,
+    };
+
+    let (_receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    let mut patches_create = json!([
+        {
+            "path": "/did:ng:z:someVideoDoc",
+            "op": "add",
+            "value": {}
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/@id",
+            "op": "add",
+            "value": "did:ng:z:someVideoDoc"
+        },
+        {
+            "path": "/did:ng:z:someVideoDoc/@type",
+            "op": "add",
+            "value": "did:ng:z:MiruVideoDocument"
+        },
+        {
+            "path":"/did:ng:z:someVideoDoc/createdAt",
+            "op": "add",
+            "value": "2026-03-06T09:20:35.864Z"
+        },
+        {
+            "path":"/did:ng:z:someVideoDoc/name",
+            "op": "add",
+            "value": "Unnamed"
+        },
+    ]);
+    rewrite_expected_paths_with_graph(&mut patches_create, &doc_nuri);
+    augment_expected_with_graph_fields(&mut patches_create, &doc_nuri);
+
+    let patches_create: Vec<OrmPatch> =
+        serde_json::from_value(patches_create).expect("patches parsing failed");
+
+    orm_update(subscription_id, patches_create, session_id)
+        .await
+        .expect("orm_update failed");
+
+    let mut patches_update = json!([
+        {
+            "path":"/did:ng:z:someVideoDoc/name",
+            "op": "add",
+            "value": "New Name"
+        },
+    ]);
+    rewrite_expected_paths_with_graph(&mut patches_update, &doc_nuri);
+    augment_expected_with_graph_fields(&mut patches_update, &doc_nuri);
+
+    let patches_update: Vec<OrmPatch> =
+        serde_json::from_value(patches_update).expect("patches parsing failed");
+
+    orm_update(subscription_id, patches_update, session_id)
+        .await
+        .expect("orm_update failed");
+
+    let expected: Vec<(&str, &str, &str)> = vec![
+        (
+            root_subject,
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "did:ng:z:MiruVideoDocument",
+        ),
+        (root_subject, "did:ng:z:name", "New Name"),
+        (
+            root_subject,
+            "did:ng:z:createdAt",
+            "2026-03-06T09:20:35.864Z",
+        ),
+    ];
+    let quads = assert_has_triples(session_id, expected, &doc_nuri).await;
+    log_info!("Quads: {}", quads_to_string(&quads));
+
+    assert_eq!(quads.len(), 3, "Duplicate add should replace first.");
     log_info!("✓ Test passed: Idempotent add literal");
 }
 

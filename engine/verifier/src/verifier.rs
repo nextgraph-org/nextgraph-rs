@@ -1841,7 +1841,7 @@ impl Verifier {
         Err(VerifierError::RepoNotFound)
     }
 
-    fn update_branch_current_heads(
+    pub(crate) fn update_branch_current_heads(
         &mut self,
         repo_id: &RepoId,
         branch: &BranchId,

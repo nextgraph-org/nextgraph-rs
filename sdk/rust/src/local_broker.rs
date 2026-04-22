@@ -2796,6 +2796,25 @@ pub async fn doc_fetch_repo_subscribe(
 //     session.verifier.doc_fetch_private(true).await
 // }
 
+pub async fn rdf_dump(session_id: u64) -> Result<String, String> {
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_rdf_dump(),
+        nuri: NuriV0::new_entire_user_site(),
+        payload: None,
+        session_id,
+    });
+
+    let res = app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    match res {
+        AppResponseV0::Text(s) => Ok(s),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
 pub async fn doc_sparql_update(
     session_id: u64,
     sparql: String,

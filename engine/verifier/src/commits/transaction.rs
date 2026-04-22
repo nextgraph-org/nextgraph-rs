@@ -31,6 +31,7 @@ use ng_repo::types::*;
 use crate::types::*;
 use crate::verifier::Verifier;
 
+#[derive(Debug)]
 struct BranchUpdateInfo {
     branch_id: BranchId,
     branch_type: BranchType,
@@ -329,6 +330,16 @@ impl Verifier {
         if body.discrete.is_some() {
             let patch = body.discrete.unwrap();
             let crdt = &repo.branch(branch_id)?.crdt.clone();
+
+            let previous_heads =
+                HashSet::from_iter(branch.current_heads.iter().map(|br| br.id.clone()));
+            self.advance_head_without_graph(
+                branch.topic.as_ref().unwrap(),
+                &store.overlay_id,
+                &commit_id,
+                previous_heads,
+            )?;
+
             self.process_discrete(patch, &crdt, branch_id, commit_id, commit_info, None)
                 .await?;
         }

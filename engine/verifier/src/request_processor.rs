@@ -936,19 +936,30 @@ impl Verifier {
             )
             .await?;
 
+        self.update_branch_current_heads(
+            &repo_id,
+            &branch_id,
+            commit.acks(),
+            commit.reference().unwrap(),
+        )?;
+
         let repo = self.get_repo(&repo_id, &store_repo)?;
         let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
 
-        let crdt: &BranchCrdt = &repo.branch(&branch_id)?.crdt.clone();
-        self.process_discrete(
-            patch,
-            &crdt,
-            &branch_id,
-            commit.id().unwrap(),
-            commit_info,
-            from_orm,
-        )
-        .await?;
+        let branch = repo.branch(&branch_id)?;
+
+        let previous_heads = HashSet::from_iter(commit.acks().iter().map(|br| br.id.clone()));
+        let commit_id = commit.id().unwrap();
+        self.advance_head_without_graph(
+            branch.topic.as_ref().unwrap(),
+            &store_repo.overlay_id_for_storage_purpose(),
+            &commit_id,
+            previous_heads,
+        )?;
+
+        let crdt: &BranchCrdt = &branch.crdt.clone();
+        self.process_discrete(patch, &crdt, &branch_id, commit_id, commit_info, from_orm)
+            .await?;
 
         Ok(())
     }

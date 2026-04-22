@@ -31,6 +31,8 @@ pub mod orm_apply_patches;
 pub mod orm_create_patches;
 #[doc(hidden)]
 pub mod orm_discrete_patches;
+#[doc(hidden)]
+pub mod sparql_regressions;
 
 #[doc(hidden)]
 pub mod create_or_open_wallet;
