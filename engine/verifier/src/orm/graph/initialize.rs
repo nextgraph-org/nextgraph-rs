@@ -44,10 +44,10 @@ impl Verifier {
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,
-        config: Value,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+        // TODO
         let config =
-            OrmConfig::from_json(&config, &shape_type).map_err(|e| NgError::OrmError(e))?;
+            OrmConfig::from_json(&json!({}), &shape_type).map_err(|e| NgError::OrmError(e))?;
 
         let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
 

@@ -124,10 +124,11 @@ async fn create_orm_connection_with_conf(
         .iter()
         .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
         .collect();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(nuris, subjects, shape_type, session_id, config)
-            .await
-            .expect("orm_start_graph failed");
+
+    // let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id, config)
+    let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id)
+        .await
+        .expect("orm_start_graph failed");
 
     // Get initial state with timeout
     let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {

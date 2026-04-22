@@ -50,20 +50,18 @@ impl Verifier {
         session_id: u64,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match command {
-            AppRequestCommandV0::OrmStart => match payload {
+            AppRequestCommandV0::OrmStartGraph => match payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
                     shape_type,
                     graph_scope,
                     subject_scope,
-                    config,
                 )))) => {
                     for nuri in graph_scope.iter() {
                         if nuri.is_valid_for_sparql_update() {
                             self.open_for_target(&nuri.target, true).await?;
                         }
                     }
-                    self.start_orm(graph_scope, subject_scope, shape_type, config)
-                        .await
+                    self.start_orm(graph_scope, subject_scope, shape_type).await
                 }
                 _ => return Err(NgError::InvalidArgument),
             },
@@ -974,7 +972,7 @@ impl Verifier {
         session_id: u64,
     ) -> Result<AppResponse, NgError> {
         match command {
-            AppRequestCommandV0::OrmUpdate => match payload {
+            AppRequestCommandV0::OrmGraphUpdate => match payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
                     patches,
                     subscription_id,

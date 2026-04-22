@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::collections::{HashSet, LinkedList};
+use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;

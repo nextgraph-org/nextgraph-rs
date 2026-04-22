@@ -16,8 +16,8 @@ mod model;
 
 use async_std::prelude::Future;
 use ng_net::orm::OrmConfig;
-use ng_net::orm::OrmConfig;
-use ng_net::orm::OrmConfig;
+use ng_net::orm::OrmPatches;
+use ng_net::orm::OrmShapeType;
 use ng_net::orm::WhereConfig;
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -65,7 +65,6 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
-use nextgraph::verifier::orm::{OrmPatches, OrmShapeType};
 use nextgraph::verifier::CancelFn;
 
 use crate::model::*;
@@ -1988,10 +1987,7 @@ pub async fn orm_start_graph(
         graph_nuris
     };
 
-    let config = serde_json::json!({});
-
-    let mut request =
-        AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type, config);
+    let mut request = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }

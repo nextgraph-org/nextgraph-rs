@@ -2897,10 +2897,8 @@ pub async fn orm_start_graph(
     subject_scope: Vec<String>,
     shape_type: OrmShapeType,
     session_id: u64,
-    config: Value,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-    let mut request =
-        AppRequest::new_orm_start_graph(graph_scope, subject_scope, shape_type, config);
+    let mut request = AppRequest::new_orm_start_graph(graph_scope, subject_scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream(request).await
 }

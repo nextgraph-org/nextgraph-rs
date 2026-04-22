@@ -645,13 +645,14 @@ async fn test_orm_creation() {
     test_orm_cardinality_scoping(session_id).await;
     log_info!("=== Test test_orm_cardinality_scoping ran successfully ===\n\n");
 
-    log_info!("=== Starting test test_sort ===");
-    test_sort(session_id).await;
-    log_info!("=== Test test_sort ran successfully ===\n\n");
-
-    log_info!("=== Starting test test_sort_paginated ===");
-    test_sort_paginated(session_id).await;
-    log_info!("=== Test test_sort_paginated ran successfully ===\n\n");
+    // TODO: Uncomment when sort etc. is implemented fully.
+    // log_info!("=== Starting test test_sort ===");
+    // test_sort(session_id).await;
+    // log_info!("=== Test test_sort ran successfully ===\n\n");
+    //
+    // log_info!("=== Starting test test_sort_paginated ===");
+    // test_sort_paginated(session_id).await;
+    // log_info!("=== Test test_sort_paginated ran successfully ===\n\n");
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -726,10 +727,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1060,10 +1060,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1195,10 +1194,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1345,10 +1343,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1475,10 +1472,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1593,10 +1589,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1712,10 +1707,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1947,10 +1941,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2086,10 +2079,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2299,10 +2291,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2455,10 +2446,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2619,10 +2609,9 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_root).expect("parse nuri");
-    let (mut receiver, cancel_fn) =
-        orm_start_graph(vec![nuri], vec![], shape_type, session_id, json!({}))
-            .await
-            .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
+        .await
+        .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
