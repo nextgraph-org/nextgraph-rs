@@ -148,9 +148,10 @@ pub struct OrmSubscriptionPageInfo {
     /// This value is reset whenever a new page is queried.
     pub potential_offset_shift: u64,
     /// All items that are below the current window and whose changes therefore
-    /// might affect shifts in the offset. Also see potential_offset_shift.
+    /// might affect shifts of the offset. Also see potential_offset_shift.
     pub all_up_to_offset: HashSet<(String, String)>,
     pub items_in_window: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    pub items_in_window_set: HashSet<(GraphIri, SubjectIri)>,
     /// TODO: The logic for this is not implemented yet.
     ///
     /// The idea of this property is that we need to track which object belongs to which page.
@@ -234,10 +235,11 @@ impl OrmSubscription {
             Some(OrmSubscriptionPageInfo {
                 all_up_to_offset: HashSet::new(),
                 items_in_window: vec![],
+                items_in_window_set: HashSet::new(),
                 limit_heuristic: (config.page_size as f64 * 1.5) as u64,
                 offset: 0,
                 lowest_active_page: 0,
-                highest_active_page: 0,
+                highest_active_page: -1,
                 potential_offset_shift: 0,
                 backwards_page_offset: 0,
             })
@@ -802,6 +804,35 @@ impl OrmSubscription {
                 }
             }
         }
+    }
+
+    pub fn get_page_window_bounds(&self) -> Option<(&str, bool, BasicType, BasicType)> {
+        let page_info = self.page_info.as_ref()?;
+        let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
+        let order_predicate_iri = &order_by.iri;
+
+        let first = page_info.items_in_window.first()?;
+        let last = page_info.items_in_window.last()?;
+
+        let first_value = {
+            let first_tormo = first.read().unwrap();
+            first_tormo
+                .tracked_predicates
+                .get(order_predicate_iri)
+                .and_then(|pred| pred.read().unwrap().current_literals.clone())
+                .and_then(|literals| literals.first().cloned())
+        }?;
+
+        let last_value = {
+            let last_tormo = last.read().unwrap();
+            last_tormo
+                .tracked_predicates
+                .get(order_predicate_iri)
+                .and_then(|pred| pred.read().unwrap().current_literals.clone())
+                .and_then(|literals| literals.first().cloned())
+        }?;
+
+        Some((order_predicate_iri, *asc, first_value, last_value))
     }
 }
 

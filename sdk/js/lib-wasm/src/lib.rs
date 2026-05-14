@@ -16,6 +16,8 @@ mod model;
 
 use async_std::prelude::Future;
 use ng_net::orm::OrmConfig;
+use ng_net::orm::OrmConfig;
+use ng_net::orm::OrmConfig;
 use ng_net::orm::OrmPatches;
 use ng_net::orm::OrmShapeType;
 use ng_net::orm::WhereConfig;
@@ -23,6 +25,7 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use wasm_bindgen::JsValue;
 
 use nextgraph::net::app_protocol::AppRequest;
 use nextgraph::net::app_protocol::NuriV0;
@@ -1953,8 +1956,11 @@ pub async fn orm_start_graph(
     subject_scope: Array,
     shapeType: JsValue,
     session_id: JsValue,
+    config: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
+    // TODO: Move graph and subject scope to config as well.
+
     let graph_scope: Vec<String> = graph_scope.iter().map(|s| s.as_string().unwrap()).collect();
     let subject_scope: Vec<String> = subject_scope
         .iter()
@@ -1987,7 +1993,9 @@ pub async fn orm_start_graph(
         graph_nuris
     };
 
-    let mut request = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type);
+    let config = OrmConfig::from_json(json!(config), &shape_type);
+    let mut request =
+        AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type, config);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }

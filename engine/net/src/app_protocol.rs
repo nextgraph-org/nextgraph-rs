@@ -20,7 +20,7 @@ use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
 use ng_repo::utils::{decode_overlayid, display_timestamp_local};
 use serde_json::Value;
 
-use crate::orm::{OrmPatches, OrmShapeType};
+use crate::orm::{OrmConfig, OrmPatches, OrmShapeType};
 use crate::types::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -755,6 +755,8 @@ pub enum AppRequestCommandV0 {
     OrmStartGraph,
     OrmStartDiscrete,
     OrmGraphUpdate,
+    OrmGraphNextPage,
+    OrmGraphPreviousPage,
     OrmDiscreteUpdate,
     OrmStop,
 }
@@ -859,14 +861,16 @@ impl AppRequest {
         graph_scope: Vec<NuriV0>,
         subject_scope: Vec<String>,
         shape_type: OrmShapeType,
+        config: OrmConfig,
     ) -> Self {
         AppRequest::new(
             AppRequestCommandV0::OrmStartGraph,
             NuriV0::new_empty(),
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStartGraph((
                 shape_type,
                 graph_scope,
                 subject_scope,
+                config,
             )))),
         )
     }
@@ -879,10 +883,29 @@ impl AppRequest {
         AppRequest::new(
             AppRequestCommandV0::OrmGraphUpdate,
             NuriV0::new_empty(),
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
-                diff,
-                subscription_id,
-            )))),
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmGraphUpdate(
+                (diff, subscription_id),
+            ))),
+        )
+    }
+
+    pub fn new_orm_graph_next_page(subscription_id: u64) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::OrmGraphNextPage,
+            NuriV0::new_empty(),
+            Some(AppRequestPayload::V0(
+                AppRequestPayloadV0::OrmSubscriptionId(subscription_id),
+            )),
+        )
+    }
+
+    pub fn new_orm_graph_previous_page(subscription_id: u64) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::OrmGraphPreviousPage,
+            NuriV0::new_empty(),
+            Some(AppRequestPayload::V0(
+                AppRequestPayloadV0::OrmSubscriptionId(subscription_id),
+            )),
         )
     }
 
@@ -1125,9 +1148,10 @@ pub enum AppRequestPayloadV0 {
     //Invoke(InvokeArguments),
     QrCodeProfile(u32),
     QrCodeProfileImport(String),
-    OrmStart((OrmShapeType, Vec<NuriV0>, Vec<String>)),
-    OrmUpdate((OrmPatches, u64)),         // subscription id,
-    OrmDiscreteUpdate((OrmPatches, u64)), // subscription id
+    OrmStartGraph((OrmShapeType, Vec<NuriV0>, Vec<String>, OrmConfig)),
+    OrmGraphUpdate((OrmPatches, u64)), // (patches, subscription id)
+    OrmSubscriptionId(u64),            // subscription id,
+    OrmDiscreteUpdate((OrmPatches, u64)), // (patches, subscription id)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -18,7 +18,7 @@ use async_std::sync::{Arc, Condvar, Mutex, RwLock};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
-use ng_net::orm::{OrmPatches, OrmShapeType};
+use ng_net::orm::{OrmConfig, OrmPatches, OrmShapeType};
 use ng_oxigraph::oxrdf::Quad;
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
@@ -2897,8 +2897,10 @@ pub async fn orm_start_graph(
     subject_scope: Vec<String>,
     shape_type: OrmShapeType,
     session_id: u64,
+    config: OrmConfig,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-    let mut request = AppRequest::new_orm_start_graph(graph_scope, subject_scope, shape_type);
+    let mut request =
+        AppRequest::new_orm_start_graph(graph_scope, subject_scope, shape_type, config);
     request.set_session_id(session_id);
     app_request_stream(request).await
 }
@@ -2918,6 +2920,23 @@ pub async fn orm_update(
     session_id: u64,
 ) -> Result<(), NgError> {
     let mut request = AppRequest::new_orm_update(subscription_id, diff);
+    request.set_session_id(session_id);
+    app_request(request).await?;
+    Ok(())
+}
+
+pub async fn new_orm_graph_next_page(subscription_id: u64, session_id: u64) -> Result<(), NgError> {
+    let mut request = AppRequest::new_orm_graph_next_page(subscription_id);
+    request.set_session_id(session_id);
+    app_request(request).await?;
+    Ok(())
+}
+
+pub async fn new_orm_graph_previous_page(
+    subscription_id: u64,
+    session_id: u64,
+) -> Result<(), NgError> {
+    let mut request = AppRequest::new_orm_graph_previous_page(subscription_id);
     request.set_session_id(session_id);
     app_request(request).await?;
     Ok(())

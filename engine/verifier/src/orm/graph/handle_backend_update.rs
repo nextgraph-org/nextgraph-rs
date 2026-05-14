@@ -17,6 +17,7 @@ use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::log::*;
 
+use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::types::*;
 use crate::orm::utils::escape_json_pointer_segment;
 use crate::types::*;
@@ -99,32 +100,47 @@ impl Verifier {
 
         for subscription_id in subscription_ids {
             // Temporarily take ownership of the subscription to avoid borrowing self twice mutably
-            let Some(mut subscription) = self.orm_subscriptions.remove(&subscription_id) else {
+            let Some(mut orm_subscription) = self.orm_subscriptions.remove(&subscription_id) else {
                 continue;
             };
 
-            // TODO: Handle page-order query cases - does quad need to be added as new tormo?
-
             // Check if this scope is affected by this backend update
-            if !Self::is_scope_affected(&subscription, repo_id, &overlaylink) {
-                self.orm_subscriptions.insert(subscription_id, subscription);
+            if !Self::is_scope_affected(&orm_subscription, repo_id, &overlaylink) {
+                self.orm_subscriptions
+                    .insert(subscription_id, orm_subscription);
                 continue;
             }
 
-            // TODO: Also filter if it's within page-order.
+            // If subscription is paginated, this will increase the count of potential shifts
+            // of the page order query.
+            update_potential_offset_shift(&mut orm_subscription, inserts, removes);
+
             // Filter quads by subject scope if applicable
             let (inserts, removes) =
-                filter_quads_by_subject_scope_if_necessary(&subscription, inserts, removes);
+                filter_quads_by_subject_scope_if_necessary(&orm_subscription, inserts, removes);
 
             if inserts.is_empty() && removes.is_empty() {
-                self.orm_subscriptions.insert(subscription_id, subscription);
+                self.orm_subscriptions
+                    .insert(subscription_id, orm_subscription);
                 continue;
             }
+
+            // TODO: Now ensure that processing is handled correctly
+            // Collect adds, removes, moves during process_changes..
+            // Then: Apply adds, removes, moves to window
+            // Calculate page/position where to send patches to
+            // Strategy depends on whether we make a pagination or just keep all items in root array.
+            // In the former case, we can calculate the page using the following algorithm:
+            // - create object window as enumeration of current window: Vec<(page_num, (valid)tormo)>
+            // - add items in to that window, assign the page num that the neighbor item has.
+            //   - Record operation, the patch, based on page number of neighbor and position in page
+            // - then go over window and adjust the page numbers so that they fit the page_size. Record modifications (moves)
+            // 
 
             // Process changes for this shape
             let mut orm_changes: OrmChanges = HashMap::new();
             let res = self.process_changes_for_subscription(
-                &mut subscription,
+                &mut orm_subscription,
                 &inserts,
                 &removes,
                 &mut orm_changes,
@@ -134,16 +150,15 @@ impl Verifier {
                 log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
             }
 
-            // TODO: Check if this affects order and validity regarding possible page-order shifts.
-
             // Send patches if the subscription's session is different to the origin's session.
             if origin_subscription_id != subscription_id {
                 // send patches from changes
-                Verifier::send_orm_patches_from_changes(&subscription, &orm_changes).await;
+                Verifier::send_orm_patches_from_changes(&orm_subscription, &orm_changes).await;
             }
 
             // Put the subscription back
-            self.orm_subscriptions.insert(subscription_id, subscription);
+            self.orm_subscriptions
+                .insert(subscription_id, orm_subscription);
         }
     }
 
@@ -386,7 +401,7 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
     inserts: &'a [Quad],
     removes: &'a [Quad],
 ) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>) {
-    if subscription.subject_scope.is_empty() {
+    if subscription.subject_scope.is_empty() && subscription.page_info.is_none() {
         (Cow::Borrowed(inserts), Cow::Borrowed(removes))
     } else {
         // Relevant subjects consist of all tormos plus the explicit subject scope.
@@ -396,14 +411,12 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
             .chain(subscription.subject_scope.iter().cloned())
             .collect();
 
+        let page_window_bounds = subscription.get_page_window_bounds();
+
         let filtered_inserts: Vec<Quad> = inserts
             .iter()
             .filter(|quad| {
-                let quad_subject = match &quad.subject {
-                    ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
-                    _ => "", // Cannot happen
-                };
-                relevant_subjects.contains(quad_subject)
+                should_keep_quad(quad, subscription, &relevant_subjects, &page_window_bounds)
             })
             .cloned()
             .collect();
@@ -411,17 +424,117 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
         let filtered_removes: Vec<Quad> = removes
             .iter()
             .filter(|quad| {
-                let quad_subject = match &quad.subject {
-                    ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
-                    _ => "", // Cannot happen
-                };
-                relevant_subjects.contains(quad_subject)
+                should_keep_quad(quad, subscription, &relevant_subjects, &page_window_bounds)
             })
             .cloned()
             .collect();
 
         (Cow::Owned(filtered_inserts), Cow::Owned(filtered_removes))
     }
+}
+
+#[inline]
+fn graph_of_quad(quad: &Quad) -> &str {
+    match &quad.graph_name {
+        ng_oxigraph::oxrdf::GraphName::NamedNode(iri) => iri.as_str(),
+        _ => panic!("Quads must have NamedNode as graph"), // Cannot happen
+    }
+}
+#[inline]
+fn subject_of_quad(quad: &Quad) -> &str {
+    match &quad.subject {
+        ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
+        _ => panic!("Quads must have NamedNode as subject"), // Cannot happen
+    }
+}
+
+fn should_keep_quad(
+    quad: &Quad,
+    orm_subscription: &OrmSubscription,
+    relevant_subjects: &HashSet<String>,
+    window_bounds: &Option<(&str, bool, BasicType, BasicType)>,
+) -> bool {
+    let graph_subject = (
+        graph_of_quad(quad).to_owned(),
+        subject_of_quad(quad).to_owned(),
+    );
+    let predicate = quad.predicate.as_str();
+
+    let is_relevant_subject = relevant_subjects.contains(&graph_subject.1);
+    let is_in_window = orm_subscription
+        .page_info
+        .as_ref()
+        .map_or(true, |page_info| {
+            page_info.items_in_window_set.contains(&graph_subject)
+        });
+    if is_relevant_subject && is_in_window {
+        return true;
+    }
+
+    // Also keep updates of the (primary) order-by predicate when their value is
+    // inside the current window bounds.
+    let object = oxrdf_term_to_orm_basic_type(&quad.object);
+    let is_order_by_quad_in_window_range =
+        window_bounds
+            .as_ref()
+            .map_or(false, |(pred_iri, is_asc, first, last)| {
+                predicate == *pred_iri
+                    && is_order_value_in_window_range(&object, first, last, *is_asc)
+            });
+
+    is_order_by_quad_in_window_range
+}
+
+fn is_order_value_in_window_range(
+    value: &BasicType,
+    first_window_value: &BasicType,
+    last_window_value: &BasicType,
+    is_ascending: bool,
+) -> bool {
+    if is_ascending {
+        first_window_value <= value && value <= last_window_value
+    } else {
+        last_window_value <= value && value <= first_window_value
+    }
+}
+
+fn update_potential_offset_shift(
+    subscription: &mut OrmSubscription,
+    inserts: &[Quad],
+    removes: &[Quad],
+) {
+    let Some((pred, asc, left, _right)) = subscription.get_page_window_bounds() else {
+        return;
+    };
+    let order_by_pred = pred.to_owned();
+
+    let Some(page_info) = subscription.page_info.as_mut() else {
+        return;
+    };
+
+    let delta = inserts
+        .iter()
+        .chain(removes.iter())
+        .filter(|q| {
+            let key = (graph_of_quad(q).to_owned(), subject_of_quad(q).to_owned());
+            if page_info.all_up_to_offset.contains(&key) {
+                return true;
+            }
+
+            // Check if predicate is the (primary) order_by predicate and the value is below window.
+            if order_by_pred != q.predicate.as_str() {
+                return false;
+            }
+            let obj = oxrdf_term_to_orm_basic_type(&q.object);
+            if asc {
+                left < obj
+            } else {
+                left > obj
+            }
+        })
+        .count() as u64;
+
+    page_info.potential_offset_shift += delta;
 }
 
 /// Create patches for objects that need to be created from a set of (path, IRI) pairs.

@@ -9,17 +9,18 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::local_broker::{
-    doc_create, doc_query_quads_for_shape_type, doc_sparql_update, orm_start_graph,
+    self, doc_create, doc_query_quads_for_shape_type, doc_sparql_update, orm_start_graph,
 };
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, assert_orm_json_eq, create_doc_with_data, create_orm_connection_with_conf,
+    assert_json_eq, assert_orm_json_eq, await_graph_patches, create_doc_with_data,
+    create_orm_connection_with_conf,
 };
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    BasicType, OrmSchema, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
-    OrmShapeType,
+    BasicType, OrmConfig, OrmSchema, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape,
+    OrmSchemaValType, OrmShapeType,
 };
 
 use ng_repo::log::*;
@@ -645,14 +646,13 @@ async fn test_orm_creation() {
     test_orm_cardinality_scoping(session_id).await;
     log_info!("=== Test test_orm_cardinality_scoping ran successfully ===\n\n");
 
-    // TODO: Uncomment when sort etc. is implemented fully.
-    // log_info!("=== Starting test test_sort ===");
-    // test_sort(session_id).await;
-    // log_info!("=== Test test_sort ran successfully ===\n\n");
-    //
-    // log_info!("=== Starting test test_sort_paginated ===");
-    // test_sort_paginated(session_id).await;
-    // log_info!("=== Test test_sort_paginated ran successfully ===\n\n");
+    log_info!("=== Starting test test_sort ===");
+    test_sort(session_id).await;
+    log_info!("=== Test test_sort ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_sort_paginated ===");
+    test_sort_paginated(session_id).await;
+    log_info!("=== Test test_sort_paginated ran successfully ===\n\n");
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -727,9 +727,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1060,9 +1072,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1194,9 +1218,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1343,9 +1379,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1472,9 +1520,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1589,9 +1649,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1707,9 +1779,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1941,9 +2025,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2079,9 +2175,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2291,9 +2399,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2446,9 +2566,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2609,9 +2741,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_root).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2836,6 +2980,18 @@ INSERT DATA {
     <did:ng:z:sortObj3> a ex:SortObject ;
                         ex:required "invalid" ;
                         ex:sortBy 3 .
+    <did:ng:z:sortObj5> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 5 .
+    <did:ng:z:sortObj6> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 6 .
+    <did:ng:z:sortObj7> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 7 .
+    <did:ng:z:sortObj8> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 8 .
 }
 "#
         .to_string(),
@@ -2897,12 +3053,12 @@ INSERT DATA {
         shape: "did:ng:z:SortShape".to_string(),
     };
 
-    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
         vec![doc_nuri.clone()],
         vec![],
         shape_type.clone(),
         session_id,
-        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2}),
+        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2, "maxActivePages": 2}),
     )
     .await;
 
@@ -2916,6 +3072,58 @@ INSERT DATA {
             }
         }),
         &initial,
+    );
+
+    //
+    // Now test requesting the next page.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_json_eq(
+        &json!([{
+            "op": "add",
+            "path": "/1",
+            "value": {
+                "items": [
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj5", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 5},
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj6", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 6},
+                ]
+            }
+        }]),
+        &json!(new_page_patches),
+    );
+
+    //
+    // Now test requesting a 3rd page which is above maxActivePages.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_json_eq(
+        &json!([{
+            "op": "remove",
+            "path": "/0",
+        },
+        {
+            "op": "add",
+            "path": "/2",
+            "value": {
+                "items": [
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj7", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 7},
+                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj8", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 8},
+                ]
+            }
+        }]),
+        &json!(new_page_patches),
     );
 }
 
