@@ -13,8 +13,9 @@ use async_std::future::timeout;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
-use ng_net::orm::{OrmPatch, OrmShapeType};
+use ng_net::orm::{OrmConfig, OrmPatch, OrmShapeType};
 use ng_oxigraph::oxrdf::{Quad, Subject};
+use ng_repo::errors::NgError;
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -120,15 +121,18 @@ async fn create_orm_connection_with_conf(
     u64,
     serde_json::Value,
 ) {
+    let config = OrmConfig::from_json(&config, &shape_type).expect("parsing orm config failed");
+
     let nuris = nuris
         .iter()
         .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
         .collect();
 
     // let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id, config)
-    let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id)
-        .await
-        .expect("orm_start_graph failed");
+    let (mut receiver, cancel_fn) =
+        orm_start_graph(nuris, subjects, shape_type, session_id, config)
+            .await
+            .expect("orm_start_graph failed");
 
     // Get initial state with timeout
     let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {

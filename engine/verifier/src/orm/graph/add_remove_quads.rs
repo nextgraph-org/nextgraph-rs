@@ -78,15 +78,11 @@ pub fn add_quads_for_subject(
 
                 pred_changes.values_added.push(obj_term.clone());
 
-                // If value type is literal, we need to add the current value to the tracked predicate.
-                if tracked_predicate
-                    .schema
-                    .upgrade()
-                    .unwrap()
-                    .dataTypes
-                    .iter()
-                    .any(|dt| dt.literals.is_some())
-                {
+                // Add to literals if the value needs to be tracked for ordering or literal restrictions.
+                if should_add_to_literals(
+                    orm_subscription.config.order_by.as_ref(),
+                    predicate_schema,
+                ) {
                     match &mut tracked_predicate.current_literals {
                         Some(lits) => lits.push(obj_term.clone()),
                         None => {
@@ -141,14 +137,10 @@ pub fn remove_quads_for_subject(
         pred_changes.values_removed.push(val_removed.clone());
 
         // If value type is literal, we need to remove the current value from the tracked predicate.
-        if tracked_predicate
-            .schema
-            .upgrade()
-            .unwrap()
-            .dataTypes
-            .iter()
-            .any(|dt| dt.literals.is_some())
-        {
+        if should_add_to_literals(
+            orm_subscription.config.order_by.as_ref(),
+            &tracked_predicate.schema.upgrade().unwrap(),
+        ) {
             if let Some(current_literals) = &mut tracked_predicate.current_literals {
                 // Remove obj_val from current_literals in-place
                 current_literals.retain(|val| *val != val_removed);
@@ -158,6 +150,20 @@ pub fn remove_quads_for_subject(
         }
         // Parent-child link removal is handled during validation/cleanup; do not unlink here.
     }
+}
+
+fn should_add_to_literals(
+    order_by_conf: Option<&OrderByConfig>,
+    predicate_schema: &OrmSchemaPredicate,
+) -> bool {
+    order_by_conf.map_or(false, |order_by_schemas| {
+        order_by_schemas
+            .iter()
+            .any(|order_by_schema| order_by_schema.0.iri == predicate_schema.iri)
+    }) || predicate_schema
+        .dataTypes
+        .iter()
+        .any(|dt| dt.literals.is_some())
 }
 
 /// Filters grouped quads for a specific (graph,subject) and shape and applies them (add+remove) to the tracked object and change.

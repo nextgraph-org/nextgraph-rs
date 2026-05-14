@@ -11,7 +11,7 @@
 
 #![allow(non_snake_case)]
 
-use std::{collections::HashMap, sync::Arc};
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +73,17 @@ pub enum BasicType {
     Str(String),
 }
 
+impl PartialOrd for BasicType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (BasicType::Num(a), BasicType::Num(b)) => a.partial_cmp(b),
+            (BasicType::Str(a), BasicType::Str(b)) => a.partial_cmp(b),
+            (BasicType::Bool(a), BasicType::Bool(b)) => a.partial_cmp(b),
+            _ => None, // Different types are not comparable.
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaDataType {
     pub valType: OrmSchemaValType,
@@ -106,7 +117,7 @@ pub type SelectConfig = serde_json::Value;
 type IsAscending = bool;
 pub type OrderByConfig = Vec<(Arc<OrmSchemaPredicate>, IsAscending)>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmConfig {
     pub where_: Option<WhereConfig>,
     pub order_by: Option<OrderByConfig>,
@@ -119,7 +130,6 @@ pub struct OrmConfig {
 impl OrmConfig {
     /// Parse OrmConfig from json.
     pub fn from_json(
-        // TODO: Use json in libwasm context.
         config: &serde_json::Value,
         shape_type: &OrmShapeType,
     ) -> Result<OrmConfig, String> {
@@ -143,6 +153,9 @@ impl OrmConfig {
                         "Predicate not found in orderBy config: {}",
                         readable_pred
                     ))?;
+                if found_pred.maxCardinality != 1 || found_pred.minCardinality != 1 {
+                    return Err("Orm config order by properties must have cardinality 1.".into());
+                }
                 order_by_config.push((found_pred.clone(), is_asc));
             }
             Some(order_by_config)
