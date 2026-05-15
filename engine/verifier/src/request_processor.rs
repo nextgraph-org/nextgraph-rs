@@ -194,10 +194,22 @@ impl Verifier {
             if about.len() > 0 {
                 inserts += &format!(
                     "<> <{NG_ONTOLOGY_ABOUT}> \"{}\". ",
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
                     about.replace("\\", "\\\\").replace("\"", "\\\"")
                 );
             }
         }
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
         if let Some(title) = title {
             deletes += &format!("<> <{NG_ONTOLOGY_TITLE}> ?n. ");
             wheres += &format!("OPTIONAL {{ <> <{NG_ONTOLOGY_TITLE}> ?n }} ");
