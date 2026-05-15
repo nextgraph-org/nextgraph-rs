@@ -9,6 +9,12 @@
 
 /// `~` is encoded as ~0, `/` is encoded as ~1.
 pub fn escape_json_pointer_segment(path_segment: &String) -> String {
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
     path_segment.replace("~", "~0").replace("/", "~1")
 }
 /// `~` is encoded as ~0, `/` is encoded as ~1.
