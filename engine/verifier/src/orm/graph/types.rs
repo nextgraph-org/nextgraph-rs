@@ -150,8 +150,11 @@ pub struct OrmSubscriptionPageInfo {
     /// All items that are below the current window and whose changes therefore
     /// might affect shifts of the offset. Also see potential_offset_shift.
     pub all_up_to_offset: HashSet<(String, String)>,
-    pub items_in_window: Vec<Arc<RwLock<TrackedOrmObject>>>,
-    pub items_in_window_set: HashSet<(GraphIri, SubjectIri)>,
+
+    /// Ordered vec of all tormos (that in the window).
+    pub tormos_ordered: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    /// Set of all tormos' graph and subject pairs (that in the window).
+    pub tormo_graph_subject_set: HashSet<(GraphIri, SubjectIri)>,
     /// TODO: The logic for this is not implemented yet.
     ///
     /// The idea of this property is that we need to track which object belongs to which page.
@@ -234,8 +237,8 @@ impl OrmSubscription {
         let page_info = if config.page_size > 0 {
             Some(OrmSubscriptionPageInfo {
                 all_up_to_offset: HashSet::new(),
-                items_in_window: vec![],
-                items_in_window_set: HashSet::new(),
+                tormos_ordered: vec![],
+                tormo_graph_subject_set: HashSet::new(),
                 limit_heuristic: (config.page_size as f64 * 1.5) as u64,
                 offset: 0,
                 lowest_active_page: 0,
@@ -811,8 +814,8 @@ impl OrmSubscription {
         let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
         let order_predicate_iri = &order_by.iri;
 
-        let first = page_info.items_in_window.first()?;
-        let last = page_info.items_in_window.last()?;
+        let first = page_info.tormos_ordered.first()?;
+        let last = page_info.tormos_ordered.last()?;
 
         let first_value = {
             let first_tormo = first.read().unwrap();

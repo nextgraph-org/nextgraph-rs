@@ -2953,10 +2953,10 @@ INSERT DATA {
         &json!([
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4",  "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3",  "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2",  "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1",  "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
         ]),
         &initial,
     );

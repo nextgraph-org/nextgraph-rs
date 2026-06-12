@@ -135,7 +135,7 @@ impl Verifier {
         &mut self,
         orm_subscription: &mut OrmSubscription,
     ) -> Result<serde_json::Value, NgError> {
-        let queried_page = self.query_page(orm_subscription, true).await?;
+        let queried_page = self.query_items_ordered(orm_subscription, true).await?;
 
         if orm_subscription.page_info.is_some() {
             // Return as page when pagination is set.
@@ -220,11 +220,9 @@ impl Verifier {
         &mut self,
         subscription_id: u64,
     ) -> Result<(), NgError> {
-        panic!("Loading previous pages is not implemented yet.");
         self.orm_load_page(subscription_id, false).await
     }
 
-    /// This is still a TODO.
     pub(crate) async fn orm_load_page(
         &mut self,
         subscription_id: u64,
@@ -248,18 +246,14 @@ impl Verifier {
         };
 
         // A new query is started with an updated range.
-        let next_page = self.query_page(&mut orm_subscription, forward).await?;
+        let next_page = self.query_items_ordered(&mut orm_subscription, forward).await?;
 
-        // Drop last / first page, if we now have more pages than max_active_pages allows.
         let page_info = orm_subscription.page_info.as_ref().unwrap();
-        let highest_active_page = page_info.highest_active_page;
-        let lowest_active_page = page_info.lowest_active_page;
-
         let mut patches: Vec<OrmPatch> = Vec::with_capacity(2);
 
         // If more pages exist now than max_active_page, remove the last.
         if orm_subscription.config.max_active_pages > 0
-            && highest_active_page - lowest_active_page + 1
+            && page_info.highest_active_page - page_info.lowest_active_page + 1
                 > orm_subscription.config.max_active_pages as i64
         {
             let removed_page = self.untrack_page(&mut orm_subscription, forward).await?;
@@ -302,7 +296,10 @@ impl Verifier {
         Ok(())
     }
 
-    async fn query_page(
+    /// Queries the next page or all items if pagination is not enabled.
+    /// Updates orm_subscription in that process.
+    /// Returns the JSON-serialized items / page.
+    async fn query_items_ordered(
         &mut self,
         orm_subscription: &mut OrmSubscription,
         forward: bool,
@@ -319,7 +316,7 @@ impl Verifier {
             orm_subscription.page_info.as_ref().map(|page_info| {
                 (
                     page_info.limit_heuristic + page_info.potential_offset_shift,
-                    (page_info.offset + page_info.items_in_window.len() as u64)
+                    (page_info.offset + page_info.tormos_ordered.len() as u64)
                         .saturating_sub(page_info.potential_offset_shift),
                 )
             })
@@ -459,20 +456,29 @@ impl Verifier {
                 // Add new tormos to current window.
                 let page_info = orm_subscription.page_info.as_mut().unwrap();
                 page_info
-                    .items_in_window_set
+                    .tormo_graph_subject_set
                     .extend(new_tormos_ordered.iter().map(|tormo| {
                         (
                             tormo.read().unwrap().graph_iri.clone(),
                             tormo.read().unwrap().subject_iri.clone(),
                         )
                     }));
-                page_info.items_in_window.extend(new_tormos_ordered);
+                    if (forward) {
+                        // Append tormos.
+                        page_info.tormos_ordered.extend(new_tormos_ordered);
+
+                    } else {
+                        // Prepend new tormos.
+                        page_info
+                            .tormos_ordered
+                            .splice(0..0, new_tormos_ordered);
+                    }
             }
 
             let page_info = orm_subscription.page_info.as_mut().unwrap();
 
             // Update limit_heuristic: page_size * (#all+1) / (#valid+1) * 1.5
-            let n_objects = page_info.items_in_window.len();
+            let n_objects = page_info.tormos_ordered.len();
             page_info.limit_heuristic = (orm_subscription.config.page_size as f64
                 * (n_objects + 1) as f64
                 / (n_valid + 1) as f64
@@ -547,7 +553,7 @@ impl Verifier {
                 if forward {
                     // Find the right-most item of our window in the graph_subject_page result.
                     if let Some(right_most) = page_info
-                        .items_in_window
+                        .tormos_ordered
                         .last()
                         .and_then(|rm| rm.read().ok())
                     {
@@ -581,7 +587,7 @@ impl Verifier {
                 } else {
                     // Get the left-most item of our window in graph_subject_page result.
                     if let Some(left_most) = page_info
-                        .items_in_window
+                        .tormos_ordered
                         .get(0)
                         .and_then(|lm| lm.read().ok())
                     {
@@ -649,14 +655,14 @@ impl Verifier {
             page_size * (page_info.highest_active_page - page_info.lowest_active_page - 1) as usize
         };
         let upper_pos = if forward {
-            min(page_size as usize, page_info.items_in_window.len())
+            min(page_size as usize, page_info.tormos_ordered.len())
         } else {
-            page_info.items_in_window.len() as usize
+            page_info.tormos_ordered.len() as usize
         };
 
         // Remove items from ordered window and window set.
         let removed_objects: Vec<(String, String)> = page_info
-            .items_in_window
+            .tormos_ordered
             .drain(lower_pos..upper_pos)
             .map(|tormo| {
                 let tormo = tormo.read().unwrap();
@@ -665,7 +671,7 @@ impl Verifier {
             .collect();
         for (g, s) in removed_objects.iter() {
             page_info
-                .items_in_window_set
+                .tormo_graph_subject_set
                 .remove(&(g.clone(), s.clone()));
         }
 

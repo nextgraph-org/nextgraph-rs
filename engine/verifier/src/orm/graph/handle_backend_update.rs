@@ -15,10 +15,12 @@ use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
+use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
 use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::types::*;
+use crate::orm::graph::utils::GraphSubjectKey;
 use crate::orm::utils::escape_json_pointer_segment;
 use crate::types::*;
 use crate::verifier::*;
@@ -88,7 +90,7 @@ impl Verifier {
         inserts: &[Quad],
         removes: &[Quad],
         origin_subscription_id: u64,
-    ) {
+    ) -> Result<(), NgError> {
         let overlaylink: OverlayLink = overlay_id.into();
 
         // First: Clean up and remove old subscriptions
@@ -112,13 +114,49 @@ impl Verifier {
             }
 
             // If subscription is paginated, this will increase the count of potential shifts
-            // of the page order query.
-            update_potential_offset_shift(&mut orm_subscription, inserts, removes);
+            // to the SPARQL OFFSET of the page order query.
+            update_potential_offset_shift_count(&mut orm_subscription, inserts, removes);
 
             // Filter quads by subject scope if applicable
-            let (inserts, removes) =
+            let (inserts, removes, gs_to_fetch) =
                 filter_quads_by_subject_scope_if_necessary(&orm_subscription, inserts, removes);
 
+            // If we have an ordered page, it might be that new quads arrived whose value is within the window bounds.
+            // In that case we have to add the graph+subject to the tormo and query the related quads.
+            let inserts: Cow<'_, [Quad]> = if gs_to_fetch.len() > 0 {
+                let graphs = gs_to_fetch
+                    .iter()
+                    .map(|gs_key| gs_key.0.clone())
+                    .collect::<HashSet<_>>()
+                    .into_iter()
+                    .collect();
+                let subjects = gs_to_fetch
+                    .iter()
+                    .map(|gs_key| gs_key.1.clone())
+                    .collect::<HashSet<_>>()
+                    .into_iter()
+                    .collect();
+                let mut new_quads = self
+                    .query_quads_for_shape(
+                        &graphs,
+                        &orm_subscription.shape_type.schema,
+                        &orm_subscription.shape_type.shape,
+                        Some(&subjects),
+                    )
+                    .unwrap_or_else(|e| {
+                        log_err!(
+                            "Error occurred when processing changes for subscription {origin_subscription_id} while querying new items from quads in window: {:?}",
+                            e
+                        );
+                        vec![]
+                    });
+                new_quads.extend(inserts.iter().cloned());
+                Cow::Owned(new_quads)
+            } else {
+                Cow::Borrowed(&inserts)
+            };
+
+            // No quads to apply for this subscription?
             if inserts.is_empty() && removes.is_empty() {
                 self.orm_subscriptions
                     .insert(subscription_id, orm_subscription);
@@ -126,7 +164,7 @@ impl Verifier {
             }
 
             // TODO: Now ensure that processing is handled correctly
-            // Collect adds, removes, moves during process_changes..
+            // Collect adds, removes, moves from orm_changes.
             // Then: Apply adds, removes, moves to window
             // Calculate page/position where to send patches to
             // Strategy depends on whether we make a pagination or just keep all items in root array.
@@ -135,7 +173,7 @@ impl Verifier {
             // - add items in to that window, assign the page num that the neighbor item has.
             //   - Record operation, the patch, based on page number of neighbor and position in page
             // - then go over window and adjust the page numbers so that they fit the page_size. Record modifications (moves)
-            // 
+            //
 
             // Process changes for this shape
             let mut orm_changes: OrmChanges = HashMap::new();
@@ -160,6 +198,8 @@ impl Verifier {
             self.orm_subscriptions
                 .insert(subscription_id, orm_subscription);
         }
+
+        Ok(())
     }
 
     /// Checks if a scope is affected by this backend update.
@@ -219,9 +259,10 @@ impl Verifier {
                     };
                     let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
 
-                    // Skip if tormo is invalid and was it before? There is nothing we need to inform about.
+                    // Skip if tormo is invalid and was so before.
                     if change.prev_valid == TrackedOrmObjectValidity::Invalid
-                        && tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
+                        && (tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
+                            || tracked_orm_object.valid == TrackedOrmObjectValidity::ToDelete)
                     {
                         continue;
                     }
@@ -231,7 +272,8 @@ impl Verifier {
                     if change.prev_valid == TrackedOrmObjectValidity::Valid
                         && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
                     {
-                        // Check if any parent is also being deleted
+                        // Check if any parent is also being deleted.
+                        // In that case, we don't need to remove this child separately.
                         let has_parent_being_deleted =
                             tracked_orm_object.parents.iter().any(|parent_w| {
                                 if let Some(parent_arc) = parent_w.upgrade() {
@@ -243,7 +285,7 @@ impl Verifier {
                             });
 
                         if !has_parent_being_deleted {
-                            // Create deletion patch
+                            // Create deletion patch.
                             let mut path = vec![];
                             build_path_to_root_and_create_patches(
                                 &tracked_orm_object,
@@ -393,16 +435,20 @@ impl Verifier {
     }
 }
 
-/// Filters quads by subject scope. If the subscription has no subject scope,
+/// Filters quads by subject scope. If the subscription has no subject scope and no ordering,
 /// returns borrowed references to the original slices (no allocation).
 /// Otherwise, returns owned filtered vectors.
 fn filter_quads_by_subject_scope_if_necessary<'a>(
     subscription: &OrmSubscription,
     inserts: &'a [Quad],
     removes: &'a [Quad],
-) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>) {
+) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>, HashSet<GraphSubjectKey>) {
     if subscription.subject_scope.is_empty() && subscription.page_info.is_none() {
-        (Cow::Borrowed(inserts), Cow::Borrowed(removes))
+        (
+            Cow::Borrowed(inserts),
+            Cow::Borrowed(removes),
+            HashSet::with_capacity(0),
+        )
     } else {
         // Relevant subjects consist of all tormos plus the explicit subject scope.
         let relevant_subjects: HashSet<String> = subscription
@@ -413,23 +459,74 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
 
         let page_window_bounds = subscription.get_page_window_bounds();
 
+        let mut graph_subject_needs_fetch: HashSet<GraphSubjectKey> = HashSet::new();
+
+        let mut should_keep_quad = |quad: &Quad, quad_inserted: bool| -> bool {
+            let graph_subject = (
+                graph_of_quad(quad).to_owned(),
+                subject_of_quad(quad).to_owned(),
+            );
+            let predicate = quad.predicate.as_str();
+
+            // Check if subject is present in a tormo or a scope subject.
+            let is_relevant_subject = relevant_subjects.contains(&graph_subject.1);
+            // For ordered subscriptions: Check if graph+subject is in current window.
+            let is_in_tormo_window = subscription.page_info.as_ref().map_or(true, |page_info| {
+                page_info.tormo_graph_subject_set.contains(&graph_subject)
+            });
+            if is_relevant_subject && is_in_tormo_window {
+                return true;
+            }
+
+            if !quad_inserted {
+                return false;
+            }
+
+            // Now, if this is a new quad with the order_by predicate and a value that is within the current window,
+            // the quad is of relevance and we schedule it for fetching.
+            let is_order_by_quad_in_window_range = page_window_bounds.as_ref().map_or(
+                false,
+                |(order_by_pred, is_asc, first, last)| {
+                    predicate == *order_by_pred
+                        && is_order_value_in_window_range(
+                            &oxrdf_term_to_orm_basic_type(&quad.object),
+                            first,
+                            last,
+                            *is_asc,
+                        )
+                },
+            );
+
+            if is_order_by_quad_in_window_range {
+                if subscription.subject_scope.is_empty()
+                    || subscription.subject_scope.contains(&graph_subject.1)
+                {
+                    // This is a subject that we didn't track before because it was out of range.
+                    // Now it is and we need to fetch it.
+                    graph_subject_needs_fetch.insert(graph_subject);
+                }
+            }
+
+            is_order_by_quad_in_window_range
+        };
+
         let filtered_inserts: Vec<Quad> = inserts
             .iter()
-            .filter(|quad| {
-                should_keep_quad(quad, subscription, &relevant_subjects, &page_window_bounds)
-            })
+            .filter(|quad| should_keep_quad(quad, true))
             .cloned()
             .collect();
 
         let filtered_removes: Vec<Quad> = removes
             .iter()
-            .filter(|quad| {
-                should_keep_quad(quad, subscription, &relevant_subjects, &page_window_bounds)
-            })
+            .filter(|quad| should_keep_quad(quad, false))
             .cloned()
             .collect();
 
-        (Cow::Owned(filtered_inserts), Cow::Owned(filtered_removes))
+        (
+            Cow::Owned(filtered_inserts),
+            Cow::Owned(filtered_removes),
+            graph_subject_needs_fetch,
+        )
     }
 }
 
@@ -448,43 +545,6 @@ fn subject_of_quad(quad: &Quad) -> &str {
     }
 }
 
-fn should_keep_quad(
-    quad: &Quad,
-    orm_subscription: &OrmSubscription,
-    relevant_subjects: &HashSet<String>,
-    window_bounds: &Option<(&str, bool, BasicType, BasicType)>,
-) -> bool {
-    let graph_subject = (
-        graph_of_quad(quad).to_owned(),
-        subject_of_quad(quad).to_owned(),
-    );
-    let predicate = quad.predicate.as_str();
-
-    let is_relevant_subject = relevant_subjects.contains(&graph_subject.1);
-    let is_in_window = orm_subscription
-        .page_info
-        .as_ref()
-        .map_or(true, |page_info| {
-            page_info.items_in_window_set.contains(&graph_subject)
-        });
-    if is_relevant_subject && is_in_window {
-        return true;
-    }
-
-    // Also keep updates of the (primary) order-by predicate when their value is
-    // inside the current window bounds.
-    let object = oxrdf_term_to_orm_basic_type(&quad.object);
-    let is_order_by_quad_in_window_range =
-        window_bounds
-            .as_ref()
-            .map_or(false, |(pred_iri, is_asc, first, last)| {
-                predicate == *pred_iri
-                    && is_order_value_in_window_range(&object, first, last, *is_asc)
-            });
-
-    is_order_by_quad_in_window_range
-}
-
 fn is_order_value_in_window_range(
     value: &BasicType,
     first_window_value: &BasicType,
@@ -498,7 +558,9 @@ fn is_order_value_in_window_range(
     }
 }
 
-fn update_potential_offset_shift(
+/// Updates page_info.potential_offset_shift if the the inserts or removes
+/// might affect the SPARQL query offset of currently active page.
+fn update_potential_offset_shift_count(
     subscription: &mut OrmSubscription,
     inserts: &[Quad],
     removes: &[Quad],
@@ -805,16 +867,16 @@ fn build_path_to_root_and_create_patches(
     tracked_orm_object: &TrackedOrmObject,
     root_shape: &String,
     path: &mut Vec<String>,
-    diff_op: PatchOperation,
+    patch_op: PatchOperation,
     patches: &mut Vec<OrmPatch>,
     objects_to_create: &mut HashSet<(Vec<String>, Option<(SubjectIri, GraphIri)>)>,
     prev_valid: &TrackedOrmObjectValidity,
     orm_changes: &OrmChanges,
     child_subject_graph_iri: &(SubjectIri, GraphIri),
 ) {
-    let shape_iri = tracked_orm_object
-        .shape_iri()
-        .unwrap_or("<dropped-shape>".into());
+    // let shape_iri = tracked_orm_object
+    //     .shape_iri()
+    //     .unwrap_or("<dropped-shape>".into());
     // log_info!(
     //     "[PATCH TRACE] build_path_to_root: subject='{}' graph='{}' shape='{}' parents={} current_path_segs={:?} op={:?} valType={:?}",
     //     tracked_orm_object.subject_iri,
@@ -827,7 +889,7 @@ fn build_path_to_root_and_create_patches(
     // );
 
     // Check if subject is valid for this patch creation
-    if !is_valid_for_patch_creation(tracked_orm_object, &diff_op) {
+    if !is_valid_for_patch_creation(tracked_orm_object, &patch_op) {
         // log_info!(
         //     "[PATCH TRACE]  Skipping patch creation due to invalid tormo (and not an object remove): subject='{}' graph='{}'",
         //     tracked_orm_object.subject_iri,
@@ -847,7 +909,7 @@ fn build_path_to_root_and_create_patches(
         handle_root_reached(
             tracked_orm_object,
             path,
-            &diff_op,
+            &patch_op,
             patches,
             objects_to_create,
             prev_valid,
@@ -873,7 +935,7 @@ fn build_path_to_root_and_create_patches(
                 &parent_ts,
                 root_shape,
                 &mut new_path,
-                diff_op.clone(),
+                patch_op.clone(),
                 patches,
                 objects_to_create,
                 prev_valid,
@@ -893,11 +955,11 @@ fn build_path_to_root_and_create_patches(
 /// Checks if a subject is valid for creating a patch in this context.
 fn is_valid_for_patch_creation(
     tracked_orm_object: &TrackedOrmObject,
-    diff_op: &PatchOperation,
+    patch_op: &PatchOperation,
 ) -> bool {
     // If the tracked orm object is not valid, we don't create patches for it
     // EXCEPT when we're removing the object itself.
-    tracked_orm_object.valid == TrackedOrmObjectValidity::Valid || diff_op.op == OrmPatchOp::remove
+    tracked_orm_object.valid == TrackedOrmObjectValidity::Valid || patch_op.op == OrmPatchOp::remove
 }
 
 /// Handles the case when we've reached the root of the hierarchy.
