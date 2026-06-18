@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use crate::orm::graph::types::*;
+use crate::orm::graph::utils::basic_type_to_json;
 use crate::orm::graph::utils::{assess_and_rank_children, nuri_to_string};
 use crate::types::CancelFn;
 use crate::verifier::Verifier;
@@ -202,7 +203,10 @@ impl Verifier {
                         &orm_subscription,
                     );
                     obj_map.insert(
-                        format!("{}|{}", tormo.graph_iri, tormo.subject_iri),
+                        format!(
+                            "{}|{}|{}",
+                            tormo.graph_iri, tormo.subject_iri, orm_subscription.shape_type.shape
+                        ),
                         new_val,
                     );
                 }
@@ -246,7 +250,9 @@ impl Verifier {
         };
 
         // A new query is started with an updated range.
-        let next_page = self.query_items_ordered(&mut orm_subscription, forward).await?;
+        let next_page = self
+            .query_items_ordered(&mut orm_subscription, forward)
+            .await?;
 
         let page_info = orm_subscription.page_info.as_ref().unwrap();
         let mut patches: Vec<OrmPatch> = Vec::with_capacity(2);
@@ -463,16 +469,13 @@ impl Verifier {
                             tormo.read().unwrap().subject_iri.clone(),
                         )
                     }));
-                    if (forward) {
-                        // Append tormos.
-                        page_info.tormos_ordered.extend(new_tormos_ordered);
-
-                    } else {
-                        // Prepend new tormos.
-                        page_info
-                            .tormos_ordered
-                            .splice(0..0, new_tormos_ordered);
-                    }
+                if (forward) {
+                    // Append tormos.
+                    page_info.tormos_ordered.extend(new_tormos_ordered);
+                } else {
+                    // Prepend new tormos.
+                    page_info.tormos_ordered.splice(0..0, new_tormos_ordered);
+                }
             }
 
             let page_info = orm_subscription.page_info.as_mut().unwrap();
@@ -712,17 +715,17 @@ impl Verifier {
 }
 
 /// Create ORM JSON object from OrmTrackedSubjectChange and shape.
-pub(crate) fn materialize_orm_object(
-    change: &TrackedOrmObjectChange,
-    changes: &OrmChanges,
-    shape: &OrmSchemaShape,
-    orm_subscription: &OrmSubscription,
-) -> Value {
+pub(crate) fn materialize_orm_object(change: &TrackedOrmObjectChange) -> Value {
     // TODO: Only materialize select part.
 
+    let shape = change.tracked_orm_object.read().unwrap().shape();
     let tormo = change.tracked_orm_object.read().unwrap();
 
-    let mut orm_obj = json!({"@id": tormo.subject_iri, "@graph": tormo.graph_iri});
+    let mut orm_obj = json!({
+        "@id": tormo.subject_iri,
+        "@graph": tormo.graph_iri,
+        "@shape": shape.iri
+    });
     let orm_obj_map = orm_obj.as_object_mut().unwrap();
     for pred_schema in &shape.predicates {
         let property_name = &pred_schema.readablePredicate;
@@ -732,7 +735,7 @@ pub(crate) fn materialize_orm_object(
             // No triples for this property.
 
             if pred_schema.minCardinality == 0 && is_multi {
-                // If this predicate schema is an array though, insert empty array.
+                // If this predicate schema is multi though, insert empty array (converted to set by js-land).
                 orm_obj_map.insert(property_name.clone(), Value::Array(vec![]));
             }
 
@@ -771,22 +774,11 @@ pub(crate) fn materialize_orm_object(
                 if child.valid != TrackedOrmObjectValidity::Valid {
                     return None;
                 }
-                let shape_iri_for_child = child.shape_iri().unwrap();
-                let graph_changes = changes.get(&shape_iri_for_child)?;
-                let subj_changes = graph_changes.get(&child.graph_iri)?;
-                let nested_change = subj_changes.get(&child.subject_iri)?;
-                // Recurse with the child's shape
-                let child_shape_arc = orm_subscription
-                    .shape_type
-                    .schema
-                    .get(&shape_iri_for_child)
-                    .cloned()?;
-                let nested = materialize_orm_object(
-                    nested_change,
-                    changes,
-                    &child_shape_arc,
-                    orm_subscription,
-                );
+                let nested = json!({
+                    "@id": child.subject_iri,
+                    "@graph": child.graph_iri,
+                    "@shape": child.shape().iri
+                });
                 return Some(nested);
             };
 
@@ -802,7 +794,12 @@ pub(crate) fn materialize_orm_object(
                         let child = child_arc.read().unwrap();
 
                         nested_objects_map.insert(
-                            format!("{}|{}", child.graph_iri, child.subject_iri),
+                            format!(
+                                "{}|{}|{}",
+                                child.graph_iri,
+                                child.subject_iri,
+                                child.shape().iri
+                            ),
                             nested_orm_obj,
                         );
                     }
@@ -829,25 +826,14 @@ pub(crate) fn materialize_orm_object(
                         pred_change
                             .values_added
                             .iter()
-                            .map(|v| match v {
-                                BasicType::Bool(b) => json!(*b),
-                                BasicType::Num(n) => json!(*n),
-                                BasicType::Str(s) => json!(s),
-                            })
+                            .map(|v| basic_type_to_json(v))
                             .collect(),
                     ),
                 );
             } else {
                 // Add value as primitive, if present.
                 if let Some(val) = pred_change.values_added.get(0) {
-                    orm_obj_map.insert(
-                        property_name.clone(),
-                        match val {
-                            BasicType::Bool(b) => json!(*b),
-                            BasicType::Num(n) => json!(*n),
-                            BasicType::Str(s) => json!(s),
-                        },
-                    );
+                    orm_obj_map.insert(property_name.clone(), basic_type_to_json(val));
                 }
             }
         }

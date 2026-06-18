@@ -478,14 +478,11 @@ fn create_sparql_update_query_for_patches(
                                         current_graph = child_guard.graph_iri.clone();
 
                                         // Determine child schema now that we have descended.
-                                        if let Some(child_shape_iri) = child_guard.shape_iri() {
-                                            if let Some(child_schema) = orm_subscription
-                                                .shape_type
-                                                .schema
-                                                .get(&child_shape_iri)
-                                            {
-                                                current_schema = child_schema.clone();
-                                            }
+                                        let child_shape_iri = &child_guard.shape().iri;
+                                        if let Some(child_schema) =
+                                            orm_subscription.shape_type.schema.get(child_shape_iri)
+                                        {
+                                            current_schema = child_schema.clone();
                                         }
                                     }
                                 }

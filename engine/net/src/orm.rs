@@ -35,6 +35,11 @@ pub enum OrmPatchType {
     set,
 }
 
+/// Types of possible patches:
+/// For discrete ORM, things are just like regular JSON patches.
+/// For graph ORM:
+/// - There is no nesting, the path's first element is a composite of <graph NURI>|<subject URI>|<shape URI>/<readable predicate name>
+/// - if valType equals `set`, the values under the path are a set. This can be true for literals and objects
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmPatch {
     pub op: OrmPatchOp,
@@ -42,7 +47,7 @@ pub struct OrmPatch {
     pub valType: Option<OrmPatchType>,
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<serde_json::Value>, // TODO: Improve type
+    pub value: Option<serde_json::Value>,
 }
 
 pub type OrmPatches = Vec<OrmPatch>;

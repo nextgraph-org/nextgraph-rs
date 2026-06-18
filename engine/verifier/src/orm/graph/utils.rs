@@ -10,6 +10,7 @@
 
 use ng_oxigraph::oxrdf::{GraphName, Quad, Subject};
 use ng_repo::types::OverlayId;
+use serde_json::json;
 
 use std::collections::HashMap;
 
@@ -19,7 +20,7 @@ use regex::Regex;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{
     app_protocol::*,
-    orm::{OrmSchemaPredicate, OrmSchemaValType},
+    orm::{BasicType, OrmSchemaPredicate, OrmSchemaValType},
 };
 
 use std::sync::{Arc, RwLock};
@@ -94,6 +95,13 @@ pub fn escape_sparql_string(lit: &str) -> String {
     return out;
 }
 
+pub fn basic_type_to_json(val: &BasicType) -> serde_json::Value {
+    match val {
+        BasicType::Bool(b) => json!(*b),
+        BasicType::Num(n) => json!(*n),
+        BasicType::Str(s) => json!(s),
+    }
+}
 pub fn is_uri_escaped(iri: &str) -> bool {
     let re = Regex::new(r"^[^<>\{\}\|^`\\\x00-\x20]*$").unwrap();
     re.is_match(iri)

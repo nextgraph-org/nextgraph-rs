@@ -14,7 +14,7 @@ use std::{collections::HashMap, sync::Arc};
 use ng_net::app_protocol::AppResponse;
 use ng_net::{orm::*, utils::Sender};
 use ng_repo::errors::NgError;
-use std::sync::{RwLock, Weak};
+use std::sync::{RwLock, RwLockReadGuard, Weak};
 
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
@@ -55,8 +55,8 @@ impl TrackedOrmPredicate {
             .filter_map(|w| w.upgrade())
             .collect()
     }
-    pub fn schema_arc(&self) -> Option<Arc<OrmSchemaPredicate>> {
-        self.schema.upgrade()
+    pub fn schema_arc(&self) -> Arc<OrmSchemaPredicate> {
+        self.schema.upgrade().unwrap()
     }
 }
 
@@ -78,11 +78,11 @@ impl TrackedOrmObject {
     pub fn prune_parents(&mut self) {
         self.parents.retain(|w| w.upgrade().is_some());
     }
-    pub fn shape_arc(&self) -> Option<Arc<OrmSchemaShape>> {
-        self.shape.upgrade()
+    pub fn shape(&self) -> Arc<OrmSchemaShape> {
+        self.shape.upgrade().unwrap()
     }
-    pub fn shape_iri(&self) -> Option<String> {
-        self.shape.upgrade().map(|s| s.iri.clone())
+    pub fn shape_iri(&self) -> String {
+        self.shape.upgrade().unwrap().iri.clone()
     }
 }
 
@@ -125,6 +125,36 @@ pub struct TrackedOrmPredicateChanges {
     pub tracked_predicate: Arc<RwLock<TrackedOrmPredicate>>,
     pub values_added: Vec<BasicType>,
     pub values_removed: Vec<BasicType>,
+}
+
+impl TrackedOrmPredicateChanges {
+    pub fn tracked_predicate(&self) -> RwLockReadGuard<TrackedOrmPredicate> {
+        return self.tracked_predicate.read().unwrap();
+    }
+    pub fn first_tormo_for_subj(
+        &self,
+        subject_iri: &String,
+    ) -> Option<Arc<RwLock<TrackedOrmObject>>> {
+        if let Some(child_tormo) = self
+            .tracked_predicate()
+            .tracked_children
+            .iter()
+            .find_map(|tc| {
+                let tormo = tc.upgrade().unwrap();
+                let tormo_read = tormo.read().unwrap();
+                if tormo_read.subject_iri == *subject_iri {
+                    drop(tormo_read);
+                    Some(tormo)
+                } else {
+                    None
+                }
+            })
+        {
+            Some(Arc::clone(&child_tormo))
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
