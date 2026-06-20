@@ -11,7 +11,7 @@ packages:
     - sdk/js/examples/react-ldo
     - sdk/js/examples/test-react-sdk
     - app/ui-common
-    - app/nextgraph
+    - app/shell
     - engine/broker/auth
     - infra/ngaccount/web
     - infra/ngapp/web

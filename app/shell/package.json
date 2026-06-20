@@ -1,5 +1,5 @@
 {
-    "name": "@ng-org/ng-app",
+    "name": "@ng-org/shell",
     "private": true,
     "version": "0.1.2",
     "type": "module",
