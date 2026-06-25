@@ -51,7 +51,7 @@ pnpm webbuild
 ## Desktop
 
 ```
-cargo install tauri-cli --version "^2.0.0" --locked
+cargo install tauri-cli --version "^2.11.3" --locked
 ```
 
 Install [all prerequisites](https://tauri.app/start/prerequisites/) for your dev platform.

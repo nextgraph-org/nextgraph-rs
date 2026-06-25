@@ -11,7 +11,7 @@
   "dependencies": {
     "flowbite": "^1.6.5",
     "flowbite-svelte": "^0.37.1",
-    "svelte-spa-router": "^3.3.0"
+    "svelte-spa-router": "^4.0.2"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^2.0.4",

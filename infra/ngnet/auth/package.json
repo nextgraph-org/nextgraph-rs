@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --base=./ && shx rm -rf ./dist/assets",
-    "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx rm -rf ./dist/assets && shx mkdir -p ../../../app/nextgraph/public_dev && cp ./dist/index.html ../../../app/nextgraph/public_dev/auth.html",
+    "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx rm -rf ./dist/assets && shx mkdir -p ../../../app/shell/public_dev && cp ./dist/index.html ../../../app/shell/public_dev/auth.html",
     "preview": "vite preview"
   },
   "dependencies": {

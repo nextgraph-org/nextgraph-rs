@@ -23,7 +23,7 @@ app = "rm -rf pkg/snippets & rmdir pkg\\snippets /s /q & wasm-pack build --targe
 nodedev = "rm -rf pkg-node/snippets & rmdir pkg\\snippets /s /q & wasm-pack build --dev -t nodejs -d pkg-node && node prepare-node.js"
 node = "rm -rf pkg-node/snippets & rmdir pkg\\snippets /s /q & wasm-pack build -t nodejs -d pkg-node && node prepare-node.js"
 web = "rm -rf web/snippets & rmdir pkg\\snippets /s /q & wasm-pack build --target web -d web"
-webdev = "rm -rf web/snippets  & rmdir pkg\\snippets /s /q & wasm-pack build --dev --target web -d web"
+webdev = "rm -rf web/snippets  && rmdir pkg\\snippets /s /q && wasm-pack build --dev --target web -d web"
 
 [lib]
 crate-type = ["cdylib"]

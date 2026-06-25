@@ -7,9 +7,18 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import web_api from "@ng-org/api-web";
-import {init_api} from "@ng-org/ui-common/api";
-init_api(web_api);
+
+import "./styles.css";
+import { init as initRouter } from "./lib/initRouter.svelte";
+import { registerApps } from "@ng-org/frontend";
+import registry from "./registry.json" with { type: "json" };
+
+initRouter({});
+registerApps(registry);
+
+import { web_api,  worker_ready} from "@ng-org/api-web";
+import {init_api} from "@ng-org/api";
+init_api(web_api, worker_ready);
 
 const NEW_VERSION = "0.1.2-alpha.2";
 
@@ -29,6 +38,6 @@ catch (e) {
 import { mount } from "svelte";
 import App from "./App.svelte";
 
-const app = mount(App, { target: document.getElementById("app") as Element });
+const app = mount(App, { target: document.getElementById("app")! });
 
 export default app;

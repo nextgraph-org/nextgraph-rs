@@ -25,7 +25,7 @@
     "flowbite-svelte": "^0.43.3",
     "html5-qrcode": "^2.3.8",
     "svelte-i18n": "^4.0.0",
-    "svelte-spa-router": "^3.3.0"
+    "svelte-spa-router": "^4.0.2"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "2.0.0",

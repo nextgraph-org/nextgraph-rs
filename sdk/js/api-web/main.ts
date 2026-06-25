@@ -11,7 +11,7 @@ import { version } from "./package.json";
 import * as sdk from "@ng-org/lib-wasm";
 import { Bowser } from "../lib-wasm/jsland/bowser.js";
 
-import worker from "./wasm-worker.js?worker&inline";
+import worker from "./wasm-worker.js?worker";
 
 let myWorker = new worker();
 
@@ -198,7 +198,7 @@ const web_handler = {
             //console.log(client_info);
             return client_info;
         } else if (path[0] === "get_worker") {
-            return await import("./worker.js?worker&inline");
+            return await import("./worker.js?worker");
         } else if (path[0] === "get_wallets") {
             let wallets = await call_sdk(<string>path[0], args);
             return Object.fromEntries(wallets || []);
@@ -229,6 +229,6 @@ const web_handler = {
         }
     },
 };
-const web_api = createAsyncProxy({}, web_handler);
+export const web_api = createAsyncProxy({}, web_handler);
 
 export default web_api;

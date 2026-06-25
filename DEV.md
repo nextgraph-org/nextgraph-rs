@@ -37,7 +37,7 @@ npm install -g pnpm
 pnpm buildfront
 ```
 
-For building the native apps, see the [app/nextgraph/README](app/nextgraph/README.md)
+For building the native apps, see the [app/shell/README](app/shell/README.md)
 
 ### First run
 
@@ -67,11 +67,11 @@ If you are also developing the front-end of NextGraph app, you should run it wit
 // run this only once, from root folder:
 pnpm buildfrontdev
 // to start the front-end for development
-cd app/nextgraph
+cd app/shell
 pnpm webdev
 ```
 
-more details about developing the front-end [here](app/nextgraph/README.md).
+more details about developing the front-end [here](app/shell/README.md).
 
 ### Using ngcli with the account you just created
 
@@ -116,7 +116,7 @@ The crates and packages are organized as follow :
 
 - app : the main application of NextGraph
     - ui-common : common UI elements
-    - [nextgraph](app/nextgraph/README.md)
+    - [nextgraph](app/shell/README.md)
         - src-tauri : the Tauri based native apps
         - src : the Web-based app
 - bin : the binaries
@@ -213,7 +213,7 @@ you can then use the binary `target/release/ngcli`
 
 For usage, see the documentation [here](bin/ngd/README.md).
 
-For building the native apps, see this [documentation](app/nextgraph/README.md).
+For building the native apps, see this [documentation](app/shell/README.md).
 
 #### OpenBSD
 

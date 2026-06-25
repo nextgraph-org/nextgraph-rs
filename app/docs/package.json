@@ -1,0 +1,35 @@
+{
+  "name": "@ng-org/app-docs",
+  "private": true,
+  "version": "0.1.0-alpha.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "dev:standalone": "vite --mode standalone",
+    "build:standalone": "vite build --mode standalone",
+    "preview:standalone": "vite build --mode standalone && vite preview",
+    "lint": "eslint .",
+    "serve": "vite serve",
+    "preview": "vite build && vite preview"
+  },
+  "dependencies": {
+    "@blocknote/core": "^0.51.4",
+    "@blocknote/mantine": "^0.51.4",
+    "@blocknote/react": "^0.51.4",
+    "@mantine/core": "^9.3.2",
+    "@mantine/hooks": "^9.3.2",
+    "@mantine/utils": "^6.0.22",
+    "@ng-org/frontend": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.0"
+  }
+}

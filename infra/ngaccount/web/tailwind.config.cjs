@@ -2,7 +2,7 @@
 const config = {
   content: [
     "./src/**/*.{html,js,svelte,ts}",
-    "../../../app/nextgraph/src/**/*.{html,js,svelte,ts}",
+    "../../../app/shell/src/**/*.{html,js,svelte,ts}",
     "./node_modules/flowbite-svelte/**/*.{html,js,svelte,ts}",
   ],
 

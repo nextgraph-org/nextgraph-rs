@@ -9,15 +9,16 @@
 import {createAsyncProxy} from "async-proxy";
 
 let proxy = null;
+let waiter = null;
 
-let api = createAsyncProxy({},{
+export const api = createAsyncProxy({},{
     async apply(target, path, caller, args) {
         if (proxy) {
             //console.log("calling ",path, args);
             return Reflect.apply(proxy[path], caller, args)
         }
         else
-            throw new Error("You must call init_api() before using the API. load an API from @ng-org/app_api_tauri or @ng-org/app_api_web");
+            throw new Error("You must call init_api() before using the API. load an API from native-api or @ng-org/api-web");
     }
 });
 
@@ -39,6 +40,14 @@ export const APP_WALLET_CREATE_SUFFIX = "/#/wallet/create";
 export const LINK_NG_BOX = "https://nextgraph.org/ng-box/";
 export const LINK_SELF_HOST = "https://nextgraph.org/self-host/";
 
-export const init_api = function (a) {
-    proxy = a;
+export const init_api = function (api, promise) {
+    proxy = api;
+    waiter = promise;
+}
+
+
+export const wait_api = async function () {
+    if (waiter) {
+        await waiter;
+    }
 }

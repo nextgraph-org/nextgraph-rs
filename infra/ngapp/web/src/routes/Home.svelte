@@ -12,7 +12,7 @@
 <script>
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
-  import NoWallet from "../../../../app/nextgraph/src/lib/NoWallet.svelte";
+  import NoWallet from "../../../../app/shell/src/lib/NoWallet.svelte";
 
   import { onMount } from "svelte";
 

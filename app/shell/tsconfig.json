@@ -1,24 +1,21 @@
 {
   "extends": "@tsconfig/svelte/tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
+    "declarationDir": "dist",
     "isolatedModules": true,
-    "noEmit": true,
+    "composite": true,
+    "target": "esnext",
+    "moduleResolution": "bundler",
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "esModuleInterop": true,
+    "module": "esnext",
+    "allowSyntheticDefaultImports": true,
+    // "moduleResolution": "node",
+    "resolveJsonModule": true,
+
+    "declaration": true,
+    "emitDeclarationOnly": true
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
+  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "src/types/daisyui.d.ts"],
+  "exclude": ["node_modules"]
 }

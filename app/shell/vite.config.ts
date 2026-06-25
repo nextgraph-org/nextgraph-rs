@@ -1,10 +1,11 @@
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, UserConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
-import { viteSingleFile } from "vite-plugin-singlefile"
 import svelteSVG from "@hazycora/vite-plugin-svelte-svg";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import vitePluginSingleSpa from "vite-plugin-single-spa";
+import { viteImportMaps } from "vite-import-maps";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -20,6 +21,83 @@ export default defineConfig((): UserConfig => {
         plugins: [
             tailwindcss(), 
             svelte(),
+            vitePluginSingleSpa({
+                type: "root",
+                imo: false,
+                importMaps: { build: [], dev: [] },
+                    // logging: {
+                    //   fileName: "./dist/single-spa.log",
+                    //   chunks: true,
+                    //   config: true,
+                    //   incomingConfig: false,
+                    // },
+                }),
+            viteImportMaps({
+                integrity: false,
+                imports: [
+                    { name: "use-sync-external-store/shim/with-selector.js", entry: "./src/packages/use-sync-external-store-with-selector-esm.ts" },
+                    { name: "use-sync-external-store/shim/with-selector", entry: "./src/packages/use-sync-external-store-with-selector-esm2.ts" },
+                    { name: "use-sync-external-store/shim/index.js", entry: "./src/packages/use-sync-external-store-shim-esm.ts" },
+                    { name: "react", entry: "./src/packages/react-esm.ts" },
+                    {
+                        name: "react/jsx-runtime",
+                        entry: "./src/packages/react-jsx-runtime-esm.ts",
+                    },
+                    {
+                        name: "react/jsx-dev-runtime",
+                        entry: "./src/packages/react-jsx-dev-runtime-esm.ts",
+                    },
+                    { name: "react-dom", entry: "./src/packages/react-dom-esm.ts" },
+                    {
+                        name: "react-dom/client",
+                        entry: "./src/packages/react-dom-client-esm.ts",
+                    },
+                    "react-router",
+
+                    "fast-deep-equal",
+                    "fast-deep-equal/es6/react.js",
+
+                    "@ng-org/alien-deepsignals",
+                    "@ng-org/alien-deepsignals/svelte",
+                    "@ng-org/alien-deepsignals/vue",
+                    "@ng-org/alien-deepsignals/react",
+
+                    "@ng-org/frontend",
+                    // DON'T SHARE /svelte/router, to prevent interference with top-level svelte-router's location object.
+                    // Even then, we can't have more than one svelte-router by origin.
+                    // "@ng-org/frontend/svelte",
+
+                    // "@ng-org/frontend/vue",
+                    // "@ng-org/frontend/react",
+                    // "@ng-org/frontend/react/router",
+                    "@ng-org/frontend/react/context",
+
+                    "single-spa",
+
+                    "svelte",
+                    "svelte/animate",
+                    "svelte/attachments",
+                    // "svelte/compiler",
+                    "svelte/easing",
+                    "svelte/internal",
+                    "svelte/internal/client",
+                    "svelte/internal/disclose-version",
+                    "svelte/internal/flags/async",
+                    "svelte/internal/flags/legacy",
+                    "svelte/internal/flags/tracing",
+                    "svelte/legacy",
+                    "svelte/motion",
+                    "svelte/reactivity",
+                    "svelte/reactivity/window",
+                    // "svelte/server",
+                    "svelte/store",
+                    "svelte/transition",
+                    "svelte/events",
+
+                    "vue",
+                ],
+                modulesOutDir: "shared",
+            }),
             svelteSVG({
                 svgoConfig: {
                     plugins: [
@@ -40,6 +118,17 @@ export default defineConfig((): UserConfig => {
                 requireSuffix: true, // Set false to accept '.svg' without the '?component'
             }),
         ],
+        define: {
+            // Hardcode process.env.NODE_ENV for production.
+            // This way we can modify run react and vue in dev mode including hmr.
+            "process.env.NODE_ENV": '"development"',
+            __VUE_OPTIONS_API__: "false",
+            __VUE_PROD_DEVTOOLS__: "false",
+            __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false",
+        },
+        preview: {
+            port: 5000,
+        },
         // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
         //
         // 1. prevent Vite from obscuring rust errors
@@ -61,23 +150,23 @@ export default defineConfig((): UserConfig => {
                 ignored: ["**/src-tauri/**"]
             }
         },
-        publicDir: process.env.NG_PUBLIC_DEV ? "public_dev" : false,
+        publicDir: process.env.NG_PUBLIC_DEV ? "public_dev" : "public",
         // Env variables starting with the item of `envPrefix` will be exposed in tauri's source code through `import.meta.env`.
         envPrefix: ["VITE_", "TAURI_ENV_", "NG_ENV_"],
         build: {
             outDir: process.env.NG_ENV_WEB ? "dist-web" : "dist",
             // Tauri uses Chromium on Windows and WebKit on macOS and Linux
-            target: process.env.TAURI_ENV_PLATFORM == "windows" ? "chrome105" : "safari13",
+            target: process.env.TAURI_ENV_PLATFORM == "windows" ? "chrome105" : "safari15",
             // don't minify for debug builds
-            minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
+            minify: !process.env.TAURI_ENV_DEBUG ? "oxc" : false,
             // produce sourcemaps for debug builds
-            sourcemap: !!process.env.TAURI_ENV_DEBUG
+            sourcemap: !!process.env.TAURI_ENV_DEBUG,
+            cssCodeSplit: false,
+            modulePreload: true,
         }
     };
     if (process.env.NG_ENV_WEB) {
         if (process.env.NG_ENV_ONEFILE) {
-            config.plugins.push(viteSingleFile());
-            worker_plugins.push(viteSingleFile());
             config.plugins.push(
                 {
                     name: 'move-script-body',

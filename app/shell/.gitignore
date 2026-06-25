@@ -23,3 +23,9 @@ public_dev
 *.njsproj
 *.sln
 *.sw?
+
+build
+appstore.dev.json
+src/registry.json
+public
+.svelte-kit

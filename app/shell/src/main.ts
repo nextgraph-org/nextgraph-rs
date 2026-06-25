@@ -7,9 +7,17 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+import "./styles.css";
+import { init as initRouter } from "./lib/initRouter.svelte";
+import { registerApps } from "@ng-org/frontend";
+import registry from "./registry.json" with { type: "json" };
+
+initRouter({});
+registerApps(registry);
+
 import native_api from "./native-api";
-import {init_api} from "@ng-org/ui-common/api";
-init_api(native_api);
+import {init_api} from "@ng-org/api";
+init_api(native_api, false);
 
 import { mount } from "svelte";
 import App from "./App.svelte";
