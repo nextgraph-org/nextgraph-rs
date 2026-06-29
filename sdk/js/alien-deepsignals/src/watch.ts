@@ -21,6 +21,7 @@ import {
     DeepSignalObject,
     DeepSignalSet,
 } from "./types.ts";
+import type { effect } from "./core.ts";
 
 export type RegisterCleanup = (cleanupFn: () => void) => void;
 
@@ -38,7 +39,7 @@ export interface WatchOptions {
     triggerInstantly?: boolean;
 }
 
-export interface WatchPatchEvent<T extends object> {
+export interface WatchPatchEvent<T> {
     /** The changes made */
     patches: DeepPatch[];
     /** The version if `triggerInstantly` is not true. */
@@ -47,9 +48,7 @@ export interface WatchPatchEvent<T extends object> {
     newValue: DeepSignal<T>;
 }
 
-export type WatchPatchCallback<T extends object> = (
-    event: WatchPatchEvent<T>
-) => void;
+export type WatchPatchCallback<T> = (event: WatchPatchEvent<T>) => void;
 
 /**
  * Watch for changes to a deepSignal.
@@ -61,6 +60,12 @@ export type WatchPatchCallback<T extends object> = (
  *
  * When objects are added to Sets, their **synthetic ID (usually `@id`) becomes part of the patch path**. This allows patches to uniquely identify which Set entry is being mutated.
  *
+ * When you do not need need the patches but only want to be called back on object changes that you depend on, you are advised to use {@link effect} instead.
+ *
+ * Note: If you attach an existing signal object, you won't see the changes made on the child signal object by watching the root.
+ * All you will see is an initial `add` patch with the signal object as `value`. Watch the nested object separately.
+ *
+ * @example
  * ```ts
  * const state = deepSignal(
  *     { s: new Set() },
@@ -86,8 +91,8 @@ export type WatchPatchCallback<T extends object> = (
  * // ]
  * ```
  */
-export function watch<T extends object>(
-    source: DeepSignalSet<T> | DeepSignalObject<T> | DeepSignal<T>,
+export function watch<T extends object | Array<any> | Set<any>>(
+    source: DeepSignal<T>,
     callback: WatchPatchCallback<T>,
     options: WatchOptions = {}
 ) {

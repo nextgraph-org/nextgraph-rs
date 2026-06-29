@@ -464,15 +464,9 @@ function ensureChildProxy<T>(
     const parentRaw = parent[RAW_KEY] || parent;
     const parentMeta = rawToMeta.get(parentRaw)!;
 
-    // Child is already proxied, ensure the linkage from parent to child.
+    // Child is already proxied, nothing more to do.
     if (rawToProxy.has(rawChild)) {
         const proxied = rawToProxy.get(rawChild);
-        const proxiedMeta = rawToMeta.get(rawChild);
-        if (proxiedMeta) {
-            proxiedMeta.parent = parentMeta;
-            proxiedMeta.key = key;
-            proxiedMeta.isSyntheticId = isSyntheticId;
-        }
         return proxied;
     }
 
@@ -615,13 +609,8 @@ function createProxy<T extends object>(
     rawToMeta.set(target, meta);
     rawToProxy.set(target, proxy);
 
-    // if (target.sealedArray) {
-    //     proxyVersionsForSealedArrayObj.add(target);
-    //     proxyVersionsForSealedArrayObj.add(proxy);
-    // }
     return proxy as DeepSignal<T>;
 }
-const proxyVersionsForSealedArrayObj = new Set<any>();
 
 /** Return primitive literals (string/number/boolean) for patch serialization. */
 function snapshotLiteral(value: any) {
@@ -641,14 +630,18 @@ function snapshotLiteral(value: any) {
  *
  */
 function emitPatchesForNew(
-    value: any,
+    rawValue: any,
     meta: ProxyMeta,
     basePath: (string | number)[],
-    inSet = false
+    inSet = false,
+    valueWasDeepSignal: boolean
 ): DeepPatch[] {
-    applyPropGeneratorResult(meta, value, basePath, inSet);
-    if (value === null || value === undefined || typeof value !== "object") {
-        const literal = snapshotLiteral(value);
+    if (
+        rawValue === null ||
+        rawValue === undefined ||
+        typeof rawValue !== "object"
+    ) {
+        const literal = snapshotLiteral(rawValue);
         if (literal === undefined) return [];
         return [
             {
@@ -658,20 +651,36 @@ function emitPatchesForNew(
             },
         ];
     }
+    // Is value a deep signal object? Return an add patch of the proxy without recursing as-is.
+    if (valueWasDeepSignal) {
+        const raw = rawValue[RAW_KEY] ?? rawValue;
+        const proxy = rawToProxy.get(raw);
+        return [
+            {
+                path: basePath,
+                op: "add",
+                value: proxy,
+                type: inSet ? "set" : undefined,
+            },
+        ];
+    }
+
+    applyPropGeneratorResult(meta, rawValue, basePath, inSet);
+
     const patches: DeepPatch[] = [
         {
             path: basePath,
             op: "add",
-            value: value instanceof Set || Array.isArray(value) ? [] : {},
-            type: value instanceof Set ? "set" : undefined,
+            value: rawValue instanceof Set || Array.isArray(rawValue) ? [] : {},
+            type: rawValue instanceof Set ? "set" : undefined,
         },
     ];
 
     // The id property name, usually `@id`
     const idPropName = meta.options.syntheticIdPropertyName!;
 
-    if (idPropName in value) {
-        const literal = snapshotLiteral(value[idPropName]);
+    if (idPropName in rawValue) {
+        const literal = snapshotLiteral(rawValue[idPropName]);
         if (literal !== undefined) {
             patches.push({
                 path: [...basePath, idPropName],
@@ -682,31 +691,45 @@ function emitPatchesForNew(
     }
 
     // For array, recurse
-    if (Array.isArray(value)) {
-        value.forEach((entry, idx) => {
-            patches.push(...emitPatchesForNew(entry, meta, [...basePath, idx]));
+    if (Array.isArray(rawValue)) {
+        rawValue.forEach((childVal, idx) => {
+            const childValIsDeepSignal =
+                !!childVal?.[RAW_KEY] || rawToMeta.has(childVal);
+
+            patches.push(
+                ...emitPatchesForNew(
+                    childVal,
+                    meta,
+                    [...basePath, idx],
+                    false,
+                    childValIsDeepSignal
+                )
+            );
         });
-    } else if (value instanceof Set) {
+    } else if (rawValue instanceof Set) {
         const setMeta = ensureSetInfo(meta);
-        for (const entry of value) {
-            if (entry && typeof entry === "object") {
+        for (const setValue of rawValue) {
+            if (setValue && typeof setValue === "object") {
                 const synthetic = assignSyntheticId(
                     meta,
-                    entry,
+                    setValue,
                     basePath,
                     true
                 );
-                setMeta.objectForId.set(String(synthetic), entry);
+                const entryIsDeepSignal =
+                    !!setValue?.[RAW_KEY] || rawToMeta.has(setValue);
+                setMeta.objectForId.set(String(synthetic), setValue);
                 patches.push(
                     ...emitPatchesForNew(
-                        entry,
+                        setValue,
                         meta,
                         [...basePath, synthetic],
-                        true
+                        true,
+                        entryIsDeepSignal
                     )
                 );
             } else {
-                const literal = snapshotLiteral(entry);
+                const literal = snapshotLiteral(setValue);
                 if (literal !== undefined) {
                     patches.push({
                         path: basePath,
@@ -718,13 +741,21 @@ function emitPatchesForNew(
             }
         }
     } else {
-        Object.keys(value).forEach((childKey) => {
+        Object.keys(rawValue).forEach((childKey) => {
             if (childKey === idPropName) return;
+            const childVal = rawValue[childKey];
+
+            const childValIsDeepSignal =
+                !!childVal?.[RAW_KEY] || rawToMeta.has(childVal);
+
             patches.push(
-                ...emitPatchesForNew(value[childKey], meta, [
-                    ...basePath,
-                    childKey,
-                ])
+                ...emitPatchesForNew(
+                    childVal,
+                    meta,
+                    [...basePath, childKey],
+                    false,
+                    childValIsDeepSignal
+                )
             );
         });
     }
@@ -936,6 +967,8 @@ const objectHandlers: ProxyHandler<any> = {
 
         const path = meta ? buildPath(meta, key) : undefined;
 
+        const valueIsSignal = !!value?.[RAW_KEY] || rawToProxy.has(value);
+
         const proxied = ensureChildProxy(value, target, key);
         const rawValue = value?.[RAW_KEY] ?? value;
 
@@ -974,7 +1007,9 @@ const objectHandlers: ProxyHandler<any> = {
                 const patches = emitPatchesForNew(
                     rawValue,
                     meta!,
-                    resolvedPath
+                    resolvedPath,
+                    false,
+                    valueIsSignal
                 );
 
                 // TODO: Document
@@ -1127,6 +1162,8 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 target.add(rawValue);
 
                 if (rawValue && typeof rawValue === "object") {
+                    const valueIsDeepSignal = rawToMeta.has(rawValue);
+
                     // Case: Object in set
                     const synthetic = assignSyntheticId(
                         meta!,
@@ -1149,7 +1186,8 @@ const setHandlers: ProxyHandler<Set<any>> = {
                             rawValue,
                             meta!,
                             [...containerPath, synthetic],
-                            true
+                            true,
+                            valueIsDeepSignal
                         )
                     );
                 } else {
@@ -1316,7 +1354,9 @@ const setHandlers: ProxyHandler<Set<any>> = {
 };
 
 /** Runtime guard that checks whether a value is a deepSignal proxy. */
-export function isDeepSignal(value: unknown): value is DeepSignal<any> {
+export function isDeepSignal(
+    value: unknown
+): value is DeepSignal<object | any[] | Set<any>> {
     return !!(value as any)?.[RAW_KEY];
 }
 

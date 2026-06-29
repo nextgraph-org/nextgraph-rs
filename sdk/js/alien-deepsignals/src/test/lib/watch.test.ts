@@ -1418,6 +1418,139 @@ describe("watch (patch mode)", () => {
             stop();
         });
     });
+
+    describe("signal in signal", () => {
+        it("emits patches for signal in set signal", async () => {
+            const rootDeepSignalObject = deepSignal(new Set(), {
+                syntheticIdPropertyName: "@id",
+            });
+            const child1SignalObject = deepSignal({
+                name: "child 1",
+                "@id": "child1",
+            });
+            const child2SignalObject = deepSignal({
+                name: "child 2",
+                "@id": "child2",
+            });
+
+            const patchesRoot: DeepPatch[][] = [];
+            const patchesChild1: DeepPatch[][] = [];
+            const patchesChild2: DeepPatch[][] = [];
+
+            const { stopListening: stopRoot } = watch(
+                rootDeepSignalObject,
+                ({ patches: batch }) => patchesRoot.push(batch)
+            );
+            const { stopListening: stopChild1 } = watch(
+                child1SignalObject,
+                ({ patches: batch }) => patchesChild1.push(batch)
+            );
+            const { stopListening: stopChild2 } = watch(
+                child2SignalObject,
+                ({ patches: batch }) => patchesChild2.push(batch)
+            );
+
+            rootDeepSignalObject.add(child1SignalObject);
+            rootDeepSignalObject.add(child2SignalObject);
+
+            child1SignalObject.name = "child1 name updated";
+
+            await Promise.resolve();
+
+            stopRoot();
+            stopChild1();
+            stopChild2();
+
+            // Check identity (the value must be exactly the proxy).
+            expect(patchesRoot[0][0].value).toBe(child1SignalObject);
+            expect(patchesRoot[0][1].value).toBe(child2SignalObject);
+
+            expect(patchesRoot).toEqual([
+                [
+                    {
+                        path: ["child1"],
+                        op: "add",
+                        type: "set",
+                        value: child1SignalObject,
+                    },
+
+                    {
+                        path: ["child2"],
+                        op: "add",
+                        type: "set",
+                        value: child2SignalObject,
+                    },
+                ],
+            ]);
+
+            expect(patchesChild1).toEqual([
+                [{ path: ["name"], op: "add", value: "child1 name updated" }],
+            ]);
+            expect(patchesChild2).toEqual([]);
+        });
+
+        it("emits patches for signal in object signal", async () => {
+            const rootDeepSignalObject = deepSignal({} as any, {});
+            const child1SignalObject = deepSignal({
+                name: "child 1",
+            });
+            const child2SignalObject = deepSignal({
+                name: "child 2",
+            });
+
+            const patchesRoot: DeepPatch[][] = [];
+            const patchesChild1: DeepPatch[][] = [];
+            const patchesChild2: DeepPatch[][] = [];
+
+            const { stopListening: stopRoot } = watch(
+                rootDeepSignalObject,
+                ({ patches: batch }) => patchesRoot.push(batch)
+            );
+            const { stopListening: stopChild1 } = watch(
+                child1SignalObject,
+                ({ patches: batch }) => patchesChild1.push(batch)
+            );
+            const { stopListening: stopChild2 } = watch(
+                child2SignalObject,
+                ({ patches: batch }) => patchesChild2.push(batch)
+            );
+
+            rootDeepSignalObject.child1 = child1SignalObject;
+            rootDeepSignalObject.child2 = child2SignalObject;
+            child1SignalObject.name = "child1 name updated";
+
+            await Promise.resolve();
+
+            stopRoot();
+            stopChild1();
+            stopChild2();
+
+            // Check identity (the value must be exactly the proxy).
+            expect(patchesRoot[0][0].value).toBe(child1SignalObject);
+            expect(patchesRoot[0][1].value).toBe(child2SignalObject);
+
+            expect(patchesRoot).toEqual([
+                [
+                    {
+                        path: ["child1"],
+                        op: "add",
+                        value: child1SignalObject,
+                    },
+
+                    {
+                        path: ["child2"],
+                        op: "add",
+                        value: child2SignalObject,
+                    },
+                ],
+            ]);
+
+            expect(patchesChild1).toEqual([
+                [{ path: ["name"], op: "add", value: "child1 name updated" }],
+            ]);
+            expect(patchesChild2).toEqual([]);
+        });
+    });
 });
 
 describe("watch (triggerInstantly / JIT listeners)", () => {

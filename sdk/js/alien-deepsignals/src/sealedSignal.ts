@@ -15,6 +15,42 @@ import { DeepSignal, ProxyMeta } from "./types.ts";
  *
  * @param value The deep signal object to seal properties of.
  * @param disallowedProps The property names to seal. Nested properties are sealed as well. If an array, it's the path to a property.
+ *
+ * @example
+ * ```ts
+ * const myReactiveObject = deepSignal({
+ *   modifiableRootProp: "value",
+ *   sealedRootProp: "I'm sealed.",
+ *   sealedEverywhere: "I'm sealed everywhere",
+ *   sealedSet: new Set([1,2,3]),
+ *   child: {
+ *     modifiableChildProp: "I'm modifiable",
+ *     sealedEverywhere: "I'm sealed everywhere",
+ *     sealedChildProp: "I'm sealed."
+ *     childChild: {childChildProp: "I'm sealed because childChild is."}
+ * }});
+ *
+ * const sealedObj = createSeal([
+ *   "sealedEverywhere",
+ *   ["sealedRootProp"],
+ *   ["child", "sealedChildProp"],
+ *   ["child", "childChild"],
+ * ]);
+ *
+ * // Allowed:
+ * sealedObj.modifiableRootProp = "updated root prop";
+ * sealedObj.child.modifiableChildProp = "updated child prop";
+ * // Returns `true`.
+ * sealedObj.sealedSet.has(2);
+ *
+ * // Throws "Cannot set value on sealed property".
+ * sealedObj.sealedEverywhere = "illegal modification";
+ * // Throws "Cannot set value on sealed property".
+ * sealedObj.child.childChild.childChildProp = "illegal modification";
+ *
+ * // Throws "Sets of sealed deep signal objects only expose non-mutating functions".
+ * sealedObj.sealedSet.add(4);
+ * ```
  */
 export function createSeal<T>(
     value: DeepSignal<T>,
@@ -31,7 +67,7 @@ export function createSeal<T>(
         //  we can tackle that problem by creating a WeakMap<proxy, meta>. Unused proxies are dropped.
         //  on replace, only new references are made.
         throw new Error(
-            "replaceProxiesInBranchOnChange is currently not supported"
+            "replaceProxiesInBranchOnChange is currently not supported for seals."
         );
     }
 
