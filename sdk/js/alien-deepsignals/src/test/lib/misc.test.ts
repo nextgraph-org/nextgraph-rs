@@ -75,7 +75,9 @@ describe("Set iteration variants", () => {
             { s: new Set<any>() },
             {
                 syntheticIdPropertyName: "id",
-                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId: (object as any).id,
+                }),
             }
         );
         st.s.add({ id: "eEnt", inner: { v: 1 } });
@@ -100,7 +102,9 @@ describe("Set iteration variants", () => {
             { s: new Set<any>() },
             {
                 syntheticIdPropertyName: "id",
-                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId: (object as any).id,
+                }),
             }
         );
         st.s.add({ id: "fe1", data: { n: 1 } });
@@ -119,7 +123,9 @@ describe("Set iteration variants", () => {
             { s: new Set<any>() },
             {
                 syntheticIdPropertyName: "id",
-                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId: (object as any).id,
+                }),
             }
         );
         st.s.add({ id: "k1", foo: { x: 1 } });
@@ -153,7 +159,9 @@ describe("Set iteration variants", () => {
             { s: new Set<any>() },
             {
                 syntheticIdPropertyName: "id",
-                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId: (object as any).id,
+                }),
             }
         );
         st.s.add({ id: "obj1", nested: { value: 1 } });

@@ -10,10 +10,11 @@
 
 import { computed, alienSignal } from "./core.ts";
 import { deepSignal } from "./deepSignal.ts";
+import type { watch } from "./watch.ts";
 
 /** Deep mutation emitted from a deepSignal root. */
 export type DeepPatch = {
-    path: (string | number)[];
+    path: (string | number | symbol)[];
 } & (
     | { op: "add"; type?: "object" | "set"; value?: any }
     | { op: "remove"; type?: "set"; value?: any }
@@ -41,10 +42,12 @@ export type DeepPatchJITSubscriber = (batch: DeepPatchJITBatch) => void;
  */
 export interface DeepSignalOptions {
     /**
-     * An optional function that is called when new objects are attached and
-     * that may return additional properties to be attached.
+     * An optional function that is called when an object, array, or set is attached to a (nested) signal object, set, or array.
+     * The raw object may be modified or replaced by the function.
+     * For sets, a synthetic id may be specified that is used for creating the patches in the @see watch callback.
+     * Will also be called on the root object.
      */
-    propGenerator?: DeepSignalPropGenFn;
+    onObjectAttached?: OnObjectAttachedFn;
     /**
      * The property name which should be used as an object identifier in sets.
      * You will see it when patches are generated with a path to an object in a set.
@@ -54,8 +57,8 @@ export interface DeepSignalOptions {
     syntheticIdPropertyName?: string;
     /**
      * Optional: Properties that are made read-only in objects.
-     * Can only be attached by propGenerator or must already be member
-     * of the new object before attaching it.
+     * Can only be attached by `onObjectAttached` callback or must already be set
+     * on the new object before attaching it.
      */
     readOnlyProps?: string[];
     /**
@@ -77,47 +80,59 @@ export type ExternalSubscriberFactory<T = any> = () => {
 };
 
 /**
- * @internal
  *
- * The `propGenerator` function is called when a new object is added to the deep signal tree.
+ * The `onObjectAttached` function is called when an object is added to the deep signal tree.
  * @example
  * ```ts
  * let counter = 0;
  * const state = deepSignal(
  *     { items: new Set() },
  *     {
- *         propGenerator: ({ path, inSet, object }) => ({
- *             syntheticId: inSet
- *                 ? `urn:item:${++counter}`
- *                 : `urn:obj:${path.join("-")}`,
- *             extraProps: { createdAt: new Date().toISOString() },
- *         }),
- *         syntheticIdPropertyName: "@id",
+ *         onObjectAttached: ({ path, inSet, object }) => {
+ *             return {
+ *                 syntheticId: inSet
+ *                     ? `urn:item:${++counter}`
+ *                     : undefined,
+ *                 replaceWith: {
+ *                      createdAt: new Date().toISOString(),
+ *                      name: object.name,
+ *                      bar: object.bar
+ *                 }
+ *             };
+ *         }
  *     }
  * );
  *
- * state.items.add({ name: "Item 1" });
- * // Attaches `{ name: "Item 1", `@id`: "urn:item:1", createdAt: <current date>`
+ * state.items.add({ name: "Item 1", ignoredProp: "won't be added" });
+ * // Attaches `{ name: "Item 1",  createdAt: <current date>}`
  *
  * state.foo = {bar: 42};
- * // Attaches `{bar: 42, "@id": "urn:obj:foo", createdAt: <current date>}`
+ * // Attaches `{bar: 42, createdAt: <current date>}`
  * ```
  */
-export type DeepSignalPropGenFn = (props: {
+export type OnObjectAttachedFn = (props: {
     /**
-     * The path of the newly added object.
+     * The path of the newly added object. In case of sets, the synthetic id is not part of the path.
      */
-    path: (string | number)[];
+    path: (string | number | symbol)[];
     /** Whether the object is being added to a Set (true) or not (false) */
-    inSet: boolean;
-    /** The newly added object itself */
-    object: any;
-}) => {
-    /** A custom identifier for the object (used in Set entry paths and optionally as a property). */
-    syntheticId?: string | number;
-    /** Additional properties to be added to the object (overwriting existing ones). */
-    extraProps?: Record<string, unknown>;
-};
+    inSet: Set<any> | false;
+    /** The newly added, non-proxied raw object. You may modify it. */
+    rawObject: Record<string, any> | Set<any> | any[];
+}) =>
+    | void
+    | undefined
+    | {
+          /** A custom identifier for the object (used in Set entry paths and optionally as a property). */
+          syntheticId?: string | number;
+          /**
+           * By returning a replaceObject, you can intercept what is added to the raw object. The original object won't be used.
+           * The value may be a signal in which case, the underlying raw object is attached.
+           *
+           * If left undefined / unset, the original object is attached (which you may still modify).
+           */
+          replaceWith?: any;
+      };
 
 /**@ignore*/
 export interface ProxyMeta {
@@ -127,13 +142,12 @@ export interface ProxyMeta {
     isSyntheticId?: boolean;
     root: symbol;
     options: DeepSignalOptions;
-    setInfo?: SetMeta;
 }
 
 /** @hidden */
 export interface SetMeta {
-    idForObject: WeakMap<object, string>;
-    objectForId: Map<string, object>;
+    objectToId: WeakMap<object, string | number | symbol>;
+    idToObject: Map<string | number | symbol, object>;
 }
 
 /**@ignore*/

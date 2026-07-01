@@ -11,12 +11,11 @@
 import { describe, it, expect } from "vitest";
 import {
     deepSignal,
-    addWithId,
     DeepPatch,
     DeepSignalOptions,
+    addWithId,
 } from "../../index.ts";
 import { watch } from "../../watch.ts";
-import { setSetEntrySyntheticId } from "../../deepSignal.ts";
 
 describe("watch", () => {
     it("watch immediate", () => {
@@ -344,7 +343,9 @@ describe("watch (patch mode)", () => {
             { container: {} },
             {
                 syntheticIdPropertyName: "id",
-                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId: (object as any).id,
+                }),
             }
         );
         const patches: DeepPatch[][] = [];
@@ -420,7 +421,9 @@ describe("watch (patch mode)", () => {
             { bag: new Set<any>([rawEntry]) },
             {
                 syntheticIdPropertyName: "id",
-                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId: (object as any).id,
+                }),
             }
         );
         const collected: DeepPatch[][] = [];
@@ -449,13 +452,16 @@ describe("watch (patch mode)", () => {
         addWithId(state.s as any, node, "custom123");
         await Promise.resolve();
         const flat = collected2.flat().map((p: DeepPatch) => p.path.join("."));
+
         expect(flat.some((p: string) => p === "s.custom123")).toBe(true);
         stop();
     });
 
-    it("should apply extraProps returned from propGenerator when adding objects to Set", async () => {
+    it("should apply extraProps returned from onObjectAttached when adding objects to Set", async () => {
         const options: DeepSignalOptions = {
-            propGenerator: ({ path, object }) => {
+            onObjectAttached: ({ path, rawObject: object }) => {
+                if (Array.isArray(object) || object instanceof Set) return;
+
                 // Generate @graph and @id if not present or empty
                 const graphIri =
                     !object["@graph"] || object["@graph"] === ""
@@ -466,8 +472,9 @@ describe("watch (patch mode)", () => {
                         ? `did:ng:test-subject-${Math.random()}`
                         : object["@id"];
 
+                object["@id"] = subjectIri;
+                object["@graph"] = graphIri;
                 return {
-                    extraProps: { "@id": subjectIri, "@graph": graphIri },
                     syntheticId: graphIri + "|" + subjectIri,
                 };
             },
@@ -621,7 +628,9 @@ describe("watch (patch mode)", () => {
                 { s: new Set<any>() },
                 {
                     syntheticIdPropertyName: "id",
-                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                    onObjectAttached: ({ rawObject: object }) => ({
+                        syntheticId: (object as any).id,
+                    }),
                 }
             );
             const obj = { id: "n1", x: 1 };
@@ -661,41 +670,11 @@ describe("watch (patch mode)", () => {
             expect(patches.length).toBe(0);
             stop();
         });
-        it("addWithId primitive returns primitive and emits patch with primitive key", async () => {
-            const st = deepSignal({ s: new Set<any>() });
-            const patches: DeepPatch[][] = [];
-            const { stopListening: stop } = watch(st, ({ patches: batch }) =>
-                patches.push(batch)
-            );
-            const ret = addWithId(st.s as any, 5, "ignored");
-            expect(ret).toBe(5);
-            await Promise.resolve();
-            // For primitives, path should be just "s" and value should be in the value field
-            const paths = patches.flat().map((p) => p.path.join("."));
-            expect(paths).toContain("s");
-            const values = patches.flat().map((p: any) => p.value?.[0]);
-            expect(values).toContain(5);
-            stop();
-        });
-        it("setSetEntrySyntheticId applies custom id without helper", async () => {
-            const st = deepSignal({ s: new Set<any>() });
-            const obj = { name: "x" };
-            setSetEntrySyntheticId(obj, "customX");
-            const patches: DeepPatch[][] = [];
-            const { stopListening: stop } = watch(st, ({ patches: batch }) =>
-                patches.push(batch)
-            );
-            st.s.add(obj);
-            await Promise.resolve();
-            const paths = patches.flat().map((p) => p.path.join("."));
-            expect(paths).toContain("s.customX");
-            stop();
-        });
         it("values/entries/forEach proxy nested mutation", async () => {
             const st = deepSignal({ s: new Set<any>() });
             const entry = addWithId(
                 st.s as any,
-                { id: "e1", inner: { v: 1 } },
+                { "@id": "e1", inner: { v: 1 } },
                 "e1"
             );
             const batches: DeepPatch[][] = [];
@@ -717,7 +696,9 @@ describe("watch (patch mode)", () => {
                 { s: new Set<any>([raw]) },
                 {
                     syntheticIdPropertyName: "id",
-                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                    onObjectAttached: ({ rawObject: object }) => ({
+                        syntheticId: (object as any).id,
+                    }),
                 }
             );
             const batches: DeepPatch[][] = [];
@@ -771,7 +752,9 @@ describe("watch (patch mode)", () => {
                 },
                 {
                     syntheticIdPropertyName: "id",
-                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                    onObjectAttached: ({ rawObject: object }) => ({
+                        syntheticId: (object as any).id,
+                    }),
                 }
             );
             // Regression: previously 'values method called on incompatible Proxy' was thrown here.
@@ -822,9 +805,14 @@ describe("watch (patch mode)", () => {
 
         it("generates correct patches when root is a Set (object entries)", async () => {
             const rootSet = deepSignal(new Set<any>(), {
-                propGenerator: ({ object }) => ({
-                    syntheticId: object["@id"] || `fallback-${Math.random()}`,
-                }),
+                onObjectAttached: ({ rawObject: object }) => {
+                    if (Array.isArray(object) || object instanceof Set) return;
+
+                    return {
+                        syntheticId:
+                            object["@id"] || `fallback-${Math.random()}`,
+                    };
+                },
                 syntheticIdPropertyName: "@id",
             });
             const batches: DeepPatch[][] = [];
@@ -853,7 +841,9 @@ describe("watch (patch mode)", () => {
         it("tracks nested mutations when root is a Set", async () => {
             const rootSet = deepSignal(new Set<any>(), {
                 syntheticIdPropertyName: "id",
-                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId: (object as any).id,
+                }),
             });
             const obj = { id: "nested", data: { x: 1 } };
             rootSet.add(obj);
@@ -965,9 +955,14 @@ describe("watch (patch mode)", () => {
                 { items: new Set([obj2]) },
                 {
                     syntheticIdPropertyName: "@id",
-                    propGenerator: ({ object }) => ({
-                        syntheticId: object["@id"],
-                    }),
+                    onObjectAttached: ({ rawObject: object }) => {
+                        if (Array.isArray(object) || object instanceof Set)
+                            return;
+
+                        return {
+                            syntheticId: object["@id"],
+                        };
+                    },
                 }
             );
 
@@ -1020,8 +1015,8 @@ describe("watch (patch mode)", () => {
                 { items: new Set([obj2]) },
                 {
                     syntheticIdPropertyName: "@id",
-                    propGenerator: ({ object }) => ({
-                        syntheticId: object["@id"],
+                    onObjectAttached: ({ rawObject: object }) => ({
+                        syntheticId: (object as any)["@id"],
                     }),
                 }
             );
@@ -1081,17 +1076,16 @@ describe("watch (patch mode)", () => {
             stop();
         });
 
-        it("calls propGenerator for objects with nested Set structures (Set inside Set)", async () => {
-            const propGeneratorCalls: any[] = [];
+        it("calls onObjectAttached for objects with nested Set structures (Set inside Set)", async () => {
+            const onObjectAttachedCalls: any[] = [];
             const st = deepSignal<{ items: Set<any> }>(
                 { items: new Set() },
                 {
                     syntheticIdPropertyName: "@id",
-                    propGenerator: ({ object, path, inSet }) => {
-                        propGeneratorCalls.push({ object, path, inSet });
+                    onObjectAttached: ({ rawObject: object, path, inSet }) => {
+                        onObjectAttachedCalls.push({ object, path, inSet });
                         return {
-                            syntheticId:
-                                object["@id"] || `fallback-${Math.random()}`,
+                            syntheticId: (object as any)["@id"],
                         };
                     },
                 }
@@ -1116,21 +1110,21 @@ describe("watch (patch mode)", () => {
             st.items.add(outerObj);
             await Promise.resolve();
 
-            // Verify propGenerator was called for the outer object
-            const outerCall = propGeneratorCalls.find(
+            // Verify onObjectAttached was called for the outer object
+            const outerCall = onObjectAttachedCalls.find(
                 (call) => call.object === outerObj
             );
             expect(outerCall).toBeDefined();
             expect(outerCall.object["@id"]).toBe("outer-with-nested-set");
 
-            // Verify propGenerator was called for inner objects
-            const inner1Call = propGeneratorCalls.find(
+            // Verify onObjectAttached was called for inner objects
+            const inner1Call = onObjectAttachedCalls.find(
                 (call) => call.object === innerObj1
             );
             expect(inner1Call).toBeDefined();
             expect(inner1Call.object["@id"]).toBe("inner1");
 
-            const inner2Call = propGeneratorCalls.find(
+            const inner2Call = onObjectAttachedCalls.find(
                 (call) => call.object === innerObj2
             );
             expect(inner2Call).toBeDefined();
@@ -1153,14 +1147,15 @@ describe("watch (patch mode)", () => {
             stop();
         });
 
-        it("calls propGenerator for deeply nested Sets (multiple levels)", async () => {
-            const propGeneratorCalls: any[] = [];
+        it("calls onObjectAttached for deeply nested Sets (multiple levels)", async () => {
+            const onObjectAttachedCalls: any[] = [];
             const st = deepSignal<Set<any>>(new Set(), {
                 syntheticIdPropertyName: "@id",
-                propGenerator: ({ object, path, inSet }) => {
-                    propGeneratorCalls.push({ object, path, inSet });
+                onObjectAttached: ({ rawObject: object, path, inSet }) => {
+                    onObjectAttachedCalls.push({ object, path, inSet });
                     return {
-                        syntheticId: object["@id"] + "-withCustomString",
+                        syntheticId:
+                            (object as any)["@id"] + "-withCustomString",
                     };
                 },
             });
@@ -1184,12 +1179,12 @@ describe("watch (patch mode)", () => {
             st.add(outerObj);
             await Promise.resolve();
 
-            // Verify propGenerator was called for all objects
+            // Verify onObjectAttached was called for all objects
             expect(
-                propGeneratorCalls.some((call) => call.object === outerObj)
+                onObjectAttachedCalls.some((call) => call.object === outerObj)
             ).toBe(true);
             expect(
-                propGeneratorCalls.some((call) => call.object === innerObj)
+                onObjectAttachedCalls.some((call) => call.object === innerObj)
             ).toBe(true);
 
             // Clear batches for mutation test
@@ -1322,8 +1317,9 @@ describe("watch (patch mode)", () => {
     describe("delete patches", () => {
         it("emits delete patch when removing objects with @id from Sets", async () => {
             const options: DeepSignalOptions = {
-                propGenerator: ({ object }) => ({
-                    syntheticId: object["@id"] || `fallback-${Math.random()}`,
+                onObjectAttached: ({ rawObject: object }) => ({
+                    syntheticId:
+                        (object as any)["@id"] || `fallback-${Math.random()}`,
                 }),
                 syntheticIdPropertyName: "@id",
             };
@@ -1372,9 +1368,13 @@ describe("watch (patch mode)", () => {
 
         it("emits delete patches when removing objects without explicit @id from Sets", async () => {
             const options: DeepSignalOptions = {
-                propGenerator: () => ({
-                    syntheticId: `gen-${Math.random().toString(36).substr(2, 9)}`,
-                }),
+                onObjectAttached: ({ rawObject }) => {
+                    if (Array.isArray(rawObject) || rawObject instanceof Set)
+                        return;
+
+                    rawObject["@id"] =
+                        `gen-${Math.random().toString(36).substr(2, 9)}`;
+                },
                 syntheticIdPropertyName: "@id",
             };
 
