@@ -11,9 +11,9 @@
 use crate::local_broker::doc_sparql_update;
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_orm_json_eq, augment_expected_with_graph_fields, create_doc_with_data,
-    create_orm_connection, extract_child_graph_from_actual, extract_graph_from_actual_paths,
-    fix_child_segment_graph_in_expected, rewrite_expected_paths_with_graph,
+    add_graph_fields, assert_orm_json_eq, augment_expected_with_graph_fields, await_graph_patches,
+    create_doc_with_data, create_orm_connection, extract_graph_from_actual_paths,
+    rewrite_expected_paths_with_graph,
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
@@ -44,6 +44,8 @@ async fn test_orm_patch_creation() {
     // _test_patch_add_nested_1(session_id).await;  // TODO: Edge case not yet fully implemented
 
     test_patch_scope_correct(session_id).await;
+
+    test_add_root_in_separate_graph(session_id).await;
 }
 
 /// Test that when a root object references a child object that lives in a different graph,
@@ -197,39 +199,51 @@ INSERT DATA {
         }
         .unwrap();
 
-        // We expect at least the object creation and its @id and @graph under members
+        // We expect a full child object materialization plus members set-add reference.
         let mut expected = json!([
-            { "op": "add", "value": {}, "path": "/urn:test:project1/members/urn:test:personX" },
-            { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/@id", "value": "urn:test:personX" },
-            { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/name", "value": "Xavier" },
-            { "op": "add", "path": "/urn:test:project1/members/urn:test:personX/type", "value": "http://example.org/Person" },
+            {
+                "op": "add",
+                "path": "/",
+                "valType": "set",
+                "value": {
+                    "@id": "urn:test:personX",
+                    "@shape": "http://example.org/PersonShape",
+                    "name": "Xavier",
+                    "type": "http://example.org/Person"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/urn:test:project1|http:~1~1example.org~1ProjectShape/members",
+                "valType": "set",
+                "value": {
+                    "@id": "urn:test:personX",
+                    "@shape": "http://example.org/PersonShape"
+                }
+            },
         ]);
 
         let mut actual = json!(patches);
 
-        // Rewrite with root graph first
+        let child_graph = actual.as_array().and_then(|arr| {
+            arr.iter().find_map(|item| {
+                (item.get("path").and_then(|v| v.as_str()) == Some("/"))
+                    .then(|| {
+                        item.get("value")
+                            .and_then(|v| v.get("@graph"))
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .flatten()
+            })
+        });
+
+        // Rewrite paths with the root graph from actual.
         if let Some(root_graph) = extract_graph_from_actual_paths(&actual) {
             rewrite_expected_paths_with_graph(&mut expected, &root_graph);
-
-            // Find the child graph from the @graph patch in actual
-            if let Some(child_graph) =
-                extract_child_graph_from_actual(&actual, "members", "urn:test:personX")
-            {
-                // Ensure we also expect the @graph patch
-                expected.as_array_mut().unwrap().push(json!({
-                    "op": "add",
-                    "path": format!("/{}|urn:test:project1/members/{}|urn:test:personX/@graph", root_graph, child_graph),
-                    "value": child_graph
-                }));
-                // Fix the child segment to use its own graph (not the root one)
-                fix_child_segment_graph_in_expected(
-                    &mut expected,
-                    "members",
-                    "urn:test:personX",
-                    &root_graph,
-                    &child_graph,
-                );
-            }
+        }
+        if let Some(child_graph) = child_graph {
+            add_graph_fields(&mut expected, &child_graph);
         }
 
         assert_orm_json_eq(&mut expected, &mut actual);
@@ -357,49 +371,40 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "add",
+                "path": "/",
+                "valType": "set",
+                "value": {
+                    "@id": "urn:test:numArrayObj4",
+                    "@shape": "http://example.org/TestShape",
+                    "numArray": [0.0],
+                    "type": "http://example.org/TestObject"
+                }
+            },
+            {
+                "op": "add",
                 "valType": "set",
                 "value": [4.0],
-                "path": "/urn:test:numArrayObj1/numArray",
+                "path": "/urn:test:numArrayObj1|http:~1~1example.org~1TestShape/numArray",
 
             },
             {
                 "op": "add",
                 "valType": "set",
                 "value": [1.0,2.0],
-                "path": "/urn:test:numArrayObj2/numArray",
+                "path": "/urn:test:numArrayObj2|http:~1~1example.org~1TestShape/numArray",
             },
             {
                 "op": "add",
                 "valType": "set",
                 "value": [3.0],
-                "path": "/urn:test:numArrayObj3/numArray",
-            },
-            {
-                "op": "add",
-                "value": {},
-                "path": "/urn:test:numArrayObj4",
-            },
-            {
-                "op": "add",
-                "value": "urn:test:numArrayObj4",
-                "path": "/urn:test:numArrayObj4/@id",
-            },
-            {
-                "op": "add",
-                "valType": "set",
-                "value": [0.0],
-                "path": "/urn:test:numArrayObj4/numArray",
-            },
-            {
-                "op": "add",
-                "value": "http://example.org/TestObject",
-                "path": "/urn:test:numArrayObj4/type",
+                "path": "/urn:test:numArrayObj3|http:~1~1example.org~1TestShape/numArray",
             },
         ]);
 
         let mut actual = json!(patches);
         if let Some(graph) = extract_graph_from_actual_paths(&actual) {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
+            add_graph_fields(&mut expected, &graph);
             augment_expected_with_graph_fields(&mut expected, &graph);
         }
         assert_orm_json_eq(&mut expected, &mut actual);
@@ -520,7 +525,7 @@ DELETE DATA {
                 "op": "remove",
                 "valType": "set",
                 "value": [1.0],
-                "path": "/urn:test:numArrayObj1/numArray",
+                "path": "/urn:test:numArrayObj1|http:~1~1example.org~1TestShape/numArray",
 
             }
         ]);
@@ -1077,134 +1082,111 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("INSERT patches arrived:\n");
-        for patch in patches.iter() {
-            log_info!("{:?}", patch);
-        }
-
         let mut expected = json!([
-            // Modified house color
-            {
-                "op": "add",
-                "value": "red",
-                "path": "/urn:test:house1/rootColor",
-            },
-            // Modified Alice's name
-            {
-                "op": "add",
-                "value": "Alicia",
-                "path": "/urn:test:house1/inhabitants/urn:test:person1/name",
-            },
-            // Bob gets a cat
-            {
-                "op": "add",
-                "value": {},
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat",
-            },
-            {
-                "op": "add",
-                "value": "urn:test:cat2",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/@id",
-            },
-            {
-                "op": "add",
-                "value": "http://example.org/Cat",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/type",
-            },
-            {
-                "op": "add",
-                "value": "Mittens",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
-            },
-            // Bob's cat gets a toy (multi-valued): object container for specific toy subject
-            {
-                "op": "add",
-                "value": {},
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2",
-            },
-            {
-                "op": "add",
-                "value": "urn:test:toy2",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/@id",
-            },
-            {
-                "op": "add",
-                "value": "http://example.org/Toy",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/type",
-            },
-            {
-                "op": "add",
-                "value": "Mouse",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/name",
-            },
-            // New person Charlie with cat
-            {
-                "op": "add",
-                "value": {},
-                "path": "/urn:test:house1/inhabitants/urn:test:person3",
-            },
-            {
-                "op": "add",
-                "value": "urn:test:person3",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/@id",
-            },
-            {
-                "op": "add",
-                "value": "http://example.org/Person",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/type",
-            },
-            {
-                "op": "add",
-                "value": "Charlie",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/name",
-            },
-            {
-                "op": "add",
-                "value": {},
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat",
-            },
-            {
-                "op": "add",
-                "value": "urn:test:cat3",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/@id",
-            },
-            {
-                "op": "add",
-                "value": "http://example.org/Cat",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/type",
-            },
-            {
-                "op": "add",
-                "value": "Fluffy",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/name",
-            },
-            // Charlie's cat gets a toy (multi-valued)
-            {
-                "op": "add",
-                "value": {},
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3",
-            },
-            {
-                "op": "add",
-                "value": "urn:test:toy3",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3/@id",
-            },
-            {
-                "op": "add",
-                "value": "http://example.org/Toy",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3/type",
-            },
-            {
-                "op": "add",
-                "value": "Ball",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3/name",
-            },
+          {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+              "@id": "urn:test:cat3",
+              "@shape": "http://example.org/CatShape",
+              "name": "Fluffy",
+              "toy": {
+                "urn:test:toy3|http:~1~1example.org~1ToyShape": {
+                  "@id": "urn:test:toy3",
+                  "@shape": "http://example.org/ToyShape"
+                }
+              },
+              "type": "http://example.org/Cat"
+            }
+          },
+          {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+              "@id": "urn:test:cat2",
+              "@shape": "http://example.org/CatShape",
+              "name": "Mittens",
+              "toy": {
+                "urn:test:toy2|http:~1~1example.org~1ToyShape": {
+                  "@id": "urn:test:toy2",
+                  "@shape": "http://example.org/ToyShape"
+                }
+              },
+              "type": "http://example.org/Cat"
+            }
+          },
+          {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+              "@id": "urn:test:toy3",
+              "@shape": "http://example.org/ToyShape",
+              "name": "Ball",
+              "type": "http://example.org/Toy"
+            }
+          },
+          {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+              "@id": "urn:test:toy2",
+              "@shape": "http://example.org/ToyShape",
+              "name": "Mouse",
+              "type": "http://example.org/Toy"
+            }
+          },
+          {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+              "@id": "urn:test:person3",
+              "@shape": "http://example.org/PersonShape",
+              "cat": {
+                "@id": "urn:test:cat3",
+                "@shape": "http://example.org/CatShape"
+              },
+              "name": "Charlie",
+              "type": "http://example.org/Person"
+            }
+          },
+          {
+            "op": "add",
+            "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/inhabitants",
+            "valType": "set",
+            "value": {
+              "@id": "urn:test:person3",
+              "@shape": "http://example.org/PersonShape"
+            }
+          },
+          {
+            "op": "add",
+            "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/rootColor",
+            "value": "red"
+          },
+          {
+            "op": "add",
+            "path": "/urn:test:person1|http:~1~1example.org~1PersonShape/name",
+            "value": "Alicia"
+          },
+          {
+            "op": "add",
+            "path": "/urn:test:person2|http:~1~1example.org~1PersonShape/cat",
+            "value": {
+              "@id": "urn:test:cat2",
+              "@shape": "http://example.org/CatShape"
+            }
+          }
         ]);
 
         let mut actual = json!(patches);
         if let Some(graph) = extract_graph_from_actual_paths(&actual) {
             rewrite_expected_paths_with_graph(&mut expected, &graph);
-            augment_expected_with_graph_fields(&mut expected, &graph);
+            add_graph_fields(&mut expected, &graph);
         }
         assert_orm_json_eq(&mut expected, &mut actual);
 
@@ -1271,40 +1253,36 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("DELETE patches arrived:\n");
-        for patch in patches.iter() {
-            log_info!("{:?}", patch);
-        }
-
         let mut expected = json!([
             // Remove house color
             {
                 "op": "remove",
-                "path": "/urn:test:house1/rootColor",
+                "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/rootColor",
             },
             // Alice loses her cat
             {
                 "op": "remove",
-                "value": {},
-                "path": "/urn:test:house1/inhabitants/urn:test:person1/cat",
+                "path": "/urn:test:person1|http:~1~1example.org~1PersonShape/cat",
             },
             // Bob's cat name changes
             {
                 "op": "add",
                 "value": "Mr. Mittens",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
+                "path": "/urn:test:cat2|http:~1~1example.org~1CatShape/name",
             },
             // Bob's cat toy name changes
             {
                 "op": "add",
                 "value": "Laser",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/name",
+                "path": "/urn:test:toy2|http:~1~1example.org~1ToyShape/name",
             },
-            // Charlie and his cat are removed
+            // Charlie is removed from inhabitants.
             {
                 "op": "remove",
                 "value": {},
-                "path": "/urn:test:house1/inhabitants/urn:test:person3",
+                "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/inhabitants",
+                "value": {"@id": "urn:test:person3"},
+                "valType": "set"
             },
         ]);
 
@@ -1496,12 +1474,12 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "add",
-                "path": "/urn:test:contact1/name/urn:test:name1/value",
+                "path": "/urn:test:name1|did:ng:x:contact:class#SocialContact||did:ng:x:contact#name/value",
                 "value": "Admin's friend - change5"
             },
             {
                 "op": "add",
-                "path": "/urn:test:contact1/updatedAt/valueDateTime",
+                "path": "/urn:test:upd1|did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt/valueDateTime",
                 "value": "2025-11-13T15:49:41.013Z"
             }
         ]);
@@ -1708,46 +1686,177 @@ DELETE DATA {{
         .unwrap();
 
         log_info!("Cross-graph patches arrived:\n");
-        for patch in patches.iter() {
-            log_info!("{:?}", patch);
-        }
+        log_info!("{:?}", json!(patches).to_string());
 
-        // We expect at least the object creation and its @id and @graph under members
+        // We expect a full child object materialization plus members set-add reference.
         let mut expected = json!([
-            { "op": "add", "value": {}, "path": "/urn:test:project1/members/urn:test:personX0" },
-            { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/@id", "value": "urn:test:personX0" },
-            { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/name", "value": "Xavier" },
-            { "op": "add", "path": "/urn:test:project1/members/urn:test:personX0/type", "value": "http://example.org/Person" },
+            {
+                "op": "add",
+                "path": "/",
+                "valType": "set",
+                "value": {
+                    "@id": "urn:test:personX0",
+                    "@shape": "http://example.org/PersonShape",
+                    "name": "Xavier",
+                    "type": "http://example.org/Person"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/urn:test:project1|http:~1~1example.org~1ProjectShape/members",
+                "valType": "set",
+                "value": {
+                    "@id": "urn:test:personX0",
+                    "@shape": "http://example.org/PersonShape"
+                }
+            },
         ]);
 
         let mut actual = json!(patches);
 
-        // Rewrite with root graph first
+        let child_graph = actual.as_array().and_then(|arr| {
+            arr.iter().find_map(|item| {
+                (item.get("path").and_then(|v| v.as_str()) == Some("/"))
+                    .then(|| {
+                        item.get("value")
+                            .and_then(|v| v.get("@graph"))
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .flatten()
+            })
+        });
+
+        // Rewrite paths with the root graph from actual.
         if let Some(root_graph) = extract_graph_from_actual_paths(&actual) {
             rewrite_expected_paths_with_graph(&mut expected, &root_graph);
-
-            // Find the child graph from the @graph patch in actual
-            if let Some(child_graph) =
-                extract_child_graph_from_actual(&actual, "members", "urn:test:personX0")
-            {
-                // Ensure we also expect the @graph patch
-                expected.as_array_mut().unwrap().push(json!({
-                    "op": "add",
-                    "path": format!("/{}|urn:test:project1/members/{}|urn:test:personX0/@graph", root_graph, child_graph),
-                    "value": child_graph
-                }));
-                // Fix the child segment to use its own graph (not the root one)
-                fix_child_segment_graph_in_expected(
-                    &mut expected,
-                    "members",
-                    "urn:test:personX0",
-                    &root_graph,
-                    &child_graph,
-                );
-            }
+        }
+        if let Some(child_graph) = child_graph {
+            add_graph_fields(&mut expected, &child_graph);
         }
 
         assert_orm_json_eq(&mut expected, &mut actual);
         break;
     }
+}
+
+/// Test that if scope is the whole document, add patches are received.
+async fn test_add_root_in_separate_graph(session_id: u64) {
+    // Create first person document.
+    let _person1_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person1>
+        a ex:AddSeparateGraphTestPerson1 ;
+        ex:name "Person 1" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define ORM schema: Project has members -> Person
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/PersonShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/PersonShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/AddSeparateGraphTestPerson1".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/PersonShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, initial) =
+        create_orm_connection(vec!["did:ng:i".into()], vec![], shape_type, session_id).await;
+
+    log_info!("initial object:\n");
+    log_info!("{:?}", json!(initial).to_string());
+
+    // We expect one object, urn:test:person1
+    assert!(
+        initial
+            .as_object()
+            .expect("initial not object")
+            .keys()
+            .len()
+            == 1
+    );
+
+    // Link the person from the other document into the project's members (in the parent graph)
+    let person2_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person2>
+        a ex:AddSeparateGraphTestPerson1 ;
+        ex:name "Person 2" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let patches = await_graph_patches(&mut receiver).await;
+
+    log_info!("new document patches arrived:\n");
+    log_info!("{:?}", json!(patches).to_string());
+
+    // We expect a full child object materialization plus members set-add reference.
+    let mut expected = json!([
+        {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+                "@id": "urn:test:person2",
+                "@shape": "http://example.org/PersonShape",
+                "name": "Person 2",
+                "type": "http://example.org/AddSeparateGraphTestPerson1"
+            }
+        },
+
+    ]);
+
+    let mut actual = json!(patches);
+
+    add_graph_fields(&mut expected, &person2_doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut actual);
 }
