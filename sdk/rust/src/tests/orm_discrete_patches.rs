@@ -62,140 +62,138 @@ async fn test_y_map(session_id: u64) {
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someString"),
-            valType: None,
             value: Some(json!("root string")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someInteger"),
-            valType: None,
             value: Some(json!(-25)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someFloat"),
-            valType: None,
             value: Some(json!(0.1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someBoolean"),
-            valType: None,
             value: Some(json!(true)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someObject"),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someObject/someString"),
-            valType: None,
             value: Some(json!("nested string")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray"),
-            valType: None,
             value: Some(json!([])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/0"),
-            valType: None,
             value: Some(json!(0)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/-"), // Append
-            valType: None,
             value: Some(json!(1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/2"),
-            valType: None,
             value: Some(json!("2")), // Third element of type string
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/3"),
-            valType: None,
             value: Some(json!({})), // Object in array
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/3/stringInArrayInObject"),
-            valType: None,
             value: Some(json!("in object in array")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/3/someInteger"),
-            valType: None,
             value: Some(json!(42)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/4"),
-            valType: None,
             value: Some(json!([])), // Array in array
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/4/-"), // Append to array in array
-            valType: None,
             value: Some(json!(1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/0"), // Prepend to all other values in array
-            valType: None,
             value: Some(json!(-1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("/someArray/1"), // Remove second element
-            valType: None,
-            value: None,
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/toOverwrite"),
-            valType: None,
             value: Some(json!("overwrite me")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/toOverwrite"),
-            valType: None,
             value: Some(json!(42)), // Change data type.
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/toOverwrite"),
-            valType: None,
             value: Some(json!("overwritten")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someNull"),
-            valType: None,
             value: Some(Value::Null),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("/removeMe"),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("/removeMe"),
-            valType: None,
-            value: None,
+            ..Default::default()
         },
     ];
 
@@ -220,19 +218,18 @@ async fn test_y_map(session_id: u64) {
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/someNull".into(),
-            valType: None,
             value: Some(Value::Null),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/someInteger".into(),
-            valType: None,
             value: Some(json!(-25)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/someArray".into(),
-            valType: None,
             value: Some(json!([
                 -1,
                 1,
@@ -240,36 +237,37 @@ async fn test_y_map(session_id: u64) {
                 {"stringInArrayInObject": "in object in array", "someInteger": 42, "@id": origin_id},
                 [1]
             ])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/someBoolean".into(),
-            valType: None,
             value: Some(json!(true)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/toOverwrite".into(),
-            valType: None,
             value: Some(json!("overwritten")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/someFloat".into(),
-            valType: None,
             value: Some(json!(0.1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/someString".into(),
-            valType: None,
             value: Some(json!("root string")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/someObject".into(),
-            valType: None,
             value: Some(json!({"someString": "nested string"})),
+            ..Default::default()
         },
     ];
 
@@ -323,8 +321,8 @@ async fn test_y_map(session_id: u64) {
     let applied_patches = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!(""),
-        valType: None,
         value: Some(json!({})),
+        ..Default::default()
     }];
 
     orm_discrete_update(subscription_id_1, applied_patches.clone(), session_id)
@@ -346,8 +344,7 @@ async fn test_y_map(session_id: u64) {
     .map(|path| OrmPatch {
         op: OrmPatchOp::remove,
         path: path.into(),
-        valType: None,
-        value: None,
+        ..Default::default()
     })
     .collect::<Vec<_>>();
 
@@ -378,81 +375,80 @@ async fn test_y_array(session_id: u64) {
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/-"),
-            valType: None,
             value: Some(json!(2)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/-"),
-            valType: None,
             value: Some(json!(3)),
+            ..Default::default()
         },
         // Prepend
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/0"),
-            valType: None,
             value: Some(json!(0)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/1"),
-            valType: None,
             value: Some(json!(1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/4"),
-            valType: None,
             value: Some(json!("4")), // String in array
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/5"),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/5/someString"),
-            valType: None,
             value: Some(json!("some string")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/5/someNumber"),
-            valType: None,
             value: Some(json!(42)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/6"),
-            valType: None,
             value: Some(json!([])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/7"),
-            valType: None,
             value: Some(json!(false)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/8"),
-            valType: None,
             value: Some(json!("remove me")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/-"),
-            valType: None,
             value: Some(Value::Null),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("/8"),
-            valType: None,
-            value: None,
+            ..Default::default()
         },
     ];
 
@@ -476,56 +472,56 @@ async fn test_y_array(session_id: u64) {
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/0".into(),
-            valType: None,
             value: Some(json!(0)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/1".into(),
-            valType: None,
             value: Some(json!(1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/2".into(),
-            valType: None,
             value: Some(json!(2)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/3".into(),
-            valType: None,
             value: Some(json!(3)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/4".into(),
-            valType: None,
             value: Some(json!("4")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/5".into(),
-            valType: None,
             value: Some(json!({"someString": "some string", "someNumber": 42, "@id": origin_id})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/6".into(),
-            valType: None,
             value: Some(json!([])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/7".into(),
-            valType: None,
             value: Some(json!(false)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: "/8".into(),
-            valType: None,
             value: Some(Value::Null),
+            ..Default::default()
         },
     ];
 
@@ -554,8 +550,8 @@ async fn test_y_array(session_id: u64) {
     let applied_patches = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!(""),
-        valType: None,
         value: Some(json!([])),
+        ..Default::default()
     }];
 
     orm_discrete_update(subscription_id_1, applied_patches.clone(), session_id)
@@ -568,8 +564,7 @@ async fn test_y_array(session_id: u64) {
         .map(|_| OrmPatch {
             op: OrmPatchOp::remove,
             path: "/0".into(),
-            valType: None,
-            value: None,
+            ..Default::default()
         })
         .collect::<Vec<_>>();
 
@@ -593,8 +588,8 @@ async fn test_y_map_wrong_assignment(session_id: u64) {
         vec![OrmPatch {
             op: OrmPatchOp::add,
             path: "/someString".into(),
-            valType: None,
             value: Some(json!("some string")),
+            ..Default::default()
         }],
         session_id,
     )
@@ -606,8 +601,8 @@ async fn test_y_map_wrong_assignment(session_id: u64) {
     let applied_patches = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!(""),
-        valType: None,
         value: Some(json!([])), // Illegal value - must be object.
+        ..Default::default()
     }];
 
     let update_res =
@@ -634,8 +629,8 @@ async fn test_y_array_wrong_assignment(session_id: u64) {
         vec![OrmPatch {
             op: OrmPatchOp::add,
             path: "/0".into(),
-            valType: None,
             value: Some(json!("first value")),
+            ..Default::default()
         }],
         session_id,
     )
@@ -647,8 +642,8 @@ async fn test_y_array_wrong_assignment(session_id: u64) {
     let applied_patches = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!(""),
-        valType: None,
         value: Some(json!({})), // Illegal value - should be an array.
+        ..Default::default()
     }];
 
     let update_res =
@@ -680,140 +675,138 @@ async fn test_automerge(session_id: u64) {
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someString"),
-            valType: None,
             value: Some(json!("root string")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someInteger"),
-            valType: None,
             value: Some(json!(-25)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someFloat"),
-            valType: None,
             value: Some(json!(0.1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someBoolean"),
-            valType: None,
             value: Some(json!(true)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someObject"),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someObject/someString"),
-            valType: None,
             value: Some(json!("nested string")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray"),
-            valType: None,
             value: Some(json!([])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/0"),
-            valType: None,
             value: Some(json!(0)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/-"), // Append
-            valType: None,
             value: Some(json!(1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/2"),
-            valType: None,
             value: Some(json!("2")), // Third element of type string
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/3"),
-            valType: None,
             value: Some(json!({})), // Object in array
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/3/stringInArrayInObject"),
-            valType: None,
             value: Some(json!("in object in array")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/3/someInteger"),
-            valType: None,
             value: Some(json!(42)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/4"),
-            valType: None,
             value: Some(json!([])), // Array in array
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/4/-"), // Append to array in array
-            valType: None,
             value: Some(json!(1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someArray/0"), // Prepend to all other values in array
-            valType: None,
             value: Some(json!(-1)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("/someArray/1"), // Remove second element
-            valType: None,
-            value: None,
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/toOverwrite"),
-            valType: None,
             value: Some(json!("overwrite me")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/toOverwrite"),
-            valType: None,
             value: Some(json!(42)), // Change data type.
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/toOverwrite"),
-            valType: None,
             value: Some(json!("overwritten")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("/someNull"),
-            valType: None,
             value: Some(Value::Null),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("/removeMe"),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("/removeMe"),
-            valType: None,
-            value: None,
+            ..Default::default()
         },
     ];
 
@@ -915,8 +908,8 @@ async fn test_automerge(session_id: u64) {
     let applied_patches = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!(""),
-        valType: None,
         value: Some(json!({})),
+        ..Default::default()
     }];
 
     orm_discrete_update(subscription_id_1, applied_patches.clone(), session_id)
@@ -938,8 +931,7 @@ async fn test_automerge(session_id: u64) {
     .map(|path| OrmPatch {
         op: OrmPatchOp::remove,
         path: path.into(),
-        valType: None,
-        value: None,
+        ..Default::default()
     })
     .collect::<Vec<_>>();
 
@@ -963,8 +955,8 @@ async fn test_automerge_wrong_assignment(session_id: u64) {
         vec![OrmPatch {
             op: OrmPatchOp::add,
             path: "/someString".into(),
-            valType: None,
             value: Some(json!("some string")),
+            ..Default::default()
         }],
         session_id,
     )
@@ -976,8 +968,8 @@ async fn test_automerge_wrong_assignment(session_id: u64) {
     let applied_patches = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!(""),
-        valType: None,
         value: Some(json!([])), // Illegal value - must be object.
+        ..Default::default()
     }];
 
     let update_res =

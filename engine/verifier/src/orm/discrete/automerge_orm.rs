@@ -89,8 +89,7 @@ fn patch_log_to_orm_patches(
                 automerge::PatchAction::DeleteMap { key } => vec![OrmPatch {
                     op: OrmPatchOp::remove,
                     path: am_path_to_json_pointer(&patch.path, &key),
-                    valType: None,
-                    value: None,
+                    ..Default::default()
                 }],
                 automerge::PatchAction::Increment { prop, value } => {
                     log_warn!(
@@ -104,8 +103,7 @@ fn patch_log_to_orm_patches(
                         op: OrmPatchOp::remove,
                         // We add the same path for each patch so they are collapsed step by step.
                         path: am_path_to_json_pointer(&patch.path, &index.to_string()),
-                        valType: None,
-                        value: None,
+                        ..Default::default()
                     })
                     .collect(),
                 automerge::PatchAction::Insert { index, values } => values
@@ -114,8 +112,8 @@ fn patch_log_to_orm_patches(
                     .map(|(i, (value, id, b))| OrmPatch {
                         op: OrmPatchOp::add,
                         path: am_path_to_json_pointer(&patch.path, &(index + i).to_string()),
-                        valType: None,
                         value: Some(am_value_to_json(value, nuri, true, &id)),
+                        ..Default::default()
                     })
                     .collect(),
                 automerge::PatchAction::PutMap {
@@ -125,8 +123,8 @@ fn patch_log_to_orm_patches(
                 } => vec![OrmPatch {
                     op: OrmPatchOp::add,
                     path: am_path_to_json_pointer(&patch.path, &key),
-                    valType: None,
                     value: Some(am_value_to_json(&value, nuri, false, &id)),
+                    ..Default::default()
                 }],
                 automerge::PatchAction::PutSeq {
                     index,
@@ -135,8 +133,8 @@ fn patch_log_to_orm_patches(
                 } => vec![OrmPatch {
                     op: OrmPatchOp::add,
                     path: am_path_to_json_pointer(&patch.path, &index.to_string()),
-                    valType: None,
                     value: Some(am_value_to_json(&value, nuri, true, &id)),
+                    ..Default::default()
                 }],
                 automerge::PatchAction::SpliceText {
                     index,
@@ -389,6 +387,11 @@ fn apply_orm_patch(txn: &mut Transaction, patch: &OrmPatch) -> Result<(), Verifi
                     e.to_string(),
                 ))
             })?;
+        }
+        OrmPatchOp::move_ => {
+            // Won't happen.
+            log_err!("Received move patch. This should not happen. Skipping.");
+            return Err(VerifierError::InvalidArgument);
         }
     };
     Ok(())

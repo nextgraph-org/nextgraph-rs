@@ -93,7 +93,7 @@ export const init = async function (
 
 const streamed_api: Record<string, number> = {
     doc_subscribe: 2,
-    orm_start_graph: 4,
+    orm_start_graph: 5,
     orm_start_discrete: 2,
     file_get: 3,
     app_request_stream: 1,

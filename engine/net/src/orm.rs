@@ -27,6 +27,8 @@ pub struct OrmShapeType {
 pub enum OrmPatchOp {
     add,
     remove,
+    #[serde(rename = "move")]
+    move_,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -38,8 +40,11 @@ pub enum OrmPatchType {
 /// Types of possible patches:
 /// For discrete ORM, things are just like regular JSON patches.
 /// For graph ORM:
-/// - There is no nesting, the path's first element is a composite of <graph NURI>|<subject URI>|<shape URI>/<readable predicate name>
-/// - if valType equals `set`, the values under the path are a set. This can be true for literals and objects
+/// - There is no nesting, the path's first segment is a composite of `<graph NURI>|<subject URI>|<shape URI>/<readable predicate name>`
+/// - For adding or removing objects, the path should be `/` and valType `set`. Value should contain `@graph` and `@id` (and `@shape` when adding objects).
+/// - For linking nested objects to their parents, Make an `add` with a value containing, @graph, @id, @shape.
+/// - The path should be `<graph NURI>|<subject URI>|<shape URI>/<readable predicate name>`
+/// - if valType equals `set`, the values under that path are a set. This can be true for literals and objects
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmPatch {
     pub op: OrmPatchOp,
@@ -47,7 +52,21 @@ pub struct OrmPatch {
     pub valType: Option<OrmPatchType>,
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<serde_json::Value>,
+}
+
+impl Default for OrmPatch {
+    fn default() -> Self {
+        Self {
+            op: OrmPatchOp::remove,
+            path: String::new(),
+            valType: None,
+            from: None,
+            value: None,
+        }
+    }
 }
 
 pub type OrmPatches = Vec<OrmPatch>;
@@ -119,7 +138,7 @@ impl OrmSchemaPredicate {
 
 pub type WhereConfig = serde_json::Value;
 pub type SelectConfig = serde_json::Value;
-type IsAscending = bool;
+pub type IsAscending = bool;
 pub type OrderByConfig = Vec<(Arc<OrmSchemaPredicate>, IsAscending)>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -141,7 +160,9 @@ impl OrmConfig {
         let config_obj = config.as_object().ok_or("Orm config must be an object")?;
 
         // Parse orderBy config
-        let order_by: Option<OrderByConfig> = if let Some(order_by_obj) = config_obj.get("orderBy")
+        let order_by: Option<OrderByConfig> = if let Some(order_by_obj) = config_obj
+            .get("orderBy")
+            .map_or(None, |ob| if ob.is_null() { None } else { Some(ob) })
         {
             let parsed = Self::parse_order_by(order_by_obj)?;
             let mut order_by_config: OrderByConfig = Vec::with_capacity(parsed.len());
@@ -231,10 +252,10 @@ impl OrmConfig {
                 }
                 Ok(out)
             }
-            _ => Err(
-                "When defined, order by config must be an object or an array of objects"
-                    .to_string(),
-            ),
+            _ => Err(format!(
+                "When defined, order by config must be an object or an array of objects. Got: {:?}",
+                order_by
+            )),
         }
     }
 }

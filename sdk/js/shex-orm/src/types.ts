@@ -17,15 +17,18 @@ export interface ShapeType<T extends BaseType> {
     schema: Schema;
     /** The ID (IRI) of the shape. */
     shape: string;
+    /** Internally needed for TS type inference */
+    __type__?: T;
 }
 
 /** The base type that all generated objects inherit from. */
 export interface BaseType extends Record<string, any> {
     /** The IRI of the subject. */
     "@id": string;
-    /* TODO: add
+    /** The document NURI of the subject. By default, it will be set to the parent's graph. */
     "@graph": string;
-    */
+    /** The shape IRI of this object as defined in the shape definition file. */
+    "@shape": string;
 }
 
 export type Schema = {

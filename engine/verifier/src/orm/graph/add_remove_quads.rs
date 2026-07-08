@@ -152,6 +152,7 @@ pub fn remove_quads_for_subject(
     }
 }
 
+#[inline]
 fn should_add_to_literals(
     order_by_conf: Option<&OrderByConfig>,
     predicate_schema: &OrmSchemaPredicate,

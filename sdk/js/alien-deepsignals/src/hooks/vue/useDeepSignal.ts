@@ -10,12 +10,7 @@
 
 import { type MaybeRefOrGetter, toValue, customRef } from "vue";
 
-import {
-    DeepSignal,
-    deepSignal,
-    DeepSignalOptions,
-    watch,
-} from "../../index.ts";
+import { DeepSignal, deepSignal, DeepSignalOptions } from "../../index.ts";
 
 /**
  * Create or use an existing (child) deepSignal object in your component.

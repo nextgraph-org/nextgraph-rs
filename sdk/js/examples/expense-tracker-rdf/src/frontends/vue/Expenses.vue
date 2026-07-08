@@ -62,12 +62,8 @@ function expenseKey(expense: Expense) {
                 off.
             </p>
             <template v-else>
-                <ExpenseCard
-                    v-for="expense in expensesSorted"
-                    :key="expenseKey(expense)"
-                    :expense="expense"
-                    :available-categories="categories"
-                />
+                <ExpenseCard v-for="expense in expensesSorted" :key="expenseKey(expense)" :expense="expense"
+                    :available-categories="categories" />
             </template>
         </div>
     </section>

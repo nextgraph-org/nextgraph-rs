@@ -64,45 +64,6 @@ export interface LiteralAddPatch {
     value: string | number | boolean | object;
 }
 
-function isPrimitive(v: unknown): v is string | number | boolean {
-    return (
-        typeof v === "string" || typeof v === "number" || typeof v === "boolean"
-    );
-}
-
-/**
- * Parse a combined identifier of the form "graph|subject".
- * If there is no pipe, returns { graph: undefined, id: input }.
- */
-function parseGraphId(input: string): { graph?: string; id: string } {
-    if (typeof input !== "string") return { id: String(input) } as any;
-    const idx = input.indexOf("|");
-    if (idx === -1) return { id: input };
-    const graph = input.slice(0, idx);
-    const id = input.slice(idx + 1);
-    return { graph, id };
-}
-
-/**
- * Find an object in a Set by its `@id` property.
- * Returns the object if found, otherwise undefined.
- */
-function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
-    // TODO: We could optimize that by leveraging key @id to object mapping in sets of deepSignals.
-
-    const { graph, id } = parseGraphId(seg);
-
-    for (const item of set) {
-        if (typeof item !== "object" || item === null) continue;
-        // If graph was provided, require both to match
-        if (graph && item["@graph"] === graph && item["@id"] === id)
-            return item;
-        // Match by @id only when no graph part is provided
-        if (!graph && item["@id"] === id) return item;
-    }
-    return undefined;
-}
-
 /**
  * @ignore
  *

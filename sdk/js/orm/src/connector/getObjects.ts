@@ -9,9 +9,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { OrmSubscription } from "./GraphOrmSubscription.ts";
 import { normalizeScope, Scope } from "../types.ts";
-import { deepClone } from "./utils.ts";
+import { OrmSubscription } from "./GraphOrmSubscription.ts";
+import { RAW_KEY } from "@ng-org/alien-deepsignals";
 
 /**
  * Utility for retrieving objects once without establishing a two-way subscription.
@@ -34,5 +34,5 @@ export async function getObjects<T extends BaseType>(
         connection.close();
     }, 1_000);
 
-    return deepClone(connection.signalObject);
+    return structuredClone(connection.signalObject[RAW_KEY]);
 }

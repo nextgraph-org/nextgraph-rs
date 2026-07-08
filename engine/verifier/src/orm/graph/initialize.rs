@@ -27,10 +27,10 @@ use std::sync::RwLock;
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::basic_type_to_json;
 use crate::orm::graph::utils::{assess_and_rank_children, nuri_to_string};
+use crate::orm::utils::escape_json_pointer_segment;
 use crate::types::CancelFn;
 use crate::verifier::Verifier;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
-use ng_net::orm::OrmSchemaShape;
 use ng_repo::errors::NgError;
 
 use futures::channel::mpsc;
@@ -154,7 +154,6 @@ impl Verifier {
     ) -> Result<serde_json::Value, NgError> {
         // Changes to tormos which we use for materialization.
         let mut changes: OrmChanges = HashMap::new();
-        let root_shape = orm_subscription.root_shape();
 
         // Query quads for this shape
         let shape_quads = if orm_subscription.graph_scope.is_empty() {
@@ -196,12 +195,7 @@ impl Verifier {
                     .and_then(|g| g.get(&graph_iri))
                     .and_then(|s| s.get(&subject_iri))
                 {
-                    let new_val = materialize_orm_object(
-                        change_ref,
-                        &changes,
-                        &root_shape,
-                        &orm_subscription,
-                    );
+                    let new_val = materialize_orm_object(change_ref);
                     obj_map.insert(
                         format!(
                             "{}|{}|{}",
@@ -266,9 +260,8 @@ impl Verifier {
             // Add a remove patch that targets whole page removal.
             patches.push(OrmPatch {
                 op: OrmPatchOp::remove,
-                valType: None,
                 path: format!("/{}", removed_page),
-                value: None,
+                ..Default::default()
             });
         }
 
@@ -284,9 +277,9 @@ impl Verifier {
 
         patches.push(OrmPatch {
             op: OrmPatchOp::add,
-            valType: None,
             value: Some(json!({"items": next_page})),
             path: format!("/{}", new_page_num),
+            ..Default::default()
         });
 
         // A new, materialized page is sent.
@@ -319,13 +312,16 @@ impl Verifier {
         let mut limit_offset = if forward {
             // For queries of the _next_ page, we adjust the offset by adding to the current window's offset position the number of items in the window.
             // and subtract the potential_offset_shift.
-            orm_subscription.page_info.as_ref().map(|page_info| {
-                (
+            let n_tormos_ordered = orm_subscription.tormos_ordered.as_ref().unwrap().len();
+            if let Some(page_info) = orm_subscription.page_info.as_ref() {
+                Some((
                     page_info.limit_heuristic + page_info.potential_offset_shift,
-                    (page_info.offset + page_info.tormos_ordered.len() as u64)
+                    (page_info.offset + n_tormos_ordered as u64)
                         .saturating_sub(page_info.potential_offset_shift),
-                )
-            })
+                ))
+            } else {
+                None
+            }
         } else {
             // For queries of the _previous_ page, we subtract from the current window's offset a page limit and the potential offset shift.
             orm_subscription.page_info.as_ref().map(|page_info| {
@@ -471,17 +467,25 @@ impl Verifier {
                     }));
                 if (forward) {
                     // Append tormos.
-                    page_info.tormos_ordered.extend(new_tormos_ordered);
+                    orm_subscription
+                        .tormos_ordered
+                        .as_mut()
+                        .unwrap()
+                        .extend(new_tormos_ordered);
                 } else {
                     // Prepend new tormos.
-                    page_info.tormos_ordered.splice(0..0, new_tormos_ordered);
+                    orm_subscription
+                        .tormos_ordered
+                        .as_mut()
+                        .unwrap()
+                        .splice(0..0, new_tormos_ordered);
                 }
             }
 
             let page_info = orm_subscription.page_info.as_mut().unwrap();
 
             // Update limit_heuristic: page_size * (#all+1) / (#valid+1) * 1.5
-            let n_objects = page_info.tormos_ordered.len();
+            let n_objects = orm_subscription.tormos_ordered.as_ref().unwrap().len();
             page_info.limit_heuristic = (orm_subscription.config.page_size as f64
                 * (n_objects + 1) as f64
                 / (n_valid + 1) as f64
@@ -526,12 +530,7 @@ impl Verifier {
                     .and_then(|g| g.get(graph))
                     .and_then(|s| s.get(subject))
                 {
-                    let new_val = materialize_orm_object(
-                        change_ref,
-                        &changes,
-                        &root_shape,
-                        &orm_subscription,
-                    );
+                    let new_val = materialize_orm_object(change_ref);
                     objects_vec.push(new_val);
                 }
             }
@@ -555,8 +554,10 @@ impl Verifier {
             {
                 if forward {
                     // Find the right-most item of our window in the graph_subject_page result.
-                    if let Some(right_most) = page_info
+                    if let Some(right_most) = orm_subscription
                         .tormos_ordered
+                        .as_ref()
+                        .unwrap()
                         .last()
                         .and_then(|rm| rm.read().ok())
                     {
@@ -589,8 +590,10 @@ impl Verifier {
                     }
                 } else {
                     // Get the left-most item of our window in graph_subject_page result.
-                    if let Some(left_most) = page_info
+                    if let Some(left_most) = orm_subscription
                         .tormos_ordered
+                        .as_ref()
+                        .unwrap()
                         .get(0)
                         .and_then(|lm| lm.read().ok())
                     {
@@ -658,14 +661,19 @@ impl Verifier {
             page_size * (page_info.highest_active_page - page_info.lowest_active_page - 1) as usize
         };
         let upper_pos = if forward {
-            min(page_size as usize, page_info.tormos_ordered.len())
+            min(
+                page_size as usize,
+                orm_subscription.tormos_ordered.as_ref().unwrap().len(),
+            )
         } else {
-            page_info.tormos_ordered.len() as usize
+            orm_subscription.tormos_ordered.as_ref().unwrap().len() as usize
         };
 
         // Remove items from ordered window and window set.
-        let removed_objects: Vec<(String, String)> = page_info
+        let removed_objects: Vec<(String, String)> = orm_subscription
             .tormos_ordered
+            .as_mut()
+            .unwrap()
             .drain(lower_pos..upper_pos)
             .map(|tormo| {
                 let tormo = tormo.read().unwrap();
@@ -784,7 +792,7 @@ pub(crate) fn materialize_orm_object(change: &TrackedOrmObjectChange) -> Value {
 
             if is_multi {
                 // Represent nested objects with more than one child
-                // as a map/object of <child_graph_iri|child_subject_iri> -> nested object,
+                // as a map/object of <child_graph_iri|child_subject_iri|shape_iri> -> nested object,
                 // since there is no conceptual ordering of the children.
                 let mut nested_objects_map = serde_json::Map::new();
 
@@ -797,8 +805,8 @@ pub(crate) fn materialize_orm_object(change: &TrackedOrmObjectChange) -> Value {
                             format!(
                                 "{}|{}|{}",
                                 child.graph_iri,
-                                child.subject_iri,
-                                child.shape().iri
+                                escape_json_pointer_segment(&child.subject_iri),
+                                escape_json_pointer_segment(&child.shape().iri)
                             ),
                             nested_orm_obj,
                         );

@@ -8,9 +8,15 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { DataType, Predicate, ShapeType } from "@ng-org/shex-orm";
+import type {
+    BaseType,
+    DataType,
+    Predicate,
+    ShapeType,
+} from "@ng-org/shex-orm";
 import { RootShapeType } from "./tests/shapes/orm/testShape.shapeTypes.ts";
 import { Scope } from "./types.ts";
+import { OrmSubscription } from "./core.ts";
 
 /** The typescript equivalent for an ORM basic datatype (string, number, boolean, iri as string). */
 type OrmDataTypeToType<DT extends DataType> =
@@ -118,45 +124,67 @@ type SelectConfig<
           boolean;
 };
 
-type OrmConfig<ST extends ShapeType<any>> = Scope & {
-    where?: WhereConfig<ST>;
+/** Options for creating an {@link OrmSubscription}. */
+// TODO: Using ShapeTypes instead of the generated types might be overkill.
+export type OrmConfig<
+    ST extends ShapeType<any>,
+    PS = number | undefined,
+    OB = NonEmptyArray<OrderByConfigObject<ST>> | OrderByConfigObject<ST>,
+> = Scope & {
+    // where?: WhereConfig<ST>;
 
     /** Property / Properties to sort data by. */
-    orderBy?: NonEmptyArray<OrderByConfigObject<ST>> | OrderByConfigObject<ST>;
+    orderBy?: OB;
 
     /** Optional subset of properties to query. */
-    select?: SelectConfig<ST>;
+    // select?: SelectConfig<ST>;
 
-    /** If set to a value greater than `0`, pagination is activated with the here specified size. */
-    pageSize?: number;
+    /**
+     * If set to a value greater than `0`, pagination is activated with the here specified size.
+     *
+     * Requires `orderBy` to be set.
+     */
+    pageSize?: OB extends undefined ? never : PS;
     /**
      * The number of pages after which loading the next page will discard the first one of the current window.
      * Leave undefined or set to 0, for no page disposal.
      * Note that once items are outside of the current window, they are not tracked and therefore
      * creations and invalidations do not cause "page shifts" - the first item in the window remains stable.
+     *
+     * Requires `pageSize` to be set.
      */
-    maxActivePages?: number;
+    maxActivePages?: PS extends undefined ? never : number;
 
     /**
      * If false, no query is made. Useful in frontend components where not all data is available yet.
      * @default true
      */
-    enabled?: boolean;
+    // enabled?: boolean;
 };
+
+export type ObjectType<
+    CONF extends OrmConfig<ST>,
+    ST extends ShapeType<T>,
+    T extends BaseType,
+> = undefined extends CONF["orderBy"]
+    ? Set<T>
+    : undefined extends CONF["maxActivePages"]
+      ? T[]
+      : { [pageIndex: number]: { items: T[] } };
 
 type RST = OrmConfig<typeof RootShapeType>;
 
 const typeTest: RST = {
     graphs: "did:ng:my:nuri:doc",
     subjects: ["some:iri1", "some:iri2", "some:iri3", "some:iri4"],
-    where: {
-        child3: {
-            "@type": ["did:ng:z:Child2"],
-            childChild: { childChildNum: 2 },
-        },
-        // @ts-expect-error
-        children1Or2: {},
-    },
+    // where: {
+    //     child3: {
+    //         "@type": ["did:ng:z:Child2"],
+    //         childChild: { childChildNum: 2 },
+    //     },
+    //     // @ts-expect-error
+    //     children1Or2: {},
+    // },
     orderBy: [
         { anInteger: "desc" },
         {
@@ -168,10 +196,10 @@ const typeTest: RST = {
         // @ts-expect-error
         { aDate: "asc", anInteger: "desc" },
     ],
-    select: {
-        aString: true,
-        // @ts-expect-error
-        children1Or2: {},
-        child3: true,
-    },
+    // select: {
+    //     aString: true,
+    //     // @ts-expect-error
+    //     children1Or2: {},
+    //     child3: true,
+    // },
 };

@@ -103,7 +103,7 @@ pub struct TrackedOrmPredicate {
     pub tracked_children: Vec<Weak<RwLock<TrackedOrmObject>>>,
     /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
-    /// If schema is of type literal, the currently present ones.
+    /// If schema is of type literal or the tormos are ordered by this predicate, the currently present ones.
     pub current_literals: Option<Vec<BasicType>>,
 }
 
@@ -181,8 +181,6 @@ pub struct OrmSubscriptionPageInfo {
     /// might affect shifts of the offset. Also see potential_offset_shift.
     pub all_up_to_offset: HashSet<(String, String)>,
 
-    /// Ordered vec of all tormos (that in the window).
-    pub tormos_ordered: Vec<Arc<RwLock<TrackedOrmObject>>>,
     /// Set of all tormos' graph and subject pairs (that in the window).
     pub tormo_graph_subject_set: HashSet<(GraphIri, SubjectIri)>,
     /// TODO: The logic for this is not implemented yet.
@@ -207,6 +205,8 @@ pub struct OrmSubscription {
     pub config: OrmConfig,
 
     pub page_info: Option<OrmSubscriptionPageInfo>,
+    /// In case of ordered subscriptions, the ordered vec of all tormos (or for pagination that in the window).
+    pub tormos_ordered: Option<Vec<Arc<RwLock<TrackedOrmObject>>>>,
 
     pub sender: Sender<AppResponse>,
     // Keep private: always use the helper methods below to access/modify
@@ -267,7 +267,6 @@ impl OrmSubscription {
         let page_info = if config.page_size > 0 {
             Some(OrmSubscriptionPageInfo {
                 all_up_to_offset: HashSet::new(),
-                tormos_ordered: vec![],
                 tormo_graph_subject_set: HashSet::new(),
                 limit_heuristic: (config.page_size as f64 * 1.5) as u64,
                 offset: 0,
@@ -288,8 +287,13 @@ impl OrmSubscription {
             sender,
             tracked_orm_objects: HashMap::new(),
             tracked_nested_subjects: HashMap::new(),
-            config,
             page_info,
+            tormos_ordered: if config.order_by.is_some() {
+                Some(Vec::new())
+            } else {
+                None
+            },
+            config,
         })
     }
 
@@ -840,12 +844,11 @@ impl OrmSubscription {
     }
 
     pub fn get_page_window_bounds(&self) -> Option<(&str, bool, BasicType, BasicType)> {
-        let page_info = self.page_info.as_ref()?;
         let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
         let order_predicate_iri = &order_by.iri;
 
-        let first = page_info.tormos_ordered.first()?;
-        let last = page_info.tormos_ordered.last()?;
+        let first = self.tormos_ordered.as_ref()?.first()?;
+        let last = self.tormos_ordered.as_ref()?.last()?;
 
         let first_value = {
             let first_tormo = first.read().unwrap();

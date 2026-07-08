@@ -26,7 +26,8 @@ export async function insertObject<T extends BaseType>(
         graphs: [], // Subscribe to no documents
     });
     await connection.readyPromise;
-    connection.signalObject.add(object);
+    // Makes TypeScript happy since it has limited understanding of T (ts limitation).
+    connection.signalObject.add(object as Exclude<T, undefined>);
 
     connection.close();
 }

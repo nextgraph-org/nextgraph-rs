@@ -279,9 +279,7 @@ export class DiscreteOrmSubscription {
         number,
     ]) => {
         this.subscriptionId = subscriptionId;
-        const signalObject = deepSignal(initialData, {
-            syntheticIdPropertyName: undefined,
-        });
+        const signalObject = deepSignal(initialData, {});
         this._signalObject = signalObject;
         const { stopListening } = watchDeepSignal(
             this._signalObject!,
@@ -299,7 +297,7 @@ export class DiscreteOrmSubscription {
         window.OrmDiscreteIncomingPatches.push(patches);
 
         this.suspendDeepWatcher = true;
-        applyPatchesToDeepSignal(this._signalObject!, patches, "discrete");
+        applyPatchesToDeepSignal(this._signalObject!, patches);
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;

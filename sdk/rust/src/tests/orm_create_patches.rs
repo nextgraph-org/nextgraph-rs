@@ -11,8 +11,9 @@
 use crate::local_broker::doc_sparql_update;
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    add_graph_fields, assert_orm_json_eq, augment_expected_with_graph_fields, await_graph_patches,
-    create_doc_with_data, create_orm_connection, extract_graph_from_actual_paths,
+    add_graph_fields, assert_json_eq, assert_orm_json_eq, augment_expected_with_graph_fields,
+    await_graph_patches, create_doc_with_data, create_orm_connection,
+    create_orm_connection_with_conf, extract_graph_from_actual_paths,
     rewrite_expected_paths_with_graph,
 };
 use async_std::future::timeout;
@@ -46,6 +47,8 @@ async fn test_orm_patch_creation() {
     test_patch_scope_correct(session_id).await;
 
     test_add_root_in_separate_graph(session_id).await;
+
+    test_add_remove_in_sorted(session_id).await;
 }
 
 /// Test that when a root object references a child object that lives in a different graph,
@@ -1805,9 +1808,6 @@ INSERT DATA {
     let (mut receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec!["did:ng:i".into()], vec![], shape_type, session_id).await;
 
-    log_info!("initial object:\n");
-    log_info!("{:?}", json!(initial).to_string());
-
     // We expect one object, urn:test:person1
     assert!(
         initial
@@ -1835,9 +1835,6 @@ INSERT DATA {
 
     let patches = await_graph_patches(&mut receiver).await;
 
-    log_info!("new document patches arrived:\n");
-    log_info!("{:?}", json!(patches).to_string());
-
     // We expect a full child object materialization plus members set-add reference.
     let mut expected = json!([
         {
@@ -1857,6 +1854,226 @@ INSERT DATA {
     let mut actual = json!(patches);
 
     add_graph_fields(&mut expected, &person2_doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut actual);
+}
+
+async fn test_add_remove_in_sorted(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+    PREFIX ex: <did:ng:z:>
+    INSERT DATA {
+        <did:ng:z:sortObj2> a ex:SortObject ;
+                            ex:sortBy 2 ;
+                            ex:sortBy2 2 .
+        <did:ng:z:sortObj1> a ex:SortObject ;
+                            ex:sortBy 1 ;
+                            ex:sortBy2 1 .
+        <did:ng:z:sortObj4> a ex:SortObject ;
+                            ex:sortBy 4 ;
+                            ex:sortBy2 4 .
+        <did:ng:z:sortObj3> a ex:SortObject ;
+                            ex:sortBy 3 ;
+                            ex:sortBy2 3 .
+        <did:ng:z:sortObj51> a ex:SortObject ;
+                            ex:sortBy 5 ;
+                            ex:sortBy2 1 .
+        <did:ng:z:sortObj52> a ex:SortObject ;
+                            ex:sortBy 5 ;
+                            ex:sortBy2 2 .
+    }
+    "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy2".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy2".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    // Sort by two predicates.
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}]}),
+    )
+    .await;
+
+    assert_json_eq(
+        &json!([
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+        ]),
+        &initial,
+    );
+
+    doc_sparql_update(
+        session_id,
+        format!(
+            r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {{
+    GRAPH <{}> {{
+        ex:sortObj515 a ex:SortObject ;
+                      ex:sortBy 5 ;
+                      ex:sortBy2 1.5 .
+        ex:sortObj0 a ex:SortObject ;
+                    ex:sortBy 0 ;
+                    ex:sortBy2 5 .
+        ex:sortObj6 a ex:SortObject ;
+                    ex:sortBy 6 ;
+                    ex:sortBy2 1 .
+    }}
+}} ;
+DELETE WHERE {{
+    GRAPH <{}> {{
+        ex:sortObj3 ?p ?o .
+    }}
+}}
+"#,
+            doc_nuri, doc_nuri
+        ),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    //
+    let patches = await_graph_patches(&mut receiver).await;
+
+    // We expect a full child object materialization plus members set-add reference.
+    let mut expected = json!([
+        // New object patches.
+        {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+                "@id": "did:ng:z:sortObj0",
+                "@shape": "did:ng:z:SortShape",
+                "sortBy": 0,
+                "sortBy2": 6,
+                "type": "did:ng:z:SortObject"
+            }
+        },
+        {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+                "@id": "did:ng:z:sortObj515",
+                "@shape": "did:ng:z:SortShape",
+                "sortBy": 5,
+                "sortBy2": 1.5,
+                "type": "did:ng:z:SortObject"
+            }
+        },
+        {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+                "@id": "did:ng:z:sortObj6",
+                "@shape": "did:ng:z:SortShape",
+                "sortBy": 6,
+                "sortBy2": 1,
+                "type": "did:ng:z:SortObject"
+            }
+        },
+
+        // Structural patches
+        {
+            "op": "add",
+            "path": "/0",
+            "value": {
+                "@id": "did:ng:z:sortObj6",
+                "@shape": "did:ng:z:SortShape",
+            }
+        },
+        {
+            "op": "add",
+            "path": "/2",
+            "value": {
+                "@id": "did:ng:z:sortObj515",
+                "@shape": "did:ng:z:SortShape",
+            }
+        },
+        {
+            "op": "remove",
+            "path": "/4",
+        },
+        {
+            "op": "add",
+            "path": "/9",
+            "value": {
+                "@id": "did:ng:z:sortObj0",
+                "@shape": "did:ng:z:SortShape",
+            }
+        },
+    ]);
+
+    // TODO: remove of set value not necessary in ordered
+    let mut actual = json!(patches);
+
+    add_graph_fields(&mut expected, &doc_nuri);
 
     assert_orm_json_eq(&mut expected, &mut actual);
 }

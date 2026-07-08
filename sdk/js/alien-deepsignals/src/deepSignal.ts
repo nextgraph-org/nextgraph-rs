@@ -348,7 +348,7 @@ function prepareObjectTree(
     meta: ProxyMeta,
     rawValue: any,
     basePath: (string | number | symbol)[] = [],
-    inSet: Set<any> | false
+    rawParent: any
 ) {
     if (!rawValue || typeof rawValue !== "object") return rawValue;
 
@@ -359,15 +359,15 @@ function prepareObjectTree(
         (meta.options.onObjectAttached &&
             meta.options.onObjectAttached({
                 path: basePath,
-                inSet: inSet,
+                rawParent,
                 rawObject: rawValue,
             })) ??
         {};
 
-    if (inSet) {
+    if (rawParent) {
         // Handle synthetic ids.
 
-        const setInfo = ensureSetInfo(inSet);
+        const setInfo = ensureSetInfo(rawParent);
         let syntheticId = setInfo.objectToId.get(rawValue);
 
         // Set the synthetic id for the set.
@@ -400,7 +400,7 @@ function prepareObjectTree(
                     meta,
                     entry,
                     [...basePath, idx],
-                    false
+                    rawValue
                 );
             }
         });
@@ -438,7 +438,7 @@ function prepareObjectTree(
                 meta,
                 child,
                 [...basePath, childKey],
-                false
+                rawValue
             );
         }
     });
@@ -534,13 +534,7 @@ function createProxy<T extends object>(
     };
 
     // Only prepare for new signal objects. If this is just creating a new proxy for an object already attached, do nothing.
-    if (isRoot)
-        prepareObjectTree(
-            meta,
-            target,
-            [],
-            target instanceof Set ? target : false
-        );
+    if (isRoot) prepareObjectTree(meta, target, [], target);
 
     getOrCreateSignalMap(target);
     rawToMeta.set(target, meta);
@@ -746,11 +740,12 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
         return target.toSorted;
     } else if (key === "shift") {
         return () => {
-            target.shift();
+            const removed = target.shift();
 
             schedulePatch(meta, () => ({
                 op: "remove",
                 path: buildPath(meta, "0"),
+                value: rawToProxy.get(removed) ?? removed,
             }));
 
             // Update length of proxy explicitly.
@@ -772,6 +767,8 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
                     patches.push({
                         op: "remove",
                         path: buildPath(meta, String(start)),
+                        value:
+                            rawToProxy.get(deletedItems[i]) ?? deletedItems[i],
                     });
                 }
                 // All items can be inserted at same path / index, by adding items in reverse order.
@@ -918,7 +915,7 @@ const objectHandlers: ProxyHandler<any> = {
         const result = Reflect.set(target, key, rawValue, receiver);
 
         if (meta && path && typeof rawValue === "object") {
-            prepareObjectTree(meta, rawValue, path, false);
+            prepareObjectTree(meta, rawValue, path, target);
         }
 
         // Set signal value.
@@ -976,6 +973,7 @@ const objectHandlers: ProxyHandler<any> = {
         const meta = rawToMeta.get(target)!;
 
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
+        const toDelete = target[key];
         const result = Reflect.deleteProperty(target, key);
         if (hadKey) {
             // Trigger signal
@@ -992,6 +990,7 @@ const objectHandlers: ProxyHandler<any> = {
             schedulePatch(meta, () => ({
                 path: buildPath(meta, key),
                 op: "remove",
+                value: rawToProxy.get(toDelete) ?? toDelete,
             }));
         }
         return result;
@@ -1149,6 +1148,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                         schedulePatch(meta, () => ({
                             path: [...containerPath, synthetic as string],
                             op: "remove",
+                            value: rawToProxy.get(rawValue) ?? rawValue,
                         }));
                         const setInfo = ensureSetInfo(target);
                         setInfo.idToObject.delete(synthetic);
@@ -1158,7 +1158,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                             path: containerPath,
                             op: "remove",
                             type: "set",
-                            value: rawValue,
+                            value: rawToProxy.get(rawValue) ?? rawValue,
                         }));
                     }
                 }

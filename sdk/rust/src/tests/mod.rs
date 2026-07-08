@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use assert_json_diff::assert_json_matches;
+use assert_json_diff::{assert_json_matches, assert_json_matches_no_panic};
 use async_std::future::timeout;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
@@ -16,6 +16,7 @@ use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{OrmConfig, OrmPatch, OrmShapeType};
 use ng_oxigraph::oxrdf::{Quad, Subject};
 use ng_repo::errors::NgError;
+use ng_repo::log_err;
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -67,6 +68,14 @@ pub(crate) fn assert_orm_json_eq(expected: &mut Value, actual: &mut Value) {
 pub(crate) fn assert_json_eq(expected: &Value, actual: &Value) {
     let json_diff_config = assert_json_diff::Config::new(assert_json_diff::CompareMode::Strict)
         .numeric_mode(assert_json_diff::NumericMode::AssumeFloat);
+
+    if assert_json_matches_no_panic(expected, actual, json_diff_config.clone()).is_err() {
+        log_err!(
+            "JSON doesn't match.\nexpected: {}\nactual: {}",
+            expected.to_string(),
+            actual.to_string()
+        );
+    }
     assert_json_matches!(actual, expected, json_diff_config);
 }
 
@@ -234,7 +243,7 @@ async fn await_discrete_patches(receiver: &mut UnboundedReceiver<AppResponse>) -
 
 /// Extract the graph IRI from the first patch path in the actual patches JSON array.
 pub(crate) fn extract_graph_from_actual_paths(actual: &Value) -> Option<String> {
-    // Expecting actual to be an array of objects with a "path" string like "/graph|subject/..."
+    // Expecting actual to be an array of objects with a "path" string like "/graph|subject|shape/..."
     let arr = actual.as_array()?;
     for item in arr {
         if let Some(path) = item.get("path").and_then(|v| v.as_str()) {
@@ -251,14 +260,14 @@ pub(crate) fn extract_graph_from_actual_paths(actual: &Value) -> Option<String> 
 
 /// Prefix every subject segment (urn:...) in an expected JSON path with "{graph}|".
 pub(crate) fn prefix_graph_in_path(path: &str, graph: &str) -> String {
-    let mut out = String::from("/");
+    let mut out = String::from("");
     let mut first = true;
     for seg in path.split('/').filter(|s| !s.is_empty()) {
         if !first {
             out.push('/');
         }
         // Only prefix subject segments, not properties or @-fields
-        if (seg.starts_with("urn:") || seg.starts_with("did:")) && !seg.contains('|') {
+        if seg.starts_with("urn:") || seg.starts_with("did:") {
             out.push_str(graph);
             out.push('|');
         }
@@ -270,15 +279,50 @@ pub(crate) fn prefix_graph_in_path(path: &str, graph: &str) -> String {
 
 /// Rewrite all "path" fields in the expected JSON with the graph-prefixed subject segments.
 pub(crate) fn rewrite_expected_paths_with_graph(expected: &mut Value, graph: &str) {
-    if let Some(arr) = expected.as_array_mut() {
-        for item in arr.iter_mut() {
-            if let Some(path_val) = item.get_mut("path") {
-                if let Some(path) = path_val.as_str() {
-                    let new_path = prefix_graph_in_path(path, graph);
-                    *path_val = Value::String(new_path);
+    match expected {
+        Value::Object(map) => {
+            let map_keys: Vec<String> = map.keys().cloned().collect();
+            for k in map_keys {
+                let (_k, mut v) = map.remove_entry(&k).unwrap();
+
+                if k == "path" {
+                    if let Some(path) = v.as_str() {
+                        let new_path = prefix_graph_in_path(path, graph);
+                        v = Value::String(format!("/{}", new_path));
+                    }
+                } else {
+                    rewrite_expected_paths_with_graph(&mut v, graph);
                 }
+
+                let new_key = prefix_graph_in_path(&k, graph);
+                map.insert(new_key, v);
             }
         }
+        Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                rewrite_expected_paths_with_graph(v, graph);
+            }
+        }
+        _ => {}
+    }
+}
+
+pub(crate) fn add_graph_fields(expected: &mut Value, graph: &str) {
+    match expected {
+        Value::Object(map) => {
+            if map.get("@id").is_some() && map.get("@graph").is_none() {
+                map.insert("@graph".to_string(), Value::String(graph.to_string()));
+            }
+            for v in map.values_mut() {
+                add_graph_fields(v, graph);
+            }
+        }
+        Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                add_graph_fields(v, graph);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -444,11 +488,12 @@ pub(crate) fn escape_pointer_segment(segment: &str) -> String {
 }
 
 // Helper: build root path prefix "/graph|subject" for a given graph and subject
-pub(crate) fn root_path(graph: &str, subject: &str) -> String {
+pub(crate) fn root_path(graph: &str, subject: &str, shape: &str) -> String {
     format!(
-        "/{}|{}",
+        "/{}|{}|{}",
         escape_pointer_segment(graph),
-        escape_pointer_segment(subject)
+        escape_pointer_segment(subject),
+        escape_pointer_segment(shape),
     )
 }
 

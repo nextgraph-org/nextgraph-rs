@@ -149,8 +149,8 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         expect(out).toHaveLength(1);
         expect(out[0]).toEqual([
-            { op: "remove", path: ["a", "b"] },
-            { op: "remove", path: ["c"] },
+            { op: "remove", path: ["a", "b"], value: 1 },
+            { op: "remove", path: ["c"], value: 2 },
         ]);
         stop();
     });
@@ -882,11 +882,11 @@ describe("watch (patch mode)", () => {
             await Promise.resolve();
             expect(st.arr).toEqual([1, 99, 100, 3]);
             expect(batches[0]).toEqual([
-                { path: ["arr", "1"], op: "remove" },
+                { path: ["arr", "1"], op: "remove", value: 2 },
                 { path: ["arr", "1"], op: "add", value: 100 },
                 { path: ["arr", "1"], op: "add", value: 99 },
                 { path: ["arr", "0"], op: "add", value: 0 },
-                { path: ["arr", "0"], op: "remove" },
+                { path: ["arr", "0"], op: "remove", value: 0 },
             ]);
 
             stop();
@@ -922,8 +922,8 @@ describe("watch (patch mode)", () => {
 
             expect(st).toEqual([1, 0]);
             expect(batches[0]).toEqual([
-                { path: ["3"], op: "remove" },
-                { path: ["2"], op: "remove" },
+                { path: ["3"], op: "remove", value: -1 },
+                { path: ["2"], op: "remove", value: 3 },
             ]);
 
             stop();
@@ -988,7 +988,7 @@ describe("watch (patch mode)", () => {
 
             // Should NOT have an object patch for the Set itself when modifying existing Set
             const objectPatches = patches.filter(
-                (p: any) => p.type === "object"
+                (p: any) => p.type === undefined
             );
             expect(objectPatches.length).toBe(0);
 
@@ -1052,7 +1052,7 @@ describe("watch (patch mode)", () => {
             // The correct behavior: no deep patches for the reassignment.
             // Subsequent mutations (add/delete) on the new Set will emit proper patches.
             const objectPatches = patches.filter(
-                (p: any) => p.type === "object"
+                (p: any) => p.type === undefined
             );
             expect(objectPatches.length).toBe(0);
 
@@ -1082,7 +1082,11 @@ describe("watch (patch mode)", () => {
                 { items: new Set() },
                 {
                     syntheticIdPropertyName: "@id",
-                    onObjectAttached: ({ rawObject: object, path, inSet }) => {
+                    onObjectAttached: ({
+                        rawObject: object,
+                        path,
+                        rawParent: inSet,
+                    }) => {
                         onObjectAttachedCalls.push({ object, path, inSet });
                         return {
                             syntheticId: (object as any)["@id"],
@@ -1151,7 +1155,11 @@ describe("watch (patch mode)", () => {
             const onObjectAttachedCalls: any[] = [];
             const st = deepSignal<Set<any>>(new Set(), {
                 syntheticIdPropertyName: "@id",
-                onObjectAttached: ({ rawObject: object, path, inSet }) => {
+                onObjectAttached: ({
+                    rawObject: object,
+                    path,
+                    rawParent: inSet,
+                }) => {
                     onObjectAttachedCalls.push({ object, path, inSet });
                     return {
                         syntheticId:
@@ -1256,6 +1264,7 @@ describe("watch (patch mode)", () => {
                 {
                     op: "remove",
                     path: ["0"],
+                    value: 1,
                 },
             ]);
         });
@@ -1277,6 +1286,7 @@ describe("watch (patch mode)", () => {
                 {
                     op: "remove",
                     path: ["1"],
+                    value: 3,
                 },
                 {
                     op: "add",

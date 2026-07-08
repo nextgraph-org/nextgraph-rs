@@ -79,7 +79,7 @@ export type WatchPatchCallback<T> = (event: WatchPatchEvent<T>) => void;
  * state.s.add({ data: "test" });
  * // Will log:
  * // [
- * //   {"path":["s","did:ng:o:123"],"op":"add","type":"object"},
+ * //   {"path":["s","did:ng:o:123"],"op":"add"},
  * //   {"path":["s","did:ng:o:123","@id"],"op":"add","value":"did:ng:o:123"},
  * //   {"path":["s","did:ng:o:123","data"],"op":"add","value":"test"}
  * // ]

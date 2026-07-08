@@ -415,24 +415,23 @@ pub(crate) fn yrs_mutation_callback(
                             patches.push(OrmPatch {
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
-                                valType: None,
                                 value: Some(yrs_out_to_json(txn, new_val, nuri, false)),
+                                ..Default::default()
                             });
                         }
                         EntryChange::Removed(_removed) => {
                             patches.push(OrmPatch {
                                 op: OrmPatchOp::remove,
                                 path: format!("{base_path}/{key}"),
-                                valType: None,
-                                value: None,
+                                ..Default::default()
                             });
                         }
                         EntryChange::Updated(_old_val, new_val) => {
                             patches.push(OrmPatch {
                                 op: OrmPatchOp::add,
                                 path: format!("{base_path}/{key}"),
-                                valType: None,
                                 value: Some(yrs_out_to_json(txn, new_val, nuri, false)),
+                                ..Default::default()
                             });
                         }
                     }
@@ -448,7 +447,7 @@ pub(crate) fn yrs_mutation_callback(
                                     op: OrmPatchOp::add,
                                     path: format!("{base_path}/{pos}"),
                                     value: Some(yrs_out_to_json(txn, new_val, nuri, true)),
-                                    valType: None,
+                                    ..Default::default()
                                 });
                                 pos += 1;
                             }
@@ -458,8 +457,7 @@ pub(crate) fn yrs_mutation_callback(
                                 patches.push(OrmPatch {
                                     op: OrmPatchOp::remove,
                                     path: format!("{base_path}/{pos}"),
-                                    valType: None,
-                                    value: None,
+                                    ..Default::default()
                                 });
                             }
                         }

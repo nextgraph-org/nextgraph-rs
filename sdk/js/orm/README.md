@@ -22,17 +22,25 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Start](#start)
-- [RDF (graph) ORM: Defining Schemas](#rdf-graph-orm-defining-schemas)
-- [Frontend Framework Usage](#frontend-framework-usage)
-- [Working with Data](#working-with-data)
-    - [Creating a Document](#creating-a-document)
-    - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
-    - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
-    - [Transactions](#transactions)
+- [NextGraph ORM SDK](#nextgraph-orm-sdk)
+    - [Reference documentation](#reference-documentation)
+    - [Why?](#why)
+    - [Table of Contents](#table-of-contents)
+    - [Installation](#installation)
+    - [Start](#start)
+    - [RDF (graph) ORM: Defining Schemas](#rdf-graph-orm-defining-schemas)
+    - [Frontend Framework Usage](#frontend-framework-usage)
+    - [Working with Data](#working-with-data)
+        - [Creating a Document](#creating-a-document)
+        - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
+        - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
+        - [Transactions](#transactions)
+        - [Example of using an OrmSubscription](#example-of-using-an-ormsubscription)
         - [The DeepSignal\<\> type](#the-deepsignal-type)
+            - [Signal Objects in Frontend Frameworks](#signal-objects-in-frontend-frameworks)
         - [Graph ORM: Relationships](#graph-orm-relationships)
+    - [About NextGraph](#about-nextgraph)
+    - [License](#license)
 
 ---
 
@@ -226,9 +234,7 @@ To improve performance, you can start transactions with subscriptions using `.be
 
 Note that even in non-transaction mode, changes are batched and only committed after the current task finished. The changes are sent to the engine in a [microtask](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide). You can end the current task and flush, for example, by awaiting a promise: `await Promise.resolve()`.
 
-Note that you can use the signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use `useDeepSignal(signalObject)` from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the loading time when creating new subscriptions.
-
-Example of using an OrmSubscription:
+### Example of using an OrmSubscription
 
 ```typescript
 const dogSubscription = OrmSubscription.getOrCreate(DogShape, {
@@ -263,7 +269,7 @@ dogs.delete(aDog);
 
 Note that the RDF CRDT supports sets only, the discrete CRDTs arrays only.
 
-#### The DeepSignal<> type
+### The DeepSignal<> type
 
 Data returned by the ORM is of type `DeepSignal<T>`. It behaves like plain objects of type `T` but with some extras. Under the hood, the object is proxied. The proxy tracks modifications and will immediately update the frontend and propagate to the engine.
 
@@ -275,9 +281,13 @@ The utilities that DeepSignal objects include are:
     - `first()` to get one element from the set -- useful if you know that there is only one.
     - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
     - **NOTE**: When assigning a set to `DeepSignal<Set>`, TypeScript will warn you. You can safely ignore this by writing (`parent.children = new Set() as DeepSignal<Set<any>>`). Internally, the set is automatically converted but this is not expressible in TypeScript.
-- For all objects: `__raw__` which gives you the non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh. If you use `__raw__`, that won't work anymore.
+- For all objects: `__raw__` which gives you the non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh. If you use `__raw__`, that won't work anymore. This is an _advanced feature with limited use cases_. Modifying the raw object can cause the object to get out of sync.
 
-#### Graph ORM: Relationships
+#### Signal Objects in Frontend Frameworks
+
+Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use `useDeepSignal(signalObject)` from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the loading time when creating new subscriptions.
+
+### Graph ORM: Relationships
 
 To reference external objects, you can use their `@id`.
 

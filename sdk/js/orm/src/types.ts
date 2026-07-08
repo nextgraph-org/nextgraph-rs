@@ -29,7 +29,7 @@ export type Scope = {
      * - Set value to `["did:ng:i"]` or `[""]` for whole dataset.
      * - Setting value to `[]` or leaving it `undefined`, no objects are returned.
      */
-    graphs?: string[] | string;
+    graphs: string[] | string;
 
     /**
      * Subjects to filter for. Set to `[]` or leave it `undefined` for no filtering.
@@ -38,17 +38,17 @@ export type Scope = {
 };
 
 /**
- * Converts undefined to [] and for graphs "" to "did:ng:i". If scope is string, it means {graphs: [\<scope string>], subjects: []}.
+ * Converts undefined to [] and if scope is string, it's converted to {graphs: [\<scope string>], subjects: []}.
  * @ignore
  */
 export const normalizeScope = (
-    scope: Scope | string | undefined = {}
+    scope: Scope | string | undefined = { graphs: [] }
 ): NormalizedScope => {
     if (typeof scope === "string") {
         return { graphs: [scope], subjects: [] };
     }
     // Convert "" to did:ng:i
-    const graphs = (!scope.graphs ? [] : [scope.graphs])
+    const graphs = [scope.graphs]
         .flat()
         .map((g) => (g === "" ? "did:ng:i" : g));
     const subjects = scope.subjects ?? [];

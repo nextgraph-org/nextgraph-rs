@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Laurin Weger, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2025 Weger, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
@@ -142,9 +142,9 @@ INSERT DATA {
     // Define the ORM schema
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -177,7 +177,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -185,12 +185,17 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add name
-    let root = root_path(&doc_nuri, "urn:test:person1");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person1",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/name", root),
         valType: None,
         value: Some(json!("Alice")),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, diff, session_id)
@@ -239,9 +244,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -286,7 +291,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -294,19 +299,22 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Remove name
-    let root = root_path(&doc_nuri, "urn:test:person2");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person2",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/name", root),
-            valType: None,
             value: Some(json!("Bob")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/isAdult", root),
-            valType: None,
-            value: None,
+            ..Default::default()
         },
     ];
 
@@ -358,9 +366,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -405,7 +413,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -413,19 +421,23 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Replace name (remove old, add new)
-    let root = root_path(&doc_nuri, "urn:test:person3");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person3",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/name", root),
-            valType: None,
             value: Some(json!("Charles")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/isAdult", root),
-            valType: None,
             value: Some(json!(true)),
+            ..Default::default()
         },
     ];
 
@@ -490,9 +502,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -525,7 +537,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -533,12 +545,17 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add hobby
-    let root = root_path(&doc_nuri, "urn:test:person4");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person4",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         valType: Some(OrmPatchType::set),
         path: format!("{}/hobby", root),
         value: Some(json!("Swimming")),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, diff, session_id)
@@ -585,9 +602,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -620,7 +637,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -628,12 +645,16 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Remove hobby
-    let root = root_path(&doc_nuri, "urn:test:person5");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person5",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/hobby", root),
-        valType: None,
         value: Some(json!("Swimming")),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, diff, session_id)
@@ -691,9 +712,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -784,19 +805,23 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
     // Apply ORM patch: Change city in nested address
-    let root = root_path(&doc_nuri, "urn:test:person6");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person6",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/address/city", root),
-        valType: None,
         value: Some(json!("Shelbyville")),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, diff, session_id)
@@ -876,9 +901,9 @@ async fn test_patch_multilevel_nested(session_id: u64) {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example-test_patch_multilevel_nested.org/Person".to_string(),
+        "http://example-test_patch_multilevel_nested.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example-test_patch_multilevel_nested.org/Person".to_string(),
+            iri: "http://example-test_patch_multilevel_nested.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -915,7 +940,8 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::shape,
                         shape: Some(
-                            "http://example-test_patch_multilevel_nested.org/Company".to_string(),
+                            "http://example-test_patch_multilevel_nested.org/CompanyShape"
+                                .to_string(),
                         ),
                         literals: None,
                     }],
@@ -924,9 +950,9 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         }),
     );
     schema.insert(
-        "http://example-test_patch_multilevel_nested.org/Company".to_string(),
+        "http://example-test_patch_multilevel_nested.org/CompanyShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example-test_patch_multilevel_nested.org/Company".to_string(),
+            iri: "http://example-test_patch_multilevel_nested.org/CompanyShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -976,7 +1002,8 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::shape,
                         shape: Some(
-                            "http://example-test_patch_multilevel_nested.org/Address".to_string(),
+                            "http://example-test_patch_multilevel_nested.org/AddressShape"
+                                .to_string(),
                         ),
                         literals: None,
                     }],
@@ -985,9 +1012,9 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         }),
     );
     schema.insert(
-        "http://example-test_patch_multilevel_nested.org/Address".to_string(),
+        "http://example-test_patch_multilevel_nested.org/AddressShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example-test_patch_multilevel_nested.org/Address".to_string(),
+            iri: "http://example-test_patch_multilevel_nested.org/AddressShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -998,7 +1025,8 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
-                            "http://example-test_patch_multilevel_nested.org/Address".to_string(),
+                            "http://example-test_patch_multilevel_nested.org/AddressShape"
+                                .to_string(),
                         )]),
                         shape: None,
                     }],
@@ -1032,7 +1060,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example-test_patch_multilevel_nested.org/Person".to_string(),
+        shape: "http://example-test_patch_multilevel_nested.org/PersonShape".to_string(),
         schema,
     };
 
@@ -1043,6 +1071,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     let root = root_path(
         &person_doc_nuri,
         "http://example-test_patch_multilevel_nested.org/person7",
+        "http://example-test_patch_multilevel_nested.org/PersonShape",
     );
     let child = composite_key(
         &company_doc_nuri,
@@ -1052,20 +1081,19 @@ async fn test_patch_multilevel_nested(session_id: u64) {
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/{}/headquarter/street", root, child),
-            valType: None,
             value: Some(json!("Rich Street")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/{}/companyName", root, child),
-            valType: None,
             value: Some(json!("Acme Corp empty isMultinational")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/company/{}/isMultinational", root, child),
-            valType: None,
-            value: None,
+            ..Default::default()
         },
     ];
 
@@ -1195,57 +1223,64 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Create a new object
-    let root = root_path(&doc_nuri, "urn:test:person8");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person8",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
             path: root.clone(),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             // This does nothing as it does not represent a triple.
             // A subject is created when inserting data.
             op: OrmPatchOp::add,
             path: format!("{}/@id", root),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/type", root),
-            valType: None,
             value: Some(json!("http://example.org/Person")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/name", root),
-            valType: None,
             value: Some(json!("Alice")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/friend", root),
-            valType: None,
             value: Some(json!([])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/friend", root),
             valType: Some(OrmPatchType::set),
             value: Some(json!([])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/friend", root),
             valType: Some(OrmPatchType::set),
             value: Some(json!(["http://example.org/Bob"])),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/friend", root),
             valType: Some(OrmPatchType::set),
             value: Some(json!(["http://example.org/Craig"])),
+            ..Default::default()
         },
     ];
 
@@ -1316,9 +1351,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -1397,7 +1432,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -1405,38 +1440,42 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add a second address.
-    let root = root_path(&doc_nuri, "urn:test:person9");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person9",
+        "http://example.org/PersonShape",
+    );
     let child = composite_key(&doc_nuri, "http://example.org/exampleAddress");
     let patches = vec![
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}", root, child),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/@graph", root, child),
-            valType: None,
             value: Some(json!("http://example.org/Address")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/@id", root, child),
-            valType: None,
             value: Some(json!("http://example.org/exampleAddress")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/type", root, child),
-            valType: None,
             value: Some(json!("http://example.org/Address")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/street", root, child),
-            valType: None,
             value: Some(json!("Heaven Avenue")),
+            ..Default::default()
         },
     ];
 
@@ -1508,9 +1547,9 @@ INSERT DATA {
     // Person with a single-valued address
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -1589,7 +1628,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -1597,33 +1636,39 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patches to create the single nested Address under person10
-    let root = root_path(&doc_nuri, "urn:test:person10");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person10",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![
         // Stage the child identity and location (single-nested => no composite key in path)
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/@id", root),
-            valType: None,
             value: Some(json!("http://example.org/exampleAddress2")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/@graph", root),
             valType: None,
             value: Some(json!(doc_nuri.clone())),
+            ..Default::default()
         },
         // Now set fields on the child
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/type", root),
-            valType: None,
             value: Some(json!("http://example.org/Address")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/street", root),
             valType: None,
             value: Some(json!("Sunrise Boulevard")),
+            ..Default::default()
         },
     ];
 
@@ -1699,9 +1744,9 @@ INSERT DATA {
     // Define the ORM schema (Person with single-valued address; Address with street)
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -1780,7 +1825,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -1788,32 +1833,37 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply patches to replace the single-nested address with a new subject B
-    let root = root_path(&doc_nuri, "urn:test:person12");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person12",
+        "http://example.org/PersonShape",
+    );
     let new_address = "http://example.org/exampleAddress3";
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/@id", root),
-            valType: None,
             value: Some(json!(new_address)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/@graph", root),
             valType: None,
             value: Some(json!(doc_nuri.clone())),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/type", root),
-            valType: None,
             value: Some(json!("http://example.org/Address")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/street", root),
-            valType: None,
             value: Some(json!("New Street")),
+            ..Default::default()
         },
     ];
 
@@ -1894,9 +1944,9 @@ INSERT DATA {
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -1929,7 +1979,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -1945,12 +1995,16 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Change type to something invalid by schema.
-    let root = root_path(&doc_nuri, "urn:test:person2");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person2",
+        "http://example.org/PersonShape",
+    );
     let patch = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/type", root),
-        valType: None,
         value: Some(json!("http://example.org/NotAPerson")),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, patch, session_id)
@@ -2007,9 +2061,9 @@ INSERT DATA {
     let mut schema = HashMap::new();
     // Person shape with multi-valued address
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2077,19 +2131,22 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
     let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:personML");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:personML",
+        "http://example.org/PersonShape",
+    );
     let child_seg = composite_key(&doc_nuri, "urn:test:a1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/address/{}", root, child_seg),
-        valType: None,
-        value: None,
+        ..Default::default()
     }];
     orm_update(subscription_id, diff, session_id).await.unwrap();
 
@@ -2132,9 +2189,9 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
 
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2201,13 +2258,17 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
     let (receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:personT");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:personT",
+        "http://example.org/PersonShape",
+    );
     let encoded_child_key = format!(
         "{}|{}",
         escape_pointer_segment(&doc_nuri),
@@ -2219,32 +2280,32 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}", root, encoded_child_key),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/@id", root, encoded_child_key),
-            valType: None,
             value: Some(json!("http://example.org/example~Address/seg")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/@graph", root, encoded_child_key),
-            valType: None,
             value: Some(json!(doc_nuri)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/type", root, encoded_child_key),
-            valType: None,
             value: Some(json!("http://example.org/Address")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/address/{}/street", root, encoded_child_key),
-            valType: None,
             value: Some(json!("not:iri:Lane")),
+            ..Default::default()
         },
     ];
     orm_update(subscription_id, patches, session_id)
@@ -2285,9 +2346,9 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
     .await;
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2319,19 +2380,18 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
         }),
     );
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
     let (receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:mv1");
+    let root = root_path(&doc_nuri, "urn:test:mv1", "http://example.org/PersonShape");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/hobby", root),
-        valType: None,
-        value: None,
+        ..Default::default()
     }];
     orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
@@ -2408,18 +2468,22 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
     let (receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:idem1");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:idem1",
+        "http://example.org/PersonShape",
+    );
     let patch = OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/hobby", root),
-        valType: None,
         value: Some(json!("Reading")),
+        ..Default::default()
     };
     let patch2 = OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/hobby", root),
-        valType: None,
         value: Some(json!("Sleeping")),
+        ..Default::default()
     };
     orm_update(subscription_id, vec![patch, patch2], session_id)
         .await
@@ -2578,9 +2642,9 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
     .await;
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2612,19 +2676,23 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
         }),
     );
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
     let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:noopr1");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:noopr1",
+        "http://example.org/PersonShape",
+    );
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/hobby", root),
-        valType: None,
         value: Some(json!("Swimming")),
+        ..Default::default()
     }];
     orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
@@ -2667,9 +2735,9 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
     .await;
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2713,32 +2781,33 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
         }),
     );
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
     let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:mix1");
+    let root = root_path(&doc_nuri, "urn:test:mix1", "http://example.org/PersonShape");
     let patches = vec![
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/hobby", root),
             valType: Some(OrmPatchType::set),
             value: Some(json!("Swimming")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/name", root),
-            valType: None,
             value: Some(json!("Anna")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/hobby", root),
-            valType: None,
             value: Some(json!("Reading")),
+            ..Default::default()
         },
     ];
     orm_update(subscription_id, patches, session_id)
@@ -2789,9 +2858,9 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
     .await;
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2823,22 +2892,22 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
         }),
     );
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
     let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:rar1");
+    let root = root_path(&doc_nuri, "urn:test:rar1", "http://example.org/PersonShape");
     // selective remove Reading
     orm_update(
         subscription_id,
         vec![OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/hobby", root),
-            valType: None,
             value: Some(json!("Reading")),
+            ..Default::default()
         }],
         session_id,
     )
@@ -2850,8 +2919,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
         vec![OrmPatch {
             op: OrmPatchOp::remove,
             path: format!("{}/hobby", root),
-            valType: None,
-            value: None,
+            ..Default::default()
         }],
         session_id,
     )
@@ -2885,9 +2953,9 @@ async fn test_patch_duplicate_object_link_add(session_id: u64) {
 INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <urn:test:addr1> a ex:Address . }"#.to_string()).await;
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2939,20 +3007,24 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
         }),
     );
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
     let (_receiver, _cancel_fn, subscription_id, _initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&doc_nuri, "urn:test:personDL");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:personDL",
+        "http://example.org/PersonShape",
+    );
     let child_seg = composite_key(&doc_nuri, "urn:test:addr1");
     let patch = OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/address/{}", root, child_seg),
-        valType: None,
         value: Some(json!({})),
+        ..Default::default()
     };
     orm_update(subscription_id, vec![patch.clone(), patch], session_id)
         .await
@@ -2999,9 +3071,9 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
     .await;
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3053,20 +3125,23 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
         }),
     );
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
     let (_receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
 
-    let root = root_path(&parent_doc, "urn:test:personCR");
+    let root = root_path(
+        &parent_doc,
+        "urn:test:personCR",
+        "http://example.org/PersonShape",
+    );
     let child_seg = composite_key(&child_doc, "urn:test:child1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
         path: format!("{}/address/{}", root, child_seg),
-        valType: None,
-        value: None,
+        ..Default::default()
     }];
     orm_update(subscription_id, diff, session_id).await.unwrap();
     let quads = doc_sparql_select(
@@ -3110,9 +3185,9 @@ INSERT DATA {
     // Define schema with an IRI-only predicate (no string allowed)
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3146,7 +3221,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -3154,12 +3229,16 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Send a patch with a plain string, not an IRI.
-    let root = root_path(&doc_nuri, "urn:test:personRevert1");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:personRevert1",
+        "http://example.org/PersonShape",
+    );
     let invalid_diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/someResource", root),
-        valType: None,
         value: Some(json!("not a valid IRI")),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, invalid_diff, session_id)
@@ -3219,9 +3298,9 @@ INSERT DATA {
     // Define schema with multi-valued IRI-only predicate
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3255,7 +3334,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -3263,12 +3342,17 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Send a batch with one valid and one invalid add
-    let root = root_path(&doc_nuri, "urn:test:personRevert2");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:personRevert2",
+        "http://example.org/PersonShape",
+    );
     let mixed_diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/links", root),
         valType: Some(OrmPatchType::set),
         value: Some(json!(["http://example.org/link3", "invalid plain text"])),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, mixed_diff, session_id)
@@ -3324,9 +3408,9 @@ INSERT DATA {
     // Define the ORM schema
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/Person".to_string(),
+        "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
-            iri: "http://example.org/Person".to_string(),
+            iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3359,7 +3443,7 @@ INSERT DATA {
     );
 
     let shape_type = OrmShapeType {
-        shape: "http://example.org/Person".to_string(),
+        shape: "http://example.org/PersonShape".to_string(),
         schema,
     };
 
@@ -3375,12 +3459,17 @@ INSERT DATA {
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Add name
-    let root = root_path(&doc_nuri, "urn:test:person1");
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:person1",
+        "http://example.org/PersonShape",
+    );
     let patches = vec![OrmPatch {
         op: OrmPatchOp::add,
         path: format!("{}/type", root),
         valType: Some(OrmPatchType::set),
         value: Some(json!("http://example.org/Human")),
+        ..Default::default()
     }];
 
     orm_update(subscription_id, patches, session_id)
@@ -3545,56 +3634,56 @@ INSERT DATA {
     let company = "http://example-non-root-multi.org/companyNR";
     let office = "http://example-non-root-multi.org/officeNR";
 
-    let root = root_path(&doc_nuri, person);
+    let root = root_path(&doc_nuri, person, "http://example.org/PersonShape");
     let office_child = composite_key(&doc_nuri, office);
     let patches = vec![
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company", root),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/@id", root),
-            valType: None,
             value: Some(json!(company)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/@graph", root),
-            valType: None,
             value: Some(json!(doc_nuri.clone())),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/type", root),
-            valType: None,
             value: Some(json!("http://example-non-root-multi.org/Company")),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/offices/{}", root, office_child),
-            valType: None,
             value: Some(json!({})),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/offices/{}/@id", root, office_child),
-            valType: None,
             value: Some(json!(office)),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/offices/{}/@graph", root, office_child),
-            valType: None,
             value: Some(json!(doc_nuri.clone())),
+            ..Default::default()
         },
         OrmPatch {
             op: OrmPatchOp::add,
             path: format!("{}/company/offices/{}/type", root, office_child),
-            valType: None,
             value: Some(json!("http://example-non-root-multi.org/Office")),
+            ..Default::default()
         },
     ];
 

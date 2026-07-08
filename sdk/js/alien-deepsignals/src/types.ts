@@ -16,8 +16,19 @@ import type { watch } from "./watch.ts";
 export type DeepPatch = {
     path: (string | number | symbol)[];
 } & (
-    | { op: "add"; type?: "object" | "set"; value?: any }
-    | { op: "remove"; type?: "set"; value?: any }
+    | {
+          op: "add";
+          type?: "object" | "set";
+          /** The value being added, overwritten, or removed */
+
+          value?: any;
+      }
+    | {
+          op: "remove";
+          type?: "set";
+          /** The value being added, overwritten, or removed */
+          value: any;
+      }
 );
 
 /** Batched patch payload tagged with a monotonically increasing version. */
@@ -115,8 +126,8 @@ export type OnObjectAttachedFn = (props: {
      * The path of the newly added object. In case of sets, the synthetic id is not part of the path.
      */
     path: (string | number | symbol)[];
-    /** Whether the object is being added to a Set (true) or not (false) */
-    inSet: Set<any> | false;
+    /** The parent object, set, or array that `rawObject` is being added to. */
+    rawParent: Set<any> | Record<string, any> | any[];
     /** The newly added, non-proxied raw object. You may modify it. */
     rawObject: Record<string, any> | Set<any> | any[];
 }) =>

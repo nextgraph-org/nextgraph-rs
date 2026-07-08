@@ -189,9 +189,9 @@ impl Verifier {
                                 if let Some(id) = o.as_object().unwrap().get("@id") {
                                     patches.push(OrmPatch {
                                         op: OrmPatchOp::add,
-                                        valType: None,
                                         path: format!("{}/{}/@id", p.path, index),
                                         value: Some(id.clone()),
+                                        ..Default::default()
                                     })
                                 }
                             }
@@ -200,9 +200,9 @@ impl Verifier {
                         if let Some(id) = v.as_object().unwrap().get("@id") {
                             patches.push(OrmPatch {
                                 op: OrmPatchOp::add,
-                                valType: None,
                                 path: format!("{}/@id", p.path),
                                 value: Some(id.clone()),
+                                ..Default::default()
                             })
                         }
                     }
