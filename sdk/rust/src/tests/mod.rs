@@ -64,6 +64,9 @@ pub(crate) fn assert_orm_json_eq(expected: &mut Value, actual: &mut Value) {
 
     assert_json_eq(expected, actual);
 }
+pub(crate) fn assert_orm_json_eq_exact(expected: &Value, actual: &Value) {
+    assert_json_eq(expected, actual);
+}
 
 pub(crate) fn assert_json_eq(expected: &Value, actual: &Value) {
     let json_diff_config = assert_json_diff::Config::new(assert_json_diff::CompareMode::Strict)

@@ -8,6 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
@@ -15,6 +16,7 @@ use ng_net::app_protocol::AppResponse;
 use ng_net::{orm::*, utils::Sender};
 use ng_repo::errors::NgError;
 use std::sync::{RwLock, RwLockReadGuard, Weak};
+use wabi_tree::OSBTreeMap;
 
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
@@ -206,7 +208,7 @@ pub struct OrmSubscription {
 
     pub page_info: Option<OrmSubscriptionPageInfo>,
     /// In case of ordered subscriptions, the ordered vec of all tormos (or for pagination that in the window).
-    pub tormos_ordered: Option<Vec<Arc<RwLock<TrackedOrmObject>>>>,
+    pub tormos_ordered: Option<OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>>,
 
     pub sender: Sender<AppResponse>,
     // Keep private: always use the helper methods below to access/modify
@@ -289,7 +291,7 @@ impl OrmSubscription {
             tracked_nested_subjects: HashMap::new(),
             page_info,
             tormos_ordered: if config.order_by.is_some() {
-                Some(Vec::new())
+                Some(OSBTreeMap::new())
             } else {
                 None
             },
@@ -843,12 +845,12 @@ impl OrmSubscription {
         }
     }
 
-    pub fn get_page_window_bounds(&self) -> Option<(&str, bool, BasicType, BasicType)> {
+    pub fn get_page_window_bounds(&self) -> Option<(&str, OrderDirection, BasicType, BasicType)> {
         let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
         let order_predicate_iri = &order_by.iri;
 
-        let first = self.tormos_ordered.as_ref()?.first()?;
-        let last = self.tormos_ordered.as_ref()?.last()?;
+        let first = self.tormos_ordered.as_ref()?.first_key_value()?.1;
+        let last = self.tormos_ordered.as_ref()?.last_key_value()?.1;
 
         let first_value = {
             let first_tormo = first.read().unwrap();

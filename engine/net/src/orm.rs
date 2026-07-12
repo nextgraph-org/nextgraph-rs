@@ -13,6 +13,7 @@
 
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 
+use ng_repo::log_err;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -89,13 +90,33 @@ pub enum OrmSchemaValType {
     shape,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BasicType {
     Bool(bool),
     Num(f64),
     Str(String),
 }
+
+impl PartialEq for BasicType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (BasicType::Num(a), BasicType::Num(b)) => {
+                // Usually nan is != nan
+                if a.is_nan() && b.is_nan() {
+                    true
+                } else {
+                    a == b
+                }
+            }
+            (BasicType::Str(a), BasicType::Str(b)) => a == b,
+            (BasicType::Bool(a), BasicType::Bool(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for BasicType {}
 
 impl PartialOrd for BasicType {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -136,10 +157,93 @@ impl OrmSchemaPredicate {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize, Copy)]
+pub enum OrderDirection {
+    #[serde(rename = "asc")]
+    Ascending,
+    #[serde(rename = "desc")]
+    Descending,
+}
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct OrderKey {
+    pub val_types: Vec<(BasicType, OrderDirection)>,
+}
+
+/// Iterate over all items in val_types.
+/// Take OrderDirection in to consideration (reverses greater / less comparisons).
+/// If lengths mismatch but previous values do, the longer one is considered greater.
+fn order_key_partial_cmp(first: &OrderKey, other: &OrderKey) -> Option<std::cmp::Ordering> {
+    for i in 0..usize::max(first.val_types.len(), other.val_types.len()) {
+        let self_current_val_op = first.val_types.get(i);
+        let other_current_val_op = other.val_types.get(i);
+
+        if let Some(self_current_val) = self_current_val_op {
+            if let Some(other_current_val) = other_current_val_op {
+                let direction = self_current_val.1.clone();
+                if direction != other_current_val.1 {
+                    // Conflicting order directions. Not comparable.
+                    return None;
+                }
+
+                let cmp_res_op = self_current_val.0.partial_cmp(&other_current_val.0);
+                if let Some(cmp_res) = cmp_res_op {
+                    if cmp_res == Ordering::Equal {
+                        // This position is equal, check secondary/next order-by values.
+                        continue;
+                    } else if direction == OrderDirection::Ascending {
+                        return Some(cmp_res);
+                    } else {
+                        // direction == OrderDirection::Descending
+                        if cmp_res == Ordering::Greater {
+                            return Some(Ordering::Less);
+                        } else {
+                            return Some(Ordering::Greater);
+                        }
+                    }
+                } else {
+                    // Compared values were of different type.
+                    return None;
+                }
+            } else {
+                // Self is longer thus greater.
+                return Some(std::cmp::Ordering::Greater);
+            }
+        } else {
+            // other_current_val_op.is_some()
+            // Self is shorter thus less.
+            return Some(std::cmp::Ordering::Less);
+        }
+    }
+
+    Some(Ordering::Equal)
+}
+impl PartialOrd for OrderKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        order_key_partial_cmp(self, other)
+    }
+}
+impl Ord for OrderKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if let Some(res) = order_key_partial_cmp(self, other) {
+            res
+        } else {
+            log_err!(
+                "Compared two incomparable values:\nself: {:?}\nother: {:?}",
+                self,
+                other
+            );
+            panic!("Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared.")
+        }
+        // expect(
+        // "Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared."
+        // )
+    }
+}
+
 pub type WhereConfig = serde_json::Value;
 pub type SelectConfig = serde_json::Value;
 pub type IsAscending = bool;
-pub type OrderByConfig = Vec<(Arc<OrmSchemaPredicate>, IsAscending)>;
+pub type OrderByConfig = Vec<(Arc<OrmSchemaPredicate>, OrderDirection)>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmConfig {
@@ -182,7 +286,14 @@ impl OrmConfig {
                 if found_pred.maxCardinality != 1 || found_pred.minCardinality != 1 {
                     return Err("Orm config order by properties must have cardinality 1.".into());
                 }
-                order_by_config.push((found_pred.clone(), is_asc));
+                order_by_config.push((
+                    Arc::clone(found_pred),
+                    if is_asc {
+                        OrderDirection::Ascending
+                    } else {
+                        OrderDirection::Descending
+                    },
+                ));
             }
             Some(order_by_config)
         } else {
@@ -213,7 +324,7 @@ impl OrmConfig {
 
     /// Returns a Vec<(property name, is_asc)>
     fn parse_order_by(order_by: &serde_json::Value) -> Result<Vec<(String, bool)>, String> {
-        /// For a Value::Object {propertyToOrderBy: "asc" | "desc"}, return Ok("property", is_asc)
+        /// For a Value::Object {<propertyToOrderBy>: "asc" | "desc"}, return Ok("property", is_asc)
         fn parse_obj(
             obj: &serde_json::Map<String, serde_json::Value>,
         ) -> Result<(String, bool), String> {

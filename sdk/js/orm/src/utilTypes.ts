@@ -79,6 +79,7 @@ type SingleKeyObject<T extends Record<string, unknown>> = {
  * Defines how results are sorted.
  * Must contain a single property with the key being the property to sort by
  * and the value being `"asc"`, `"desc"`.
+ * The property must have a cardinality of exactly 1.
  */
 // TODO: Rust config requires them to be an array.
 type OrderByConfigObject<
@@ -88,7 +89,9 @@ type OrderByConfigObject<
         ST["schema"][string]["predicates"][number] = ST["schema"][SchemaIri]["predicates"][number],
 > = SingleKeyObject<{
     [P in Pred as P["maxCardinality"] extends 1
-        ? P["readablePredicate"]
+        ? P["minCardinality"] extends 1
+            ? P["readablePredicate"]
+            : never
         : never]: "shape" extends P["dataTypes"][number]["valType"]
         ? //  No support for ordering by nested objects
           //  OrderByConfigObject<

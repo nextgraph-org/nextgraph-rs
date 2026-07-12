@@ -11,9 +11,9 @@
 use crate::local_broker::doc_sparql_update;
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    add_graph_fields, assert_json_eq, assert_orm_json_eq, augment_expected_with_graph_fields,
-    await_graph_patches, create_doc_with_data, create_orm_connection,
-    create_orm_connection_with_conf, extract_graph_from_actual_paths,
+    add_graph_fields, assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact,
+    augment_expected_with_graph_fields, await_graph_patches, create_doc_with_data,
+    create_orm_connection, create_orm_connection_with_conf, extract_graph_from_actual_paths,
     rewrite_expected_paths_with_graph,
 };
 use async_std::future::timeout;
@@ -1688,8 +1688,8 @@ DELETE DATA {{
         }
         .unwrap();
 
-        log_info!("Cross-graph patches arrived:\n");
-        log_info!("{:?}", json!(patches).to_string());
+        // log_info!("Cross-graph patches arrived:\n");
+        // log_info!("{:?}", json!(patches).to_string());
 
         // We expect a full child object materialization plus members set-add reference.
         let mut expected = json!([
@@ -1862,27 +1862,27 @@ async fn test_add_remove_in_sorted(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
-    PREFIX ex: <did:ng:z:>
-    INSERT DATA {
-        <did:ng:z:sortObj2> a ex:SortObject ;
-                            ex:sortBy 2 ;
-                            ex:sortBy2 2 .
-        <did:ng:z:sortObj1> a ex:SortObject ;
-                            ex:sortBy 1 ;
-                            ex:sortBy2 1 .
-        <did:ng:z:sortObj4> a ex:SortObject ;
-                            ex:sortBy 4 ;
-                            ex:sortBy2 4 .
-        <did:ng:z:sortObj3> a ex:SortObject ;
-                            ex:sortBy 3 ;
-                            ex:sortBy2 3 .
-        <did:ng:z:sortObj51> a ex:SortObject ;
-                            ex:sortBy 5 ;
-                            ex:sortBy2 1 .
-        <did:ng:z:sortObj52> a ex:SortObject ;
-                            ex:sortBy 5 ;
-                            ex:sortBy2 2 .
-    }
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:sortObj2> a ex:SortObject ;
+                                    ex:sortBy 2 ;
+                                    ex:sortBy2 2 .
+                <did:ng:z:sortObj1AndThen23> a ex:SortObject ;
+                                    ex:sortBy 1 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj4> a ex:SortObject ;
+                                    ex:sortBy 4 ;
+                                    ex:sortBy2 4 .
+                <did:ng:z:sortObj3> a ex:SortObject ;
+                                    ex:sortBy 3 ;
+                                    ex:sortBy2 3 .
+                <did:ng:z:sortObj51> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj52> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 2 .
+            }
     "#
         .to_string(),
     )
@@ -1952,6 +1952,10 @@ async fn test_add_remove_in_sorted(session_id: u64) {
         json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}]}),
     )
     .await;
+    log_info!(
+        "[test_add_remove_in_sorted] initial: {:?}",
+        initial.to_string()
+    );
 
     assert_json_eq(
         &json!([
@@ -1960,7 +1964,7 @@ async fn test_add_remove_in_sorted(session_id: u64) {
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1AndThen23",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
         ]),
         &initial,
     );
@@ -1969,26 +1973,30 @@ async fn test_add_remove_in_sorted(session_id: u64) {
         session_id,
         format!(
             r#"
-PREFIX ex: <did:ng:z:>
-INSERT DATA {{
-    GRAPH <{}> {{
-        ex:sortObj515 a ex:SortObject ;
-                      ex:sortBy 5 ;
-                      ex:sortBy2 1.5 .
-        ex:sortObj0 a ex:SortObject ;
-                    ex:sortBy 0 ;
-                    ex:sortBy2 5 .
-        ex:sortObj6 a ex:SortObject ;
-                    ex:sortBy 6 ;
-                    ex:sortBy2 1 .
-    }}
-}} ;
-DELETE WHERE {{
-    GRAPH <{}> {{
-        ex:sortObj3 ?p ?o .
-    }}
-}}
-"#,
+                PREFIX ex: <did:ng:z:>
+                INSERT DATA {{
+                    GRAPH <{}> {{
+                        ex:sortObj515 a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 1.5 .
+                        ex:sortObj0 a ex:SortObject ;
+                                    ex:sortBy 0 ;
+                                    ex:sortBy2 5 .
+                        ex:sortObj6 a ex:SortObject ;
+                                    ex:sortBy 6 ;
+                                    ex:sortBy2 1 .
+                        ex:sortObj1AndThen23 ex:sortBy 2.3 .
+
+                    }}
+                }} ;
+                DELETE WHERE {{
+                    GRAPH <{}> {{
+                        ex:sortObj3 ?p ?o .
+                        ex:sortObj1AndThen23 ex:sortBy 1 .
+
+                    }}
+                }}
+                "#,
             doc_nuri, doc_nuri
         ),
         Some(doc_nuri.clone()),
@@ -2000,7 +2008,7 @@ DELETE WHERE {{
     let patches = await_graph_patches(&mut receiver).await;
 
     // We expect a full child object materialization plus members set-add reference.
-    let mut expected = json!([
+    let mut expected_object_patches = json!([
         // New object patches.
         {
             "op": "add",
@@ -2010,7 +2018,7 @@ DELETE WHERE {{
                 "@id": "did:ng:z:sortObj0",
                 "@shape": "did:ng:z:SortShape",
                 "sortBy": 0,
-                "sortBy2": 6,
+                "sortBy2": 5,
                 "type": "did:ng:z:SortObject"
             }
         },
@@ -2038,8 +2046,39 @@ DELETE WHERE {{
                 "type": "did:ng:z:SortObject"
             }
         },
-
+        {
+            "op": "add",
+            "path": "/did:ng:z:sortObj1AndThen23|did:ng:z:SortShape/sortBy",
+            "value": 2.3
+        },
+    ]);
+    let mut expected_structural_patches = json!([
         // Structural patches
+        {
+            "op": "add",
+            "path": "/6",
+            "value": {
+                "@id": "did:ng:z:sortObj0",
+                "@shape": "did:ng:z:SortShape",
+            }
+        },
+        {
+            "op": "move",
+            "from": "/5",
+            "path": "/4"
+        },
+        {
+            "op": "remove",
+            "path": "/3",
+        },
+        {
+            "op": "add",
+            "path": "/1",
+            "value": {
+                "@id": "did:ng:z:sortObj515",
+                "@shape": "did:ng:z:SortShape",
+            }
+        },
         {
             "op": "add",
             "path": "/0",
@@ -2048,32 +2087,19 @@ DELETE WHERE {{
                 "@shape": "did:ng:z:SortShape",
             }
         },
-        {
-            "op": "add",
-            "path": "/2",
-            "value": {
-                "@id": "did:ng:z:sortObj515",
-                "@shape": "did:ng:z:SortShape",
-            }
-        },
-        {
-            "op": "remove",
-            "path": "/4",
-        },
-        {
-            "op": "add",
-            "path": "/9",
-            "value": {
-                "@id": "did:ng:z:sortObj0",
-                "@shape": "did:ng:z:SortShape",
-            }
-        },
     ]);
 
-    // TODO: remove of set value not necessary in ordered
     let mut actual = json!(patches);
+    let actual_structual_patches = actual.as_array_mut().unwrap().split_off(4);
+    let mut actual_object_patches = actual;
 
-    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected_object_patches, &doc_nuri);
+    add_graph_fields(&mut expected_object_patches, &doc_nuri);
+    add_graph_fields(&mut expected_structural_patches, &doc_nuri);
 
-    assert_orm_json_eq(&mut expected, &mut actual);
+    assert_orm_json_eq(&mut expected_object_patches, &mut actual_object_patches);
+    assert_orm_json_eq_exact(
+        &expected_structural_patches,
+        &json!(actual_structual_patches),
+    );
 }

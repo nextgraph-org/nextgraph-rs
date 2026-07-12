@@ -8,7 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::cmp;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -28,6 +27,8 @@ use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::initialize::materialize_orm_object;
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::basic_type_to_json;
+use crate::orm::graph::utils::order_key_from;
+use crate::orm::graph::utils::order_key_from_before_change;
 use crate::orm::graph::utils::GraphSubjectKey;
 use crate::orm::utils::escape_json_pointer_segment;
 use crate::types::*;
@@ -168,18 +169,6 @@ impl Verifier {
                 continue;
             }
 
-            // TODO: Now ensure that processing is handled correctly
-            // Collect adds, removes, moves from orm_changes.
-            // Then: Apply adds, removes, moves to window
-            // Calculate page/position where to send patches to
-            // Strategy depends on whether we make a pagination or just keep all items in root array.
-            // In the former case, we can calculate the page using the following algorithm:
-            // - create object window as enumeration of current window: Vec<(page_num, (valid)tormo)>
-            // - add items in to that window, assign the page num that the neighbor item has.
-            //   - Record operation, the patch, based on page number of neighbor and position in page
-            // - then go over window and adjust the page numbers so that they fit the page_size. Record modifications (moves)
-            //
-
             // Process changes for this shape
             let mut orm_changes: OrmChanges = HashMap::new();
             let res = self.process_changes_for_subscription(
@@ -193,13 +182,28 @@ impl Verifier {
                 log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
             }
 
-            // Send patches if the subscription's session is different to the origin's session.
+            // If order_by (and possibly pagination) is active: Update the orm_subscription ordering metadata
+            // and create order-related patches in that process.
+            let order_patches =
+                update_order_and_create_patches(&mut orm_subscription, &orm_changes);
+
+            // Create & send patches if the subscription's session is different to the origin's session.
             if origin_subscription_id != subscription_id {
-                // send patches from changes
-                Verifier::send_orm_patches_from_changes(&orm_subscription, &orm_changes).await;
+                let object_and_atomic_patches =
+                    create_object_and_atomic_patches(&orm_subscription, &orm_changes);
+                let all_patches = [object_and_atomic_patches, order_patches].concat();
+
+                // Send response with patches.
+                if all_patches.len() > 0 {
+                    let _ = orm_subscription
+                        .sender
+                        .clone()
+                        .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(all_patches)))
+                        .await;
+                }
             }
 
-            // Put the subscription back
+            // Put the subscription back.
             self.orm_subscriptions
                 .insert(subscription_id, orm_subscription);
         }
@@ -232,153 +236,107 @@ impl Verifier {
         }
         return false;
     }
+}
 
-    /// Creates and sends patches to clients from orm changes.
-    ///
-    ///
-    /// # New approach
-    /// - Patches are relative to object.
-    ///   Idea: Separate two kinds of patches
-    ///     - object structure patches (add object to object or array / page; move, create object)
-    ///     - value patches (add, remove, overwrite literal or set values, remove objects)
-    /// - Either:
-    ///     - `/0/items/1` <- paginated, ordered root array
-    ///     - `<g>|<s>|<shape>/pred/1` <- ordered array
-    ///     - `<g>|<s>|<shape>` <- pointer to any nested object or root objects if they are not ordered
-    ///     - `/` with valType `set` for creating objects
-    ///     - if only a value is added or removed, the path ends with `/<readable predicate>`
-    ///     - if an object is attached to another object, the object contains {@id, @graph, @shape} only.
-    ///         If it is a set, valType `set` is present.
-    ///
-    /// ## TODOs
-    /// - send_orm_patches_from_changes simplified
-    ///   - for each tormo change: Needs object creation | Needs value update? Needs object attachment (@s,g,sh)?
-    /// - js-land: support for new patch semantic
-    ///   - support for multiple values in add patch of valType set
-    ///   - linking of objects, handling central object registry
-    ///   - adding orm objects to other orm object properties with same shape
-    ///   - tbd
-    /// - handle frontend update
-    ///   - tbd
-    async fn send_orm_patches_from_changes(
-        orm_subscription: &OrmSubscription,
-        orm_changes: &OrmChanges,
-    ) {
-        // TODO:
-        // - adjust to `select` config
+fn create_object_and_atomic_patches(
+    orm_subscription: &OrmSubscription,
+    orm_changes: &OrmChanges,
+) -> Vec<OrmPatch> {
+    // TODO:
+    // - adjust to `select` config
 
-        let mut create_object_patches: Vec<OrmPatch> = Vec::new();
-        // Includes deleting root objects and linking to nested objects.
-        let mut atomic_patches: Vec<OrmPatch> = Vec::new();
+    let mut create_object_patches: Vec<OrmPatch> = Vec::new();
+    // Includes deleting root objects and linking to nested objects.
+    let mut atomic_patches: Vec<OrmPatch> = Vec::new();
 
-        // Create patches to tormos from orm_changes.
-        for (shape_iri, graph_changes) in orm_changes.iter() {
-            let escaped_shape = escape_json_pointer_segment(shape_iri);
-            for (graph_iri, subject_changes) in graph_changes.iter() {
-                for (subject_iri, change) in subject_changes {
-                    // Get the tracked orm object for this (subject, shape) pair
-                    let Some(tracked_orm_object_arc) =
-                        orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
-                    else {
-                        // We might not be tracking this subject x shape combination. Then, there is nothing to do.
-                        continue;
-                    };
-                    let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
+    // Create patches to tormos from orm_changes.
+    for (shape_iri, graph_changes) in orm_changes.iter() {
+        let escaped_shape = escape_json_pointer_segment(shape_iri);
+        for (graph_iri, subject_changes) in graph_changes.iter() {
+            for (subject_iri, change) in subject_changes {
+                // Get the tracked orm object for this (subject, shape) pair
+                let Some(tracked_orm_object_arc) =
+                    orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
+                else {
+                    // We might not be tracking this subject x shape combination. Then, there is nothing to do.
+                    continue;
+                };
+                let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
 
-                    // Skip if tormo is invalid and was so before.
-                    if change.prev_valid == TrackedOrmObjectValidity::Invalid
-                        && (tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
-                            || tracked_orm_object.valid == TrackedOrmObjectValidity::ToDelete)
-                    {
-                        continue;
-                    }
+                // Skip if tormo is invalid and was so before.
+                if change.prev_valid == TrackedOrmObjectValidity::Invalid
+                    && (tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
+                        || tracked_orm_object.valid == TrackedOrmObjectValidity::ToDelete)
+                {
+                    continue;
+                }
 
-                    let escaped_subject = escape_json_pointer_segment(subject_iri);
+                let escaped_subject = escape_json_pointer_segment(subject_iri);
 
-                    // DELETE? A root tormo became invalid or untracked?
-                    // send delete object patch. Nested object deletion does not need patches.
-                    // js-land will take care of un-referenced objects.
-                    // BUT: only when not in sorted subscription (those will be addressed at their position below).
-                    if change.prev_valid == TrackedOrmObjectValidity::Valid
-                        && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
-                        && *tracked_orm_object.shape().iri == orm_subscription.root_shape().iri
-                    {
-                        atomic_patches.push(OrmPatch {
-                            op: OrmPatchOp::remove,
-                            valType: Some(OrmPatchType::set),
-                            path: format!("/{graph_iri}|{escaped_subject}|{escaped_shape}"),
-                            ..Default::default()
-                        });
-                        continue;
-                    }
+                // DELETE? A root tormo became invalid or untracked?
+                // send delete object patch. Nested object deletion does not need patches.
+                // js-land will take care of un-referenced objects.
+                // BUT: only when not in sorted subscription (those will be addressed at their position below).
+                if change.prev_valid == TrackedOrmObjectValidity::Valid
+                    && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
+                    && *tracked_orm_object.shape().iri == orm_subscription.root_shape().iri
+                    && orm_subscription.tormos_ordered.is_none()
+                {
+                    atomic_patches.push(OrmPatch {
+                        op: OrmPatchOp::remove,
+                        valType: Some(OrmPatchType::set),
+                        path: format!("/{graph_iri}|{escaped_subject}|{escaped_shape}"),
+                        ..Default::default()
+                    });
+                    continue;
+                }
 
-                    // NEWLY VALID? Create a new, materialized object patch.
-                    if change.prev_valid != TrackedOrmObjectValidity::Valid
-                        && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
-                    {
-                        let new_object = materialize_orm_object(change);
+                // NEWLY VALID? Create a new, materialized object patch.
+                if change.prev_valid != TrackedOrmObjectValidity::Valid
+                    && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
+                {
+                    let new_object = materialize_orm_object(change);
 
-                        create_object_patches.push(OrmPatch {
-                            op: OrmPatchOp::add,
-                            valType: Some(OrmPatchType::set),
-                            // New objects can be attached / registered like this.
-                            // This includes nested objects, JS-land will take care of the nesting hierarchy.
-                            path: "/".into(),
-                            value: Some(new_object),
-                            ..Default::default()
-                        });
-                        continue;
-                    }
+                    create_object_patches.push(OrmPatch {
+                        op: OrmPatchOp::add,
+                        valType: Some(OrmPatchType::set),
+                        // New objects can be attached / registered like this.
+                        // This includes nested objects, JS-land will take care of the nesting hierarchy.
+                        path: "/".into(),
+                        value: Some(new_object),
+                        ..Default::default()
+                    });
+                    continue;
+                }
 
-                    // JUST UPDATES? Create individual patches.
-                    if change.prev_valid == TrackedOrmObjectValidity::Valid
-                        && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
-                    {
-                        // Process predicate changes for this valid subject
-                        atomic_patches.extend(patches_for_changes(
-                            graph_iri,
-                            &escaped_subject,
-                            &escaped_shape,
-                            &change.predicates,
-                        ));
-                    }
+                // JUST UPDATES? Create individual patches.
+                if change.prev_valid == TrackedOrmObjectValidity::Valid
+                    && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
+                {
+                    // Process predicate changes for this valid subject
+                    atomic_patches.extend(create_patches_for_orm_change(
+                        graph_iri,
+                        &escaped_subject,
+                        &escaped_shape,
+                        &change,
+                    ));
                 }
             }
         }
-
-        let mut order_patches = Vec::with_capacity(0);
-        // Create structural patches (for sorted subscriptions): insert at, delete at, move
-        if let Some(order_by) = orm_subscription.config.order_by.as_ref() {
-            order_patches = order_patches_for_changes(orm_subscription, orm_changes, order_by);
-        }
-
-        // Send patches.
-        let final_patches: Vec<OrmPatch> = [create_object_patches, atomic_patches, order_patches]
-            .into_iter()
-            .flatten()
-            .collect();
-
-        // Send response with patches.
-        if final_patches.len() > 0 {
-            let _ = orm_subscription
-                .sender
-                .clone()
-                .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(
-                    final_patches,
-                )))
-                .await;
-        }
     }
+
+    [create_object_patches, atomic_patches].concat()
 }
-fn patches_for_changes(
+
+fn create_patches_for_orm_change(
     graph: &String,
     escaped_subject: &String,
     escaped_shape: &String,
-    pred_changes: &HashMap<String, TrackedOrmPredicateChanges>,
+    tormo_change: &TrackedOrmObjectChange,
 ) -> Vec<OrmPatch> {
     let mut ret: Vec<OrmPatch> = Vec::new();
 
-    for (_pred_iri, pred_change) in pred_changes {
+    for (_pred_iri, pred_change) in tormo_change.predicates.iter() {
         let pred_schema = pred_change.tracked_predicate().schema_arc();
         let property_name = escape_json_pointer_segment(&pred_schema.readablePredicate);
         let path = format!("/{graph}|{escaped_subject}|{escaped_shape}/{property_name}");
@@ -508,73 +466,39 @@ fn patches_for_changes(
     return ret;
 }
 
-fn sort_vals(
-    order_by_props: &[(&String, &bool)],
-    tracked_predicates: &HashMap<String, Arc<RwLock<TrackedOrmPredicate>>>,
-) -> Vec<BasicType> {
-    order_by_props
-        .iter()
-        .filter_map(|(order_by_pred, _is_asc)| {
-            tracked_predicates
-                .get(*order_by_pred)?
-                .read()
-                .ok()?
-                .current_literals
-                .clone()?
-                .first()
-                .cloned()
-        })
-        .collect()
-}
-
+/// Only call if order_by config is set.
 /// Create patches that effect the position of objects in ordered/paginated subscriptions.
 /// For ordered, unpaginated subscriptions, this includes adds, removes, moves.
 /// For pagination, this includes moving between pages to ensure page size remains stable as well.
-fn order_patches_for_changes(
-    orm_subscription: &OrmSubscription,
+fn update_order_and_create_patches(
+    orm_subscription: &mut OrmSubscription,
     orm_changes: &OrmChanges,
-    order_by: &Vec<(Arc<OrmSchemaPredicate>, IsAscending)>,
 ) -> Vec<OrmPatch> {
-    enum OrderOperation {
-        Add((GraphIri, SubjectIri)),
-        Remove,
-        Move(Vec<BasicType>, bool), // bool: is_previous_val
-        NoOp,
-    }
-    type CurrentValue = BasicType;
-    let mut order_changes: Vec<(Vec<CurrentValue>, OrderOperation)> = Vec::new();
-
-    let order_by_props = order_by
-        .iter()
-        .map(|(pred, is_asc)| (&pred.iri, is_asc))
-        .collect::<Vec<_>>();
-
-    let compare_vals = |vals1: &[BasicType], vals2: &[BasicType]| -> Ordering {
-        for i in 0..vals1.len() {
-            if let Some(val2) = vals2.get(i) {
-                // Ascending?
-                let res = if *order_by_props[i].1 == true {
-                    vals1[i].partial_cmp(val2)
-                } else {
-                    val2.partial_cmp(&vals1[i])
-                };
-                if let Some(cmp_res) = res {
-                    if cmp_res != Ordering::Equal {
-                        return cmp_res;
-                    }
-                } else {
-                    // Not comparable (shouldn't happen)..
-                }
-            }
-        }
-        Ordering::Equal
+    let Some(order_by_conf) = orm_subscription.config.order_by.as_ref() else {
+        return Vec::new();
     };
 
-    let mut n_adds: usize = 0;
-    let mut n_removes: usize = 0;
-    let mut n_moves: usize = 0;
+    let mut patches: Vec<OrmPatch> = Vec::new();
 
-    for (shape_iri, graph_changes) in orm_changes.iter() {
+    enum OrderOperation {
+        Add(OrderKey, Arc<RwLock<TrackedOrmObject>>),
+        Remove(OrderKey),
+        Move(OrderKey, OrderKey),
+    }
+
+    type CurrentValue = BasicType;
+    let mut change_ops: Vec<(OrderOperation)> = Vec::new();
+
+    let order_by_props = order_by_conf
+        .iter()
+        .map(|(pred, order_dir)| (&pred.iri, order_dir))
+        .collect::<Vec<_>>();
+
+    let shape_iri = &orm_subscription.shape_type.shape;
+
+    // Collect the patch changes to be done.
+    let graph_changes = orm_changes.get(shape_iri);
+    if let Some(graph_changes) = graph_changes {
         for (graph_iri, subject_changes) in graph_changes.iter() {
             for (subject_iri, change) in subject_changes {
                 // Get the tracked orm object for this (subject, shape) pair
@@ -584,177 +508,126 @@ fn order_patches_for_changes(
                     // We might not be tracking this subject x shape combination. Then, there is nothing to do.
                     continue;
                 };
-                let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
+                let arc2 = Arc::clone(&tracked_orm_object_arc);
+                let tormo = arc2.read().unwrap();
 
                 // Skip if tormo is invalid and was so before.
                 if change.prev_valid == TrackedOrmObjectValidity::Invalid
-                    && (tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
-                        || tracked_orm_object.valid == TrackedOrmObjectValidity::ToDelete)
+                    && (tormo.valid == TrackedOrmObjectValidity::Invalid
+                        || tormo.valid == TrackedOrmObjectValidity::ToDelete)
                 {
                     continue;
                 }
-
-                let current_order_by_vals: Vec<BasicType> =
-                    sort_vals(&order_by_props, &tracked_orm_object.tracked_predicates);
 
                 // DELETEd
                 if change.prev_valid == TrackedOrmObjectValidity::Valid
-                    && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
-                    && *tracked_orm_object.shape().iri == orm_subscription.root_shape().iri
+                    && tormo.valid != TrackedOrmObjectValidity::Valid
+                    && *tormo.shape().iri == orm_subscription.root_shape().iri
                 {
-                    order_changes.push((current_order_by_vals, OrderOperation::Remove));
-                    n_removes += 1;
+                    let previous_key = order_key_from_before_change(order_by_conf, &tormo, change);
+                    change_ops.push(OrderOperation::Remove(previous_key));
+
                     continue;
                 }
 
+                let new_key: OrderKey = order_key_from(order_by_conf, &tormo);
+
                 // ADDs
                 if change.prev_valid != TrackedOrmObjectValidity::Valid
-                    && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
+                    && tormo.valid == TrackedOrmObjectValidity::Valid
                 {
-                    order_changes.push((
-                        current_order_by_vals,
-                        OrderOperation::Add((graph_iri.clone(), subject_iri.clone())),
-                    ));
-                    n_adds += 1;
+                    change_ops.push(OrderOperation::Add(new_key, tracked_orm_object_arc));
+
                     continue;
                 }
 
                 // MOVEs
                 if change.prev_valid == TrackedOrmObjectValidity::Valid
-                    && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
+                    && tormo.valid == TrackedOrmObjectValidity::Valid
                 {
                     if order_by_props
                         .iter()
                         .any(|(order_by_pred, _)| change.predicates.contains_key(*order_by_pred))
                     {
-                        let previous_order_by_vals: Vec<BasicType> = order_by_props
-                            .iter()
-                            .enumerate()
-                            .map(|(i, (pred, _))| {
-                                // Get the removed value or if none there, the current one.
-                                change
-                                    .predicates
-                                    .get(*pred)
-                                    .and_then(|change_pred| change_pred.values_removed.first())
-                                    .unwrap_or(&current_order_by_vals[i])
-                                    .clone()
-                            })
-                            .collect();
-
-                        // We put the higher value in the first tuple. And indicate which one we put in the Move enum.
-                        // That allows us to iterate all patches in a way that makes modifications only in one direction of the
-                        // iterating index.
-                        match compare_vals(&current_order_by_vals, &previous_order_by_vals) {
-                            Ordering::Greater | Ordering::Equal => {
-                                order_changes.push((
-                                    current_order_by_vals,
-                                    OrderOperation::Move(previous_order_by_vals, true),
-                                ));
-                            }
-
-                            Ordering::Less => {
-                                order_changes.push((
-                                    previous_order_by_vals,
-                                    OrderOperation::Move(current_order_by_vals, false),
-                                ));
-                            }
-                        }
-                        n_moves += 1;
+                        let previous_key =
+                            order_key_from_before_change(order_by_conf, &tormo, change);
+                        change_ops.push(OrderOperation::Move(previous_key, new_key));
                     }
                 }
             }
         }
     }
 
-    order_changes.sort_unstable_by(|(vals1, op1), (vals2, op2)| compare_vals(vals1, vals2));
+    // Sort the changes to be done: makes testing easier, and by reverse sorting
+    // reduce the amount of elements shifted in the target array.
+    change_ops.sort_unstable_by(|op1, op2| {
+        let key1 = match op1 {
+            OrderOperation::Add(new_key, _) => new_key,
+            OrderOperation::Remove(old_key) => old_key,
+            OrderOperation::Move(old_key, _new_key) => old_key,
+        };
+        let key2 = match op2 {
+            OrderOperation::Add(new_key, _) => new_key,
+            OrderOperation::Remove(old_key) => old_key,
+            OrderOperation::Move(old_key, _new_key) => old_key,
+        };
+        return key2.cmp(key1);
+    });
 
-    let current_len = orm_subscription.tormos_ordered.as_ref().unwrap().len();
-    let new_len = current_len + n_adds - n_removes;
-    let mut new_tormos_ordered: Vec<Arc<RwLock<TrackedOrmObject>>> = Vec::with_capacity(new_len);
-    let mut patches: Vec<OrmPatch> = Vec::with_capacity(n_adds + n_removes + n_moves);
-    // The usize is the index of the patch in patches (the patch's `from` field will be added).
-    let mut unresolved_moves: Vec<(Arc<RwLock<TrackedOrmObject>>, usize)> =
-        Vec::with_capacity(n_moves);
+    // TODO: Pagination:
+    // - create separate page data structures: tree<page num, tree <key, tormo>>
+    // -
+    //
 
-    let mut patch_path_index = current_len - 1;
-    let mut order_changes_index = order_changes.len() - 1;
-    let mut old_tormos_ordered_index = current_len - 1;
-    for new_tormo_index in (0..new_len).rev() {
-        let (ordered_changes_vals, operation) = &order_changes[order_changes_index];
-        let old_vals = sort_vals(
-            &order_by_props,
-            &orm_subscription.tormos_ordered.as_ref().unwrap()[old_tormos_ordered_index]
-                .read()
-                .unwrap()
-                .tracked_predicates,
-        );
-        let move_source = unresolved_moves.last();
-        if let Some(move_source) = move_source {
-            if Arc::ptr_eq(
-                &move_source.0,
-                &orm_subscription.tormos_ordered.as_ref().unwrap()[old_tormos_ordered_index],
-            ) {
-                // Found the moved object. Modify the patch.
-                let move_val_is_previous_val; // = TODO
-            }
-        }
+    let new_ordered = orm_subscription.tormos_ordered.as_mut().unwrap();
 
-        match operation {
-            OrderOperation::Remove => {
-                patches.push(OrmPatch {
-                    op: OrmPatchOp::remove,
-                    path: format!("/{patch_path_index}"),
-                    ..Default::default()
-                });
-                order_changes[new_tormo_index].1 = offset - 1;
-            }
+    // Create JSON patches from change_ops.
+    for op in change_ops {
+        match op {
+            OrderOperation::Add(new_key, tormo) => {
+                new_ordered.insert(new_key.clone(), tormo.clone());
+                let insert_index = new_ordered.rank_of(&new_key).unwrap();
+                let graph_iri = &tormo.read().unwrap().graph_iri;
+                let subject_iri = &tormo.read().unwrap().subject_iri;
 
-            OrderOperation::Add((g, s)) => {
                 patches.push(OrmPatch {
                     op: OrmPatchOp::add,
-                    path: format!("/{patch_path_index}"),
+                    path: format!("/{insert_index}"),
                     value: Some(json!({
-                        "@graph": g,
-                        "@id": s,
+                        "@graph": graph_iri,
+                        "@id": subject_iri,
                         "@shape": orm_subscription.shape_type.shape
                     })),
                     ..Default::default()
                 });
-                order_changes[new_tormo_index].1 = offset + 1;
             }
+            OrderOperation::Remove(old_key) => {
+                let remove_index = new_ordered.rank_of(&old_key).unwrap();
+                new_ordered.remove(&old_key);
 
-            OrderOperation::Move(previous_vals) => {
-                // First: Find the previous index.
-                let origin_index = order_changes
-                    .binary_search_by(|(probe, _, _)| compare_vals(probe, previous_vals));
-                let Ok(origin_index) = origin_index else {
-                    continue;
-                };
-                // Decrease the offset at the current position (since the item is added here).
-                order_changes[new_tormo_index].1 = offset + 1;
-
-                let patch_target = patch_path_index;
-                let mut patch_origin = 0;
-                // TODO: Optimization: If origin index is behind offset_index, we can start from offset_index
-                for j in 0..origin_index {
-                    patch_origin += order_changes[j].1;
-                }
-                order_changes[patch_origin as usize].1 -= 1;
-
-                if patch_origin != patch_target {
-                    patches.push(OrmPatch {
-                        op: OrmPatchOp::move_,
-                        from: Some(format!("/{}", patch_origin)),
-                        path: format!("/{}", patch_target),
-                        ..Default::default()
-                    });
-                }
+                patches.push(OrmPatch {
+                    op: OrmPatchOp::remove,
+                    path: format!("/{remove_index}"),
+                    ..Default::default()
+                });
             }
-            OrderOperation::NoOp => {}
+            OrderOperation::Move(old_key, new_key) => {
+                let remove_index = new_ordered.rank_of(&old_key).unwrap();
+                let tormo = new_ordered.remove(&old_key).unwrap();
+                new_ordered.insert(new_key.clone(), tormo);
+                let insert_index = new_ordered.rank_of(&new_key).unwrap();
+
+                patches.push(OrmPatch {
+                    op: OrmPatchOp::move_,
+                    from: Some(format!("/{}", remove_index)),
+                    path: format!("/{}", insert_index),
+                    ..Default::default()
+                });
+            }
         }
     }
 
-    // TODO: pagination: offset_index needs to be modified to target pages. 🫠
+    // TODO: pagination: offset_index needs to be modified to target pages
     // then, move patches need to ensure that all pages have the same size (moved between pages).
 
     patches
@@ -874,9 +747,9 @@ fn is_order_value_in_window_range(
     value: &BasicType,
     first_window_value: &BasicType,
     last_window_value: &BasicType,
-    is_ascending: bool,
+    order_direction: OrderDirection,
 ) -> bool {
-    if is_ascending {
+    if order_direction == OrderDirection::Ascending {
         first_window_value <= value && value <= last_window_value
     } else {
         last_window_value <= value && value <= first_window_value
@@ -890,7 +763,7 @@ fn update_potential_offset_shift_count(
     inserts: &[Quad],
     removes: &[Quad],
 ) {
-    let Some((pred, asc, left, _right)) = subscription.get_page_window_bounds() else {
+    let Some((pred, order_dir, left, _right)) = subscription.get_page_window_bounds() else {
         return;
     };
     let order_by_pred = pred.to_owned();
@@ -913,7 +786,7 @@ fn update_potential_offset_shift_count(
                 return false;
             }
             let obj = oxrdf_term_to_orm_basic_type(&q.object);
-            if asc {
+            if order_dir == OrderDirection::Ascending {
                 left < obj
             } else {
                 left > obj

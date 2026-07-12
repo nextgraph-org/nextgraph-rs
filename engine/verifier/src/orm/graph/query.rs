@@ -544,17 +544,17 @@ pub fn schema_shape_to_sparql(
     // and ORDER BY string from the new oder_by_vars.
     let mut order_by_str: String = "".to_string();
     if let Some(order_by_preds) = order_by_config {
-        let mut order_by_vars: Vec<(String, bool)> = vec![];
+        let mut order_by_vars: Vec<(String, OrderDirection)> = vec![];
 
         // add order_by_vars to where.
-        for (order_by_p, is_asc) in order_by_preds {
+        for (order_by_p, order_dir) in order_by_preds {
             let sparql_var = next_var();
             // Keep order-by lookup in the same named graph scope as the main shape query.
             where_lines.push(format!(
                 "  GRAPH ?g {{ ?s <{}> ?{} . }}",
                 order_by_p.iri, sparql_var
             ));
-            order_by_vars.push((sparql_var, *is_asc));
+            order_by_vars.push((sparql_var, *order_dir));
         }
 
         // Add order_by_str with ASC or DESC for each var.
@@ -562,11 +562,13 @@ pub fn schema_shape_to_sparql(
             "ORDER BY {}",
             order_by_vars
                 .iter()
-                .map(|(v, is_asc)| if *is_asc {
-                    format!("ASC(?{})", v)
-                } else {
-                    format!("DESC(?{})", v)
-                })
+                .map(
+                    |(v, order_dir)| if *order_dir == OrderDirection::Ascending {
+                        format!("ASC(?{})", v)
+                    } else {
+                        format!("DESC(?{})", v)
+                    }
+                )
                 .collect::<Vec<String>>()
                 .join(" ")
         );
