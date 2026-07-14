@@ -251,9 +251,9 @@ pub struct OrmConfig {
     pub order_by: Option<OrderByConfig>,
     pub select: Option<SelectConfig>,
     /// No paging == 0
-    pub page_size: u64,
+    pub page_size: usize,
     /// Infinite == 0
-    pub max_active_pages: u64,
+    pub max_active_pages: usize,
 }
 impl OrmConfig {
     /// Parse OrmConfig from json.
@@ -303,7 +303,7 @@ impl OrmConfig {
         let page_size = config_obj
             .get("pageSize")
             .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+            .unwrap_or(0) as usize;
 
         if page_size > 0 && order_by.is_none() {
             return Err("If page size is set and > 0, orderBy must be set too.".into());
@@ -311,7 +311,7 @@ impl OrmConfig {
         let max_active_pages = config_obj
             .get("maxActivePages")
             .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+            .unwrap_or(0) as usize;
 
         Ok(OrmConfig {
             where_: config_obj.get("where").cloned(),

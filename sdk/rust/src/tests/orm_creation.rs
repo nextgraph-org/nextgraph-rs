@@ -13,8 +13,8 @@ use crate::local_broker::{
 };
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, assert_orm_json_eq, await_graph_patches, create_doc_with_data,
-    create_orm_connection_with_conf,
+    assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact, await_graph_patches,
+    create_doc_with_data, create_orm_connection_with_conf, find_key_for_obj,
 };
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
@@ -756,21 +756,16 @@ INSERT DATA {
         // and every object (root and nested) includes an "@graph" field.
         let actual_obj = orm_json
             .as_object()
+            .cloned()
             .expect("expected root ORM JSON to be an object");
 
-        log_info!("[test_orm_big_object] actual_obj: {:?}", actual_obj);
+        log_info!(
+            "[test_orm_big_object] actual_obj: {:?}",
+            orm_json.to_string()
+        );
 
-        // Find dynamic keys for the two roots by suffix
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:obj1");
-        let k2 = find_key_with_suffix("|urn:test:obj2");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:obj1");
+        let k2 = find_key_for_obj(&actual_obj, "urn:test:obj2");
 
         // Extract graph parts from keys
         let g1 = k1.split('|').next().unwrap().to_string();
@@ -784,18 +779,18 @@ INSERT DATA {
             .as_str()
             .expect("obj1 objectValue @graph")
             .to_string();
-        // Nested children are keyed by dynamic "graph|subject" keys; resolve them by suffix
+        // Nested children are keyed by dynamic "graph|subject|shape" keys
         let a1_children = a1["anotherObject"]
             .as_object()
             .expect("obj1 anotherObject map");
         let c1k = a1_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj1AnotherSub1"))
+            .find(|k| k.contains("|urn:test:obj1AnotherSub1|"))
             .expect("obj1 child1 key not found")
             .to_string();
         let c2k = a1_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj1AnotherSub2"))
+            .find(|k| k.contains("|urn:test:obj1AnotherSub2|"))
             .expect("obj1 child2 key not found")
             .to_string();
         let obj1_child1_graph = a1["anotherObject"][&c1k]["@graph"]
@@ -816,12 +811,12 @@ INSERT DATA {
             .expect("obj2 anotherObject map");
         let d1k = a2_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj2AnotherSub1"))
+            .find(|k| k.contains("|urn:test:obj2AnotherSub1|"))
             .expect("obj2 child1 key not found")
             .to_string();
         let d2k = a2_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj2AnotherSub2"))
+            .find(|k| k.contains("|urn:test:obj2AnotherSub2|"))
             .expect("obj2 child2 key not found")
             .to_string();
         let obj2_child1_graph = a2["anotherObject"][&d1k]["@graph"]
@@ -839,18 +834,21 @@ INSERT DATA {
                 "type":"http://example.org/TestObject",
                 "@id":"urn:test:obj1",
                 "@graph": g1,
+                "@shape": "http://example.org/TestObject",
                 "anotherObject":{
                     c1k.clone():{
                         "@id":"urn:test:obj1AnotherSub1",
+                        "@graph": obj1_child1_graph,
+                        "@shape": "http://example.org/TestObject||http://example.org/anotherObject",
                         "prop1":"one",
                         "prop2":1.0,
-                        "@graph": obj1_child1_graph,
                     },
                     c2k.clone():{
                         "@id":"urn:test:obj1AnotherSub2",
+                        "@shape": "http://example.org/TestObject||http://example.org/anotherObject",
+                        "@graph": obj1_child2_graph,
                         "prop1":"two",
                         "prop2":2.0,
-                        "@graph": obj1_child2_graph,
                     }
                 },
                 "arrayValue":[1.0,2.0,3.0],
@@ -861,6 +859,7 @@ INSERT DATA {
                 "objectValue":{
                     "@id":"urn:test:obj1objVal",
                     "@graph": obj1_obj_val_graph,
+                    "@shape": "http://example.org/TestObject||http://example.org/objectValue",
                     "nestedArray":[5.0,6.0],
                     "nestedNum":7.0,
                     "nestedString":"nested"
@@ -870,19 +869,22 @@ INSERT DATA {
             k2.clone(): {
                 "@id":"urn:test:obj2",
                 "@graph": g2,
+                "@shape": "http://example.org/TestObject",
                 "type":"http://example.org/TestObject",
                 "anotherObject":{
                     d1k.clone():{
                         "@id":"urn:test:obj2AnotherSub1",
+                        "@shape": "http://example.org/TestObject||http://example.org/anotherObject",
+                        "@graph": obj2_child1_graph,
                         "prop1":"one2",
                         "prop2":12.0,
-                        "@graph": obj2_child1_graph,
                     },
                     d2k.clone():{
                         "@id":"urn:test:obj2AnotherSub2",
+                        "@shape": "http://example.org/TestObject||http://example.org/anotherObject",
+                        "@graph": obj2_child2_graph,
                         "prop1":"two2",
                         "prop2":22.0,
-                        "@graph": obj2_child2_graph,
                     }
                 },
                 "arrayValue":[4.0,5.0,6.0],
@@ -893,6 +895,7 @@ INSERT DATA {
                 "objectValue":{
                     "@id":"urn:test:obj2objVal",
                     "@graph": obj2_obj_val_graph,
+                    "@shape": "http://example.org/TestObject||http://example.org/objectValue",
                     "nestedArray": [7.0,8.0,9.0],
                     "nestedNum":72.0,
                     "nestedString":"nested2"
@@ -1105,21 +1108,14 @@ INSERT DATA {
             actual_obj
         );
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_alice = find_key_with_suffix("|urn:test:aliceOpt");
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:aliceOpt");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
 
         // Expect cats to be an empty object map (no valid kittens yet)
         let mut expected = json!({
             k_alice.clone(): {
                 "@id": "urn:test:aliceOpt",
+                "@shape": "http://example.org/PersonShape",
                 "@graph": g_alice,
                 "type": "http://example.org/Person",
                 "cats": {}
@@ -1251,15 +1247,7 @@ INSERT DATA {
             actual_obj
         );
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_alice = find_key_with_suffix("|urn:test:alice2");
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:alice2");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
 
         let cats_obj = actual_obj[&k_alice]["cats"].as_object().unwrap();
@@ -1275,19 +1263,20 @@ INSERT DATA {
             .unwrap()
             .to_string();
         // Extract the subject IRI from the composite key for robustness
-        let id_k1 = k_k1
-            .split('|')
-            .last()
-            .expect("expected composite key with '|'")
-            .to_string();
+        let id_k1 = k_k1.split('|').collect::<Vec<_>>()[1].to_string();
 
         let mut expected = json!({
             k_alice.clone(): {
                 "@id": "urn:test:alice2",
+                "@shape": "http://example.org/PersonShape",
                 "@graph": g_alice,
                 "type": "http://example.org/Person",
                 "cats": {
-                    k_k1.clone(): { "@graph": g_k1, "@id": id_k1, "type": "http://example.org/Cat" }
+                    k_k1.clone(): {
+                        "@graph": g_k1,
+                        "@id": id_k1,
+                        "@shape": "http://example.org/CatShape",
+                        "type": "http://example.org/Cat" }
                 }
             }
         });
@@ -1410,19 +1399,11 @@ INSERT DATA {
             .as_object()
             .expect("expected root ORM JSON to be an object");
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_obj1 = find_key_with_suffix("|urn:test:obj1");
-        let k_obj2 = find_key_with_suffix("|urn:test:obj2");
-        let k_na1 = find_key_with_suffix("|urn:test:numArrayObj1");
-        let k_na2 = find_key_with_suffix("|urn:test:numArrayObj2");
-        let k_na3 = find_key_with_suffix("|urn:test:numArrayObj3");
+        let k_obj1 = find_key_for_obj(&actual_obj, "urn:test:obj1");
+        let k_obj2 = find_key_for_obj(&actual_obj, "urn:test:obj2");
+        let k_na1 = find_key_for_obj(&actual_obj, "urn:test:numArrayObj1");
+        let k_na2 = find_key_for_obj(&actual_obj, "urn:test:numArrayObj2");
+        let k_na3 = find_key_for_obj(&actual_obj, "urn:test:numArrayObj3");
 
         let g_obj1 = actual_obj[&k_obj1]["@graph"].as_str().unwrap().to_string();
         let g_obj2 = actual_obj[&k_obj2]["@graph"].as_str().unwrap().to_string();
@@ -1433,30 +1414,35 @@ INSERT DATA {
         let mut expected = json!({
             k_obj1.clone(): {
                 "@id": "urn:test:obj1",
+                "@shape": "http://example.org/TestShape",
                 "@graph": g_obj1,
                 "type": "http://example.org/TestObject",
                 "numArray": []
             },
             k_obj2.clone(): {
                 "@id": "urn:test:obj2",
+                "@shape": "http://example.org/TestShape",
                 "@graph": g_obj2,
                 "type": "http://example.org/TestObject",
                 "numArray": []
             },
             k_na1.clone(): {
                 "@id": "urn:test:numArrayObj1",
+                "@shape": "http://example.org/TestShape",
                 "@graph": g_na1,
                 "type": "http://example.org/TestObject",
                 "numArray": [1.0, 2.0, 3.0]
             },
             k_na2.clone(): {
                 "@id": "urn:test:numArrayObj2",
+                "@shape": "http://example.org/TestShape",
                 "@graph": g_na2,
                 "type": "http://example.org/TestObject",
                 "numArray": []
             },
             k_na3.clone(): {
                 "@id": "urn:test:numArrayObj3",
+                "@shape": "http://example.org/TestShape",
                 "@graph": g_na3,
                 "type": "http://example.org/TestObject",
                 "numArray": [1.0, 2.0]
@@ -1553,21 +1539,14 @@ INSERT DATA {
 
         log_info!("[test_orm_with_optional] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
 
         let mut expected = json!({
             k1.clone(): {
                 "@id": "urn:test:oj1",
                 "@graph": g1,
+                "@shape": "http://example.org/OptionShape",
                 "opt": true
             }
         });
@@ -1680,16 +1659,8 @@ INSERT DATA {
             .expect("expected root ORM JSON to be an object");
         log_info!("[test_orm_literal] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
-        let k2 = find_key_with_suffix("|urn:test:obj2");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
+        let k2 = find_key_for_obj(&actual_obj, "urn:test:obj2");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
         let g2 = actual_obj[&k2]["@graph"].as_str().unwrap().to_string();
 
@@ -1701,12 +1672,14 @@ INSERT DATA {
         let mut expected = json!({
             k1.clone(): {
                 "@id": "urn:test:oj1",
+                "@shape": "http://example.org/OptionShape",
                 "@graph": g1,
                 "lit1": lit1_1,
                 "lit2": lit2_1
             },
             k2.clone(): {
                 "@id": "urn:test:obj2",
+                "@shape": "http://example.org/OptionShape",
                 "@graph": g2,
                 "lit1": lit1_2,
                 "lit2": lit2_2
@@ -1809,20 +1782,13 @@ INSERT DATA {
             .expect("expected root ORM JSON to be an object");
         log_info!("[test_orm_multi_type] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
         let mut expected = json!({
             k1.clone(): {
                 "@id": "urn:test:oj1",
                 "@graph": g1,
+                "@shape": "http://example.org/MultiTypeShape",
                 "strOrNum": ["a string", "another string", 2.0]
             }
         });
@@ -2057,25 +2023,19 @@ INSERT DATA {
 
         log_info!("[test_orm_nested_1] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
 
         let mut expected = json!({
             k1.clone(): {
                 "@id": "urn:test:oj1",
                 "@graph": g1,
+                "@shape": "http://example.org/RootShape",
                 "str": "obj1 str",
                 // nestedWithExtra should resolve to nested1 (valid), not nested2 (missing num)
                 "nestedWithExtra": {
                     "@id": "urn:test:nested1",
+                    "@shape": "http://example.org/NestedShapeWithExtra",
                     "@graph": actual_obj[&k1]["nestedWithExtra"]["@graph"].clone(),
                     "nestedStr": "obj1 nested with extra valid",
                     "nestedNum": 2.0
@@ -2083,6 +2043,7 @@ INSERT DATA {
                 // nestedWithoutExtra should point to nested3 (valid)
                 "nestedWithoutExtra": {
                     "@id": "urn:test:nested3",
+                    "@shape": "http://example.org/NestedShapeWithoutExtra",
                     "@graph": actual_obj[&k1]["nestedWithoutExtra"]["@graph"].clone(),
                     "nestedStr": "obj1 nested without extra valid",
                     "nestedNum": 2.0
@@ -2596,25 +2557,18 @@ INSERT DATA {
             .expect("expected root ORM JSON to be an object");
         log_info!("[test_orm_nested_4] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str, obj: &serde_json::Map<String, Value>| -> String {
-            obj.keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_alice = find_key_with_suffix("|urn:test:alice", actual_obj);
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:alice");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
 
-        let k_kitten1 = find_key_with_suffix(
-            "|urn:test:kitten1",
+        let k_kitten1 = find_key_for_obj(
             actual_obj[&k_alice]["cats"].as_object().unwrap(),
+            "urn:test:kitten1",
         );
         let g_kitten1 = actual_obj[&k_alice]["cats"][&k_kitten1]["@graph"].clone();
 
-        let k_kitten2 = find_key_with_suffix(
-            "|urn:test:kitten2",
+        let k_kitten2 = find_key_for_obj(
             actual_obj[&k_alice]["cats"].as_object().unwrap(),
+            "urn:test:kitten2",
         );
         let g_kitten2 = actual_obj[&k_alice]["cats"][&k_kitten2]["@graph"].clone();
 
@@ -2622,15 +2576,18 @@ INSERT DATA {
                 k_alice.clone(): {
                     "@id": "urn:test:alice",
                     "@graph": g_alice,
+                    "@shape": "http://example.org/PersonShape",
                     "type": "http://example.org/Person",
                     "cats": {
                         k_kitten1.clone(): {
                             "@graph": g_kitten1,
+                            "@shape": "http://example.org/CatShape",
                             "@id": "urn:test:kitten1",
                             "type": "http://example.org/Cat"
                         },
                         k_kitten2.clone(): {
                             "@id": "urn:test:kitten2",
+                            "@shape": "http://example.org/CatShape",
                             "@graph": g_kitten2,
                             "type": "http://example.org/Cat"
                         }
@@ -2779,25 +2736,22 @@ INSERT DATA {
         // According to spec, only same-graph or subject-graph prefix graphs count; since we created
         // one such extra, maxCardinality=1 should still pass if implementation deduplicates or picks
         // one; otherwise it would fail. We assert that it materializes with a single name.
-        let k_alice = actual_obj
-            .keys()
-            .find(|k| k.ends_with("|urn:test:groot:alice"))
-            .expect("alice key")
-            .to_string();
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:groot:alice");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
         let name_val = actual_obj[&k_alice]["name"].as_str().unwrap();
         assert!(name_val == "Alice" || name_val == "Alice-Scoped");
 
-        let  expected = json!({
+        let expected = json!({
             k_alice.clone(): {
                 "@id": "urn:test:groot:alice",
+                "@shape": "http://example.org/PersonShape",
                 "@graph": g_alice,
                 "type": "http://example.org/Person",
                 "name": name_val
             }
         });
 
-        let  actual_mut = orm_json.clone();
+        let actual_mut = orm_json.clone();
         assert_json_eq(&expected, &actual_mut);
         break;
     }
@@ -2904,12 +2858,12 @@ INSERT DATA {
         json!({"orderBy": {"sortBy": "asc"}}),
     )
     .await;
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
         ]),
         &initial,
     );
@@ -2929,12 +2883,12 @@ INSERT DATA {
         json!({"orderBy": [{"sortBy": "desc"}]}),
     )
     .await;
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
         ]),
         &initial,
     );
@@ -2949,14 +2903,14 @@ INSERT DATA {
     )
     .await;
 
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4",  "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3",  "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2",  "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1",  "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj4",  "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj3",  "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj2",  "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj1",  "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
         ]),
         &initial,
     );
@@ -3062,12 +3016,12 @@ INSERT DATA {
     )
     .await;
 
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!({
             "0": {
                 "items": [
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
                 ]
             }
         }),
@@ -3084,14 +3038,14 @@ INSERT DATA {
 
     let new_page_patches = await_graph_patches(&mut receiver).await;
 
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([{
             "op": "add",
             "path": "/1",
             "value": {
                 "items": [
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj5", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 5},
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj6", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 6},
+                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj5", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 5},
+                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj6", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 6},
                 ]
             }
         }]),
@@ -3108,7 +3062,7 @@ INSERT DATA {
 
     let new_page_patches = await_graph_patches(&mut receiver).await;
 
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([{
             "op": "remove",
             "path": "/0",
@@ -3118,8 +3072,8 @@ INSERT DATA {
             "path": "/2",
             "value": {
                 "items": [
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj7", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 7},
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj8", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 8},
+                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj7", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 7},
+                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj8", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 8},
                 ]
             }
         }]),

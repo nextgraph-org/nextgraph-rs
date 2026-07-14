@@ -347,6 +347,7 @@ pub fn assess_and_rank_children(
     make_res(all, HeuristicUsed::All)
 }
 
+/// Create an order key consisting of the values to order by and the graph and subject iris of the tormo as secondary indexes.
 pub(crate) fn order_key_from(order_by_conf: &OrderByConfig, tormo: &TrackedOrmObject) -> OrderKey {
     let vals = order_by_conf
         .iter()

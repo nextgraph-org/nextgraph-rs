@@ -508,3 +508,12 @@ pub(crate) fn composite_key(graph: &str, subject: &str) -> String {
         escape_pointer_segment(subject)
     )
 }
+
+/// Finds the key of a multi-valued object for a given subject_iri.
+pub fn find_key_for_obj(actual_obj: &serde_json::Map<String, Value>, object_iri: &str) -> String {
+    actual_obj
+        .keys()
+        .find(|k| k.contains(&format!("|{object_iri}|")))
+        .expect("key with expected subject not found")
+        .to_string()
+}

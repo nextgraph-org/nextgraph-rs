@@ -17,11 +17,13 @@ use std::sync::RwLock;
 use std::sync::RwLockReadGuard;
 
 use futures::SinkExt;
+use ng_net::orm::OrmPatchOp::move_;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
+use wabi_tree::OSBTreeMap;
 
 use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::initialize::materialize_orm_object;
@@ -55,23 +57,6 @@ impl Verifier {
     ) {
         let inserts = patch.inserts;
         let removes = patch.removes;
-
-        // log_info!(
-        //     "inserts\n{}",
-        //     inserts
-        //         .iter()
-        //         .map(|q| format!("{q}",))
-        //         .collect::<Vec<_>>()
-        //         .join("\n")
-        // );
-        // log_info!(
-        //     "removes\n{}",
-        //     removes
-        //         .iter()
-        //         .map(|q| format!("{q}",))
-        //         .collect::<Vec<_>>()
-        //         .join("\n")
-        // );
 
         // Apply changes to all affected scopes and send patches to clients
         let res = self
@@ -129,7 +114,7 @@ impl Verifier {
 
             // If we have an ordered page, it might be that new quads arrived whose value is within the window bounds.
             // In that case we have to add the graph+subject to the tormo and query the related quads.
-            let inserts: Cow<'_, [Quad]> = if gs_to_fetch.len() > 0 {
+            let inserts = if gs_to_fetch.len() > 0 {
                 let graphs = gs_to_fetch
                     .iter()
                     .map(|gs_key| gs_key.0.clone())
@@ -142,7 +127,7 @@ impl Verifier {
                     .collect::<HashSet<_>>()
                     .into_iter()
                     .collect();
-                let mut new_quads = self
+                let mut new_quads: HashSet<Quad> = HashSet::from_iter(self
                     .query_quads_for_shape(
                         &graphs,
                         &orm_subscription.shape_type.schema,
@@ -155,11 +140,11 @@ impl Verifier {
                             e
                         );
                         vec![]
-                    });
-                new_quads.extend(inserts.iter().cloned());
-                Cow::Owned(new_quads)
+                    }));
+                new_quads.extend(inserts.into_owned());
+                new_quads
             } else {
-                Cow::Borrowed(&inserts)
+                HashSet::from_iter(inserts.into_owned())
             };
 
             // No quads to apply for this subscription?
@@ -173,7 +158,7 @@ impl Verifier {
             let mut orm_changes: OrmChanges = HashMap::new();
             let res = self.process_changes_for_subscription(
                 &mut orm_subscription,
-                &inserts,
+                &Vec::from_iter(inserts),
                 &removes,
                 &mut orm_changes,
                 false,
@@ -280,7 +265,7 @@ fn create_object_and_atomic_patches(
                 if change.prev_valid == TrackedOrmObjectValidity::Valid
                     && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
                     && *tracked_orm_object.shape().iri == orm_subscription.root_shape().iri
-                    && orm_subscription.tormos_ordered.is_none()
+                    && orm_subscription.config.order_by.is_none()
                 {
                     atomic_patches.push(OrmPatch {
                         op: OrmPatchOp::remove,
@@ -295,7 +280,7 @@ fn create_object_and_atomic_patches(
                 if change.prev_valid != TrackedOrmObjectValidity::Valid
                     && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
                 {
-                    let new_object = materialize_orm_object(change);
+                    let new_object = materialize_orm_object(change, false, orm_changes);
 
                     create_object_patches.push(OrmPatch {
                         op: OrmPatchOp::add,
@@ -478,33 +463,32 @@ fn update_order_and_create_patches(
         return Vec::new();
     };
 
-    let mut patches: Vec<OrmPatch> = Vec::new();
-
     enum OrderOperation {
         Add(OrderKey, Arc<RwLock<TrackedOrmObject>>),
         Remove(OrderKey),
         Move(OrderKey, OrderKey),
     }
 
-    type CurrentValue = BasicType;
-    let mut change_ops: Vec<(OrderOperation)> = Vec::new();
+    let mut change_ops: Vec<OrderOperation> = Vec::new();
 
     let order_by_props = order_by_conf
         .iter()
         .map(|(pred, order_dir)| (&pred.iri, order_dir))
         .collect::<Vec<_>>();
 
-    let shape_iri = &orm_subscription.shape_type.shape;
+    let root_shape_iri = orm_subscription.shape_type.shape.clone();
 
     // Collect the patch changes to be done.
-    let graph_changes = orm_changes.get(shape_iri);
+    let graph_changes = orm_changes.get(&root_shape_iri);
     if let Some(graph_changes) = graph_changes {
         for (graph_iri, subject_changes) in graph_changes.iter() {
             for (subject_iri, change) in subject_changes {
                 // Get the tracked orm object for this (subject, shape) pair
-                let Some(tracked_orm_object_arc) =
-                    orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
-                else {
+                let Some(tracked_orm_object_arc) = orm_subscription.get_tracked_orm_object(
+                    graph_iri,
+                    subject_iri,
+                    &root_shape_iri,
+                ) else {
                     // We might not be tracking this subject x shape combination. Then, there is nothing to do.
                     continue;
                 };
@@ -558,6 +542,14 @@ fn update_order_and_create_patches(
         }
     }
 
+    // REMOVE when moved to pos 0 or end
+    // rolling: no objects
+    // unless grow (only when at end)
+    // is quad affected
+    // - don't take secondary in to account -> document (affects rolling/simple at the end)
+    // - only for grow-mode (rolling, simple nothing)
+    // **don't update offset** so much
+
     // Sort the changes to be done: makes testing easier, and by reverse sorting
     // reduce the amount of elements shifted in the target array.
     change_ops.sort_unstable_by(|op1, op2| {
@@ -574,66 +566,305 @@ fn update_order_and_create_patches(
         return key2.cmp(key1);
     });
 
-    // TODO: Pagination:
-    // - create separate page data structures: tree<page num, tree <key, tormo>>
-    // -
-    //
-
-    let new_ordered = orm_subscription.tormos_ordered.as_mut().unwrap();
-
     // Create JSON patches from change_ops.
-    for op in change_ops {
-        match op {
-            OrderOperation::Add(new_key, tormo) => {
-                new_ordered.insert(new_key.clone(), tormo.clone());
-                let insert_index = new_ordered.rank_of(&new_key).unwrap();
-                let graph_iri = &tormo.read().unwrap().graph_iri;
-                let subject_iri = &tormo.read().unwrap().subject_iri;
+    let mut patches: Vec<OrmPatch> = Vec::new();
+    match &mut orm_subscription.ordering_info {
+        OrmSubscriptionOrderInfo::Plain(ordering) => {
+            for op in change_ops {
+                match op {
+                    OrderOperation::Add(new_key, tormo) => {
+                        ordering
+                            .tormos_ordered
+                            .insert(new_key.clone(), tormo.clone());
+                        let insert_index = ordering.tormos_ordered.rank_of(&new_key).unwrap();
+                        let graph_iri = &tormo.read().unwrap().graph_iri;
+                        let subject_iri = &tormo.read().unwrap().subject_iri;
 
-                patches.push(OrmPatch {
-                    op: OrmPatchOp::add,
-                    path: format!("/{insert_index}"),
-                    value: Some(json!({
-                        "@graph": graph_iri,
-                        "@id": subject_iri,
-                        "@shape": orm_subscription.shape_type.shape
-                    })),
-                    ..Default::default()
-                });
-            }
-            OrderOperation::Remove(old_key) => {
-                let remove_index = new_ordered.rank_of(&old_key).unwrap();
-                new_ordered.remove(&old_key);
+                        patches.push(OrmPatch {
+                            op: OrmPatchOp::add,
+                            path: format!("/{insert_index}"),
+                            value: Some(json!({
+                                "@graph": graph_iri,
+                                "@id": subject_iri,
+                                "@shape": root_shape_iri,
+                            })),
+                            ..Default::default()
+                        });
+                    }
+                    OrderOperation::Remove(old_key) => {
+                        let remove_index = ordering.tormos_ordered.rank_of(&old_key).unwrap();
+                        ordering.tormos_ordered.remove(&old_key);
 
-                patches.push(OrmPatch {
-                    op: OrmPatchOp::remove,
-                    path: format!("/{remove_index}"),
-                    ..Default::default()
-                });
-            }
-            OrderOperation::Move(old_key, new_key) => {
-                let remove_index = new_ordered.rank_of(&old_key).unwrap();
-                let tormo = new_ordered.remove(&old_key).unwrap();
-                new_ordered.insert(new_key.clone(), tormo);
-                let insert_index = new_ordered.rank_of(&new_key).unwrap();
+                        patches.push(OrmPatch {
+                            op: OrmPatchOp::remove,
+                            path: format!("/{remove_index}"),
+                            ..Default::default()
+                        });
+                    }
+                    OrderOperation::Move(old_key, new_key) => {
+                        let remove_index = ordering.tormos_ordered.rank_of(&old_key).unwrap();
+                        let tormo = ordering.tormos_ordered.remove(&old_key).unwrap();
+                        ordering.tormos_ordered.insert(new_key.clone(), tormo);
+                        let insert_index = ordering.tormos_ordered.rank_of(&new_key).unwrap();
 
-                patches.push(OrmPatch {
-                    op: OrmPatchOp::move_,
-                    from: Some(format!("/{}", remove_index)),
-                    path: format!("/{}", insert_index),
-                    ..Default::default()
-                });
+                        patches.push(OrmPatch {
+                            op: OrmPatchOp::move_,
+                            from: Some(format!("/{}", remove_index)),
+                            path: format!("/{}", insert_index),
+                            ..Default::default()
+                        });
+                    }
+                }
             }
         }
-    }
+        OrmSubscriptionOrderInfo::Pagination(page_info) => {
+            let page_size = orm_subscription.config.page_size;
 
-    // TODO: pagination: offset_index needs to be modified to target pages
-    // then, move patches need to ensure that all pages have the same size (moved between pages).
+            /// Iterates over all pages and ensures that all pages contain exactly <page size> items.
+            fn create_page_shifts(
+                page_info: &mut OrmSubscriptionPageInfo,
+                patches: &mut Vec<OrmPatch>,
+                page_size: usize,
+            ) {
+                let mut current_page_num = page_info.lowest_active_page();
+                while current_page_num <= page_info.highest_active_page() {
+                    let current_len = page_info.pages.get(&current_page_num).unwrap().len();
+                    let highest_active_page = page_info.highest_active_page();
+
+                    // Case: Too many in current page. Move to next (or remove if max_active pages is reached).
+                    if current_len > page_size {
+                        let extra = current_len - page_size;
+                        for _i in 0..extra {
+                            let (move_key, move_val, from_idx) = {
+                                let current_page =
+                                    page_info.pages.get_mut(&current_page_num).unwrap();
+                                let from_idx = current_page.len() - 1;
+                                let (move_key, move_val) = current_page.pop_last().unwrap();
+                                (move_key, move_val, from_idx)
+                            };
+
+                            // No more pages loaded above?
+                            if current_page_num == highest_active_page {
+                                // Remove everything above.
+                                patches.push(OrmPatch {
+                                    op: OrmPatchOp::remove,
+                                    path: format!("/{current_page_num}/items/{from_idx}"),
+                                    ..Default::default()
+                                });
+                            } else {
+                                // Move items to next page.
+
+                                // No next page yet?
+                                if page_info.pages.get(&(current_page_num + 1)).is_none() {
+                                    page_info
+                                        .pages
+                                        .insert(current_page_num + 1, OSBTreeMap::new());
+
+                                    patches.push(OrmPatch {
+                                        op: OrmPatchOp::add,
+                                        path: format!("/{}", current_page_num + 1),
+                                        value: Some(json!({
+                                            "items": [],
+                                        })),
+                                        ..Default::default()
+                                    });
+                                }
+
+                                page_info
+                                    .pages
+                                    .get_mut(&(current_page_num + 1))
+                                    .unwrap()
+                                    .insert(move_key, move_val);
+
+                                patches.push(OrmPatch {
+                                    op: OrmPatchOp::move_,
+                                    path: format!("/{}/items/0", current_page_num + 1),
+                                    from: Some(format!("/{current_page_num}/items/{from_idx}")),
+                                    ..Default::default()
+                                });
+                            }
+                        }
+                    } else if current_len < page_size {
+                        // Case: Not enough in current page: get from next page.
+
+                        for _i in 0..(page_size - current_len) {
+                            if let Some(next_page) = page_info.pages.get(&(current_page_num + 1)) {
+                                if next_page.len() > 0 {
+                                    // Case: There are items in the next page we can move here.
+                                    let (move_key, move_val) = page_info
+                                        .pages
+                                        .get_mut(&(current_page_num + 1))
+                                        .unwrap()
+                                        .pop_first()
+                                        .unwrap();
+
+                                    let target_idx =
+                                        page_info.pages.get(&current_page_num).unwrap().len();
+
+                                    page_info
+                                        .pages
+                                        .get_mut(&current_page_num)
+                                        .unwrap()
+                                        .insert(move_key, move_val);
+
+                                    patches.push(OrmPatch {
+                                        op: OrmPatchOp::move_,
+                                        path: format!("/{current_page_num}/items/{target_idx}"),
+                                        from: Some(format!("/{}/items/0", current_page_num + 1)),
+                                        ..Default::default()
+                                    });
+                                } else {
+                                    // The next page is empty so we delete it...
+                                    page_info.pages.remove(&(current_page_num + 1));
+                                    patches.push(OrmPatch {
+                                        op: OrmPatchOp::remove,
+                                        path: format!("/{}", current_page_num + 1),
+                                        ..Default::default()
+                                    });
+                                    // ...But are there more pages after that?
+                                    if current_page_num + 1 < page_info.highest_active_page() {
+                                        // We move all behind by one.
+                                        // Note that we need to move them because the root is an object and not an array.
+
+                                        let highest = page_info.highest_active_page();
+                                        for target_page_num in (current_page_num + 1)..highest {
+                                            let from_page_num = target_page_num + 1;
+                                            let move_page =
+                                                page_info.pages.remove(&from_page_num).unwrap();
+
+                                            page_info.pages.insert(target_page_num, move_page);
+
+                                            patches.push(OrmPatch {
+                                                op: OrmPatchOp::move_,
+                                                path: format!("/{target_page_num}",),
+                                                from: Some(format!("/{}", from_page_num)),
+                                                ..Default::default()
+                                            });
+                                        }
+                                        // Note: We don't increase current_page_num because we haven't moved items to this page yet.
+                                        continue;
+                                    }
+                                }
+                            } else {
+                                // No more pages, we are done.
+                                break;
+                            }
+                        }
+                    } else {
+                        // Case: exactly enough in current page: Do nothing
+                    }
+                    current_page_num += 1;
+                }
+            }
+
+            for op in change_ops {
+                match op {
+                    OrderOperation::Add(new_key, tormo) => {
+                        match page_info.find_page_and_pos(&new_key) {
+                            Err(target_page_num) => {
+                                let new_pos = {
+                                    let target_page =
+                                        page_info.pages.get_mut(&target_page_num).unwrap();
+                                    target_page.insert(new_key.clone(), Arc::clone(&tormo));
+                                    target_page.rank_of(&new_key).unwrap()
+                                };
+
+                                let (graph_iri, subject_iri) = {
+                                    let tormo_guard = tormo.read().unwrap();
+                                    (
+                                        tormo_guard.graph_iri.clone(),
+                                        tormo_guard.subject_iri.clone(),
+                                    )
+                                };
+
+                                patches.push(OrmPatch {
+                                    op: OrmPatchOp::add,
+                                    path: format!("/{target_page_num}/items/{new_pos}"),
+                                    value: Some(json!({
+                                        "@graph": graph_iri,
+                                        "@id": subject_iri,
+                                        "@shape": root_shape_iri,
+                                    })),
+                                    ..Default::default()
+                                });
+                            }
+                            Ok(_) => unreachable!(),
+                        }
+                    }
+                    OrderOperation::Remove(old_key) => {
+                        match page_info.find_page_and_pos(&old_key) {
+                            Ok((page_num, item_pos)) => {
+                                let became_empty = {
+                                    let page = page_info.pages.get_mut(&page_num).unwrap();
+                                    page.remove(&old_key);
+                                    page.len() == 0
+                                };
+
+                                patches.push(OrmPatch {
+                                    op: OrmPatchOp::remove,
+                                    path: format!("/{page_num}/items/{item_pos}"),
+                                    ..Default::default()
+                                });
+
+                                if became_empty {
+                                    // No more items in this page. To prevent empty pages,
+                                    // Shift all pages to have <page size> elements.
+                                    create_page_shifts(page_info, &mut patches, page_size);
+                                }
+                            }
+                            Err(_) => unreachable!(),
+                        }
+                    }
+                    OrderOperation::Move(old_key, new_key) => {
+                        // Find old position and remove.
+                        match page_info.find_page_and_pos(&old_key) {
+                            Ok((remove_page_num, remove_item_pos)) => {
+                                let moved_tormo = page_info
+                                    .pages
+                                    .get_mut(&remove_page_num)
+                                    .unwrap()
+                                    .remove(&old_key)
+                                    .unwrap();
+
+                                match page_info.find_page_and_pos(&new_key) {
+                                    Err(target_page_num) => {
+                                        let new_item_pos = {
+                                            let target_page =
+                                                page_info.pages.get_mut(&target_page_num).unwrap();
+                                            target_page.insert(new_key.clone(), moved_tormo);
+                                            target_page.rank_of(&new_key).unwrap()
+                                        };
+
+                                        patches.push(OrmPatch {
+                                            op: OrmPatchOp::move_,
+                                            path: format!(
+                                                "/{target_page_num}/items/{new_item_pos}"
+                                            ),
+                                            from: Some(format!(
+                                                "/{remove_page_num}/items/{remove_item_pos}"
+                                            )),
+                                            ..Default::default()
+                                        });
+                                    }
+                                    Ok(_) => unreachable!(),
+                                }
+                            }
+                            Err(_) => unreachable!(),
+                        }
+                    }
+                }
+            }
+
+            // Ensure that all pages have the same length (by moving items) and create patches for it.
+            create_page_shifts(page_info, &mut patches, page_size);
+        }
+        _ => unreachable!(),
+    }
 
     patches
 }
 
-/// Filters quads by subject scope. If the subscription has no subject scope and no ordering,
+/// Filters quads by subject scope (and page if present). If the subscription has no subject scope and no ordering,
 /// returns borrowed references to the original slices (no allocation).
 /// Otherwise, returns owned filtered vectors.
 fn filter_quads_by_subject_scope_if_necessary<'a>(
@@ -641,7 +872,9 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
     inserts: &'a [Quad],
     removes: &'a [Quad],
 ) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>, HashSet<GraphSubjectKey>) {
-    if subscription.subject_scope.is_empty() && subscription.page_info.is_none() {
+    if subscription.subject_scope.is_empty()
+        && matches!(subscription.ordering_info, OrmSubscriptionOrderInfo::None)
+    {
         (
             Cow::Borrowed(inserts),
             Cow::Borrowed(removes),
@@ -649,53 +882,53 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
         )
     } else {
         // Relevant subjects consist of all tormos plus the explicit subject scope.
-        let relevant_subjects: HashSet<String> = subscription
-            .iter_all_objects()
-            .map(|tormo| tormo.read().unwrap().subject_iri.clone())
-            .chain(subscription.subject_scope.iter().cloned())
-            .collect();
+        let subjects_in_scope: HashSet<String> =
+            subscription.subject_scope.iter().cloned().collect();
+        let graphs_in_scope: HashSet<String> = subscription.graph_scope.iter().cloned().collect();
 
         let page_window_bounds = subscription.get_page_window_bounds();
 
         let mut graph_subject_needs_fetch: HashSet<GraphSubjectKey> = HashSet::new();
 
-        let mut should_keep_quad = |quad: &Quad, quad_inserted: bool| -> bool {
+        let mut should_keep_quad = |quad: &Quad, is_insert: bool| -> bool {
             let graph_subject = (
                 graph_of_quad(quad).to_owned(),
                 subject_of_quad(quad).to_owned(),
             );
             let predicate = quad.predicate.as_str();
 
-            // Check if subject is present in a tormo or a scope subject.
-            let is_relevant_subject = relevant_subjects.contains(&graph_subject.1);
-            // For ordered subscriptions: Check if graph+subject is in current window.
-            let is_in_tormo_window = subscription.page_info.as_ref().map_or(true, |page_info| {
-                page_info.tormo_graph_subject_set.contains(&graph_subject)
-            });
-            if is_relevant_subject && is_in_tormo_window {
+            // Check if graph, subject is present in a tormo already.
+            if subscription.has_graph_subject(&graph_subject.0, &graph_subject.1) {
                 return true;
             }
 
-            if !quad_inserted {
+            // Are we tracking this scope explicitly?
+            let is_in_graph_scope = graphs_in_scope.contains(&graph_subject.0);
+            let is_in_subject_scope = subjects_in_scope.contains(&graph_subject.1);
+            if is_in_subject_scope || is_in_graph_scope {
+                return true;
+            }
+
+            if !is_insert {
                 return false;
             }
 
             // Now, if this is a new quad with the order_by predicate and a value that is within the current window,
             // the quad is of relevance and we schedule it for fetching.
-            let is_order_by_quad_in_window_range = page_window_bounds.as_ref().map_or(
-                false,
-                |(order_by_pred, is_asc, first, last)| {
-                    predicate == *order_by_pred
-                        && is_order_value_in_window_range(
-                            &oxrdf_term_to_orm_basic_type(&quad.object),
-                            first,
-                            last,
-                            *is_asc,
-                        )
-                },
-            );
+            let in_range =
+                page_window_bounds
+                    .as_ref()
+                    .map_or(true, |(order_by_pred, is_asc, first, last)| {
+                        predicate == *order_by_pred
+                            && is_order_value_in_window_range(
+                                &oxrdf_term_to_orm_basic_type(&quad.object),
+                                first,
+                                last,
+                                *is_asc,
+                            )
+                    });
 
-            if is_order_by_quad_in_window_range {
+            if in_range {
                 if subscription.subject_scope.is_empty()
                     || subscription.subject_scope.contains(&graph_subject.1)
                 {
@@ -705,7 +938,7 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
                 }
             }
 
-            is_order_by_quad_in_window_range
+            in_range
         };
 
         let filtered_inserts: Vec<Quad> = inserts
@@ -768,8 +1001,9 @@ fn update_potential_offset_shift_count(
     };
     let order_by_pred = pred.to_owned();
 
-    let Some(page_info) = subscription.page_info.as_mut() else {
-        return;
+    let page_info = match &mut subscription.ordering_info {
+        OrmSubscriptionOrderInfo::Pagination(page_info) => page_info,
+        _ => return,
     };
 
     let delta = inserts

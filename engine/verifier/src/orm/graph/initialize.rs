@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
+use wabi_tree::OSBTreeMap;
 
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::basic_type_to_json;
@@ -139,7 +140,10 @@ impl Verifier {
     ) -> Result<serde_json::Value, NgError> {
         let queried_page = self.query_items_ordered(orm_subscription, true).await?;
 
-        if orm_subscription.page_info.is_some() {
+        if matches!(
+            orm_subscription.ordering_info,
+            OrmSubscriptionOrderInfo::Pagination(_)
+        ) {
             // Return as page when pagination is set.
             Ok(json!({"0": {"items": queried_page}}))
         } else {
@@ -196,7 +200,7 @@ impl Verifier {
                     .and_then(|g| g.get(&graph_iri))
                     .and_then(|s| s.get(&subject_iri))
                 {
-                    let new_val = materialize_orm_object(change_ref);
+                    let new_val = materialize_orm_object(change_ref, true, &changes);
                     obj_map.insert(
                         format!(
                             "{}|{}|{}",
@@ -235,7 +239,10 @@ impl Verifier {
                 })?;
 
         // Check if there are any more pages to fetch.
-        if orm_subscription.page_info.is_none() {
+        if matches!(
+            orm_subscription.ordering_info,
+            OrmSubscriptionOrderInfo::None
+        ) {
             self.orm_subscriptions
                 .insert(subscription_id, orm_subscription);
             return Err(NgError::OrmError(format!(
@@ -249,13 +256,20 @@ impl Verifier {
             .query_items_ordered(&mut orm_subscription, forward)
             .await?;
 
-        let page_info = orm_subscription.page_info.as_ref().unwrap();
+        let page_info = match &orm_subscription.ordering_info {
+            OrmSubscriptionOrderInfo::Pagination(page_info) => page_info,
+            _ => {
+                return Err(NgError::OrmError(
+                    "No page info available when loading page.".into(),
+                ))
+            }
+        };
         let mut patches: Vec<OrmPatch> = Vec::with_capacity(2);
 
         // If more pages exist now than max_active_page, remove the last.
         if orm_subscription.config.max_active_pages > 0
-            && page_info.highest_active_page - page_info.lowest_active_page + 1
-                > orm_subscription.config.max_active_pages as i64
+            && page_info.highest_active_page() - page_info.lowest_active_page() + 1
+                > orm_subscription.config.max_active_pages as i32
         {
             let removed_page = self.untrack_page(&mut orm_subscription, forward).await?;
             // Add a remove patch that targets whole page removal.
@@ -266,13 +280,16 @@ impl Verifier {
             });
         }
 
+        let page_info = match &orm_subscription.ordering_info {
+            OrmSubscriptionOrderInfo::Pagination(page_info) => page_info,
+            _ => panic!("unreachable"),
+        };
         // page_info.highest|lowest_active_page was updated. Use it for patch to send to JS-land.
         let new_page_num = {
-            let page_info = orm_subscription.page_info.as_ref().unwrap();
             if forward {
-                page_info.highest_active_page
+                page_info.highest_active_page()
             } else {
-                page_info.lowest_active_page
+                page_info.lowest_active_page()
             }
         };
 
@@ -311,36 +328,32 @@ impl Verifier {
         // We query the next page with a greater range to assure that we acquire our desired results.
         // On the one side, the previous offset might have shifted. On the other, not enough valid graph-subject pairs
         // might be returned with a small query window.
-        let mut limit_offset = if forward {
+        let mut limit_offset = match &orm_subscription.ordering_info {
             // For queries of the _next_ page, we adjust the offset by adding to the current window's offset position the number of items in the window.
             // and subtract the potential_offset_shift.
-            let n_tormos_ordered = orm_subscription.tormos_ordered.as_ref().unwrap().len();
-            if let Some(page_info) = orm_subscription.page_info.as_ref() {
-                Some((
-                    page_info.limit_heuristic + page_info.potential_offset_shift,
-                    (page_info.offset + n_tormos_ordered as u64)
-                        .saturating_sub(page_info.potential_offset_shift),
-                ))
-            } else {
-                None
+            OrmSubscriptionOrderInfo::Pagination(page_info) => {
+                if forward {
+                    let n_loaded_tormos = orm_subscription.object_count();
+                    Some((
+                        page_info.limit_heuristic + page_info.potential_offset_shift,
+                        (page_info.offset + n_loaded_tormos as u64)
+                            .saturating_sub(page_info.potential_offset_shift),
+                    ))
+                } else {
+                    // For queries of the _previous_ page, we subtract from the current window's offset a page limit and the potential offset shift.
+                    Some((
+                        page_info.limit_heuristic + page_info.potential_offset_shift * 2 + 1, // Added shift to both sides + 1, to overlap with old object for offset shift alignment.
+                        page_info
+                            .offset
+                            .saturating_sub(page_info.potential_offset_shift)
+                            .saturating_sub(page_info.limit_heuristic),
+                    ))
+                }
             }
-        } else {
-            // For queries of the _previous_ page, we subtract from the current window's offset a page limit and the potential offset shift.
-            orm_subscription.page_info.as_ref().map(|page_info| {
-                (
-                    page_info.limit_heuristic + page_info.potential_offset_shift * 2 + 1, // Added shift to both sides + 1, to overlap with old object for offset shift alignment.
-                    page_info
-                        .offset
-                        .saturating_sub(page_info.potential_offset_shift)
-                        .saturating_sub(page_info.limit_heuristic),
-                )
-            })
+            _ => None,
         };
 
-        log_debug!("[query_page]: limit_offset: {:?}", limit_offset);
-        log_debug!("[query_page]: page_info: {:?}", orm_subscription.page_info);
-
-        let mut n_valid: u64;
+        let mut n_valid: usize;
         let mut ordered_gs_results = vec![];
         loop {
             // Do order query.
@@ -433,111 +446,121 @@ impl Verifier {
             }
         }
 
-        // TODO: Add everything to ordered page.
-
         // If pagination is active: limit the window and tracked objects in size.
-        if orm_subscription.page_info.is_some() {
+        let order_by = orm_subscription.config.order_by.as_ref().unwrap();
+        let page_size = orm_subscription.config.page_size;
+
+        let pagination_update = if matches!(
+            orm_subscription.ordering_info,
+            OrmSubscriptionOrderInfo::Pagination(_)
+        ) {
             // There might be too many new valid items. Remove them now.
-            {
-                let mut new_tormos_ordered = Vec::with_capacity(ordered_gs_results.len());
-                let mut valid_counter = 0;
-                for (g, s) in ordered_gs_results.iter() {
-                    let tormo = orm_subscription
-                        .get_tracked_orm_object(g, s, &root_shape.iri)
-                        .unwrap();
-                    let order_key = order_key_from(
-                        orm_subscription.config.order_by.as_ref().unwrap(),
-                        &tormo.read().unwrap(),
-                    );
+            let mut new_tormos_ordered = Vec::with_capacity(ordered_gs_results.len());
+            // Put <page_size> valid ones in new_tormos ordered.
+            let mut n_iterated_results = 0;
+            for (g, s) in ordered_gs_results.iter() {
+                n_iterated_results += 1;
+                let tormo = orm_subscription
+                    .get_tracked_orm_object(g, s, &root_shape.iri)
+                    .unwrap();
+                let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
                     new_tormos_ordered.push((order_key, tormo.clone()));
-                    if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
-                        valid_counter += 1;
-                        if valid_counter == orm_subscription.config.page_size {
-                            break;
-                        }
+
+                    if new_tormos_ordered.len() == page_size {
+                        break;
                     }
                 }
+            }
 
-                // Remove everything above.
-                for i in 0..new_tormos_ordered.len() {
-                    let above = orm_subscription.tormos_ordered.as_mut().unwrap().pop_last();
-                    if let Some((_removed_key, removed_val)) = above {
-                        let removed_tormo = removed_val.read().unwrap();
-                        orm_subscription.remove_tracked_orm_object(
-                            &removed_tormo.graph_iri,
-                            &removed_tormo.subject_iri,
-                            &root_shape.iri,
-                        );
-                    }
+            let new_page = OSBTreeMap::from_iter(new_tormos_ordered);
+            let new_page_num: i32 = match &orm_subscription.ordering_info {
+                OrmSubscriptionOrderInfo::Pagination(page_info) if forward => {
+                    page_info
+                        .pages
+                        .last_key_value()
+                        .map(|(page, _)| *page)
+                        .unwrap_or(-1)
+                        + 1
                 }
+                OrmSubscriptionOrderInfo::Pagination(page_info) => {
+                    page_info
+                        .pages
+                        .first_key_value()
+                        .map(|(page, _)| *page)
+                        .unwrap_or(1)
+                        - 1
+                }
+                _ => unreachable!(),
+            };
 
-                // Add new tormos to current window.
-                let page_info = orm_subscription.page_info.as_mut().unwrap();
-                page_info
-                    .tormo_graph_subject_set
-                    .extend(new_tormos_ordered.iter().map(|(_key, tormo)| {
-                        (
-                            tormo.read().unwrap().graph_iri.clone(),
-                            tormo.read().unwrap().subject_iri.clone(),
-                        )
-                    }));
-
-                // Append/Prepend tormos.
-                orm_subscription
-                    .tormos_ordered
-                    .as_mut()
-                    .unwrap()
-                    .extend(new_tormos_ordered);
-            }
-
-            let page_info = orm_subscription.page_info.as_mut().unwrap();
-
-            // Update limit_heuristic: page_size * (#all+1) / (#valid+1) * 1.5
-            let n_objects = orm_subscription.tormos_ordered.as_ref().unwrap().len();
-            page_info.limit_heuristic = (orm_subscription.config.page_size as f64
-                * (n_objects + 1) as f64
-                / (n_valid + 1) as f64
-                * 1.5) as u64;
-
-            // Update the range of active pages present in JS-land.
-            if forward {
-                page_info.highest_active_page += 1;
-            } else {
-                page_info.lowest_active_page -= 1;
-            }
-
-            // If a previous page was loaded, update the offset.
-            if !forward {
-                page_info.offset -= ordered_gs_results.len() as u64;
-            }
-
-            let page_info = orm_subscription.page_info.as_mut().unwrap();
-
-            if !forward {
-                // Remove the re-fetched page from all_up_to_offset because we now track it again.
-                let page_set: HashSet<(GraphIri, SubjectIri)> =
-                    HashSet::from_iter(ordered_gs_results.iter().cloned());
-                page_info.all_up_to_offset = page_info
-                    .all_up_to_offset
-                    .difference(&page_set)
-                    .cloned()
-                    .collect();
-            }
+            Some((n_iterated_results, new_page_num, new_page))
         } else {
-            // No pagination:
+            None
+        };
+
+        if let Some((n_iterated_results, new_page_num, new_page)) = pagination_update {
+            // Remove everything above.
+            let to_remove = ordered_gs_results.split_off(n_iterated_results);
+            for (graph_iri, subject_iri) in to_remove {
+                orm_subscription.remove_tracked_orm_object(
+                    &graph_iri,
+                    &subject_iri,
+                    &root_shape.iri,
+                );
+            }
+
+            let n_objects = orm_subscription.object_count();
+
+            if let OrmSubscriptionOrderInfo::Pagination(ref mut page_info) =
+                orm_subscription.ordering_info
+            {
+                // Attach new page.
+                page_info.pages.insert(new_page_num, new_page);
+
+                // Update limit_heuristic: page_size * (#all+1) / (#valid+1) * 1.5
+                page_info.limit_heuristic =
+                    (page_size as f64 * (n_objects + 1) as f64 / (n_valid + 1) as f64 * 1.5) as u64;
+
+                // If a previous page was loaded, update the offset.
+                if !forward {
+                    page_info.offset -= ordered_gs_results.len() as u64;
+                }
+
+                if !forward {
+                    // Remove the re-fetched page from all_up_to_offset because we now track it again.
+                    let page_set: HashSet<(GraphIri, SubjectIri)> =
+                        HashSet::from_iter(ordered_gs_results.iter().cloned());
+                    page_info.all_up_to_offset = page_info
+                        .all_up_to_offset
+                        .difference(&page_set)
+                        .cloned()
+                        .collect();
+                }
+            }
+        } else if matches!(
+            orm_subscription.ordering_info,
+            OrmSubscriptionOrderInfo::Plain(_)
+        ) {
+            // No pagination: collect all valid to ordered first.
+            let mut plain_ordered = Vec::new();
             for (g, s) in ordered_gs_results.iter() {
                 let tormo = orm_subscription
                     .get_tracked_orm_object(g, s, &root_shape.iri)
                     .unwrap();
-                let order_key = order_key_from(
-                    orm_subscription.config.order_by.as_ref().unwrap(),
-                    &tormo.read().unwrap(),
-                );
-                orm_subscription
-                    .tormos_ordered
-                    .as_mut()
-                    .unwrap()
-                    .insert(order_key, tormo);
+                if tormo.read().unwrap().valid != TrackedOrmObjectValidity::Valid {
+                    continue;
+                }
+                let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                plain_ordered.push((order_key, tormo));
+            }
+
+            if let OrmSubscriptionOrderInfo::Plain(ref mut order_info) =
+                orm_subscription.ordering_info
+            {
+                for (order_key, tormo) in plain_ordered {
+                    order_info.tormos_ordered.insert(order_key, tormo);
+                }
             }
         }
 
@@ -554,7 +577,7 @@ impl Verifier {
                     .and_then(|g| g.get(graph))
                     .and_then(|s| s.get(subject))
                 {
-                    let new_val = materialize_orm_object(change_ref);
+                    let new_val = materialize_orm_object(change_ref, true, &changes);
                     objects_vec.push(new_val);
                 }
             }
@@ -571,19 +594,20 @@ impl Verifier {
     ) -> Result<Option<(u64, u64)>, NgError> {
         let mut res: Option<((u64, u64), i64)> = None;
 
-        if let Some(page_info) = orm_subscription.page_info.as_ref() {
+        let tormo_count = orm_subscription.object_count();
+        if let OrmSubscriptionOrderInfo::Pagination(page_info) = &mut orm_subscription.ordering_info
+        {
             if page_info.potential_offset_shift > 0
                 && graph_subject_page.len() > 0
-                && !orm_subscription.is_empty()
+                && tormo_count > 0
             {
                 if forward {
                     // Find the right-most item of our window in the graph_subject_page result.
-                    if let Some(right_most) = orm_subscription
-                        .tormos_ordered
-                        .as_ref()
-                        .unwrap()
+                    if let Some(right_most) = &page_info
+                        .pages
                         .last_key_value()
-                        .and_then(|(_key, rm)| rm.read().ok())
+                        .and_then(|(_, first_page)| first_page.last_key_value())
+                        .and_then(|(_, tormo)| tormo.read().ok())
                     {
                         let index_of_rm_in_gs = graph_subject_page
                             .iter()
@@ -606,20 +630,18 @@ impl Verifier {
 
                             let adjusted_limit_offset = (*used_limit, new_offset);
                             // Calculate by how much the offset shifted since our last query.
-                            let offset_shift =
-                                new_offset as i64 - orm_subscription.object_count() as i64;
+                            let offset_shift = new_offset as i64 - tormo_count as i64;
 
                             res = Some((adjusted_limit_offset, offset_shift));
                         }
                     }
                 } else {
                     // Get the left-most item of our window in graph_subject_page result.
-                    if let Some(left_most) = orm_subscription
-                        .tormos_ordered
-                        .as_ref()
-                        .unwrap()
+                    if let Some(left_most) = &page_info
+                        .pages
                         .first_key_value()
-                        .and_then(|(_k, lm)| lm.read().ok())
+                        .and_then(|(_, first_page)| first_page.first_key_value())
+                        .and_then(|(_, tormo)| tormo.read().ok())
                     {
                         // Adjust offset, if necessary.
                         let index_of_lm_in_gs = graph_subject_page
@@ -650,17 +672,15 @@ impl Verifier {
                     }
                 }
             }
-        }
 
-        // Reset potential offset shift.
-        if let Some(page_info) = orm_subscription.page_info.as_mut() {
+            // Reset potential offset shift.
+
             page_info.potential_offset_shift = 0;
             if let Some((adjusted_limit_offset, offset_shift)) = res {
                 page_info.offset = (page_info.offset as i64 + offset_shift) as u64;
                 return Ok(Some(adjusted_limit_offset));
             }
         }
-
         Ok(None)
     }
 
@@ -670,94 +690,52 @@ impl Verifier {
         &mut self,
         orm_subscription: &mut OrmSubscription,
         forward: bool,
-    ) -> Result<i64, NgError> {
+    ) -> Result<i32, NgError> {
+        let root_shape = orm_subscription.shape_type.shape.clone();
         // Collect all objects to remove from tracking.
-        let Some(page_info) = orm_subscription.page_info.as_mut() else {
-            return Err(NgError::OrmError(format!(
-                "page_info not found for removing page."
-            )));
-        };
+        let (removed_gs, removed_page_num) =
+            if let OrmSubscriptionOrderInfo::Pagination(page_info) =
+                &mut orm_subscription.ordering_info
+            {
+                let removed_page_num = if forward {
+                    page_info.lowest_active_page()
+                } else {
+                    page_info.highest_active_page()
+                };
 
-        let page_size = orm_subscription.config.page_size as usize;
-        let lower_pos = if forward {
-            0
-        } else {
-            page_size * (page_info.highest_active_page - page_info.lowest_active_page - 1) as usize
-        };
-        let upper_pos = if forward {
-            min(
-                page_size as usize,
-                orm_subscription.tormos_ordered.as_ref().unwrap().len(),
-            )
-        } else {
-            orm_subscription.tormos_ordered.as_ref().unwrap().len() as usize
-        };
+                let removed_page = page_info.pages.remove(&removed_page_num).unwrap();
 
-        // Remove lowest/highest items from ordered window and window set.
-        for i in 0..page_size {
-            let tormos_ordered = orm_subscription.tormos_ordered.as_mut().unwrap();
-            let removed = if forward {
-                tormos_ordered.pop_first()
+                let removed_gs: Vec<(GraphIri, SubjectIri)> = removed_page
+                    .iter()
+                    .map(|(_key, tormo_arc)| {
+                        (
+                            tormo_arc.read().unwrap().graph_iri.clone(),
+                            tormo_arc.read().unwrap().subject_iri.clone(),
+                        )
+                    })
+                    .collect();
+
+                (removed_gs, removed_page_num)
             } else {
-                tormos_ordered.pop_last()
+                return Err(NgError::OrmError(
+                    "Can't untrack page: no page info available".into(),
+                ));
             };
-            if let Some((_removed_key, removed_tormo_arc)) = removed {
-                let removed_tormo = removed_tormo_arc.read().unwrap();
-                let gs_key = (
-                    removed_tormo.graph_iri.clone(),
-                    removed_tormo.subject_iri.clone(),
-                );
-                orm_subscription
-                    .page_info
-                    .as_mut()
-                    .unwrap()
-                    .tormo_graph_subject_set
-                    .remove(&gs_key);
 
-                let root_shape = orm_subscription.shape_type.shape.clone();
-                orm_subscription.remove_tracked_orm_object(
-                    &removed_tormo.graph_iri,
-                    &removed_tormo.subject_iri,
-                    &root_shape,
-                );
-
-                if forward {
-                    // Add removed objects to the all_up_to_offset.
-                    // This allows us to record modifications that might affect validity or order
-                    // while not keeping them as tormos.
-                    orm_subscription
-                        .page_info
-                        .as_mut()
-                        .unwrap()
-                        .all_up_to_offset
-                        .insert(gs_key);
-                }
-            }
+        for (graph_iri, subject_iri) in &removed_gs {
+            orm_subscription.remove_tracked_orm_object(graph_iri, subject_iri, &root_shape);
         }
-
-        let page_info = orm_subscription.page_info.as_mut().unwrap();
-
-        // Get the removed page number.
-        let removed_page_num = if forward {
-            page_info.lowest_active_page
-        } else {
-            page_info.highest_active_page
-        };
-
-        // Adjust the active page num info.
-        if forward {
-            page_info.lowest_active_page += 1;
-        } else {
-            page_info.highest_active_page -= 1;
-        }
-
         Ok(removed_page_num)
     }
 }
 
 /// Create ORM JSON object from OrmTrackedSubjectChange and shape.
-pub(crate) fn materialize_orm_object(change: &TrackedOrmObjectChange) -> Value {
-    // TODO: Only materialize select part.
+pub(crate) fn materialize_orm_object(
+    change: &TrackedOrmObjectChange,
+    materialize_nested: bool,
+    all_changes: &OrmChanges,
+) -> Value {
+    // TODO (future): Only materialize select part.
 
     let shape = change.tracked_orm_object.read().unwrap().shape();
     let tormo = change.tracked_orm_object.read().unwrap();
@@ -815,12 +793,24 @@ pub(crate) fn materialize_orm_object(change: &TrackedOrmObjectChange) -> Value {
                 if child.valid != TrackedOrmObjectValidity::Valid {
                     return None;
                 }
-                let nested = json!({
-                    "@id": child.subject_iri,
-                    "@graph": child.graph_iri,
-                    "@shape": child.shape().iri
-                });
-                return Some(nested);
+                if materialize_nested {
+                    let shape_iri_for_child = child.shape_iri();
+                    let graph_changes = all_changes.get(&shape_iri_for_child)?;
+                    let subj_changes = graph_changes.get(&child.graph_iri)?;
+
+                    let nested_change = subj_changes.get(&child.subject_iri)?;
+                    // Recurse with the child's shape
+                    let nested = materialize_orm_object(nested_change, true, all_changes);
+                    return Some(nested);
+                } else {
+                    // Return reference to object only.
+                    let nested = json!({
+                        "@id": child.subject_iri,
+                        "@graph": child.graph_iri,
+                        "@shape": child.shape().iri
+                    });
+                    return Some(nested);
+                }
             };
 
             if is_multi {
