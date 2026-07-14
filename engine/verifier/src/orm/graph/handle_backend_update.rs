@@ -99,9 +99,9 @@ impl Verifier {
                 continue;
             }
 
-            // Filter quads by subject scope if applicable
+            // Filter quads by subject scope and only if within page (if either is set)..
             let (inserts, removes, gs_to_fetch) =
-                filter_quads_by_subject_scope_if_necessary(&orm_subscription, inserts, removes);
+                filter_quads_for_scope_and_page_bounds(&orm_subscription, inserts, removes);
 
             // If we have an ordered page, it might be that new quads arrived whose value is within the window bounds.
             // In that case we have to add the graph+subject to the tormo and query the related quads.
@@ -290,7 +290,7 @@ fn create_object_and_atomic_patches(
                     && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
                 {
                     // Process predicate changes for this valid subject
-                    atomic_patches.extend(create_patches_for_orm_change(
+                    atomic_patches.extend(create_patches_for_object_change(
                         graph_iri,
                         &escaped_subject,
                         &escaped_shape,
@@ -304,7 +304,7 @@ fn create_object_and_atomic_patches(
     [create_object_patches, atomic_patches].concat()
 }
 
-fn create_patches_for_orm_change(
+fn create_patches_for_object_change(
     graph: &String,
     escaped_subject: &String,
     escaped_shape: &String,
@@ -556,85 +556,103 @@ fn update_order_and_create_patches(
 
     let mut patches: Vec<OrmPatch> = Vec::new();
     let mut out_of_bounds_tormos: Vec<(GraphIri, SubjectIri)> = Vec::new();
+    let mut upper_offset_shift: i32 = 0;
+    let is_paginated = orm_subscription.config.page_size > 0;
+    let in_grow_mode = is_paginated && orm_subscription.config.max_active_pages == 0;
+
+    // If in pagination and an item is inserted at the very beginning or end,
+    // we assume that it went out of bounds and we remove / untrack it.
+    let should_skip_insert = |at_start: bool, at_end: bool| -> bool {
+        if !is_paginated {
+            return false;
+        }
+        if in_grow_mode && at_start {
+            return false;
+        }
+
+        at_end || at_end
+    };
 
     // Create JSON patches from change_ops and update ordering.tormos.
-    match &mut orm_subscription.ordering_info {
-        Some(ordering) => {
-            for op in change_ops {
-                match op {
-                    OrderOperation::Add(new_key, tormo) => {
-                        ordering.tormos.insert(new_key.clone(), tormo.clone());
-                        let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
-                        let graph_iri = &tormo.read().unwrap().graph_iri;
-                        let subject_iri = &tormo.read().unwrap().subject_iri;
+    let ordering = orm_subscription.ordering_info.as_mut().unwrap();
+    for op in change_ops {
+        match op {
+            OrderOperation::Add(new_key, tormo) => {
+                ordering.tormos.insert(new_key.clone(), tormo.clone());
+                let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
+                let graph_iri = &tormo.read().unwrap().graph_iri;
+                let subject_iri = &tormo.read().unwrap().subject_iri;
 
-                        // If the item was inserted at the very beginning or end,
-                        // we assume that it went out of bounds and we remove / untrack it.
-                        if (insert_index == ordering.tormos.len() - 1 || insert_index == 0)
-                            && !ordering.tormos.is_empty()
-                        {
-                            ordering.tormos.remove(&new_key);
-                            out_of_bounds_tormos.push((graph_iri.clone(), subject_iri.clone()));
-                        } else {
-                            patches.push(OrmPatch {
-                                op: OrmPatchOp::add,
-                                path: format!("/{insert_index}"),
-                                value: Some(json!({
-                                    "@graph": graph_iri,
-                                    "@id": subject_iri,
-                                    "@shape": root_shape_iri,
-                                })),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    OrderOperation::Remove(old_key) => {
-                        let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
-                        ordering.tormos.remove(&old_key);
+                if should_skip_insert(insert_index == 0, insert_index == ordering.tormos.len() - 1)
+                    && !ordering.tormos.is_empty()
+                {
+                    ordering.tormos.remove(&new_key);
+                    out_of_bounds_tormos.push((graph_iri.clone(), subject_iri.clone()));
+                } else {
+                    patches.push(OrmPatch {
+                        op: OrmPatchOp::add,
+                        path: format!("/{insert_index}"),
+                        value: Some(json!({
+                            "@graph": graph_iri,
+                            "@id": subject_iri,
+                            "@shape": root_shape_iri,
+                        })),
+                        ..Default::default()
+                    });
+                    upper_offset_shift += 1;
+                }
+            }
+            OrderOperation::Remove(old_key) => {
+                let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
+                ordering.tormos.remove(&old_key);
 
-                        patches.push(OrmPatch {
-                            op: OrmPatchOp::remove,
-                            path: format!("/{remove_index}"),
-                            ..Default::default()
-                        });
-                    }
-                    OrderOperation::Move(old_key, new_key) => {
-                        let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
-                        let tormo = ordering.tormos.remove(&old_key).unwrap();
-                        ordering.tormos.insert(new_key.clone(), tormo);
-                        let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
+                patches.push(OrmPatch {
+                    op: OrmPatchOp::remove,
+                    path: format!("/{remove_index}"),
+                    ..Default::default()
+                });
+                upper_offset_shift -= 1;
+            }
+            OrderOperation::Move(old_key, new_key) => {
+                let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
+                let tormo = ordering.tormos.remove(&old_key).unwrap();
+                ordering.tormos.insert(new_key.clone(), tormo);
+                let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
 
-                        // If the item was inserted at the very beginning or end,
-                        // we assume that it went out of bounds and we remove / untrack it.
-                        if (insert_index == ordering.tormos.len() - 1 || insert_index == 0)
-                            && !ordering.tormos.is_empty()
-                        {
-                            let removed_tormo = ordering.tormos.remove(&new_key).unwrap();
-                            out_of_bounds_tormos.push((
-                                removed_tormo.read().unwrap().graph_iri.clone(),
-                                removed_tormo.read().unwrap().subject_iri.clone(),
-                            ));
+                // If the item was inserted at the very beginning or end,
+                // we assume that it went out of bounds and we remove / untrack it.
+                if should_skip_insert(insert_index == 0, insert_index == ordering.tormos.len() - 1)
+                    && !ordering.tormos.is_empty()
+                {
+                    let removed_tormo = ordering.tormos.remove(&new_key).unwrap();
+                    out_of_bounds_tormos.push((
+                        removed_tormo.read().unwrap().graph_iri.clone(),
+                        removed_tormo.read().unwrap().subject_iri.clone(),
+                    ));
 
-                            patches.push(OrmPatch {
-                                op: OrmPatchOp::remove,
-                                path: format!("/{}", remove_index),
-                                ..Default::default()
-                            });
-                        } else {
-                            patches.push(OrmPatch {
-                                op: OrmPatchOp::move_,
-                                from: Some(format!("/{}", remove_index)),
-                                path: format!("/{}", insert_index),
-                                ..Default::default()
-                            });
-                        }
-                    }
+                    patches.push(OrmPatch {
+                        op: OrmPatchOp::remove,
+                        path: format!("/{}", remove_index),
+                        ..Default::default()
+                    });
+                    upper_offset_shift -= 1;
+                } else {
+                    patches.push(OrmPatch {
+                        op: OrmPatchOp::move_,
+                        from: Some(format!("/{}", remove_index)),
+                        path: format!("/{}", insert_index),
+                        ..Default::default()
+                    });
                 }
             }
         }
-        _ => unreachable!(),
     }
 
+    if let Some((_limit, _lower_offset, upper_offset)) = ordering.limit_lower_upper_offset.as_mut()
+    {
+        *upper_offset =
+            usize::try_from(*upper_offset as i32 + upper_offset_shift).unwrap_or(*upper_offset)
+    }
     // Remove tormos that were added/moved out of bounds.
     for (graph_iri, subject_iri) in out_of_bounds_tormos {
         orm_subscription.remove_tracked_orm_object(&graph_iri, &subject_iri, &root_shape_iri);
@@ -645,13 +663,14 @@ fn update_order_and_create_patches(
 
 /// Filters quads by subject scope (and page if present). If the subscription has no subject scope and no ordering,
 /// returns borrowed references to the original slices (no allocation).
-/// Otherwise, returns owned filtered vectors.
-fn filter_quads_by_subject_scope_if_necessary<'a>(
+/// Otherwise, returns owned filtered vectors and a set of g-s pairs that need fetching.
+fn filter_quads_for_scope_and_page_bounds<'a>(
     subscription: &OrmSubscription,
     inserts: &'a [Quad],
     removes: &'a [Quad],
 ) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>, HashSet<GraphSubjectKey>) {
-    if subscription.subject_scope.is_empty() && subscription.ordering_info.is_none() {
+    let has_pagination = subscription.config.page_size != 0;
+    if subscription.subject_scope.is_empty() && !has_pagination {
         (
             Cow::Borrowed(inserts),
             Cow::Borrowed(removes),
@@ -684,8 +703,8 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
                 graphs_in_scope.is_empty() || graphs_in_scope.contains(&graph_subject.0);
             let is_in_subject_scope =
                 subjects_in_scope.is_empty() || subjects_in_scope.contains(&graph_subject.1);
-            if is_in_subject_scope && is_in_graph_scope {
-                return true;
+            if !is_in_subject_scope && !is_in_graph_scope {
+                return false;
             }
 
             if !is_insert {
@@ -696,7 +715,9 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
             // the quad is of relevance and we schedule it's g-s for fetching.
             let in_grow_mode =
                 subscription.config.max_active_pages == 0 && subscription.config.page_size > 0;
-            if !in_grow_mode {
+
+            // ... but only when we are tracking all items or all loaded pages (no max_active_pages).
+            if !in_grow_mode && has_pagination {
                 return false;
             } else {
                 let in_range = page_window_bounds.as_ref().map_or(
@@ -708,6 +729,7 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
                                 first,
                                 last,
                                 *is_asc,
+                                in_grow_mode,
                             )
                     },
                 );
@@ -765,10 +787,19 @@ fn is_order_value_in_window_range(
     first_window_value: &BasicType,
     last_window_value: &BasicType,
     order_direction: OrderDirection,
+    checker_upper_bound_only: bool,
 ) -> bool {
-    if order_direction == OrderDirection::Ascending {
-        first_window_value <= value && value <= last_window_value
+    if !checker_upper_bound_only {
+        if order_direction == OrderDirection::Ascending {
+            first_window_value <= value && value <= last_window_value
+        } else {
+            last_window_value <= value && value <= first_window_value
+        }
     } else {
-        last_window_value <= value && value <= first_window_value
+        if order_direction == OrderDirection::Ascending {
+            value <= last_window_value
+        } else {
+            value >= last_window_value
+        }
     }
 }

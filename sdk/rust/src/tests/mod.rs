@@ -164,6 +164,42 @@ async fn await_graph_patches(receiver: &mut UnboundedReceiver<AppResponse>) -> V
     .await
 }
 
+async fn await_graph_patches_empty_if_timeout(
+    receiver: &mut UnboundedReceiver<AppResponse>,
+) -> Vec<OrmPatch> {
+    await_app_response_none_if_timeout(receiver, |res| match res {
+        AppResponseV0::GraphOrmUpdate(patches) => Some(patches),
+        _ => None,
+    })
+    .await
+    .unwrap_or(vec![])
+}
+
+async fn await_app_response_none_if_timeout<T, F>(
+    receiver: &mut UnboundedReceiver<AppResponse>,
+    mut matcher: F,
+) -> Option<T>
+where
+    F: FnMut(AppResponseV0) -> Option<T>,
+{
+    loop {
+        let res = timeout(Duration::from_millis(200), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => return None,
+        };
+        match opt {
+            Some(app_response) => {
+                let AppResponse::V0(v0) = app_response;
+                if let Some(val) = matcher(v0) {
+                    return Some(val);
+                }
+            }
+            None => panic!("ORM receiver closed before expected response"),
+        }
+    }
+}
+
 async fn await_app_response<T, F>(
     receiver: &mut UnboundedReceiver<AppResponse>,
     mut matcher: F,

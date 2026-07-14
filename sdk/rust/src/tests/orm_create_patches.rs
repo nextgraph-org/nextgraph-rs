@@ -12,9 +12,9 @@ use crate::local_broker::{self, doc_sparql_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
     add_graph_fields, assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact,
-    augment_expected_with_graph_fields, await_graph_patches, create_doc_with_data,
-    create_orm_connection, create_orm_connection_with_conf, extract_graph_from_actual_paths,
-    rewrite_expected_paths_with_graph,
+    augment_expected_with_graph_fields, await_graph_patches, await_graph_patches_empty_if_timeout,
+    create_doc_with_data, create_orm_connection, create_orm_connection_with_conf,
+    extract_graph_from_actual_paths, rewrite_expected_paths_with_graph,
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
@@ -51,6 +51,8 @@ async fn test_orm_patch_creation() {
     test_add_remove_move_in_plain_sorted(session_id).await;
 
     test_add_remove_move_in_pagination(session_id).await;
+
+    test_add_remove_move_in_pagination_grow_mode(session_id).await;
 }
 
 /// Test that when a root object references a child object that lives in a different graph,
@@ -1954,10 +1956,6 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
         json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}]}),
     )
     .await;
-    log_info!(
-        "[test_add_remove_in_sorted] initial: {:?}",
-        initial.to_string()
-    );
 
     assert_json_eq(
         &json!([
@@ -2055,32 +2053,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
         },
     ]);
     let mut expected_structural_patches = json!([
-        // Structural patches
-        {
-            "op": "add",
-            "path": "/6",
-            "value": {
-                "@id": "did:ng:z:sortObj0",
-                "@shape": "did:ng:z:SortShape",
-            }
-        },
-        {
-            "op": "move",
-            "from": "/5",
-            "path": "/4"
-        },
-        {
-            "op": "remove",
-            "path": "/3",
-        },
-        {
-            "op": "add",
-            "path": "/1",
-            "value": {
-                "@id": "did:ng:z:sortObj515",
-                "@shape": "did:ng:z:SortShape",
-            }
-        },
+        // Order patches
         {
             "op": "add",
             "path": "/0",
@@ -2089,6 +2062,31 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
                 "@shape": "did:ng:z:SortShape",
             }
         },
+        {
+            "op": "add",
+            "path": "/2",
+            "value": {
+                "@id": "did:ng:z:sortObj515",
+                "@shape": "did:ng:z:SortShape",
+            }
+        },
+        {
+            "op": "remove",
+            "path": "/5",
+        },
+        {
+            "op": "move",
+            "from": "/6",
+            "path": "/5"
+        },
+        {
+            "op": "add",
+            "path": "/7",
+            "value": {
+                "@id": "did:ng:z:sortObj0",
+                "@shape": "did:ng:z:SortShape"
+            }
+        }
     ]);
 
     log_info!(
@@ -2116,10 +2114,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
 async fn test_add_remove_move_in_pagination(session_id: u64) {
     // Things to test:
     // Object in window get's invalid
-    // page shifts
-    // page becomes empty -> shift
-    // forward shift
-    // backward shift
+    // page becomes empty
 
     let doc_nuri = create_doc_with_data(
         session_id,
@@ -2129,7 +2124,7 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
                 <did:ng:z:sortObj2> a ex:SortObject ;
                                     ex:sortBy 2 ;
                                     ex:sortBy2 2 .
-                <did:ng:z:sortObj1AndThen23> a ex:SortObject ;
+                <did:ng:z:sortObj1> a ex:SortObject ;
                                     ex:sortBy 1 ;
                                     ex:sortBy2 1 .
                 <did:ng:z:sortObj4> a ex:SortObject ;
@@ -2206,28 +2201,291 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
     };
 
     // Sort by two predicates.
-    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
         vec![doc_nuri.clone()],
         vec![], // All objects
         shape_type.clone(),
         session_id,
-        json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}], "pageSize": 2, "maxActivePages": 2}),
+        json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}], "pageSize": 3, "maxActivePages": 2}),
     )
     .await;
-    log_info!(
-        "[test_add_remove_in_sorted] initial: {:?}",
-        initial.to_string()
-    );
 
     assert_json_eq(
-        &json!({
-            "0": {
-                "items": [
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
-                ]
+        &json!([
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+        ]),
+        &initial,
+    );
+
+    // Make modifications above, below and in between (move).
+    // None should have an effect.
+    doc_sparql_update(
+        session_id,
+        format!(
+            r#"
+                PREFIX ex: <did:ng:z:>
+                INSERT DATA {{
+                    GRAPH <{}> {{
+                        ex:sortObj515 a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 1.5 .
+                        ex:sortObj0 a ex:SortObject ;
+                                    ex:sortBy 0 ;
+                                    ex:sortBy2 5 .
+                        ex:sortObj6 a ex:SortObject ;
+                                    ex:sortBy 6 ;
+                                    ex:sortBy2 1 .
+                    }}
+                }} ;
+                DELETE WHERE {{
+                    GRAPH <{}> {{
+                        ex:sortObj3 ?p ?o .
+                    }}
+                }}
+                "#,
+            doc_nuri, doc_nuri
+        ),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    // We expect nothing to happen (non-growing pagination does not track inserted elements).
+    let received_patches = await_graph_patches_empty_if_timeout(&mut receiver).await;
+    log_info!(
+        "[pagination test] after non-relevant insertion: {:?}",
+        json!(received_patches).to_string()
+    );
+
+    assert!(received_patches.is_empty());
+
+    // Move 3rd item to 2nd item.
+    doc_sparql_update(
+        session_id,
+        format!(
+            r#"
+                PREFIX ex: <did:ng:z:>
+                INSERT DATA {{
+                    GRAPH <{}> {{
+                        ex:sortObj4 a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 1.6 .
+                    }}
+                }} ;
+                DELETE WHERE {{
+                    GRAPH <{}> {{
+                        ex:sortObj4 ?p ?o .
+                    }}
+                }}
+                "#,
+            doc_nuri, doc_nuri
+        ),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    let received_patches = await_graph_patches(&mut receiver).await;
+    // We expect a full child object materialization plus members set-add reference.
+    let mut expected_object_patches = json!([
+        // New object patches and atomic changes.
+        {
+            "op": "add",
+            "path": "/did:ng:z:sortObj4|did:ng:z:SortShape/sortBy",
+            "value": 5
+        },
+        {
+            "op": "add",
+            "path": "/did:ng:z:sortObj4|did:ng:z:SortShape/sortBy2",
+            "value": 1.6
+        },
+    ]);
+    let mut expected_structural_patches = json!([
+        { "from": "/2", "op": "move", "path": "/1" }
+    ]);
+
+    let mut actual = json!(received_patches);
+    let actual_structual_patches = actual
+        .as_array_mut()
+        .unwrap()
+        .split_off(expected_object_patches.as_array().unwrap().len());
+    let mut actual_object_patches = actual;
+
+    rewrite_expected_paths_with_graph(&mut expected_object_patches, &doc_nuri);
+    add_graph_fields(&mut expected_object_patches, &doc_nuri);
+    add_graph_fields(&mut expected_structural_patches, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected_object_patches, &mut actual_object_patches);
+    assert_orm_json_eq_exact(
+        &expected_structural_patches,
+        &json!(actual_structual_patches),
+    );
+
+    //
+    // Remove 2nd item on page.
+    doc_sparql_update(
+        session_id,
+        format!(
+            r#"
+                PREFIX ex: <did:ng:z:>
+                DELETE WHERE {{
+                    GRAPH <{}> {{
+                        ex:sortObj52 ?p ?o .
+                    }}
+                }}
+                "#,
+            doc_nuri
+        ),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    let received_patches = await_graph_patches(&mut receiver).await;
+    let expected_patches = json!([
+        {
+            "op": "remove",
+            "path": "/2"
+        },
+    ]);
+
+    assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
+
+    // All items are removed
+    doc_sparql_update(
+        session_id,
+        format!(
+            r#"
+                PREFIX ex: <did:ng:z:>
+                DELETE WHERE {{
+                    GRAPH <{}> {{
+                        ?s ?p ?o .
+                    }}
+                }}
+                "#,
+            doc_nuri
+        ),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    let received_patches = await_graph_patches(&mut receiver).await;
+    let expected_patches = json!([
+        {
+            "op": "remove",
+            "path": "/0"
+        },
+                {
+            "op": "remove",
+            "path": "/0"
+        },
+    ]);
+    assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
+}
+
+async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:sortObj2> a ex:SortObject ;
+                                    ex:sortBy 2 ;
+                                    ex:sortBy2 2 .
+                <did:ng:z:sortObj1> a ex:SortObject ;
+                                    ex:sortBy 1 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj4> a ex:SortObject ;
+                                    ex:sortBy 4 ;
+                                    ex:sortBy2 4 .
+                <did:ng:z:sortObj3> a ex:SortObject ;
+                                    ex:sortBy 3 ;
+                                    ex:sortBy2 3 .
+                <did:ng:z:sortObj51> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj52> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 2 .
             }
-        }),
+    "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy2".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy2".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    // Sort by two predicates.
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}], "pageSize": 2}),
+    )
+    .await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+        ]),
         &initial,
     );
 
@@ -2264,9 +2522,9 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
     .expect("SPARQL update failed");
 
     //
-    let patches = await_graph_patches(&mut receiver).await;
 
-    // We expect a full child object materialization plus members set-add reference.
+    let received_patches = await_graph_patches(&mut receiver).await;
+
     let mut expected_object_patches = json!([
         {
             "op": "add",
@@ -2280,29 +2538,40 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
                 "type": "did:ng:z:SortObject"
             }
         },
+        {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+                "@id": "did:ng:z:sortObj6",
+                "@shape": "did:ng:z:SortShape",
+                "sortBy": 6,
+                "sortBy2": 1,
+                "type": "did:ng:z:SortObject"
+            }
+        },
     ]);
     let mut expected_structural_patches = json!([
         // Insert new item in page
         {
             "op": "add",
-            "path": "/0/items/1",
+            "path": "/0",
+            "value": {
+                "@id": "did:ng:z:sortObj6",
+                "@shape": "did:ng:z:SortShape",
+            }
+        },
+        {
+            "op": "add",
+            "path": "/2",
             "value": {
                 "@id": "did:ng:z:sortObj515",
                 "@shape": "did:ng:z:SortShape",
             }
         },
-        // Remove item that's now out of page size.
-        {
-            "op": "remove",
-            "path": "/0/items/2",
-        },
     ]);
 
-    log_info!(
-        "[pagination test] patches: {:?}",
-        json!(patches).to_string()
-    );
-    let mut actual = json!(patches);
+    let mut actual = json!(received_patches);
     let actual_structual_patches = actual
         .as_array_mut()
         .unwrap()
@@ -2318,118 +2587,4 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
         &expected_structural_patches,
         &json!(actual_structual_patches),
     );
-
-    //
-    // Load previous page (an item was prepended).
-    local_broker::new_orm_graph_previous_page(subscription_id, session_id)
-        .await
-        .expect("Loading previous page failed.");
-
-    let patches = await_graph_patches(&mut receiver).await;
-    log_info!(
-        "[pagination test] previous page patches: {:?}",
-        json!(patches).to_string()
-    );
-
-    let mut expected_patches = json!([
-        {
-            "op": "add",
-            "path": "/-1",
-            "value": {
-                "items": [{
-                    "@id": "did:ng:z:sortObj6",
-                    "@shape": "did:ng:z:SortShape",
-                    "sortBy": 6,
-                    "sortBy2": 1,
-                    "type": "did:ng:z:SortObject"
-                }]
-            }
-        },
-    ]);
-
-    let mut actual = json!(patches);
-
-    rewrite_expected_paths_with_graph(&mut expected_patches, &doc_nuri);
-    add_graph_fields(&mut expected_patches, &doc_nuri);
-
-    assert_orm_json_eq_exact(&expected_patches, &actual);
-
-    //
-    // Remove first item on page 0.
-    doc_sparql_update(
-        session_id,
-        format!(
-            r#"
-                PREFIX ex: <did:ng:z:>
-                DELETE WHERE {{
-                    GRAPH <{}> {{
-                        ex:sortObj51 ?p ?o .
-                    }}
-                }}
-                "#,
-            doc_nuri
-        ),
-        Some(doc_nuri.clone()),
-    )
-    .await
-    .expect("SPARQL update failed");
-
-    let remove_patches = await_graph_patches(&mut receiver).await;
-    log_info!(
-        "[pagination test] remove item patches: {:?}",
-        json!(remove_patches).to_string()
-    );
-    let mut actual = json!(remove_patches);
-    let mut expected_patches = json!([
-        {
-            "op": "remove",
-            "path": "/0/items/0"
-        },
-        {
-            "op": "add",
-            "path": "/0/items/1",
-            "value": {
-                "@id": "did:ng:z:sortObj52",
-                "@shape": "did:ng:z:SortShape",
-                "sortBy": 5,
-                "sortBy2": 2,
-                "type": "did:ng:z:SortObject",
-            }
-        }
-    ]);
-
-    rewrite_expected_paths_with_graph(&mut expected_patches, &doc_nuri);
-    add_graph_fields(&mut expected_patches, &doc_nuri);
-
-    assert_orm_json_eq_exact(&expected_patches, &actual);
-
-    //
-    // Another item is added in page -1.
-    doc_sparql_update(
-        session_id,
-        format!(
-            r#"
-                PREFIX ex: <did:ng:z:>
-                INSERT DATA {{
-                    GRAPH <{}> {{
-                        ex:sortObj515 a ex:SortObject ;
-                        ex:sortBy 5 ;
-                        ex:sortBy2 1.5 .
-                    }}
-                }}
-           "#,
-            doc_nuri
-        ),
-        Some(doc_nuri.clone()),
-    )
-    .await
-    .expect("SPARQL update failed");
-
-    let remove_patches = await_graph_patches(&mut receiver).await;
-    log_info!(
-        "[pagination test] add to page -1 patches: {:?}",
-        json!(remove_patches).to_string()
-    );
-
-    // New page is loaded
 }
