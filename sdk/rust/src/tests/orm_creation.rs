@@ -653,6 +653,10 @@ async fn test_orm_creation() {
     log_info!("=== Starting test test_sort_paginated ===");
     test_sort_paginated(session_id).await;
     log_info!("=== Test test_sort_paginated ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_sort_paginated_grow_mode ===");
+    test_sort_paginated_grow_mode(session_id).await;
+    log_info!("=== Test test_sort_paginated_grow_mode ran successfully ===\n\n");
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -3017,14 +3021,10 @@ INSERT DATA {
     .await;
 
     assert_orm_json_eq_exact(
-        &json!({
-            "0": {
-                "items": [
-                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
-                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
-                ]
-            }
-        }),
+        &json!([
+                {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+        ]),
         &initial,
     );
 
@@ -3041,14 +3041,23 @@ INSERT DATA {
     assert_orm_json_eq_exact(
         &json!([{
             "op": "add",
-            "path": "/1",
-            "value": {
-                "items": [
-                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj5", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 5},
-                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj6", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 6},
-                ]
-            }
-        }]),
+            "path": "/2",
+            "value":  {
+                "sortBy": 5,
+                "@id": "did:ng:z:sortObj5",
+                "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+            },
+        },
+        {
+            "op": "add",
+            "path": "/3",
+            "value":  {
+                "sortBy": 6,
+                "@id": "did:ng:z:sortObj6",
+                "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+            },
+        }
+        ]),
         &json!(new_page_patches),
     );
 
@@ -3063,22 +3072,259 @@ INSERT DATA {
     let new_page_patches = await_graph_patches(&mut receiver).await;
 
     assert_orm_json_eq_exact(
+        &json!([
+            {
+                "op": "add",
+                "path": "/4",
+                "value":  {
+                    "sortBy": 7,
+                    "@id": "did:ng:z:sortObj7",
+                    "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/5",
+                "value":  {
+                    "sortBy": 8,
+                    "@id": "did:ng:z:sortObj8",
+                    "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "remove",
+                "path": "/0",
+            },
+            {
+                "op": "remove",
+                "path": "/0",
+            },
+        ]),
+        &json!(new_page_patches),
+    );
+
+    local_broker::new_orm_graph_previous_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+            {
+                "op": "add",
+                "path": "/0",
+                "value":  {
+                    "sortBy": 2,
+                    "@id": "did:ng:z:sortObj2",
+                    "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/1",
+                "value":  {
+                    "sortBy": 4,
+                    "@id": "did:ng:z:sortObj4",
+                    "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "remove",
+                "path": "/4",
+            },
+            {
+                "op": "remove",
+                "path": "/5",
+            },
+        ]),
+        &json!(new_page_patches),
+    );
+}
+
+async fn test_sort_paginated_grow_mode(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:sortObj2> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 2 .
+    <did:ng:z:sortObj1> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 1 .
+    <did:ng:z:sortObj4> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 4 .
+    <did:ng:z:sortObj3> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 3 .
+    <did:ng:z:sortObj5> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 5 .
+    <did:ng:z:sortObj6> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 6 .
+    <did:ng:z:sortObj7> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 7 .
+    <did:ng:z:sortObj8> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 8 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:required".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "required".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: Some(vec![BasicType::Str("required".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2,}),
+    )
+    .await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+                {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+        ]),
+        &initial,
+    );
+
+    //
+    // Now test requesting the next page.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
         &json!([{
-            "op": "remove",
-            "path": "/0",
+            "op": "add",
+            "path": "/2",
+            "value":  {
+                "sortBy": 5,
+                "@id": "did:ng:z:sortObj5",
+                "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+            },
         },
         {
             "op": "add",
-            "path": "/2",
-            "value": {
-                "items": [
-                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj7", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 7},
-                    {"@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "@id": "did:ng:z:sortObj8", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 8},
-                ]
-            }
-        }]),
+            "path": "/3",
+            "value":  {
+                "sortBy": 6,
+                "@id": "did:ng:z:sortObj6",
+                "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+            },
+        }
+        ]),
         &json!(new_page_patches),
     );
+
+    //
+    // Now test requesting a 3rd page which is above maxActivePages.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+            {
+                "op": "add",
+                "path": "/4",
+                "value":  {
+                    "sortBy": 7,
+                    "@id": "did:ng:z:sortObj7",
+                    "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/5",
+                "value":  {
+                    "sortBy": 8,
+                    "@id": "did:ng:z:sortObj8",
+                    "@graph": doc_nuri, "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "required": "required",
+                },
+            }
+        ]),
+        &json!(new_page_patches),
+    );
+
+    // Loading more items has no effect.
+    local_broker::new_orm_graph_previous_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(&json!([]), &json!(new_page_patches));
 }
 
 //

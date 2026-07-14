@@ -168,94 +168,22 @@ pub enum Term {
 }
 
 #[derive(Debug)]
-pub struct OrmSubscriptionPageInfo {
-    pub limit_heuristic: u64,
-    /// The offset in the sparql queries for the lowest page.
-    pub offset: u64,
-    /// The number of changes that might have affected the current offset.
-    /// This value is reset whenever a new page is queried.
-    pub potential_offset_shift: u64,
-    /// All items that are below the current window and whose changes therefore
-    /// might affect shifts of the offset. Also see potential_offset_shift.
-    pub all_up_to_offset: HashSet<(String, String)>,
+pub struct OrmSubscriptionOrderInfo {
+    /// In case of pagination:
+    /// Element 1: The sparql query limit to use.
+    /// Expected to be higher than page_size because there might be invalid graph-subjects returned.
+    ///
+    /// Element 2: lower offset
+    /// The offset used for the sparql query of the lowest page.
+    ///
+    /// Element 3: higher offset
+    /// The offset used for the sparql query of the highest page.
+    pub limit_lower_upper_offset: Option<(usize, usize, usize)>,
 
-    /// The actively tracked pages. Pages are integers and may become negative.
-    pub pages: OSBTreeMap<i32, OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>>,
-}
-impl OrmSubscriptionPageInfo {
-    pub fn highest_active_page(&self) -> i32 {
-        self.pages
-            .last_key_value()
-            .expect("At least one page must be active")
-            .0
-            .clone()
-    }
-    pub fn lowest_active_page(&self) -> i32 {
-        self.pages
-            .first_key_value()
-            .expect("At least one page must be active")
-            .0
-            .clone()
-    }
-    /// Binary search to find the page and rank of an entry by key.
-    /// If no element is found, returns Err(<page number this key would belong to>).
-    /// ATTENTION: Each page is required to have at least one element.
-    pub fn find_page_and_pos(&self, key: &OrderKey) -> Result<(i32, usize), i32> {
-        let mut upper_page = self.highest_active_page();
-        let mut lower_page = self.lowest_active_page();
-
-        // If there's only one page and it's empty...
-        if upper_page == lower_page && self.pages.get(&upper_page).unwrap().len() == 0 {
-            return Err(lower_page);
-        }
-
-        loop {
-            let current_page_num = upper_page - (upper_page - lower_page) / 2;
-            if current_page_num < self.lowest_active_page() {
-                // Item is below loaded pages. Return the lowest active page instead.
-                return Err(self.lowest_active_page());
-            } else if current_page_num > self.highest_active_page() {
-                // Item is above loaded pages. Return the highest active page instead.
-                return Err(self.highest_active_page());
-            }
-
-            let current_page = self.pages.get(&current_page_num).unwrap();
-            if let Some(rank) = current_page.rank_of(key) {
-                return Ok((current_page_num, rank));
-            }
-
-            let last_key = current_page.last_key_value().unwrap().0;
-            if last_key < key {
-                // Go up in binary search.
-                lower_page = current_page_num + 1;
-                continue;
-            }
-            let first_key = current_page.first_key_value().unwrap().0;
-            if key < first_key {
-                // Go down in binary search.
-                upper_page = current_page_num - 1;
-                continue;
-            }
-
-            // Item is not in page but the key is in its range.
-            return Err(current_page_num);
-        }
-
-        Err(0)
-    }
-}
-#[derive(Debug)]
-pub struct OrmSubscriptionPlainOrderingInfo {
-    pub tormos_ordered: OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>,
+    /// The valid, ordered, actively tracked objects.
+    pub tormos: OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>,
 }
 
-#[derive(Debug)]
-
-pub enum OrmSubscriptionOrderInfo {
-    Plain(OrmSubscriptionPlainOrderingInfo),
-    Pagination(OrmSubscriptionPageInfo),
-    None,
-}
 #[derive(Debug)]
 pub struct OrmSubscription {
     pub shape_type: OrmShapeType,
@@ -265,7 +193,7 @@ pub struct OrmSubscription {
     pub config: OrmConfig,
 
     // Ordering mode and its respective metadata.
-    pub ordering_info: OrmSubscriptionOrderInfo,
+    pub ordering_info: Option<OrmSubscriptionOrderInfo>,
 
     pub sender: Sender<AppResponse>,
     // Keep private: always use the helper methods below to access/modify
@@ -323,20 +251,17 @@ impl OrmSubscription {
             )?;
         }
 
-        let ordering_info: OrmSubscriptionOrderInfo = if config.page_size > 0 {
-            OrmSubscriptionOrderInfo::Pagination(OrmSubscriptionPageInfo {
-                all_up_to_offset: HashSet::new(),
-                pages: OSBTreeMap::new(),
-                limit_heuristic: (config.page_size as f64 * 1.5) as u64,
-                offset: 0,
-                potential_offset_shift: 0,
-            })
-        } else if config.order_by.is_some() {
-            OrmSubscriptionOrderInfo::Plain(OrmSubscriptionPlainOrderingInfo {
-                tormos_ordered: OSBTreeMap::new(),
+        let ordering_info: Option<OrmSubscriptionOrderInfo> = if config.order_by.is_some() {
+            Some(OrmSubscriptionOrderInfo {
+                tormos: OSBTreeMap::new(),
+                limit_lower_upper_offset: if config.page_size > 0 {
+                    Some(((config.page_size as f64 * 1.5) as usize, 0, 0))
+                } else {
+                    None
+                },
             })
         } else {
-            OrmSubscriptionOrderInfo::None
+            None
         };
 
         Ok(Self {
@@ -911,40 +836,22 @@ impl OrmSubscription {
         let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
         let order_predicate_iri = &order_by.iri;
 
-        let page_info = match &self.ordering_info {
-            OrmSubscriptionOrderInfo::Pagination(page_info) => page_info,
-            _ => return None,
+        let Some(order_info) = self.ordering_info.as_ref() else {
+            return None;
         };
 
-        let first_key = page_info.pages.first_key_value()?.1.first_key_value()?.0;
-        let last_key = page_info.pages.last_key_value()?.1.last_key_value()?.0;
+        let first_key = order_info.tormos.first_key_value()?.0;
+        let last_key = order_info.tormos.last_key_value()?.0;
+        let first_first_order_basic_type = first_key.val_types[0].0.clone();
+        let last_first_order_basic_type = last_key.val_types[0].0.clone();
 
         Some((
             order_predicate_iri,
             *asc,
-            first_key.val_types[0].0.clone(),
-            last_key.val_types[0].0.clone(),
+            first_first_order_basic_type,
+            last_first_order_basic_type,
         ))
     }
-
-    // pub fn get_page_window_bounds(&self) -> Option<(OrderKey, OrderKey)> {
-    //     let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
-    //     let order_predicate_iri = &order_by.iri;
-
-    //     let page_info = match &self.ordering_info {
-    //         OrmSubscriptionOrderInfo::Pagination(page_info) => page_info,
-    //         _ => return None,
-    //     };
-    //     let lowest_page = page_info.pages.first_key_value().unwrap().1;
-    //     let highest_page = page_info.pages.last_key_value().unwrap().1;
-    //     if let Some((lowest_key, _lowest_item)) = lowest_page.first_key_value() {
-    //         if let Some((highest_key, _highest_item)) = highest_page.last_key_value() {
-    //             return Some((lowest_key.clone(), highest_key.clone()));
-    //         }
-    //     }
-
-    //     None
-    // }
 }
 
 fn clone_shape(shape: &OrmSchemaShape) -> OrmSchemaShape {

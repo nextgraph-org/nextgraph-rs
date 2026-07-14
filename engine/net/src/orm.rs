@@ -369,6 +369,15 @@ impl OrmConfig {
             )),
         }
     }
+
+    /// Returns Some(page_size * max_active_pages), if both are set, else None.
+    pub fn max_allowed_items(&self) -> Option<usize> {
+        if self.max_active_pages > 0 && self.page_size > 0 {
+            Some(self.max_active_pages * self.page_size)
+        } else {
+            None
+        }
+    }
 }
 
 impl Default for OrmSchemaDataType {

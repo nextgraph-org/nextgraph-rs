@@ -350,7 +350,7 @@ impl Verifier {
     pub fn query_graph_subjects(
         &self,
         orm_subscription: &OrmSubscription,
-        limit_offset: Option<(u64, u64)>,
+        limit_offset: Option<(usize, usize)>,
     ) -> Result<Vec<(GraphIri, SubjectIri)>, NgError> {
         let nuris = &orm_subscription.graph_scope;
         let graph_scope: Option<&Vec<String>> = if nuris.is_empty() {
@@ -403,7 +403,7 @@ pub fn schema_shape_to_sparql(
     filter_graphs: Option<&Vec<String>>,   // graph IRIs to include
     where_config: Option<&WhereConfig>,
     order_by_config: Option<&OrderByConfig>,
-    limit_offset: Option<(u64, u64)>,
+    limit_offset: Option<(usize, usize)>,
     subject_and_graph_only: bool,
 ) -> String {
     // Variable counter for internal object vars (avoid clashing with ?s ?p ?o ?g)

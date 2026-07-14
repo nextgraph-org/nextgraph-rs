@@ -8,22 +8,17 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::ops::Index;
+
 use std::sync::Arc;
 use std::sync::RwLock;
-use std::sync::RwLockReadGuard;
 
 use futures::SinkExt;
-use ng_net::orm::OrmPatchOp::move_;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
-use wabi_tree::OSBTreeMap;
 
 use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::initialize::materialize_orm_object;
@@ -104,10 +99,6 @@ impl Verifier {
                 continue;
             }
 
-            // If subscription is paginated, this will increase the count of potential shifts
-            // to the SPARQL OFFSET of the page order query.
-            update_potential_offset_shift_count(&mut orm_subscription, inserts, removes);
-
             // Filter quads by subject scope if applicable
             let (inserts, removes, gs_to_fetch) =
                 filter_quads_by_subject_scope_if_necessary(&orm_subscription, inserts, removes);
@@ -167,7 +158,7 @@ impl Verifier {
                 log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
             }
 
-            // If order_by (and possibly pagination) is active: Update the orm_subscription ordering metadata
+            // If order_by (and possibly pagination) is active: Updates the orm_subscription ordering metadata
             // and create order-related patches in that process.
             let order_patches =
                 update_order_and_create_patches(&mut orm_subscription, &orm_changes);
@@ -543,15 +534,12 @@ fn update_order_and_create_patches(
     }
 
     // REMOVE when moved to pos 0 or end
-    // rolling: no objects
-    // unless grow (only when at end)
-    // is quad affected
-    // - don't take secondary in to account -> document (affects rolling/simple at the end)
-    // - only for grow-mode (rolling, simple nothing)
-    // **don't update offset** so much
 
-    // Sort the changes to be done: makes testing easier, and by reverse sorting
-    // reduce the amount of elements shifted in the target array.
+    // Rolling (multiple active pages)
+    // Simple pagination (single active page)
+    // Growing pagination (no prev(), everything kept)
+
+    // Sort the changes to be done: makes testing easier.
     change_ops.sort_unstable_by(|op1, op2| {
         let key1 = match op1 {
             OrderOperation::Add(new_key, _) => new_key,
@@ -563,37 +551,46 @@ fn update_order_and_create_patches(
             OrderOperation::Remove(old_key) => old_key,
             OrderOperation::Move(old_key, _new_key) => old_key,
         };
-        return key2.cmp(key1);
+        return key1.cmp(key2);
     });
 
-    // Create JSON patches from change_ops.
     let mut patches: Vec<OrmPatch> = Vec::new();
+    let mut out_of_bounds_tormos: Vec<(GraphIri, SubjectIri)> = Vec::new();
+
+    // Create JSON patches from change_ops and update ordering.tormos.
     match &mut orm_subscription.ordering_info {
-        OrmSubscriptionOrderInfo::Plain(ordering) => {
+        Some(ordering) => {
             for op in change_ops {
                 match op {
                     OrderOperation::Add(new_key, tormo) => {
-                        ordering
-                            .tormos_ordered
-                            .insert(new_key.clone(), tormo.clone());
-                        let insert_index = ordering.tormos_ordered.rank_of(&new_key).unwrap();
+                        ordering.tormos.insert(new_key.clone(), tormo.clone());
+                        let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
                         let graph_iri = &tormo.read().unwrap().graph_iri;
                         let subject_iri = &tormo.read().unwrap().subject_iri;
 
-                        patches.push(OrmPatch {
-                            op: OrmPatchOp::add,
-                            path: format!("/{insert_index}"),
-                            value: Some(json!({
-                                "@graph": graph_iri,
-                                "@id": subject_iri,
-                                "@shape": root_shape_iri,
-                            })),
-                            ..Default::default()
-                        });
+                        // If the item was inserted at the very beginning or end,
+                        // we assume that it went out of bounds and we remove / untrack it.
+                        if (insert_index == ordering.tormos.len() - 1 || insert_index == 0)
+                            && !ordering.tormos.is_empty()
+                        {
+                            ordering.tormos.remove(&new_key);
+                            out_of_bounds_tormos.push((graph_iri.clone(), subject_iri.clone()));
+                        } else {
+                            patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                path: format!("/{insert_index}"),
+                                value: Some(json!({
+                                    "@graph": graph_iri,
+                                    "@id": subject_iri,
+                                    "@shape": root_shape_iri,
+                                })),
+                                ..Default::default()
+                            });
+                        }
                     }
                     OrderOperation::Remove(old_key) => {
-                        let remove_index = ordering.tormos_ordered.rank_of(&old_key).unwrap();
-                        ordering.tormos_ordered.remove(&old_key);
+                        let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
+                        ordering.tormos.remove(&old_key);
 
                         patches.push(OrmPatch {
                             op: OrmPatchOp::remove,
@@ -602,263 +599,45 @@ fn update_order_and_create_patches(
                         });
                     }
                     OrderOperation::Move(old_key, new_key) => {
-                        let remove_index = ordering.tormos_ordered.rank_of(&old_key).unwrap();
-                        let tormo = ordering.tormos_ordered.remove(&old_key).unwrap();
-                        ordering.tormos_ordered.insert(new_key.clone(), tormo);
-                        let insert_index = ordering.tormos_ordered.rank_of(&new_key).unwrap();
+                        let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
+                        let tormo = ordering.tormos.remove(&old_key).unwrap();
+                        ordering.tormos.insert(new_key.clone(), tormo);
+                        let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
 
-                        patches.push(OrmPatch {
-                            op: OrmPatchOp::move_,
-                            from: Some(format!("/{}", remove_index)),
-                            path: format!("/{}", insert_index),
-                            ..Default::default()
-                        });
-                    }
-                }
-            }
-        }
-        OrmSubscriptionOrderInfo::Pagination(page_info) => {
-            let page_size = orm_subscription.config.page_size;
+                        // If the item was inserted at the very beginning or end,
+                        // we assume that it went out of bounds and we remove / untrack it.
+                        if (insert_index == ordering.tormos.len() - 1 || insert_index == 0)
+                            && !ordering.tormos.is_empty()
+                        {
+                            let removed_tormo = ordering.tormos.remove(&new_key).unwrap();
+                            out_of_bounds_tormos.push((
+                                removed_tormo.read().unwrap().graph_iri.clone(),
+                                removed_tormo.read().unwrap().subject_iri.clone(),
+                            ));
 
-            /// Iterates over all pages and ensures that all pages contain exactly <page size> items.
-            fn create_page_shifts(
-                page_info: &mut OrmSubscriptionPageInfo,
-                patches: &mut Vec<OrmPatch>,
-                page_size: usize,
-            ) {
-                let mut current_page_num = page_info.lowest_active_page();
-                while current_page_num <= page_info.highest_active_page() {
-                    let current_len = page_info.pages.get(&current_page_num).unwrap().len();
-                    let highest_active_page = page_info.highest_active_page();
-
-                    // Case: Too many in current page. Move to next (or remove if max_active pages is reached).
-                    if current_len > page_size {
-                        let extra = current_len - page_size;
-                        for _i in 0..extra {
-                            let (move_key, move_val, from_idx) = {
-                                let current_page =
-                                    page_info.pages.get_mut(&current_page_num).unwrap();
-                                let from_idx = current_page.len() - 1;
-                                let (move_key, move_val) = current_page.pop_last().unwrap();
-                                (move_key, move_val, from_idx)
-                            };
-
-                            // No more pages loaded above?
-                            if current_page_num == highest_active_page {
-                                // Remove everything above.
-                                patches.push(OrmPatch {
-                                    op: OrmPatchOp::remove,
-                                    path: format!("/{current_page_num}/items/{from_idx}"),
-                                    ..Default::default()
-                                });
-                            } else {
-                                // Move items to next page.
-
-                                // No next page yet?
-                                if page_info.pages.get(&(current_page_num + 1)).is_none() {
-                                    page_info
-                                        .pages
-                                        .insert(current_page_num + 1, OSBTreeMap::new());
-
-                                    patches.push(OrmPatch {
-                                        op: OrmPatchOp::add,
-                                        path: format!("/{}", current_page_num + 1),
-                                        value: Some(json!({
-                                            "items": [],
-                                        })),
-                                        ..Default::default()
-                                    });
-                                }
-
-                                page_info
-                                    .pages
-                                    .get_mut(&(current_page_num + 1))
-                                    .unwrap()
-                                    .insert(move_key, move_val);
-
-                                patches.push(OrmPatch {
-                                    op: OrmPatchOp::move_,
-                                    path: format!("/{}/items/0", current_page_num + 1),
-                                    from: Some(format!("/{current_page_num}/items/{from_idx}")),
-                                    ..Default::default()
-                                });
-                            }
-                        }
-                    } else if current_len < page_size {
-                        // Case: Not enough in current page: get from next page.
-
-                        for _i in 0..(page_size - current_len) {
-                            if let Some(next_page) = page_info.pages.get(&(current_page_num + 1)) {
-                                if next_page.len() > 0 {
-                                    // Case: There are items in the next page we can move here.
-                                    let (move_key, move_val) = page_info
-                                        .pages
-                                        .get_mut(&(current_page_num + 1))
-                                        .unwrap()
-                                        .pop_first()
-                                        .unwrap();
-
-                                    let target_idx =
-                                        page_info.pages.get(&current_page_num).unwrap().len();
-
-                                    page_info
-                                        .pages
-                                        .get_mut(&current_page_num)
-                                        .unwrap()
-                                        .insert(move_key, move_val);
-
-                                    patches.push(OrmPatch {
-                                        op: OrmPatchOp::move_,
-                                        path: format!("/{current_page_num}/items/{target_idx}"),
-                                        from: Some(format!("/{}/items/0", current_page_num + 1)),
-                                        ..Default::default()
-                                    });
-                                } else {
-                                    // The next page is empty so we delete it...
-                                    page_info.pages.remove(&(current_page_num + 1));
-                                    patches.push(OrmPatch {
-                                        op: OrmPatchOp::remove,
-                                        path: format!("/{}", current_page_num + 1),
-                                        ..Default::default()
-                                    });
-                                    // ...But are there more pages after that?
-                                    if current_page_num + 1 < page_info.highest_active_page() {
-                                        // We move all behind by one.
-                                        // Note that we need to move them because the root is an object and not an array.
-
-                                        let highest = page_info.highest_active_page();
-                                        for target_page_num in (current_page_num + 1)..highest {
-                                            let from_page_num = target_page_num + 1;
-                                            let move_page =
-                                                page_info.pages.remove(&from_page_num).unwrap();
-
-                                            page_info.pages.insert(target_page_num, move_page);
-
-                                            patches.push(OrmPatch {
-                                                op: OrmPatchOp::move_,
-                                                path: format!("/{target_page_num}",),
-                                                from: Some(format!("/{}", from_page_num)),
-                                                ..Default::default()
-                                            });
-                                        }
-                                        // Note: We don't increase current_page_num because we haven't moved items to this page yet.
-                                        continue;
-                                    }
-                                }
-                            } else {
-                                // No more pages, we are done.
-                                break;
-                            }
-                        }
-                    } else {
-                        // Case: exactly enough in current page: Do nothing
-                    }
-                    current_page_num += 1;
-                }
-            }
-
-            for op in change_ops {
-                match op {
-                    OrderOperation::Add(new_key, tormo) => {
-                        match page_info.find_page_and_pos(&new_key) {
-                            Err(target_page_num) => {
-                                let new_pos = {
-                                    let target_page =
-                                        page_info.pages.get_mut(&target_page_num).unwrap();
-                                    target_page.insert(new_key.clone(), Arc::clone(&tormo));
-                                    target_page.rank_of(&new_key).unwrap()
-                                };
-
-                                let (graph_iri, subject_iri) = {
-                                    let tormo_guard = tormo.read().unwrap();
-                                    (
-                                        tormo_guard.graph_iri.clone(),
-                                        tormo_guard.subject_iri.clone(),
-                                    )
-                                };
-
-                                patches.push(OrmPatch {
-                                    op: OrmPatchOp::add,
-                                    path: format!("/{target_page_num}/items/{new_pos}"),
-                                    value: Some(json!({
-                                        "@graph": graph_iri,
-                                        "@id": subject_iri,
-                                        "@shape": root_shape_iri,
-                                    })),
-                                    ..Default::default()
-                                });
-                            }
-                            Ok(_) => unreachable!(),
-                        }
-                    }
-                    OrderOperation::Remove(old_key) => {
-                        match page_info.find_page_and_pos(&old_key) {
-                            Ok((page_num, item_pos)) => {
-                                let became_empty = {
-                                    let page = page_info.pages.get_mut(&page_num).unwrap();
-                                    page.remove(&old_key);
-                                    page.len() == 0
-                                };
-
-                                patches.push(OrmPatch {
-                                    op: OrmPatchOp::remove,
-                                    path: format!("/{page_num}/items/{item_pos}"),
-                                    ..Default::default()
-                                });
-
-                                if became_empty {
-                                    // No more items in this page. To prevent empty pages,
-                                    // Shift all pages to have <page size> elements.
-                                    create_page_shifts(page_info, &mut patches, page_size);
-                                }
-                            }
-                            Err(_) => unreachable!(),
-                        }
-                    }
-                    OrderOperation::Move(old_key, new_key) => {
-                        // Find old position and remove.
-                        match page_info.find_page_and_pos(&old_key) {
-                            Ok((remove_page_num, remove_item_pos)) => {
-                                let moved_tormo = page_info
-                                    .pages
-                                    .get_mut(&remove_page_num)
-                                    .unwrap()
-                                    .remove(&old_key)
-                                    .unwrap();
-
-                                match page_info.find_page_and_pos(&new_key) {
-                                    Err(target_page_num) => {
-                                        let new_item_pos = {
-                                            let target_page =
-                                                page_info.pages.get_mut(&target_page_num).unwrap();
-                                            target_page.insert(new_key.clone(), moved_tormo);
-                                            target_page.rank_of(&new_key).unwrap()
-                                        };
-
-                                        patches.push(OrmPatch {
-                                            op: OrmPatchOp::move_,
-                                            path: format!(
-                                                "/{target_page_num}/items/{new_item_pos}"
-                                            ),
-                                            from: Some(format!(
-                                                "/{remove_page_num}/items/{remove_item_pos}"
-                                            )),
-                                            ..Default::default()
-                                        });
-                                    }
-                                    Ok(_) => unreachable!(),
-                                }
-                            }
-                            Err(_) => unreachable!(),
+                            patches.push(OrmPatch {
+                                op: OrmPatchOp::remove,
+                                path: format!("/{}", remove_index),
+                                ..Default::default()
+                            });
+                        } else {
+                            patches.push(OrmPatch {
+                                op: OrmPatchOp::move_,
+                                from: Some(format!("/{}", remove_index)),
+                                path: format!("/{}", insert_index),
+                                ..Default::default()
+                            });
                         }
                     }
                 }
             }
-
-            // Ensure that all pages have the same length (by moving items) and create patches for it.
-            create_page_shifts(page_info, &mut patches, page_size);
         }
         _ => unreachable!(),
+    }
+
+    // Remove tormos that were added/moved out of bounds.
+    for (graph_iri, subject_iri) in out_of_bounds_tormos {
+        orm_subscription.remove_tracked_orm_object(&graph_iri, &subject_iri, &root_shape_iri);
     }
 
     patches
@@ -872,9 +651,7 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
     inserts: &'a [Quad],
     removes: &'a [Quad],
 ) -> (Cow<'a, [Quad]>, Cow<'a, [Quad]>, HashSet<GraphSubjectKey>) {
-    if subscription.subject_scope.is_empty()
-        && matches!(subscription.ordering_info, OrmSubscriptionOrderInfo::None)
-    {
+    if subscription.subject_scope.is_empty() && subscription.ordering_info.is_none() {
         (
             Cow::Borrowed(inserts),
             Cow::Borrowed(removes),
@@ -903,9 +680,11 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
             }
 
             // Are we tracking this scope explicitly?
-            let is_in_graph_scope = graphs_in_scope.contains(&graph_subject.0);
-            let is_in_subject_scope = subjects_in_scope.contains(&graph_subject.1);
-            if is_in_subject_scope || is_in_graph_scope {
+            let is_in_graph_scope =
+                graphs_in_scope.is_empty() || graphs_in_scope.contains(&graph_subject.0);
+            let is_in_subject_scope =
+                subjects_in_scope.is_empty() || subjects_in_scope.contains(&graph_subject.1);
+            if is_in_subject_scope && is_in_graph_scope {
                 return true;
             }
 
@@ -914,11 +693,15 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
             }
 
             // Now, if this is a new quad with the order_by predicate and a value that is within the current window,
-            // the quad is of relevance and we schedule it for fetching.
-            let in_range =
-                page_window_bounds
-                    .as_ref()
-                    .map_or(true, |(order_by_pred, is_asc, first, last)| {
+            // the quad is of relevance and we schedule it's g-s for fetching.
+            let in_grow_mode =
+                subscription.config.max_active_pages == 0 && subscription.config.page_size > 0;
+            if !in_grow_mode {
+                return false;
+            } else {
+                let in_range = page_window_bounds.as_ref().map_or(
+                    true,
+                    |(order_by_pred, is_asc, first, last)| {
                         predicate == *order_by_pred
                             && is_order_value_in_window_range(
                                 &oxrdf_term_to_orm_basic_type(&quad.object),
@@ -926,19 +709,20 @@ fn filter_quads_by_subject_scope_if_necessary<'a>(
                                 last,
                                 *is_asc,
                             )
-                    });
-
-            if in_range {
-                if subscription.subject_scope.is_empty()
-                    || subscription.subject_scope.contains(&graph_subject.1)
-                {
-                    // This is a subject that we didn't track before because it was out of range.
-                    // Now it is and we need to fetch it.
-                    graph_subject_needs_fetch.insert(graph_subject);
+                    },
+                );
+                if in_range {
+                    if subscription.subject_scope.is_empty()
+                        || subscription.subject_scope.contains(&graph_subject.1)
+                    {
+                        // This is a subject that we didn't track before because it was out of range.
+                        // Now it is and we need to fetch and validate it.
+                        graph_subject_needs_fetch.insert(graph_subject);
+                    }
                 }
-            }
 
-            in_range
+                in_range
+            }
         };
 
         let filtered_inserts: Vec<Quad> = inserts
@@ -987,46 +771,4 @@ fn is_order_value_in_window_range(
     } else {
         last_window_value <= value && value <= first_window_value
     }
-}
-
-/// Updates page_info.potential_offset_shift if the the inserts or removes
-/// might affect the SPARQL query offset of currently active page.
-fn update_potential_offset_shift_count(
-    subscription: &mut OrmSubscription,
-    inserts: &[Quad],
-    removes: &[Quad],
-) {
-    let Some((pred, order_dir, left, _right)) = subscription.get_page_window_bounds() else {
-        return;
-    };
-    let order_by_pred = pred.to_owned();
-
-    let page_info = match &mut subscription.ordering_info {
-        OrmSubscriptionOrderInfo::Pagination(page_info) => page_info,
-        _ => return,
-    };
-
-    let delta = inserts
-        .iter()
-        .chain(removes.iter())
-        .filter(|q| {
-            let key = (graph_of_quad(q).to_owned(), subject_of_quad(q).to_owned());
-            if page_info.all_up_to_offset.contains(&key) {
-                return true;
-            }
-
-            // Check if predicate is the (primary) order_by predicate and the value is below window.
-            if order_by_pred != q.predicate.as_str() {
-                return false;
-            }
-            let obj = oxrdf_term_to_orm_basic_type(&q.object);
-            if order_dir == OrderDirection::Ascending {
-                left < obj
-            } else {
-                left > obj
-            }
-        })
-        .count() as u64;
-
-    page_info.potential_offset_shift += delta;
 }
