@@ -50,10 +50,6 @@ impl Verifier {
             let graph_subj: Vec<String> = patch_strs[1].split('|').map(|s| s.to_string()).collect();
             let doc_nuri = graph_subj[0].clone();
 
-            /// ## TODOs
-            // - handle inserts of new objects at a position -> if pos is wrong, send move patch
-            // - handle path resolution in array / pagination for deletes
-            //
             let (sparql_update, failed_patches) =
                 create_sparql_update_query_for_patches(orm_subscription, &patches);
 

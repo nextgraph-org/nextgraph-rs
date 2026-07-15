@@ -18,7 +18,6 @@ import {
     watch as watchDeepSignal,
     batch,
     isDeepSignal,
-    RAW_KEY,
 } from "@ng-org/alien-deepsignals";
 import type {
     OnObjectAttachedFn,
@@ -32,7 +31,7 @@ import type {
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 import { ObjectType, OrmConfig } from "../utilTypes.ts";
-import { decodePathSegment, escapePathSegment } from "./utils.ts";
+import { escapePathSegment } from "./utils.ts";
 
 /**
  * Delay in ms to wait before closing subscription.\
@@ -413,28 +412,13 @@ export class OrmSubscription<
         // Send patches to engine.
         this.queuePatches({ patches: deepPatchesToWasm(patches) });
 
-        // Delete calls unregisterTrackedObject
         // TODOs
-        // - [ ] handle move
-        // - [ ] handle delete
-        // - [ ] handle add
-        // - [ ] on adds and deletes: update ref count for children.
 
-        // - [ ] how to deal with react's replace hierarchy; tell child tormos to do the same as root config
+        // - check ordering
+
+        // - [ ] deal with react's replace hierarchy; tell child tormos to do the same as root config
         // - [ ] option in deep signal setting: parents keep track of their replace children and handle that accordingly.
-        // - [ ] error when object with wrong shape is attached
-        //    - [ ] different modes:
-        //          - non-signal object with g,s,sh, nothing more is attached -> sends link, expects object back
-        //          - existing signal object with data and correct g,s,sh is attached -> sends link, expects nothing OR: sends del + everything
-        //          - object with no sh is attached but with data
-        //              - option1: frontend knows schema and adds shape itself <- it would need to find out which shape matches <- duplicate logic but immediate error
-        //              - **option2**: backend sends @shape patch back with move from tmp shape to actual shape
-
-        // - [x] patches to attach signal objects have a value that is the signal object itself
-        //    - [x] the orm subscription handles the translation of those patches
-        // - [x] the orm subscription intercepts the root add patches from the backend and adds them to the set of tormos
-
-        // pagination
+        // - [ ] Callback to notify of changes happening to child objects.
     };
     private tmpShapeIdCount = 0;
     /** Gets a tracked orm object from @see trackedObjects and increases its `refCount`.*/
