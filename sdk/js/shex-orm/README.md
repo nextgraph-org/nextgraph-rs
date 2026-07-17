@@ -60,6 +60,8 @@ The output directory will contain the typescript files with type definitions and
 
 You will then pass the shape type of a shape definition to the ng sdk:
 
+Note: If you specify more than one allowed nested shape and the data matches both shapes, the first shape will "win". In general though, you are advised to define shapes so that this does not happen. Specify different types for each shape instead (e.g. `a [ex:DistinguishingTypeOnlyAvailableInThisData] ;`).
+
 ```ts
 import { useShape } from "@ng-org/orm/react";
 import { TestObjectShapeType } from "../shapes/orm/testShape.shapeTypes";
