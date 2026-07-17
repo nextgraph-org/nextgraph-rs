@@ -8,7 +8,11 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { batch } from "@ng-org/alien-deepsignals";
+import {
+    addWithId,
+    DeepSignalObject,
+    DeepSignalSet,
+} from "@ng-org/alien-deepsignals";
 import { decodePathSegment } from "./utils.ts";
 
 /** @ignore */
@@ -67,24 +71,25 @@ export interface LiteralAddPatch {
 /**
  * @ignore
  *
- * Apply a diff to an object.
+ * Apply a diff to a deep signal object.
  *
  * The syntax is is based on JSON Patch RFC 6902.
  *
+ * It supports Sets for multi-valued properties. Add `valType: "set"` to a @see Patch,
+ * to add literals or values as sets.
  *
- * @param currentState The object before the patch
+ * Path traversal:
+ *   - When traversing through a Set, the path segment is the synthetic id of a deep signal set.
+ *   - When traversing through a plain object, the path segment is a property name
+ *
+ * @param currentState The deep signal object before the patches
  * @param patches An array of patches to apply to the object.
  * @param ensurePathExists If true, create nested objects along the path if the path does not exist.
  *
- * Note: When creating new objects, this function pre-scans upcoming patches to find `@id` and `@graph`
- *       values that will be assigned to the object. This prevents the signal library's onObjectAttached
- *       from being triggered before these identity fields are set, which would cause it to generate
- *       random IDs unnecessarily.
  */
 export function applyPatches(
-    currentState: Record<string, any>,
-    patches: Patch[],
-    ensurePathExists: boolean = false
+    currentState: DeepSignalObject<any>,
+    patches: Patch[]
 ) {
     for (let patchIndex = 0; patchIndex < patches.length; patchIndex++) {
         const patch = patches[patchIndex];
@@ -95,17 +100,24 @@ export function applyPatches(
             .filter(Boolean)
             .map(decodePathSegment);
 
-        if (pathParts.length === 0) {
-            // Actually, this should mean replace..
-            console.warn("[applyPatches] No path specified for patch", patch);
-            continue;
-        }
         const lastKey = pathParts[pathParts.length - 1];
         let parentVal: any = currentState;
         let parentMissing = false;
         // Traverse only intermediate segments (to leaf object at path)
         for (let i = 0; i < pathParts.length - 1; i++) {
             const seg = pathParts[i];
+
+            // Handle Sets: if parentVal is a Set, seg should be a synthetic id.
+            if (parentVal instanceof Set) {
+                const foundObj = (parentVal as DeepSignalSet<any>).getById(seg);
+                if (foundObj) {
+                    parentVal = foundObj;
+                    continue;
+                } else {
+                    parentMissing = true;
+                    break;
+                }
+            }
 
             // Handle regular objects
             if (
@@ -116,20 +128,8 @@ export function applyPatches(
                 parentVal = parentVal[seg];
                 continue;
             }
-            if (ensurePathExists) {
-                if (parentVal !== null && typeof parentVal === "object") {
-                    // Create a new object
-                    parentVal[seg] = {};
-
-                    parentVal = parentVal[seg];
-                } else {
-                    parentMissing = true;
-                    break;
-                }
-            } else {
-                parentMissing = true;
-                break;
-            }
+            parentMissing = true;
+            break;
         }
 
         if (parentMissing) {
@@ -139,8 +139,8 @@ export function applyPatches(
             continue;
         }
 
-        // parentVal now should be an object or array into which we apply lastKey
-        if (parentVal == null || typeof parentVal !== "object") {
+        // parentVal now should be an object, array, or set which contains lastKey.
+        if (parentVal === null || typeof parentVal !== "object") {
             console.warn(
                 `[applyPatches] Skipping patch because the path is invalid. Path`,
                 patch.path,
@@ -150,6 +150,87 @@ export function applyPatches(
             continue;
         }
         const key = lastKey;
+
+        if (patch.valType === "set") {
+            if (patch.op === "add") {
+                // If target is a set already, just add it.
+                if (parentVal[key] instanceof Set) {
+                    for (const v of [patch.value].flat()) {
+                        parentVal[key].add(v);
+                    }
+                } else if (parentVal instanceof Set) {
+                    // Parent is a set -> key is a synthetic id to be used for the object added to the parent set.
+                    addWithId(parentVal, patch.value, key);
+                } else if (parentVal[key] === undefined) {
+                    // If the target doesn't exist, create a new set.
+                    parentVal[key] = new Set([patch.value].flat());
+                } else {
+                    // Tried to add to a set but path target is not a set.
+                    console.warn(
+                        "Tried to add to a set but path target is not a set",
+                        patch,
+                        parentVal
+                    );
+                }
+            } else {
+                // patch.op === "remove"
+
+                if (isPrimitive(patch.value) || Array.isArray(patch.value)) {
+                    if (parentVal[key] instanceof Set) {
+                        // Remove one or more primitives from set (array of objects don't exist).
+                        for (const v of [patch.value].flat())
+                            parentVal[key].delete(v);
+                    } else {
+                        console.warn(
+                            "Path target is not a set",
+                            patch,
+                            parentVal[key]
+                        );
+                    }
+                } else if (parentVal instanceof Set) {
+                    // Parent is a set, key must be a synthetic id to an object.
+                    if (patch.value === undefined) {
+                        const targetedObject = (
+                            parentVal as DeepSignalSet<any>
+                        ).getById(key);
+                        parentVal.delete(targetedObject);
+                    }
+                } else if (parentVal[key] instanceof Set) {
+                    // if path target points to a set,
+                    // value is an object with @id as an identifier.
+
+                    const id = (patch.value as any)["@id"];
+                    if (!id) {
+                        console.warn(
+                            "Cannot remove patch value from parent set without @id",
+                            patch,
+                            parentVal
+                        );
+                        continue;
+                    }
+                    let objectsWithId = parentVal[key]
+                        .values()
+                        .filter((child) => child["@id"] === id);
+                    for (const objectToRemove of objectsWithId) {
+                        parentVal[key].delete(objectToRemove);
+                    }
+                } else {
+                    console.warn(
+                        "Invalid patch:",
+                        patch,
+                        "Cannot remove value as a set value from parent",
+                        parentVal
+                    );
+                }
+            }
+            continue;
+        }
+        if (key === undefined) {
+            // Up to hear it might have been that path was "/" and valType set (adding to the root).
+            // If not, this patch is invalid.
+            console.warn("Key is missing for patch", patch);
+            continue;
+        }
 
         if (Array.isArray(parentVal)) {
             if (key === "-") {
@@ -187,15 +268,8 @@ export function applyPatches(
     }
 }
 
-/**
- * @ignore
- *
- * See documentation for applyPatches
- */
-export function applyPatchesToDeepSignal(currentState: object, patch: Patch[]) {
-    batch(() => {
-        applyPatches(currentState as Record<string, any>, patch, false);
-    });
+function isPrimitive(v: unknown): v is string | number | boolean {
+    return (
+        typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+    );
 }
-
-// TODO: Remove based on objects @id
