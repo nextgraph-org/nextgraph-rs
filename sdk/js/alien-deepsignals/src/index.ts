@@ -11,3 +11,4 @@ export * from "./core.ts";
 export * from "./watch.ts";
 export * from "./types.ts";
 export { createSeal, sealAllProps } from "./sealedSignal.ts";
+export { readOnlyArray } from "./readOnlyArray.ts";

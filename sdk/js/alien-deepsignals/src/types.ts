@@ -11,6 +11,7 @@
 import { computed, alienSignal } from "./core.ts";
 import { deepSignal } from "./deepSignal.ts";
 import type { watch } from "./watch.ts";
+import type { readOnlyArray } from "./readOnlyArray.ts";
 
 /** Deep mutation emitted from a deepSignal root. */
 export type DeepPatch = {
@@ -18,7 +19,7 @@ export type DeepPatch = {
 } & (
     | {
           op: "add";
-          type?: "object" | "set";
+          type?: "set";
           /** The value being added, overwritten, or removed */
 
           value?: any;
@@ -280,3 +281,33 @@ export type UnwrapDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
 export type MaybeSignal<T = any> = T | ReturnType<typeof alienSignal>;
 /** Union allowing value, writable signal, computed signal or plain getter function. */
 export type MaybeSignalOrComputed<T = any> = MaybeSignal<T> | (() => T);
+
+/**
+ * A deep signal array that does not allow modifications.
+ * You can modify it's values but adding, moving, or removing elements is not allowed.
+ *
+ * You can generate a ReadOnlyDeepSignalArray from a deep signal array using @see readOnlyArray.
+ */
+export type ReadOnlyDeepSignalArray<T> = Pick<
+    DeepSignal<Array<T>>,
+    | "at"
+    | "concat"
+    | "entries"
+    | "findIndex"
+    | "findLast"
+    | "findLastIndex"
+    | "flat"
+    | "indexOf"
+    | "join"
+    | "keys"
+    | "lastIndexOf"
+    | "reduceRight"
+    | "toLocaleString"
+    | "toReversed"
+    | "toSorted"
+    | "toLocaleString"
+    | "values"
+    | "with"
+    | "toString"
+    | "toSpliced"
+>;

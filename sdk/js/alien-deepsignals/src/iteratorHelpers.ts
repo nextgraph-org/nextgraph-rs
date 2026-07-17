@@ -38,6 +38,7 @@ export const nonMutatingArrayFnKeys = new Set([
     "toReversed",
     "toSorted",
     "toLocaleString",
+    "toSpliced",
     "values",
     "with",
     Symbol.toString,

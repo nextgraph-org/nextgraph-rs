@@ -1304,7 +1304,7 @@ export function isDeepSignal(
  *       - `first()` to get one element from the set -- useful if you know that there is only one.
  *       - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
  *       - **NOTE**: When assigning a set to `DeepSignal<Set>`, TypeScript will warn you. You can safely ignore this by writing (`parent.children = new Set() as DeepSignal<Set<any>>`). Internally, the set is automatically converted but this is not expressible in TypeScript.
- *   - For all objects: `__raw__` which gives you the non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh. If you use `__raw__`, that won't work anymore.
+ *   - For all objects: @see RAW_KEY which gives you the underlying non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh.
  *
  * @throws if provided with unsupported input types.
  */
