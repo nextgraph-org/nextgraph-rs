@@ -16,3 +16,4 @@ node_modules
 .vscode/settings.json
 .env.local
 typedoc-out/
+.coverage

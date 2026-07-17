@@ -95,8 +95,7 @@
     "react": "^19.0.0",
     "svelte": "^5.1.9",
     "typescript": "^5.4.3",
-    "vue": "^3.5.11",
-    "vitest": "^4.0.18"
+    "vue": "^3.5.11"
   },
   "repository": {
     "type": "git",
