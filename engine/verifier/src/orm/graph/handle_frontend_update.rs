@@ -280,12 +280,8 @@ fn create_sparql_update_query_for_patches(
 ) -> (String, Vec<(OrmPatch, PathTarget)>) {
     // Cases to cover:
     // Possibles paths:
-    // - `/g|s|sh/` <- remove object
-    // - `/g|s|sh/prop` <- add/remove single/multiple literals, add object, remove object
-    // - new object (with predicates in value). @shape prop shouldn't be required.
-    // - A patch should send back @shape.
-
-    // - `/|` <- add root object?
+    // - `/g|s/` <- remove object
+    // - `/g|s/prop` <- add/remove single/multiple literals, add object, remove object
     // - Support patches by array index?
 
     // ------------------------- Schema Selection Helper ----------------------
@@ -345,19 +341,11 @@ fn create_sparql_update_query_for_patches(
             return None;
         }
 
-        // root composite (<graph>|<subject>|<shape>)
+        // root composite (<graph>|<subject>)
         let mut root_split = segs[0].split('|');
         let mut current_graph = decode_json_pointer(&root_split.next()?.to_string());
         let mut current_subject = decode_json_pointer(&root_split.next()?.to_string());
-        let shape = decode_json_pointer(&root_split.next()?.to_string());
-        let Some(mut current_schema) = orm_subscription.shape_type.schema.get(&shape).cloned()
-        else {
-            log_err!(
-                "Invalid path. The shape {} does not exist in schema.",
-                shape
-            );
-            return None;
-        };
+        let mut current_schema = orm_subscription.root_shape();
 
         let mut idx = 1;
 

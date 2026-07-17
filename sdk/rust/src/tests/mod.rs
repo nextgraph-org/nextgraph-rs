@@ -15,7 +15,6 @@ use futures::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{OrmConfig, OrmPatch, OrmShapeType};
 use ng_oxigraph::oxrdf::{Quad, Subject};
-use ng_repo::errors::NgError;
 use ng_repo::log_err;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -527,29 +526,20 @@ pub(crate) fn escape_pointer_segment(segment: &str) -> String {
 }
 
 // Helper: build root path prefix "/graph|subject" for a given graph and subject
-pub(crate) fn root_path(graph: &str, subject: &str, shape: &str) -> String {
-    format!(
-        "/{}|{}|{}",
-        escape_pointer_segment(graph),
-        escape_pointer_segment(subject),
-        escape_pointer_segment(shape),
-    )
+pub(crate) fn root_path(graph: &str, subject: &str, _shape: &str) -> String {
+    format!("/{}|{}", graph, escape_pointer_segment(subject),)
 }
 
 // Helper: build a composite key segment "graph|subject" for multi-children
 pub(crate) fn composite_key(graph: &str, subject: &str) -> String {
-    format!(
-        "{}|{}",
-        escape_pointer_segment(graph),
-        escape_pointer_segment(subject)
-    )
+    format!("{}|{}", graph, escape_pointer_segment(subject))
 }
 
 /// Finds the key of a multi-valued object for a given subject_iri.
 pub fn find_key_for_obj(actual_obj: &serde_json::Map<String, Value>, object_iri: &str) -> String {
     actual_obj
         .keys()
-        .find(|k| k.contains(&format!("|{object_iri}|")))
+        .find(|k| k.contains(&format!("|{object_iri}")))
         .expect("key with expected subject not found")
         .to_string()
 }

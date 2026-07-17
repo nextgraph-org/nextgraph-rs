@@ -216,7 +216,7 @@ pub type ShapeIri = String;
 pub type SubjectIri = String;
 pub type GraphIri = String;
 
-// Structure to store changes in. By shape iri > graph iri > subject iri > OrmTrackedSubjectChange
+/// Structure to store changes in. By shape iri > graph iri > subject iri > OrmTrackedSubjectChange
 pub type OrmChanges =
     HashMap<ShapeIri, HashMap<GraphIri, HashMap<SubjectIri, TrackedOrmObjectChange>>>;
 

@@ -378,7 +378,7 @@ pub(crate) fn order_key_from(order_by_conf: &OrderByConfig, tormo: &TrackedOrmOb
     OrderKey { val_types: vals }
 }
 
-pub(crate) fn order_key_from_before_change(
+pub(crate) fn order_key_before_change(
     order_by_conf: &OrderByConfig,
     tormo: &TrackedOrmObject,
     change: &TrackedOrmObjectChange,

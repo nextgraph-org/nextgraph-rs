@@ -59,7 +59,7 @@ async fn test_orm_patch_creation() {
 /// the emitted patches use `childGraph|childSubject` for the child segment and include @graph.
 async fn test_cross_graph_child_in_separate_graph(session_id: u64) {
     // Create a second document holding the child object (ensures a different graph)
-    let _child_doc_nuri = create_doc_with_data(
+    let child_doc_nuri = create_doc_with_data(
         session_id,
         r#"
 PREFIX ex: <http://example.org/>
@@ -210,48 +210,22 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "add",
-                "path": "/",
+                "path": "/urn:test:project1/members",
                 "valType": "set",
                 "value": {
                     "@id": "urn:test:personX",
-                    "@shape": "http://example.org/PersonShape",
+                    "@graph": child_doc_nuri,
                     "name": "Xavier",
                     "type": "http://example.org/Person"
                 }
             },
-            {
-                "op": "add",
-                "path": "/urn:test:project1|http:~1~1example.org~1ProjectShape/members",
-                "valType": "set",
-                "value": {
-                    "@id": "urn:test:personX",
-                    "@shape": "http://example.org/PersonShape"
-                }
-            },
+
         ]);
 
         let mut actual = json!(patches);
 
-        let child_graph = actual.as_array().and_then(|arr| {
-            arr.iter().find_map(|item| {
-                (item.get("path").and_then(|v| v.as_str()) == Some("/"))
-                    .then(|| {
-                        item.get("value")
-                            .and_then(|v| v.get("@graph"))
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string())
-                    })
-                    .flatten()
-            })
-        });
-
         // Rewrite paths with the root graph from actual.
-        if let Some(root_graph) = extract_graph_from_actual_paths(&actual) {
-            rewrite_expected_paths_with_graph(&mut expected, &root_graph);
-        }
-        if let Some(child_graph) = child_graph {
-            add_graph_fields(&mut expected, &child_graph);
-        }
+        rewrite_expected_paths_with_graph(&mut expected, &parent_doc_nuri);
 
         assert_orm_json_eq(&mut expected, &mut actual);
         break;
@@ -370,11 +344,6 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("Diff ops arrived:\n");
-        for patch in patches.iter() {
-            log_info!("{:?}", patch);
-        }
-
         let mut expected = json!([
             {
                 "op": "add",
@@ -382,7 +351,6 @@ INSERT DATA {
                 "valType": "set",
                 "value": {
                     "@id": "urn:test:numArrayObj4",
-                    "@shape": "http://example.org/TestShape",
                     "numArray": [0.0],
                     "type": "http://example.org/TestObject"
                 }
@@ -391,20 +359,20 @@ INSERT DATA {
                 "op": "add",
                 "valType": "set",
                 "value": [4.0],
-                "path": "/urn:test:numArrayObj1|http:~1~1example.org~1TestShape/numArray",
+                "path": "/urn:test:numArrayObj1/numArray",
 
             },
             {
                 "op": "add",
                 "valType": "set",
                 "value": [1.0,2.0],
-                "path": "/urn:test:numArrayObj2|http:~1~1example.org~1TestShape/numArray",
+                "path": "/urn:test:numArrayObj2/numArray",
             },
             {
                 "op": "add",
                 "valType": "set",
                 "value": [3.0],
-                "path": "/urn:test:numArrayObj3|http:~1~1example.org~1TestShape/numArray",
+                "path": "/urn:test:numArrayObj3/numArray",
             },
         ]);
 
@@ -522,17 +490,12 @@ DELETE DATA {
         }
         .unwrap();
 
-        log_info!("Diff ops arrived:\n");
-        for patch in patches.iter() {
-            log_info!("{:?}", patch);
-        }
-
         let mut expected = json!([
             {
                 "op": "remove",
                 "valType": "set",
                 "value": [1.0],
-                "path": "/urn:test:numArrayObj1|http:~1~1example.org~1TestShape/numArray",
+                "path": "/urn:test:numArrayObj1/numArray",
 
             }
         ]);
@@ -746,11 +709,6 @@ INSERT DATA {
             },
         }
         .unwrap();
-
-        log_info!("Diff ops arrived:\n");
-        for patch in patches.iter() {
-            log_info!("{:?}", patch);
-        }
 
         let mut expected = json!([
             {
@@ -1090,104 +1048,54 @@ INSERT DATA {
         .unwrap();
 
         let mut expected = json!([
-          {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-              "@id": "urn:test:cat3",
-              "@shape": "http://example.org/CatShape",
-              "name": "Fluffy",
-              "toy": {
-                "urn:test:toy3|http:~1~1example.org~1ToyShape": {
-                  "@id": "urn:test:toy3",
-                  "@shape": "http://example.org/ToyShape"
+            {
+                "op": "add",
+                "path": "/urn:test:house1/inhabitants",
+                "valType": "set",
+                "value": {
+                    "@id": "urn:test:person3",
+                    "cat": {
+                        "@id": "urn:test:cat3",
+                        "name": "Fluffy",
+                        "toy": {
+                            "urn:test:toy3": {
+                                "@id": "urn:test:toy3",
+                                "name": "Ball",
+                                "type": "http://example.org/Toy"
+                            }
+                        },
+                        "type": "http://example.org/Cat"
+                    },
+                    "name": "Charlie",
+                    "type": "http://example.org/Person"
+                },
+            },
+            {
+                "op": "add",
+                "path": "/urn:test:house1/inhabitants/urn:test:person1/name",
+                "value": "Alicia"
+            },
+            {
+                "op": "add",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat",
+                "value": {
+                "@id": "urn:test:cat2",
+                "name": "Mittens",
+                "toy": {
+                    "urn:test:toy2": {
+                        "@id": "urn:test:toy2",
+                        "name": "Mouse",
+                        "type": "http://example.org/Toy"
+                    }
+                },
+                "type": "http://example.org/Cat"
                 }
-              },
-              "type": "http://example.org/Cat"
+            },
+            {
+                "op": "add",
+                "path": "/urn:test:house1/rootColor",
+                "value": "red"
             }
-          },
-          {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-              "@id": "urn:test:cat2",
-              "@shape": "http://example.org/CatShape",
-              "name": "Mittens",
-              "toy": {
-                "urn:test:toy2|http:~1~1example.org~1ToyShape": {
-                  "@id": "urn:test:toy2",
-                  "@shape": "http://example.org/ToyShape"
-                }
-              },
-              "type": "http://example.org/Cat"
-            }
-          },
-          {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-              "@id": "urn:test:toy3",
-              "@shape": "http://example.org/ToyShape",
-              "name": "Ball",
-              "type": "http://example.org/Toy"
-            }
-          },
-          {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-              "@id": "urn:test:toy2",
-              "@shape": "http://example.org/ToyShape",
-              "name": "Mouse",
-              "type": "http://example.org/Toy"
-            }
-          },
-          {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-              "@id": "urn:test:person3",
-              "@shape": "http://example.org/PersonShape",
-              "cat": {
-                "@id": "urn:test:cat3",
-                "@shape": "http://example.org/CatShape"
-              },
-              "name": "Charlie",
-              "type": "http://example.org/Person"
-            }
-          },
-          {
-            "op": "add",
-            "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/inhabitants",
-            "valType": "set",
-            "value": {
-              "@id": "urn:test:person3",
-              "@shape": "http://example.org/PersonShape"
-            }
-          },
-          {
-            "op": "add",
-            "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/rootColor",
-            "value": "red"
-          },
-          {
-            "op": "add",
-            "path": "/urn:test:person1|http:~1~1example.org~1PersonShape/name",
-            "value": "Alicia"
-          },
-          {
-            "op": "add",
-            "path": "/urn:test:person2|http:~1~1example.org~1PersonShape/cat",
-            "value": {
-              "@id": "urn:test:cat2",
-              "@shape": "http://example.org/CatShape"
-            }
-          }
         ]);
 
         let mut actual = json!(patches);
@@ -1264,30 +1172,30 @@ INSERT DATA {
             // Remove house color
             {
                 "op": "remove",
-                "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/rootColor",
+                "path": "/urn:test:house1/rootColor",
             },
             // Alice loses her cat
             {
                 "op": "remove",
-                "path": "/urn:test:person1|http:~1~1example.org~1PersonShape/cat",
+                "path": "/urn:test:house1/inhabitants/urn:test:person1/cat"
             },
             // Bob's cat name changes
             {
                 "op": "add",
                 "value": "Mr. Mittens",
-                "path": "/urn:test:cat2|http:~1~1example.org~1CatShape/name",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
             },
             // Bob's cat toy name changes
             {
                 "op": "add",
                 "value": "Laser",
-                "path": "/urn:test:toy2|http:~1~1example.org~1ToyShape/name",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/name",
             },
             // Charlie is removed from inhabitants.
             {
                 "op": "remove",
                 "value": {},
-                "path": "/urn:test:house1|http:~1~1example.org~1HouseShape/inhabitants",
+                "path": "/urn:test:house1/inhabitants",
                 "value": {"@id": "urn:test:person3"},
                 "valType": "set"
             },
@@ -1481,12 +1389,12 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "add",
-                "path": "/urn:test:name1|did:ng:x:contact:class#SocialContact||did:ng:x:contact#name/value",
+                "path": "/urn:test:contact1/name/urn:test:name1/value",
                 "value": "Admin's friend - change5"
             },
             {
                 "op": "add",
-                "path": "/urn:test:upd1|did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt/valueDateTime",
+                "path": "/urn:test:contact1/updatedAt/valueDateTime",
                 "value": "2025-11-13T15:49:41.013Z"
             }
         ]);
@@ -1699,48 +1607,22 @@ DELETE DATA {{
         let mut expected = json!([
             {
                 "op": "add",
-                "path": "/",
+                "path": "/urn:test:project1/members",
                 "valType": "set",
                 "value": {
                     "@id": "urn:test:personX0",
-                    "@shape": "http://example.org/PersonShape",
                     "name": "Xavier",
                     "type": "http://example.org/Person"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/urn:test:project1|http:~1~1example.org~1ProjectShape/members",
-                "valType": "set",
-                "value": {
-                    "@id": "urn:test:personX0",
-                    "@shape": "http://example.org/PersonShape"
+
                 }
             },
         ]);
 
         let mut actual = json!(patches);
 
-        let child_graph = actual.as_array().and_then(|arr| {
-            arr.iter().find_map(|item| {
-                (item.get("path").and_then(|v| v.as_str()) == Some("/"))
-                    .then(|| {
-                        item.get("value")
-                            .and_then(|v| v.get("@graph"))
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string())
-                    })
-                    .flatten()
-            })
-        });
-
         // Rewrite paths with the root graph from actual.
-        if let Some(root_graph) = extract_graph_from_actual_paths(&actual) {
-            rewrite_expected_paths_with_graph(&mut expected, &root_graph);
-        }
-        if let Some(child_graph) = child_graph {
-            add_graph_fields(&mut expected, &child_graph);
-        }
+        rewrite_expected_paths_with_graph(&mut expected, &parent_doc_nuri);
+        add_graph_fields(&mut expected, &child_doc_nuri);
 
         assert_orm_json_eq(&mut expected, &mut actual);
         break;
@@ -1847,7 +1729,6 @@ INSERT DATA {
             "valType": "set",
             "value": {
                 "@id": "urn:test:person2",
-                "@shape": "http://example.org/PersonShape",
                 "name": "Person 2",
                 "type": "http://example.org/AddSeparateGraphTestPerson1"
             }
@@ -1959,12 +1840,12 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
 
     assert_json_eq(
         &json!([
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1AndThen23",  "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4",  "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3",  "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2",  "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1AndThen23",  "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
         ]),
         &initial,
     );
@@ -2005,42 +1886,15 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     .expect("SPARQL update failed");
 
     //
-    let patches = await_graph_patches(&mut receiver).await;
+    let received_patches = await_graph_patches(&mut receiver).await;
 
-    // We expect a full child object materialization plus members set-add reference.
-    let mut expected_object_patches = json!([
-        // New object patches and atomic changes.
+    let mut expected_patches = json!([
+        // Order patches
         {
             "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-                "@id": "did:ng:z:sortObj0",
-                "@shape": "did:ng:z:SortShape",
-                "sortBy": 0,
-                "sortBy2": 5,
-                "type": "did:ng:z:SortObject"
-            }
-        },
-        {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-                "@id": "did:ng:z:sortObj515",
-                "@shape": "did:ng:z:SortShape",
-                "sortBy": 5,
-                "sortBy2": 1.5,
-                "type": "did:ng:z:SortObject"
-            }
-        },
-        {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
+            "path": "/0",
             "value": {
                 "@id": "did:ng:z:sortObj6",
-                "@shape": "did:ng:z:SortShape",
                 "sortBy": 6,
                 "sortBy2": 1,
                 "type": "did:ng:z:SortObject"
@@ -2048,26 +1902,12 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
         },
         {
             "op": "add",
-            "path": "/did:ng:z:sortObj1AndThen23|did:ng:z:SortShape/sortBy",
-            "value": 2.3
-        },
-    ]);
-    let mut expected_structural_patches = json!([
-        // Order patches
-        {
-            "op": "add",
-            "path": "/0",
-            "value": {
-                "@id": "did:ng:z:sortObj6",
-                "@shape": "did:ng:z:SortShape",
-            }
-        },
-        {
-            "op": "add",
             "path": "/2",
             "value": {
                 "@id": "did:ng:z:sortObj515",
-                "@shape": "did:ng:z:SortShape",
+                "sortBy": 5,
+                "sortBy2": 1.5,
+                "type": "did:ng:z:SortObject"
             }
         },
         {
@@ -2084,31 +1924,21 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
             "path": "/7",
             "value": {
                 "@id": "did:ng:z:sortObj0",
-                "@shape": "did:ng:z:SortShape"
+                "sortBy": 0,
+                "sortBy2": 5,
+                "type": "did:ng:z:SortObject"
             }
-        }
+        },
+        {
+            "op": "add",
+            "path": "/5/sortBy",
+            "value": 2.3
+        },
     ]);
 
-    log_info!(
-        "[test_add_remove_in_sorted] patches: {:?}",
-        json!(patches).to_string()
-    );
-    let mut actual = json!(patches);
-    let actual_structual_patches = actual
-        .as_array_mut()
-        .unwrap()
-        .split_off(expected_object_patches.as_array().unwrap().len());
-    let mut actual_object_patches = actual;
+    add_graph_fields(&mut expected_patches, &doc_nuri);
 
-    rewrite_expected_paths_with_graph(&mut expected_object_patches, &doc_nuri);
-    add_graph_fields(&mut expected_object_patches, &doc_nuri);
-    add_graph_fields(&mut expected_structural_patches, &doc_nuri);
-
-    assert_orm_json_eq(&mut expected_object_patches, &mut actual_object_patches);
-    assert_orm_json_eq_exact(
-        &expected_structural_patches,
-        &json!(actual_structual_patches),
-    );
+    assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
 }
 
 async fn test_add_remove_move_in_pagination(session_id: u64) {
@@ -2212,9 +2042,9 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
 
     assert_json_eq(
         &json!([
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
         ]),
         &initial,
     );
@@ -2254,10 +2084,6 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
 
     // We expect nothing to happen (non-growing pagination does not track inserted elements).
     let received_patches = await_graph_patches_empty_if_timeout(&mut receiver).await;
-    log_info!(
-        "[pagination test] after non-relevant insertion: {:?}",
-        json!(received_patches).to_string()
-    );
 
     assert!(received_patches.is_empty());
 
@@ -2287,41 +2113,36 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
     .await
     .expect("SPARQL update failed");
 
-    let received_patches = await_graph_patches(&mut receiver).await;
-    // We expect a full child object materialization plus members set-add reference.
+    let mut received_patches = json!(await_graph_patches(&mut receiver).await);
+    let expected_structural_patches = json!([
+    { "from": "/2", "op": "move", "path": "/1" }
+    ]);
     let mut expected_object_patches = json!([
         // New object patches and atomic changes.
         {
             "op": "add",
-            "path": "/did:ng:z:sortObj4|did:ng:z:SortShape/sortBy",
+            "path": "/1/sortBy",
             "value": 5
         },
         {
             "op": "add",
-            "path": "/did:ng:z:sortObj4|did:ng:z:SortShape/sortBy2",
+            "path": "/1/sortBy2",
             "value": 1.6
         },
     ]);
-    let mut expected_structural_patches = json!([
-        { "from": "/2", "op": "move", "path": "/1" }
-    ]);
 
-    let mut actual = json!(received_patches);
-    let actual_structual_patches = actual
+    log_info!("Patches received: {}", received_patches.to_string());
+
+    let received_object_patches = received_patches
         .as_array_mut()
         .unwrap()
-        .split_off(expected_object_patches.as_array().unwrap().len());
-    let mut actual_object_patches = actual;
+        .split_off(expected_structural_patches.as_array().unwrap().len());
 
-    rewrite_expected_paths_with_graph(&mut expected_object_patches, &doc_nuri);
-    add_graph_fields(&mut expected_object_patches, &doc_nuri);
-    add_graph_fields(&mut expected_structural_patches, &doc_nuri);
-
-    assert_orm_json_eq(&mut expected_object_patches, &mut actual_object_patches);
-    assert_orm_json_eq_exact(
-        &expected_structural_patches,
-        &json!(actual_structual_patches),
+    assert_orm_json_eq(
+        &mut expected_object_patches,
+        &mut json!(received_object_patches),
     );
+    assert_orm_json_eq_exact(&expected_structural_patches, &json!(received_patches));
 
     //
     // Remove 2nd item on page.
@@ -2483,8 +2304,8 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
 
     assert_orm_json_eq_exact(
         &json!([
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "@shape": "did:ng:z:SortShape", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
         ]),
         &initial,
     );
@@ -2525,40 +2346,16 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
 
     let received_patches = await_graph_patches(&mut receiver).await;
 
-    let mut expected_object_patches = json!([
-        {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-                "@id": "did:ng:z:sortObj515",
-                "@shape": "did:ng:z:SortShape",
-                "sortBy": 5,
-                "sortBy2": 1.5,
-                "type": "did:ng:z:SortObject"
-            }
-        },
-        {
-            "op": "add",
-            "path": "/",
-            "valType": "set",
-            "value": {
-                "@id": "did:ng:z:sortObj6",
-                "@shape": "did:ng:z:SortShape",
-                "sortBy": 6,
-                "sortBy2": 1,
-                "type": "did:ng:z:SortObject"
-            }
-        },
-    ]);
-    let mut expected_structural_patches = json!([
+    let mut expected_patches = json!([
         // Insert new item in page
         {
             "op": "add",
             "path": "/0",
             "value": {
                 "@id": "did:ng:z:sortObj6",
-                "@shape": "did:ng:z:SortShape",
+                "sortBy": 6,
+                "sortBy2": 1,
+                "type": "did:ng:z:SortObject"
             }
         },
         {
@@ -2566,25 +2363,14 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
             "path": "/2",
             "value": {
                 "@id": "did:ng:z:sortObj515",
-                "@shape": "did:ng:z:SortShape",
+                "sortBy": 5,
+                "sortBy2": 1.5,
+                "type": "did:ng:z:SortObject"
             }
         },
     ]);
 
-    let mut actual = json!(received_patches);
-    let actual_structual_patches = actual
-        .as_array_mut()
-        .unwrap()
-        .split_off(expected_object_patches.as_array().unwrap().len());
-    let mut actual_object_patches = actual;
+    add_graph_fields(&mut expected_patches, &doc_nuri);
 
-    rewrite_expected_paths_with_graph(&mut expected_object_patches, &doc_nuri);
-    add_graph_fields(&mut expected_object_patches, &doc_nuri);
-    add_graph_fields(&mut expected_structural_patches, &doc_nuri);
-
-    assert_orm_json_eq(&mut expected_object_patches, &mut actual_object_patches);
-    assert_orm_json_eq_exact(
-        &expected_structural_patches,
-        &json!(actual_structual_patches),
-    );
+    assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
 }

@@ -18,18 +18,16 @@ use ng_oxigraph::oxrdf::Subject;
 use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
-use std::cmp::min;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
-use wabi_tree::OSBTreeMap;
 
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::basic_type_to_json;
 use crate::orm::graph::utils::order_key_from;
 use crate::orm::graph::utils::{assess_and_rank_children, nuri_to_string};
-use crate::orm::utils::escape_json_pointer_segment;
+use crate::orm::utils::composite_key;
 use crate::types::CancelFn;
 use crate::verifier::Verifier;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
@@ -192,13 +190,7 @@ impl Verifier {
                     .and_then(|s| s.get(&subject_iri))
                 {
                     let new_val = materialize_orm_object(change_ref, true, &changes);
-                    obj_map.insert(
-                        format!(
-                            "{}|{}|{}",
-                            tormo.graph_iri, tormo.subject_iri, orm_subscription.shape_type.shape
-                        ),
-                        new_val,
-                    );
+                    obj_map.insert(composite_key(&tormo), new_val);
                 }
             }
         }
@@ -622,7 +614,6 @@ pub(crate) fn materialize_orm_object(
     let mut orm_obj = json!({
         "@id": tormo.subject_iri,
         "@graph": tormo.graph_iri,
-        "@shape": shape.iri
     });
     let orm_obj_map = orm_obj.as_object_mut().unwrap();
     for pred_schema in &shape.predicates {
@@ -640,11 +631,12 @@ pub(crate) fn materialize_orm_object(
             continue;
         };
 
-        // Is a nested predicate shape?
+        // Is a nested predicate shape and should materialize nested?
         if pred_schema
             .dataTypes
             .iter()
             .any(|dt| dt.valType == OrmSchemaValType::shape)
+            && materialize_nested
         {
             // We have a nested type.
 
@@ -672,29 +664,19 @@ pub(crate) fn materialize_orm_object(
                 if child.valid != TrackedOrmObjectValidity::Valid {
                     return None;
                 }
-                if materialize_nested {
-                    let shape_iri_for_child = child.shape_iri();
-                    let graph_changes = all_changes.get(&shape_iri_for_child)?;
-                    let subj_changes = graph_changes.get(&child.graph_iri)?;
+                let shape_iri_for_child = child.shape_iri();
+                let graph_changes = all_changes.get(&shape_iri_for_child)?;
+                let subj_changes = graph_changes.get(&child.graph_iri)?;
 
-                    let nested_change = subj_changes.get(&child.subject_iri)?;
-                    // Recurse with the child's shape
-                    let nested = materialize_orm_object(nested_change, true, all_changes);
-                    return Some(nested);
-                } else {
-                    // Return reference to object only.
-                    let nested = json!({
-                        "@id": child.subject_iri,
-                        "@graph": child.graph_iri,
-                        "@shape": child.shape().iri
-                    });
-                    return Some(nested);
-                }
+                let nested_change = subj_changes.get(&child.subject_iri)?;
+                // Recurse with the child's shape
+                let nested = materialize_orm_object(nested_change, true, all_changes);
+                Some(nested)
             };
 
             if is_multi {
                 // Represent nested objects with more than one child
-                // as a map/object of <child_graph_iri|child_subject_iri|shape_iri> -> nested object,
+                // as a map/object of <child_graph_iri|child_subject_iri> -> nested object,
                 // since there is no conceptual ordering of the children.
                 let mut nested_objects_map = serde_json::Map::new();
 
@@ -703,15 +685,7 @@ pub(crate) fn materialize_orm_object(
                     if let Some(nested_orm_obj) = materialize_child(child_arc) {
                         let child = child_arc.read().unwrap();
 
-                        nested_objects_map.insert(
-                            format!(
-                                "{}|{}|{}",
-                                child.graph_iri,
-                                escape_json_pointer_segment(&child.subject_iri),
-                                escape_json_pointer_segment(&child.shape().iri)
-                            ),
-                            nested_orm_obj,
-                        );
+                        nested_objects_map.insert(composite_key(&child), nested_orm_obj);
                     }
                 }
                 orm_obj_map.insert(property_name.clone(), Value::Object(nested_objects_map));

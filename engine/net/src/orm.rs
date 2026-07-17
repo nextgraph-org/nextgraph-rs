@@ -13,7 +13,7 @@
 
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 
-use ng_repo::log_err;
+use ng_repo::log::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -16,17 +16,20 @@ use std::sync::RwLock;
 use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
+use ng_oxigraph::oxrdf::graph;
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
+use wabi_tree::OSBTreeMap;
 
 use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::initialize::materialize_orm_object;
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::basic_type_to_json;
+use crate::orm::graph::utils::order_key_before_change;
 use crate::orm::graph::utils::order_key_from;
-use crate::orm::graph::utils::order_key_from_before_change;
 use crate::orm::graph::utils::GraphSubjectKey;
+use crate::orm::utils::composite_key;
 use crate::orm::utils::escape_json_pointer_segment;
 use crate::types::*;
 use crate::verifier::*;
@@ -160,14 +163,29 @@ impl Verifier {
 
             // If order_by (and possibly pagination) is active: Updates the orm_subscription ordering metadata
             // and create order-related patches in that process.
-            let order_patches =
-                update_order_and_create_patches(&mut orm_subscription, &orm_changes);
+            let root_order_patches = if orm_subscription.config.order_by.is_some() {
+                root_patches_for_ordered(&mut orm_subscription, &orm_changes)
+            } else {
+                Vec::new()
+            };
 
             // Create & send patches if the subscription's session is different to the origin's session.
             if origin_subscription_id != subscription_id {
+                let root_unordered_patches = if orm_subscription.config.order_by.is_none() {
+                    root_patches_for_non_ordered(&orm_subscription, &orm_changes)
+                } else {
+                    Vec::new()
+                };
+
                 let object_and_atomic_patches =
-                    create_object_and_atomic_patches(&orm_subscription, &orm_changes);
-                let all_patches = [object_and_atomic_patches, order_patches].concat();
+                    create_update_patches(&orm_subscription, &orm_changes);
+
+                let all_patches: Vec<OrmPatch> = root_order_patches
+                    .into_iter()
+                    .map(|p| p.to_patch())
+                    .chain(root_unordered_patches.into_iter())
+                    .chain(object_and_atomic_patches.into_iter().map(|p| p.to_patch()))
+                    .collect();
 
                 // Send response with patches.
                 if all_patches.len() > 0 {
@@ -214,20 +232,129 @@ impl Verifier {
     }
 }
 
-fn create_object_and_atomic_patches(
+/// Find the predicate schema linking a parent to a child orm object and build the path segment.
+/// Returns the escaped readable predicate. If the predicate is of type multi-object, appends the composite <graph>|<subjet> key in the returned vec.
+fn path_segment_to_parent(
+    tracked_orm_object: &TrackedOrmObject,
+    parent_tormo: &TrackedOrmObject,
+) -> Option<Vec<String>> {
+    // Check if this predicate has our subject as a child
+    for (_pred_iri, tracked_pred) in parent_tormo.tracked_predicates.iter() {
+        let tp = tracked_pred.read().unwrap();
+
+        // Check if this tracked orm object is in the children
+        let is_child = tp.tracked_children.iter().any(|child| {
+            let binding = child.upgrade().unwrap();
+            let child_read = binding.read().unwrap();
+            child_read.subject_iri == tracked_orm_object.subject_iri
+                && child_read.graph_iri == tracked_orm_object.graph_iri
+        });
+
+        if is_child {
+            let pred_arc = tp.schema_arc();
+
+            let readable_predicate_escaped =
+                escape_json_pointer_segment(&pred_arc.readablePredicate);
+
+            let is_multi = pred_arc.maxCardinality > 1 || pred_arc.maxCardinality == -1;
+
+            // For multi-valued predicates, add the composite key (graph|subject) as a key first
+            if is_multi {
+                let composite_key = composite_key(tracked_orm_object);
+                return Some(vec![readable_predicate_escaped, composite_key]);
+            } else {
+                return Some(vec![readable_predicate_escaped]);
+            }
+        }
+    }
+
+    None
+}
+
+/// Recursively build the path from a tracked orm object to the root and create diff operation patches.
+/// The function recurses from child to parents down to a root tracked orm object.
+/// If multiple parents exist, it adds separate patches for each.
+/// Does not create paths to invalid parents.
+fn get_paths_for_tormo(
+    tormo: &TrackedOrmObject,
+    ordered_tormos: Option<(
+        &OrderByConfig,
+        &OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>,
+    )>,
+) -> Vec<Vec<String>> {
+    // let shape_iri = tracked_orm_object
+    //     .shape().iri
+    //     .unwrap_or("<dropped-shape>".into());
+    // log_info!(
+    //     "[PATCH TRACE] build_path_to_root: subject='{}' graph='{}' shape='{}' parents={} current_path_segs={:?} op={:?} valType={:?}",
+    //     tracked_orm_object.subject_iri,
+    //     tracked_orm_object.graph_iri,
+    //     shape_iri,
+    //     tracked_orm_object.parents.len(),
+    //     path,
+    //     diff_op.op,
+    //     diff_op.val_type
+    // );
+
+    // If this subject has no parents, we've reached the root.
+    if tormo.parents.is_empty() {
+        if let Some((order_by_conf, ordered_tormos)) = ordered_tormos.as_ref() {
+            // Case ordering -> return position of tormo in window.
+            let tormo_key = order_key_from(order_by_conf, tormo);
+            if let Some(tormo_position) = ordered_tormos.rank_of(&tormo_key) {
+                return vec![vec![format!("{tormo_position}")]];
+            } else {
+                // Mhh, tormo is not inserted? How do we deal with add patch paths?
+                // Ensure that root objects are inserted first.
+            }
+        } else {
+            // Case no ordering -> Return composite key.
+            return vec![vec![composite_key(tormo)]];
+        }
+    }
+
+    let mut paths: Vec<Vec<String>> = Vec::with_capacity(tormo.parents.len());
+
+    // Recurse to parents
+    for parent_tracked_orm_object in tormo.parents.iter() {
+        let Some(parent_arc) = parent_tracked_orm_object.upgrade() else {
+            continue;
+        };
+        let parent = parent_arc.read().unwrap();
+        if parent.valid != TrackedOrmObjectValidity::Valid {
+            continue;
+        }
+
+        // Build the path segment for this parent
+        if let Some(segment_to_parent) = path_segment_to_parent(tormo, &parent) {
+            // Recurse to the parent.
+            // If paths are returned, return them with this segment attached.
+            let mut child_paths = get_paths_for_tormo(&parent, ordered_tormos);
+
+            for child_path in child_paths.iter_mut() {
+                child_path.extend(segment_to_parent.clone());
+            }
+            paths.extend(child_paths);
+        } else {
+            log_info!(
+                "[PATCH TRACE]  build_path_segment_for_parent returned None: parent='{}' child='{}'",
+                parent.subject_iri,
+                tormo.subject_iri
+            );
+        }
+    }
+
+    return paths;
+}
+
+fn create_update_patches(
     orm_subscription: &OrmSubscription,
     orm_changes: &OrmChanges,
-) -> Vec<OrmPatch> {
-    // TODO:
-    // - adjust to `select` config
-
-    let mut create_object_patches: Vec<OrmPatch> = Vec::new();
-    // Includes deleting root objects and linking to nested objects.
-    let mut atomic_patches: Vec<OrmPatch> = Vec::new();
+) -> Vec<PrelimOrmPatch> {
+    let mut patches: Vec<PrelimOrmPatch> = Vec::new();
 
     // Create patches to tormos from orm_changes.
     for (shape_iri, graph_changes) in orm_changes.iter() {
-        let escaped_shape = escape_json_pointer_segment(shape_iri);
         for (graph_iri, subject_changes) in graph_changes.iter() {
             for (subject_iri, change) in subject_changes {
                 // Get the tracked orm object for this (subject, shape) pair
@@ -239,200 +366,178 @@ fn create_object_and_atomic_patches(
                 };
                 let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
 
-                // Skip if tormo is invalid and was so before.
-                if change.prev_valid == TrackedOrmObjectValidity::Invalid
-                    && (tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
-                        || tracked_orm_object.valid == TrackedOrmObjectValidity::ToDelete)
-                {
-                    continue;
-                }
-
-                let escaped_subject = escape_json_pointer_segment(subject_iri);
-
-                // DELETE? A root tormo became invalid or untracked?
-                // send delete object patch. Nested object deletion does not need patches.
-                // js-land will take care of un-referenced objects.
-                // BUT: only when not in sorted subscription (those will be addressed at their position below).
-                if change.prev_valid == TrackedOrmObjectValidity::Valid
-                    && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
-                    && *tracked_orm_object.shape().iri == orm_subscription.root_shape().iri
-                    && orm_subscription.config.order_by.is_none()
-                {
-                    atomic_patches.push(OrmPatch {
-                        op: OrmPatchOp::remove,
-                        valType: Some(OrmPatchType::set),
-                        path: format!("/{graph_iri}|{escaped_subject}|{escaped_shape}"),
-                        ..Default::default()
-                    });
-                    continue;
-                }
-
-                // NEWLY VALID? Create a new, materialized object patch.
-                if change.prev_valid != TrackedOrmObjectValidity::Valid
-                    && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
-                {
-                    let new_object = materialize_orm_object(change, false, orm_changes);
-
-                    create_object_patches.push(OrmPatch {
-                        op: OrmPatchOp::add,
-                        valType: Some(OrmPatchType::set),
-                        // New objects can be attached / registered like this.
-                        // This includes nested objects, JS-land will take care of the nesting hierarchy.
-                        path: "/".into(),
-                        value: Some(new_object),
-                        ..Default::default()
-                    });
-                    continue;
-                }
-
                 // JUST UPDATES? Create individual patches.
                 if change.prev_valid == TrackedOrmObjectValidity::Valid
                     && tracked_orm_object.valid == TrackedOrmObjectValidity::Valid
                 {
+                    let paths = get_paths_for_tormo(
+                        &tracked_orm_object,
+                        orm_subscription.config.order_by.as_ref().map(|conf| {
+                            (
+                                conf,
+                                &orm_subscription.ordering_info.as_ref().unwrap().tormos,
+                            )
+                        }),
+                    );
+
                     // Process predicate changes for this valid subject
-                    atomic_patches.extend(create_patches_for_object_change(
-                        graph_iri,
-                        &escaped_subject,
-                        &escaped_shape,
+                    patches.extend(create_patches_for_object_change(
+                        &paths,
                         &change,
+                        orm_changes,
                     ));
                 }
             }
         }
     }
 
-    [create_object_patches, atomic_patches].concat()
+    // patches.sort_by(|p1, p2| p2.path.len().cmp(&p1.path.len()));
+
+    patches
 }
 
 fn create_patches_for_object_change(
-    graph: &String,
-    escaped_subject: &String,
-    escaped_shape: &String,
+    paths: &Vec<Vec<String>>,
     tormo_change: &TrackedOrmObjectChange,
-) -> Vec<OrmPatch> {
-    let mut ret: Vec<OrmPatch> = Vec::new();
+    all_changes: &OrmChanges,
+) -> Vec<PrelimOrmPatch> {
+    let mut ret: Vec<PrelimOrmPatch> = Vec::new();
 
     for (_pred_iri, pred_change) in tormo_change.predicates.iter() {
         let pred_schema = pred_change.tracked_predicate().schema_arc();
         let property_name = escape_json_pointer_segment(&pred_schema.readablePredicate);
-        let path = format!("/{graph}|{escaped_subject}|{escaped_shape}/{property_name}");
-        let is_basic_type = !pred_schema
-            .dataTypes
-            .iter()
-            .any(|dt| dt.valType == OrmSchemaValType::shape);
-        let is_multi = pred_schema.is_multi();
+        // TODO: Does the compiler see that the loop can be optimized?
+        for path in paths {
+            let mut path = path.clone();
+            path.push(property_name.clone());
 
-        if is_basic_type {
-            if is_multi {
-                // Add & remove values as array.
-                if !pred_change.values_removed.is_empty() {
-                    let remove_patch = OrmPatch {
-                        op: OrmPatchOp::remove,
-                        valType: Some(OrmPatchType::set),
-                        path: path.clone(),
-                        value: Some(Value::Array(
-                            pred_change
-                                .values_removed
-                                .iter()
-                                .map(|v| basic_type_to_json(v))
-                                .collect(),
-                        )),
-                        ..Default::default()
-                    };
-                    ret.push(remove_patch);
-                }
-                if !pred_change.values_added.is_empty() {
-                    let add_patch = OrmPatch {
-                        op: OrmPatchOp::add,
-                        valType: Some(OrmPatchType::set),
-                        path: path.clone(),
-                        value: Some(Value::Array(
-                            pred_change
-                                .values_added
-                                .iter()
-                                .map(|v| basic_type_to_json(v))
-                                .collect(),
-                        )),
-                        ..Default::default()
-                    };
-                    ret.push(add_patch);
-                }
-            } else {
-                // Add / remove value as primitive, if present.
+            let is_basic_type = !pred_schema
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType == OrmSchemaValType::shape);
+            let is_multi = pred_schema.is_multi();
 
-                if let Some(val) = pred_change.values_added.get(0) {
-                    let add_patch = OrmPatch {
-                        op: OrmPatchOp::add,
-                        path: path.clone(),
-                        value: Some(basic_type_to_json(val)),
-                        ..Default::default()
-                    };
-                    ret.push(add_patch)
-                } else if !pred_change.values_removed.is_empty() {
-                    // Only add a remove patch if no overwriting add patch is created.
-                    let remove_patch = OrmPatch {
-                        op: OrmPatchOp::remove,
-                        path: path.clone(),
-                        ..Default::default()
-                    };
-                    ret.push(remove_patch)
-                }
-            }
-        } else {
-            // Nested object
-
-            if !is_multi {
-                if !pred_change.values_removed.is_empty() {
-                    let remove_patch = OrmPatch {
-                        op: OrmPatchOp::remove,
-                        path: path.clone(),
-                        ..Default::default()
-                    };
-                    ret.push(remove_patch);
-                }
-
-                if let Some(BasicType::Str(child_subj_iri)) = pred_change.values_added.get(0) {
-                    if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri) {
-                        let child_tormo = child_tormo.read().unwrap();
-                        let add_patch = OrmPatch {
-                            op: OrmPatchOp::add,
+            if is_basic_type {
+                if is_multi {
+                    // Add & remove values as array.
+                    if !pred_change.values_removed.is_empty() {
+                        let remove_patch = PrelimOrmPatch {
+                            op: OrmPatchOp::remove,
+                            val_type: Some(OrmPatchType::set),
                             path: path.clone(),
-                            value: Some(
-                                json!({"@graph": child_tormo.graph_iri, "@id": child_tormo.subject_iri, "@shape": child_tormo.shape().iri}),
-                            ),
+                            value: Some(Value::Array(
+                                pred_change
+                                    .values_removed
+                                    .iter()
+                                    .map(|v| basic_type_to_json(v))
+                                    .collect(),
+                            )),
+                            ..Default::default()
+                        };
+                        ret.push(remove_patch);
+                    }
+                    if !pred_change.values_added.is_empty() {
+                        let add_patch = PrelimOrmPatch {
+                            op: OrmPatchOp::add,
+                            val_type: Some(OrmPatchType::set),
+                            path: path.clone(),
+                            value: Some(Value::Array(
+                                pred_change
+                                    .values_added
+                                    .iter()
+                                    .map(|v| basic_type_to_json(v))
+                                    .collect(),
+                            )),
                             ..Default::default()
                         };
                         ret.push(add_patch);
                     }
-                }
-            } else {
-                for removed_val in pred_change.values_removed.iter() {
-                    let BasicType::Str(removed_iri) = removed_val else {
-                        continue;
-                    };
-                    let remove_patch = OrmPatch {
-                        op: OrmPatchOp::remove,
-                        valType: Some(OrmPatchType::set),
-                        path: path.clone(),
-                        value: Some(json!({"@id": removed_iri})), // There can be only one object with that id.
-                        ..Default::default()
-                    };
-                    ret.push(remove_patch);
-                }
+                } else {
+                    // Add / remove value as primitive, if present.
 
-                if let Some(BasicType::Str(child_subj_iri)) = pred_change.values_added.get(0) {
-                    if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri) {
-                        let child_tormo = child_tormo.read().unwrap();
-                        let add_patch = OrmPatch {
+                    if let Some(val) = pred_change.values_added.get(0) {
+                        let add_patch = PrelimOrmPatch {
                             op: OrmPatchOp::add,
-                            valType: Some(OrmPatchType::set),
                             path: path.clone(),
-                            value: Some(
-                                json!({"@graph": child_tormo.graph_iri, "@id": child_tormo.subject_iri, "@shape": child_tormo.shape().iri}),
-                            ),
+                            value: Some(basic_type_to_json(val)),
                             ..Default::default()
                         };
-                        ret.push(add_patch);
+                        ret.push(add_patch)
+                    } else if !pred_change.values_removed.is_empty() {
+                        // Only add a remove patch if no overwriting add patch is created.
+                        let remove_patch = PrelimOrmPatch {
+                            op: OrmPatchOp::remove,
+                            path: path.clone(),
+                            ..Default::default()
+                        };
+                        ret.push(remove_patch)
+                    }
+                }
+            } else {
+                // Nested object
+
+                if !is_multi {
+                    if !pred_change.values_removed.is_empty() {
+                        let remove_patch = PrelimOrmPatch {
+                            op: OrmPatchOp::remove,
+                            path: path.clone(),
+                            ..Default::default()
+                        };
+                        ret.push(remove_patch);
+                    }
+
+                    if let Some(BasicType::Str(child_subj_iri)) = pred_change.values_added.get(0) {
+                        if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri)
+                        {
+                            let child_tormo = child_tormo.read().unwrap();
+                            let materialized_child =
+                                materialize_orm_object_from_tormo(&child_tormo, all_changes);
+                            let add_patch = PrelimOrmPatch {
+                                op: OrmPatchOp::add,
+                                path: path.clone(),
+                                value: Some(materialized_child),
+                                ..Default::default()
+                            };
+                            ret.push(add_patch);
+                        }
+                    }
+                } else {
+                    // multi object
+                    // Add materialized object(s).
+
+                    for removed_val in pred_change.values_removed.iter() {
+                        let BasicType::Str(removed_iri) = removed_val else {
+                            continue;
+                        };
+                        let remove_patch = PrelimOrmPatch {
+                            op: OrmPatchOp::remove,
+                            val_type: Some(OrmPatchType::set),
+                            path: path.clone(),
+                            value: Some(json!({"@id": removed_iri})), // Enough to identify removed object(s).
+                            ..Default::default()
+                        };
+                        ret.push(remove_patch);
+                    }
+
+                    for added_val in pred_change.values_added.iter() {
+                        let BasicType::Str(child_subj_iri) = added_val else {
+                            continue;
+                        };
+                        if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri)
+                        {
+                            let child_tormo = child_tormo.read().unwrap();
+                            let materialized_child =
+                                materialize_orm_object_from_tormo(&child_tormo, all_changes);
+
+                            let add_patch = PrelimOrmPatch {
+                                op: OrmPatchOp::add,
+                                val_type: Some(OrmPatchType::set),
+                                path: path.clone(),
+                                value: Some(materialized_child),
+                                ..Default::default()
+                            };
+                            ret.push(add_patch);
+                        }
                     }
                 }
             }
@@ -442,14 +547,37 @@ fn create_patches_for_object_change(
     return ret;
 }
 
+fn materialize_orm_object_from_tormo(tormo: &TrackedOrmObject, all_changes: &OrmChanges) -> Value {
+    // First, try to find the data in tormo changes (it that is new).
+    let maybe_change = all_changes
+        .get(&tormo.shape_iri())
+        .and_then(|v| v.get(&tormo.graph_iri))
+        .and_then(|v| v.get(&tormo.subject_iri));
+    if let Some(change) = maybe_change {
+        materialize_orm_object(change, true, all_changes)
+    } else {
+        // TODO
+        // We arrive in this case when grafting:
+        // Either an @id only was attached as a nested object and the dev expects to receive the materialized object back -> we need to fetch
+        // or the whole object was attached that was materialized already in a different place of the subscription (we received the link patch only).
+        // A third case: The developer grafts with an @id only but the object is materialized somewhere already -> copy patch or frontend does its job.
+        json!({
+            "@graph": tormo.graph_iri,
+            "@id": tormo.subject_iri,
+            "@shape": tormo.shape_iri(),
+            "NOTE": "GRAFTING NOT IMPLEMENTED"
+        })
+    }
+}
+
 /// Only call if order_by config is set.
 /// Create patches that effect the position of objects in ordered/paginated subscriptions.
 /// For ordered, unpaginated subscriptions, this includes adds, removes, moves.
 /// For pagination, this includes moving between pages to ensure page size remains stable as well.
-fn update_order_and_create_patches(
+fn root_patches_for_ordered(
     orm_subscription: &mut OrmSubscription,
     orm_changes: &OrmChanges,
-) -> Vec<OrmPatch> {
+) -> Vec<PrelimOrmPatch> {
     let Some(order_by_conf) = orm_subscription.config.order_by.as_ref() else {
         return Vec::new();
     };
@@ -499,7 +627,7 @@ fn update_order_and_create_patches(
                     && tormo.valid != TrackedOrmObjectValidity::Valid
                     && *tormo.shape().iri == orm_subscription.root_shape().iri
                 {
-                    let previous_key = order_key_from_before_change(order_by_conf, &tormo, change);
+                    let previous_key = order_key_before_change(order_by_conf, &tormo, change);
                     change_ops.push(OrderOperation::Remove(previous_key));
 
                     continue;
@@ -524,8 +652,7 @@ fn update_order_and_create_patches(
                         .iter()
                         .any(|(order_by_pred, _)| change.predicates.contains_key(*order_by_pred))
                     {
-                        let previous_key =
-                            order_key_from_before_change(order_by_conf, &tormo, change);
+                        let previous_key = order_key_before_change(order_by_conf, &tormo, change);
                         change_ops.push(OrderOperation::Move(previous_key, new_key));
                     }
                 }
@@ -554,7 +681,7 @@ fn update_order_and_create_patches(
         return key1.cmp(key2);
     });
 
-    let mut patches: Vec<OrmPatch> = Vec::new();
+    let mut patches: Vec<PrelimOrmPatch> = Vec::new();
     let mut out_of_bounds_tormos: Vec<(GraphIri, SubjectIri)> = Vec::new();
     let mut upper_offset_shift: i32 = 0;
     let is_paginated = orm_subscription.config.page_size > 0;
@@ -589,16 +716,22 @@ fn update_order_and_create_patches(
                     ordering.tormos.remove(&new_key);
                     out_of_bounds_tormos.push((graph_iri.clone(), subject_iri.clone()));
                 } else {
-                    patches.push(OrmPatch {
+                    let change = orm_changes
+                        .get(&root_shape_iri)
+                        .unwrap()
+                        .get(graph_iri)
+                        .unwrap()
+                        .get(subject_iri)
+                        .unwrap();
+                    let materialized = materialize_orm_object(change, false, orm_changes);
+
+                    patches.push(PrelimOrmPatch {
                         op: OrmPatchOp::add,
-                        path: format!("/{insert_index}"),
-                        value: Some(json!({
-                            "@graph": graph_iri,
-                            "@id": subject_iri,
-                            "@shape": root_shape_iri,
-                        })),
+                        path: vec![format!("{insert_index}")],
+                        value: Some(materialized),
                         ..Default::default()
                     });
+                    // Increase SPARQL offset value.
                     upper_offset_shift += 1;
                 }
             }
@@ -606,11 +739,12 @@ fn update_order_and_create_patches(
                 let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
                 ordering.tormos.remove(&old_key);
 
-                patches.push(OrmPatch {
+                patches.push(PrelimOrmPatch {
                     op: OrmPatchOp::remove,
-                    path: format!("/{remove_index}"),
+                    path: vec![format!("{remove_index}")],
                     ..Default::default()
                 });
+                // Decrease SPARQL offset value.
                 upper_offset_shift -= 1;
             }
             OrderOperation::Move(old_key, new_key) => {
@@ -624,23 +758,26 @@ fn update_order_and_create_patches(
                 if should_skip_insert(insert_index == 0, insert_index == ordering.tormos.len() - 1)
                     && !ordering.tormos.is_empty()
                 {
+                    // Removed because moved out of bounds.
                     let removed_tormo = ordering.tormos.remove(&new_key).unwrap();
                     out_of_bounds_tormos.push((
                         removed_tormo.read().unwrap().graph_iri.clone(),
                         removed_tormo.read().unwrap().subject_iri.clone(),
                     ));
 
-                    patches.push(OrmPatch {
+                    patches.push(PrelimOrmPatch {
                         op: OrmPatchOp::remove,
-                        path: format!("/{}", remove_index),
+                        path: vec![format!("{remove_index}")],
                         ..Default::default()
                     });
+                    // Decrease SPARQL offset value.
                     upper_offset_shift -= 1;
                 } else {
-                    patches.push(OrmPatch {
+                    // Move to new position.
+                    patches.push(PrelimOrmPatch {
                         op: OrmPatchOp::move_,
-                        from: Some(format!("/{}", remove_index)),
-                        path: format!("/{}", insert_index),
+                        from: Some(format!("/{remove_index}")),
+                        path: vec![format!("{insert_index}")],
                         ..Default::default()
                     });
                 }
@@ -659,6 +796,61 @@ fn update_order_and_create_patches(
     }
 
     patches
+}
+
+/// Create patches for new root objects and deleted root objects.
+fn root_patches_for_non_ordered(
+    orm_subscription: &OrmSubscription,
+    orm_changes: &OrmChanges,
+) -> Vec<OrmPatch> {
+    let mut patches: Vec<OrmPatch> = Vec::new();
+    let root_shape_iri = &orm_subscription.shape_type.shape;
+
+    // Collect the patch changes to be done.
+    let graph_changes = orm_changes.get(root_shape_iri);
+    if let Some(graph_changes) = graph_changes {
+        for (_graph_iri, subject_changes) in graph_changes.iter() {
+            for (_subject_iri, change) in subject_changes {
+                let tracked_orm_object_arc = &change.tracked_orm_object;
+
+                let arc2 = Arc::clone(&tracked_orm_object_arc);
+                let tormo = arc2.read().unwrap();
+
+                // Delete
+                if change.prev_valid == TrackedOrmObjectValidity::Valid
+                    && tormo.valid != TrackedOrmObjectValidity::Valid
+                    && *tormo.shape().iri == orm_subscription.root_shape().iri
+                {
+                    patches.push(OrmPatch {
+                        op: OrmPatchOp::remove,
+                        path: format!("/{}", composite_key(&tormo)),
+                        valType: Some(OrmPatchType::set),
+                        ..Default::default()
+                    });
+                    continue;
+                }
+
+                // Add
+                if change.prev_valid != TrackedOrmObjectValidity::Valid
+                    && tormo.valid == TrackedOrmObjectValidity::Valid
+                {
+                    let materialized_root = materialize_orm_object(change, true, orm_changes);
+
+                    patches.push(OrmPatch {
+                        op: OrmPatchOp::add,
+                        path: "/".into(),
+                        valType: Some(OrmPatchType::set),
+                        value: Some(materialized_root),
+                        ..Default::default()
+                    });
+
+                    continue;
+                }
+            }
+        }
+    }
+
+    return patches;
 }
 
 /// Filters quads by subject scope (and page if present). If the subscription has no subject scope and no ordering,
@@ -800,6 +992,37 @@ fn is_order_value_in_window_range(
             value <= last_window_value
         } else {
             value >= last_window_value
+        }
+    }
+}
+
+/// Holds patches to be converted to proper ORM patches but does not join the path yet.
+struct PrelimOrmPatch {
+    pub op: OrmPatchOp,
+    pub val_type: Option<OrmPatchType>,
+    pub path: Vec<String>,
+    pub from: Option<String>,
+    pub value: Option<serde_json::Value>,
+}
+impl PrelimOrmPatch {
+    pub fn to_patch(self) -> OrmPatch {
+        OrmPatch {
+            op: self.op,
+            path: format!("/{}", self.path.join("/")),
+            from: self.from,
+            valType: self.val_type,
+            value: self.value,
+        }
+    }
+}
+impl Default for PrelimOrmPatch {
+    fn default() -> Self {
+        Self {
+            op: OrmPatchOp::remove,
+            path: Vec::new(),
+            val_type: None,
+            from: None,
+            value: None,
         }
     }
 }
