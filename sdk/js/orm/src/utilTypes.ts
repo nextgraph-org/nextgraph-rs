@@ -166,43 +166,6 @@ export type OrmConfig<
 };
 
 export type ObjectType<
-    CONF extends OrmConfig<ST>,
-    ST extends ShapeType<T>,
+    CONF extends OrmConfig<any>,
     T extends BaseType,
-> = undefined extends CONF["orderBy"]
-    ? Set<T>
-    : undefined extends CONF["maxActivePages"]
-      ? T[]
-      : { [pageIndex: number]: { items: T[] } };
-
-type RST = OrmConfig<typeof RootShapeType>;
-
-const typeTest: RST = {
-    graphs: "did:ng:my:nuri:doc",
-    subjects: ["some:iri1", "some:iri2", "some:iri3", "some:iri4"],
-    // where: {
-    //     child3: {
-    //         "@type": ["did:ng:z:Child2"],
-    //         childChild: { childChildNum: 2 },
-    //     },
-    //     // @ts-expect-error
-    //     children1Or2: {},
-    // },
-    orderBy: [
-        { anInteger: "desc" },
-        {
-            // @ts-expect-error
-            child3: { childChild: { childChildNum: "asc" } },
-        },
-        // @ts-expect-error
-        {},
-        // @ts-expect-error
-        { aDate: "asc", anInteger: "desc" },
-    ],
-    // select: {
-    //     aString: true,
-    //     // @ts-expect-error
-    //     children1Or2: {},
-    //     child3: true,
-    // },
-};
+> = undefined extends CONF["orderBy"] ? Set<T> : T[];

@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { NormalizedScope, normalizeScope, type Scope } from "../types.ts";
-import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
+import { applyPatches, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -54,7 +54,7 @@ export class OrmSubscription<
     ST extends ShapeType<any>,
     OPTIONS extends OrmConfig<ST>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
-    OT extends ObjectType<OPTIONS, ST, T> = ObjectType<OPTIONS, ST, T>,
+    OT extends ObjectType<OPTIONS, T> = ObjectType<OPTIONS, T>,
 > {
     /** Global store of all subscriptions. We use that for pooling. */
     private static idToEntry = new Map<
@@ -96,26 +96,26 @@ export class OrmSubscription<
      */
     readonly signalObject: DeepSignal<OT>;
     /**
-     * Map of all tracked (signal) objects. Each of them contains a `@graph`, `@id`, and `@shape` prop.
-     * Nesting by reference to other tracked objects.
-     * The key is a composite of <graph>|<subject>|<shape>.
-     */
-    private trackedObjects: Map<
-        string,
-        {
-            obj: DeepSignal<BaseType>;
-            stopListening: () => void;
-            refCount: number;
-        }
-    > = new Map();
+    //  * Map of all tracked (signal) objects. Each of them contains a `@graph` abd `@id` prop.
+    //  * Nesting by reference to other tracked objects.
+    //  * The key is a composite of <graph>|<subject>.
+    //  */
+    // private trackedObjects: Map<
+    //     string,
+    //     {
+    //         obj: DeepSignal<BaseType>;
+    //         stopListening: () => void;
+    //         refCount: number;
+    //     }
+    // > = new Map();
     /** Listeners that get notified when root objects are added, updated, or removed. */
     private changeListeners: Set<OrmChangeListener<T>> = new Set();
     private stopSignalListening: () => void;
     /** The subscription ID kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
-    /** The number of OrmSubscriptions with the same shape and scope (for pooling). */
+    /** The number of OrmSubscriptions with the same shape and options (for pooling). */
     private refCount: number;
-    /** Identifier as a combination of shape type and scope. Prevents duplications. */
+    /** Identifier as a canonicalization of the shape type and options, to prevent duplications. */
     private identifier: string;
     /** When true, modifications of the signalObject are not propagated to backend. */
     private suspendDeepWatcher: boolean = false;
@@ -347,7 +347,7 @@ export class OrmSubscription<
         }
     };
 
-    /** True, if a transaction is running. */
+    /** True, if a transaction is active. */
     get inTransaction() {
         return this.inTransaction_;
     }
@@ -376,9 +376,10 @@ export class OrmSubscription<
                     this.signalObject
                 );
 
-                for (const [_key, objMeta] of this.trackedObjects) {
-                    objMeta.stopListening();
-                }
+                // for (const [_key, objMeta] of this.trackedObjects) {
+                //     objMeta.stopListening();
+                // }
+                this.stopSignalListening();
                 this.closeOrmSubscription();
             }
         }, WAIT_BEFORE_CLOSE);
@@ -396,87 +397,9 @@ export class OrmSubscription<
         patches,
     }: WatchPatchEvent<any>) => {
         if (this.suspendDeepWatcher || !patches.length) return;
-        if (this.mode !== "unordered")
-            throw new Error(
-                "Modifications in pagination and ordering not implemented yet"
-            );
-
-        // Unregister all deleted objects.
-        for (const patch of patches) {
-            if (patch.op === "remove" && typeof patch.value === "object") {
-                const key = keyFromObject(patch.value);
-                this.unregisterTrackedObject(key);
-            }
-        }
 
         // Send patches to engine.
         this.queuePatches({ patches: deepPatchesToWasm(patches) });
-
-        // TODOs
-
-        // - check ordering
-
-        // - [ ] deal with react's replace hierarchy; tell child tormos to do the same as root config
-        // - [ ] option in deep signal setting: parents keep track of their replace children and handle that accordingly.
-        // - [ ] Callback to notify of changes happening to child objects.
-    };
-    private tmpShapeIdCount = 0;
-    /** Gets a tracked orm object from @see trackedObjects and increases its `refCount`.*/
-    private getTrackedObject = (object: BaseType | DeepSignal<BaseType>) => {
-        const key = keyFromObject(object);
-
-        // If it's already registered, return the existing one and increase the ref count.
-        if (this.trackedObjects.has(key)) {
-            const obj = this.trackedObjects.get(key)!;
-            obj.refCount += 1;
-            return obj;
-        }
-
-        return undefined;
-    };
-    /**
-     * Registers a new object in @see trackedObjects and sets up watcher.
-     * Only `@graph`, `@id`, `@shape` are set, the rest is added by @see initializeNewObject.
-     */
-    private registerTrackedObject = (object: BaseType) => {
-        if (!object["@shape"]) {
-            object["@shape"] = `tmp:shape:${this.tmpShapeIdCount++}`;
-        }
-        const key = keyFromObject(object);
-
-        const signalObj = deepSignal(
-            {
-                "@graph": object["@graph"],
-                "@id": object["@id"],
-                "@shape": object["@shape"],
-            } as BaseType,
-            this.signalSettings
-        );
-
-        const { stopListening } = watchDeepSignal(
-            signalObj,
-            this.onSignalObjectUpdate
-        );
-
-        const trackedObject = {
-            obj: signalObj,
-            stopListening,
-            refCount: 1,
-        };
-        this.trackedObjects.set(key, trackedObject);
-
-        this.initializeNewObject(trackedObject.obj);
-
-        return trackedObject;
-    };
-    private unregisterTrackedObject = (key: string) => {
-        const removedObj = this.trackedObjects.get(key);
-        if (!removedObj) return;
-        removedObj.refCount -= 1;
-        if (removedObj.refCount === 0) {
-            removedObj.stopListening();
-            this.trackedObjects.delete(key);
-        }
     };
 
     /** Add patches to @see pendingPatches. Schedules a microtask to send them to the backend batched, if not in transaction. */
@@ -520,24 +443,18 @@ export class OrmSubscription<
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
         batch(() => {
+            if (Array.isArray(this.signalObject)) {
+                this.signalObject.at;
+            }
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
-            if (this.mode === "unordered") {
-                for (const newItem of this.initializeNewObject(initialData)) {
-                    (this.signalObject as Set<T>).add(newItem);
-                }
-            } else if (this.mode === "orderedUnpaginated") {
-                for (const newItem of initialData) {
-                    (this.signalObject as T[]).push(
-                        this.initializeNewObject(newItem)
-                    );
+            if (this.signalObject instanceof Set) {
+                for (const newItem of parseOrmInitialObject(initialData)) {
+                    (this.signalObject as DeepSignalSet<T>).add(newItem);
                 }
             } else {
-                // Set the first page.
-                (this.signalObject as { "0": any })["0"] = {
-                    items: (initialData[0].items as any[]).map((item) =>
-                        this.initializeNewObject(item)
-                    ),
-                };
+                for (const newItem of initialData) {
+                    this.signalObject.push(parseOrmInitialObject(newItem));
+                }
             }
         });
 
@@ -548,205 +465,59 @@ export class OrmSubscription<
         });
     };
 
-    /** Registers raw objects in `this.trackedObjects`; resolves references to other tracked objects. Translates arrays object sets to sets. */
-    private initializeNewObject = (obj: any): any => {
-        if (obj === null) {
-            return null;
-        } else if (Array.isArray(obj)) {
-            // Regular arrays become sets.
-            return new Set(obj.map(this.initializeNewObject));
-        } else if (typeof obj === "object") {
-            if ("@id" in obj) {
-                // Regular tracked object.
-
-                let trackedObject = this.getTrackedObject(obj);
-
-                if (!trackedObject) {
-                    // Register object: will register obj and call `initializeNewObject` again.
-                    trackedObject = this.registerTrackedObject(obj);
-                } else {
-                    // If the object exits, it might still be that we only registered a reference so far which did not contain properties.
-                    // We add them here.
-                    for (const key of Object.keys(obj)) {
-                        if (key in ["@graph", "@id", "@shape"]) continue;
-
-                        trackedObject.obj[key] = this.initializeNewObject(
-                            obj[key]
-                        );
-                    }
-                }
-
-                return trackedObject!.obj;
-            } else {
-                // Object does not have @id, that means it's a set of objects.
-                return new Set(
-                    Object.values(obj).map(this.initializeNewObject)
-                );
-            }
-        }
-        // Literal.
-        return obj;
-    };
-
     /** Handle incoming patches from the engine */
     private onBackendUpdate = (patches: Patch[]) => {
         this.suspendDeepWatcher = true;
 
-        const newObjects = patches.flatMap((p) => {
+        // Apply patches to signal object.
+        batch(() => {
+            applyPatches(this.signalObject, patches);
+        });
+
+        const addedRoots = patches.flatMap((p) => {
             if (
-                p.path !== "/" ||
-                p.valType !== "set" ||
-                typeof p.value !== "object"
+                p.op !== "add" ||
+                typeof p.value !== "object" ||
+                !p.path.match(/^\/[0-9]*$/) // Targets root set or position in array.
             )
                 return [];
 
-            const tracked = this.registerTrackedObject(p.value as any);
-
-            return [tracked.obj];
+            return [p.value as T];
         });
-        const newRootObjects = newObjects.filter(
-            (obj) => obj["@shape"] == this.shapeType.shape
-        );
 
         const removedRoots = patches.flatMap((p) => {
             if (p.op !== "remove") return [];
-            const matched = p.path.match(/^\/([^|]*|[^|]*|[^|]*)$/);
-            if (!matched) return [];
-            const [_, key] = matched;
 
-            // Decrease refCount and remove from tracked objects if refCount is 0.
-            const removedObj = this.trackedObjects.get(key)!;
-            this.unregisterTrackedObject(key);
+            const rootPathMatch = p.path.match(/^\/([^/]+)$/); // Targets root (no slashes).
+            if (!rootPathMatch) return [];
 
-            if (removedObj.obj["@shape"] === this.shapeType.shape) {
-                // TODO
-                this.signalObject.delete(removedObj.obj);
+            if (this.signalObject instanceof Set) {
+                return this.signalObject.getById(rootPathMatch[1]!);
+            } else {
+                return this.signalObject[Number(rootPathMatch[1])];
             }
-
-            return removedObj.obj;
         });
 
-        // Includes changes to nested objects
+        // Modification to object or nested objects.
         const updatedRootObjects = new Set(
             patches.flatMap((p) => {
-                const matched = p.path.match(/^\/([^|]*|[^|]*|[^|]*).+/);
+                const matched = p.path.match(/^\/([^|]*\|[^|]*)\/.+/);
                 if (!matched) return [];
                 const [_, rootKey] = matched;
-                const targetObj = this.trackedObjects.get(rootKey);
-                if (!targetObj) return [];
 
-                if (targetObj.obj["@shape"] === this.shapeType.shape) {
-                    return targetObj.obj;
+                if (this.signalObject instanceof Set) {
+                    return this.signalObject.getById(rootKey);
+                } else {
+                    return this.signalObject[Number(rootKey)];
                 }
-                return [];
             })
-        )
-            .values()
-            .filter((o) => o.obj["@shape"] === this.shapeType.shape)
-            .toArray();
-
-        // Process unlink object patches
-        patches.forEach((p) => {
-            if (p.op !== "remove") return;
-            const matched = p.path.match(
-                // Match <root path>/<property name>/<optional object key in set>
-                /^\/([^|]*|[^|]*|[^|]*)\/([^/]+)(\/[^/]+)?$/
-            );
-            if (!matched) return;
-            const [_, rootKey, property, maybeObjectKey] = matched;
-
-            const parent = this.trackedObjects.get(rootKey)!;
-            if (maybeObjectKey) {
-                // Remove object inside a set.
-                const objectSet = parent.obj[
-                    property
-                ] as DeepSignalSet<BaseType>;
-                const toRemove = objectSet.getById(maybeObjectKey)!;
-                objectSet.delete(toRemove);
-
-                // Decrease refCount and remove from tracked objects if refCount is 0.
-                this.unregisterTrackedObject(maybeObjectKey);
-            } else if (
-                typeof parent.obj[property] === "object" &&
-                !(parent.obj[property] instanceof Set)
-            ) {
-                // Remove object from object.
-                const toRemove = parent.obj[property];
-                delete parent.obj[property];
-
-                const key = keyFromObject(toRemove);
-                // Decrease refCount and remove from tracked objects if refCount is 0.
-                this.unregisterTrackedObject(key);
-            } else if (
-                parent.obj[property] instanceof Set &&
-                typeof (
-                    parent.obj[property] as DeepSignalSet<BaseType>
-                ).first() === "object"
-            ) {
-                // Remove all objects from set.
-                for (const toRemove of parent.obj[property]) {
-                    const key = keyFromObject(toRemove);
-                    // Decrease refCount and remove from tracked objects if refCount is 0.
-                    this.unregisterTrackedObject(key);
-                }
-                delete parent.obj[property];
-            }
-        });
-
-        // Handle patches adding/removing literals.
-        patches.forEach((p) => {
-            // Skip object adds.
-            if (
-                typeof p.value === "object" &&
-                !(Array.isArray(p.value) && typeof p.value[0] !== "object")
-            )
-                return;
-
-            // Match patches to a property.
-            const matched = p.path.match(
-                // Match <root path>/<property name>
-                /^\/([^|]*|[^|]*|[^|]*)\/([^/]+)$/
-            );
-            if (!matched) return;
-            const [_, parentKey, property] = matched;
-
-            const tracked = this.trackedObjects.get(parentKey)!;
-            if (typeof tracked.obj)
-                if (p.op === "add" && p.valType === "set") {
-                    // Add all values in p.value (might be an array with more than one literal).
-                    for (const value of [p.value].flat()) {
-                        (tracked.obj[property] as DeepSignalSet<any>).add(
-                            value
-                        );
-                    }
-                } else if (p.op === "add") {
-                    tracked.obj[property] = p.value;
-                } else if (p.op === "remove" && p.valType === "set") {
-                    // Remove all values in p.value (might be an array with more than one literal).
-                    for (const value of [p.value].flat()) {
-                        (tracked.obj[property] as DeepSignalSet<any>).delete(
-                            value
-                        );
-                    }
-                } else if (p.op === "remove") {
-                    delete tracked.obj[property];
-                }
-        });
-
-        // TODO: Structural patches
-        // if (this.mode === "unordered") {
-
-        // } else if (this.mode === "orderedPaginated") {
-
-        // } else {
-
-        // }
+        );
 
         // Process links to new objects.
         this.changeListeners.forEach((cl) =>
             Object.apply(cl, [
                 {
-                    adds: newRootObjects,
+                    adds: addedRoots,
                     removes: removedRoots,
                     updates: updatedRootObjects,
                 },
@@ -759,45 +530,50 @@ export class OrmSubscription<
         });
     };
 
-    /** Function to create random subject NURIs for newly created nested objects. */
+    /**
+     * On new objects being attached, this function ensures that `@id` and `@graph` are set (possibly by generating/adding them).
+     * If the parent is a set, generates a synthetic id (used for path creation).
+     */
     private attachSignalObjectHandler: OnObjectAttachedFn = ({
-        path,
-        rawObject: object,
+        rawObject,
+        rawParent,
+        meta,
     }) => {
         // Only deal with objects.
-        if (Array.isArray(object) || object instanceof Set) return;
+        if (Array.isArray(rawObject) || rawObject instanceof Set) return;
 
-        // If we are just applying data coming from the backend, there's nothing to do
-        // except for returning the proxied tracked orm objects for replacement with the raw object or reference.
+        // If we are just applying data coming from the backend,
+        // `@graph` and `@id` will be set already. Just generated syntheticId, if parent is a set.
         if (this.suspendDeepWatcher) {
-            const tracked =
-                this.getTrackedObject(object as any) ??
-                this.registerTrackedObject(object as any);
-            return {
-                replaceWith: tracked,
-                syntheticId: keyFromObject(tracked.obj),
-            };
+            if (rawParent instanceof Set) {
+                return {
+                    syntheticId: syntheticIdFromObject(rawObject as BaseType),
+                };
+            } else {
+                return;
+            }
         }
 
         let graphIri: string | undefined = undefined;
         let subjectIri: string | undefined = undefined;
 
         // If no @graph is set, add the parent's graph NURI. If there is no parent, throw.
-        if (!object["@graph"] || object["@graph"] === "") {
-            if (path.length > 1) {
-                // The first part of the path is the <graphNuri>|<subjectIri> composition.
-                graphIri = (path[0] as string).split("|")[0];
-            } else {
-                throw new Error(
-                    "When adding new root orm objects, you must specify the @graph"
-                );
-            }
+        if (!rawObject["@graph"] || rawObject["@graph"] === "") {
+            // Check if the parent has a @graph. `parent.parent` might have a graph is parent is a set.
+            graphIri =
+                (rawParent as any)["@graph"] ??
+                (meta.parent?.parent?.raw as any)?.["graph"];
         } else {
-            graphIri = object["@graph"];
+            graphIri = rawObject["@graph"];
+        }
+        if (!graphIri) {
+            throw new Error(
+                "The object's @graph is missing and could not be inferred."
+            );
         }
 
-        if (object["@id"] && object["@id"] !== "") {
-            subjectIri = object["@id"];
+        if (rawObject["@id"] && rawObject["@id"] !== "") {
+            subjectIri = rawObject["@id"];
         } else {
             // Generate 33 random bytes using Web Crypto API
             const b = new Uint8Array(33);
@@ -811,25 +587,19 @@ export class OrmSubscription<
                     .replace(/=+$/, "");
             const randomString = base64url(b);
 
-            // We use the root subject's graph as the basis.
-            // TODO: We could use the closest parent's graph instead.
-            subjectIri =
-                ((path[0] ?? graphIri) as string).substring(0, 9 + 44) +
-                ":q:" +
-                randomString;
+            subjectIri = graphIri.substring(0, 9 + 44) + ":q:" + randomString;
         }
 
-        object["@id"] = subjectIri;
-        object["@graph"] = graphIri;
-        // Register new object or get reference to it.
-        const tracked =
-            this.getTrackedObject(object as any) ??
-            this.registerTrackedObject(object as any);
+        rawObject["@id"] = subjectIri;
+        rawObject["@graph"] = graphIri;
 
-        return {
-            syntheticId: `${graphIri}|${escapePathSegment(subjectIri!)}|${escapePathSegment(tracked.obj["@shape"])}`,
-            replaceWith: tracked.obj,
-        };
+        if (rawParent instanceof Set) {
+            return {
+                syntheticId: syntheticIdFromObject(rawObject as BaseType),
+            };
+        } else {
+            return;
+        }
     };
 
     /**
@@ -922,12 +692,14 @@ function canonicalScope(scope: NormalizedScope): string {
     return `${(scope.graphs || []).slice().sort().join(",")}|${(scope.subjects || []).slice().sort().join(",")}`;
 }
 
+// TODO: apply patches
+// TODO: readonly array
+// TODO: Review here
+// TODO: useShape
 function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
     return patches.flatMap((patch) => {
         if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
             return [];
-
-        // TODO: pagination.
 
         // Escape property name.
         const pathSegments = [...patch.path];
@@ -953,9 +725,27 @@ function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
     }) as Patch[];
 }
 
-function keyFromObject(obj: BaseType) {
-    return `/${obj["@graph"]}|${escapePathSegment(obj["@id"])}|${escapePathSegment(obj["@shape"])}`;
+function syntheticIdFromObject(obj: BaseType) {
+    return `/${obj["@graph"]}|${escapePathSegment(obj["@id"])}`;
 }
+
+const parseOrmInitialObject = (obj: any): any => {
+    // Regular arrays become sets.
+    if (Array.isArray(obj)) {
+        return new Set(obj.map(parseOrmInitialObject));
+    } else if (obj && typeof obj === "object") {
+        if ("@id" in obj) {
+            // Regular object.
+            for (const key of Object.keys(obj)) {
+                obj[key] = parseOrmInitialObject(obj[key]);
+            }
+        } else {
+            // Object does not have @id, that means it's a set of objects.
+            return new Set(Object.values(obj).map(parseOrmInitialObject));
+        }
+    }
+    return obj;
+};
 
 type NormalizedOrmOptions<ST extends ShapeType<any>> = Omit<
     OrmConfig<ST>,

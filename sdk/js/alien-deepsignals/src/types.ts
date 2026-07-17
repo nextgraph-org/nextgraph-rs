@@ -130,6 +130,8 @@ export type OnObjectAttachedFn = (props: {
     rawParent: Set<any> | Record<string, any> | any[];
     /** The newly added, non-proxied raw object. You may modify it. */
     rawObject: Record<string, any> | Set<any> | any[];
+    /** @ignore Signal object metadata containing the parent hierarchy. */
+    meta: ProxyMeta;
 }) =>
     | void
     | undefined

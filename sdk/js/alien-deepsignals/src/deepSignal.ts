@@ -361,6 +361,7 @@ function prepareObjectTree(
                 path: basePath,
                 rawParent,
                 rawObject: rawValue,
+                meta,
             })) ??
         {};
 

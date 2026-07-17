@@ -27,8 +27,6 @@ export interface BaseType extends Record<string, any> {
     "@id": string;
     /** The document NURI of the subject. By default, it will be set to the parent's graph. */
     "@graph": string;
-    /** The shape IRI of this object as defined in the shape definition file. */
-    "@shape": string;
 }
 
 export type Schema = {
