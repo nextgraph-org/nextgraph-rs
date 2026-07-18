@@ -18,6 +18,7 @@ import {
     watch as watchDeepSignal,
     batch,
     isDeepSignal,
+    readOnlyArray,
 } from "@ng-org/alien-deepsignals";
 import type {
     OnObjectAttachedFn,
@@ -28,9 +29,10 @@ import type {
     DeepSignal,
     DeepPatch,
     DeepSignalOptions,
+    ReadOnlyDeepSignalArray,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
-import { ObjectType, OrmConfig } from "../utilTypes.ts";
+import { OrderByConfigObject, OrmConfig } from "../utilTypes.ts";
 import { escapePathSegment } from "./utils.ts";
 
 /**
@@ -52,9 +54,11 @@ const WAIT_BEFORE_CLOSE = 500;
  */
 export class OrmSubscription<
     ST extends ShapeType<any>,
-    OPTIONS extends OrmConfig<ST>,
+    CONF extends OrmConfig<ST>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
-    OT extends ObjectType<OPTIONS, T> = ObjectType<OPTIONS, T>,
+    SUBSCRIPTION_DATA = undefined extends CONF["orderBy"]
+        ? DeepSignalSet<T>
+        : ReadOnlyDeepSignalArray<T>,
 > {
     /** Global store of all subscriptions. We use that for pooling. */
     private static idToEntry = new Map<
@@ -67,23 +71,31 @@ export class OrmSubscription<
     /** The {@link Scope} of the subscription. */
     readonly scope: Scope;
     /**
-     * - `unordered`: /** The root object is a set.
-     * - `orderedPaginatedCumulative`: `orderBy` and `pageSize` is set but `maxActivePages` not -> `signalObject` is an object of pages.
-     * - `orderedPaginatedLimited`: `orderBy`, `pageSize`, and `maxActivePages` are set -> `signalObject` is an object of pages.
-     *    Pages will be removed from `signalObject` when more pages are loaded than `maxActivePages` allows (which happens when calling `nextPage()` or `previousPage()`).
-     * - `orderedUnpaginated`: `orderBy` is set but `pageSize` and `maxActivePage` not -> `signalObject` is an array.
+     * The ordering mode which depends on the passed subscription's {@link OrderByConfigObject}.
+     * - `unordered`: The root object is a set (no `orderBy` config set)
+     * - `orderedUnpaginated`: `orderBy` is set but `pageSize` not
+     *     -> `signalObject` is an array of all items matching the shape and scope.
+     * - `orderedPaginatedSimple`: `orderBy`, `pageSize`, and `maxActivePages` are set
+     *     -> `signalObject` is an array but only contains the items of the loaded pages.
+     *         Pages will be removed from `signalObject` when more pages are loaded than `maxActivePages` allows.
+     *         You can call {@link nextPage} and {@link previousPage} to navigate.
+     * - `orderedPaginatedCumulative`: `orderBy` and `pageSize` is set but `maxActivePages` not
+     *     -> `signalObject` is an array but only contains all loaded pages so far.
+     *         You can call {@link nextPage} but not {@link previousPage}.
      */
     readonly mode:
         | "unordered"
         | "orderedPaginatedCumulative"
-        | "orderedPaginatedLimited"
+        | "orderedPaginatedSimple"
         | "orderedUnpaginated";
+
     /**
      * The signalObject containing all data matching the shape and scope
      * (once subscription is established).
-     * Depending on the options, the object is a set, an array, or an object of pages.
+     * Depending on the orderBy config {@link Or}, the object is a set or an array.
+     * See {@link mode} for more details.
      *
-     * Additionally, this object is a reactive {@link DeepSignal} object.
+     * This object is a reactive {@link DeepSignal} object.
      * To the outside behaves like a regular object but has a couple of
      * additional features:
      * - Modifications are immediately propagated back to the database.
@@ -94,20 +106,15 @@ export class OrmSubscription<
      * - Watch for object changes using {@link watchDeepSignal}.
      * - Use can use them in {@link effect} and {@link computed}.
      */
-    readonly signalObject: DeepSignal<OT>;
-    /**
-    //  * Map of all tracked (signal) objects. Each of them contains a `@graph` abd `@id` prop.
-    //  * Nesting by reference to other tracked objects.
-    //  * The key is a composite of <graph>|<subject>.
-    //  */
-    // private trackedObjects: Map<
-    //     string,
-    //     {
-    //         obj: DeepSignal<BaseType>;
-    //         stopListening: () => void;
-    //         refCount: number;
-    //     }
-    // > = new Map();
+    get signalObject() {
+        return (this.readonlyItemsArray ??
+            this.signalObject_) as SUBSCRIPTION_DATA;
+    }
+    private readonly signalObject_: undefined extends CONF["orderBy"]
+        ? DeepSignalSet<T>
+        : DeepSignal<T[]>;
+    private readonlyItemsArray?: ReadOnlyDeepSignalArray<T>;
+
     /** Listeners that get notified when root objects are added, updated, or removed. */
     private changeListeners: Set<OrmChangeListener<T>> = new Set();
     private stopSignalListening: () => void;
@@ -172,34 +179,34 @@ export class OrmSubscription<
         } else if (options.maxActivePages === undefined) {
             this.mode = "orderedPaginatedCumulative";
         } else {
-            this.mode = "orderedPaginatedLimited";
+            this.mode = "orderedPaginatedSimple";
         }
 
         // Base signalObject depends on ordering and pagination settings.
-        let baseObject =
-            this.mode === "unordered"
-                ? new Set()
-                : this.mode === "orderedUnpaginated"
-                  ? []
-                  : {}; // With pages (and dynamic page indices).
+        let baseObject = options.orderBy ? [] : new Set();
 
         this.signalSettings = {
             onObjectAttached: this.attachSignalObjectHandler,
 
             readOnlyProps: ["@id", "@graph", "@shape"],
         } as DeepSignalOptions;
-        this.signalObject = deepSignal(baseObject as any, this.signalSettings);
+        this.signalObject_ = deepSignal(baseObject as any, this.signalSettings);
+
+        // Create the read-only proxy for ordered arrays.
+        if (Array.isArray(this.signalObject_)) {
+            this.readonlyItemsArray = readOnlyArray(this.signalObject_);
+        }
 
         // Schedule cleanup of the connection when the signal object is GC'd.
         OrmSubscription.cleanupSignalRegistry?.register(
-            this.signalObject,
+            this.signalObject_,
             this.identifier,
-            this.signalObject
+            this.signalObject_
         );
 
         // Add listener to deep signal object to report changes back to wasm land.
         const { stopListening } = watchDeepSignal(
-            this.signalObject,
+            this.signalObject_,
             this.onSignalObjectUpdate,
             { triggerInstantly: true }
         );
@@ -231,22 +238,26 @@ export class OrmSubscription<
      * {@link ShapeType} and {@link Scope} in a 2-way binding.
      *
      * You **find the data** and objects matching the shape and scope
-     * in the **`signalObject`** once {@link readyPromise} resolves. This is a {@link DeepSignalSet} which
-     * to the outside behaves like a regular set but has a couple of
-     * additional features:
+     * in the **`signalObject`** once {@link readyPromise} resolves.
+     *
+     * The {@link signalObject} is either an array if you specify an `orderBy`
+     * in the options or a set otherwise.
+     *
+     * To the outside, the signalObject behaves like a regular Set or Array
+     * but it has a couple of additional properties:
      * - Modifications are propagated back to the database.
      *   Note that multiple immediate modifications in the same task,
      *   e.g. `obj[0] = "foo"; obj[1] = "bar"` are batched together
      *   and sent in a subsequent microtask.
      * - Database changes are immediately reflected in the object.
      * - `.getBy(graphIri, subjectIri)` utility for quicker access to objects in set.
-     * - `.first()` utility to get the first element added to the set.
+     * - `.first()` utility to get the first element added to the set (useful when you know that it is only one).
      * - The iterator utilities, e.g. `.map()`, `.filter()`, ...
      * - Use the object with alien-deepsignal functions like
      *   {@link effect}, {@link computed}, or {@link watchDeepSignal}.
      *
      *
-     * You can use **transactions**, to prevent excessive calls to the database
+     * You can (and should) use **transactions**, to prevent excessive calls to the database
      * with {@link beginTransaction} and {@link commitTransaction}.
      *
      * In many cases, you are advised to use a hook for your
@@ -272,7 +283,7 @@ export class OrmSubscription<
      * //     "store",
      * //     undefined
      * // );
-     * const subscription = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [graphIri]});
+     * const subscription = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [documentId]});
      * // Wait for data.
      * await subscription.readyPromise;
      *
@@ -292,10 +303,10 @@ export class OrmSubscription<
      * // If you create a new subscription with the same document within a couple of 100ms,
      * // The subscription hasn't been closed and the old one is returned so that the data
      * // is available instantly. This is especially useful in the context of frontend frameworks.
-     * const subscription2 = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [graphIri]});
+     * const subscription2 = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [documentId]});
      *
      * subscription2.signalObject.add({
-     *    "@graph": graphIri,
+     *    "@graph": documentId,
      *    "@id": "", // Leave empty to auto-assign one.
      *    name": "A new expense",
      *    description: "A new description"
@@ -373,7 +384,7 @@ export class OrmSubscription<
                 OrmSubscription.idToEntry.delete(this.identifier);
 
                 OrmSubscription.cleanupSignalRegistry?.unregister(
-                    this.signalObject
+                    this.signalObject_
                 );
 
                 // for (const [_key, objMeta] of this.trackedObjects) {
@@ -402,7 +413,7 @@ export class OrmSubscription<
         this.queuePatches({ patches: deepPatchesToWasm(patches) });
     };
 
-    /** Add patches to @see pendingPatches. Schedules a microtask to send them to the backend batched, if not in transaction. */
+    /** Add patches to {@link pendingPatches}. Schedules a microtask to send them to the backend batched, if not in transaction. */
     private queuePatches({ patches }: { patches: Patch[] }) {
         this.pendingPatches.push(...patches);
 
@@ -443,17 +454,14 @@ export class OrmSubscription<
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
         batch(() => {
-            if (Array.isArray(this.signalObject)) {
-                this.signalObject.at;
-            }
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
-            if (this.signalObject instanceof Set) {
+            if (this.signalObject_ instanceof Set) {
                 for (const newItem of parseOrmInitialObject(initialData)) {
-                    (this.signalObject as DeepSignalSet<T>).add(newItem);
+                    (this.signalObject_ as DeepSignalSet<T>).add(newItem);
                 }
             } else {
                 for (const newItem of initialData) {
-                    this.signalObject.push(parseOrmInitialObject(newItem));
+                    this.signalObject_.push(parseOrmInitialObject(newItem));
                 }
             }
         });
@@ -471,7 +479,7 @@ export class OrmSubscription<
 
         // Apply patches to signal object.
         batch(() => {
-            applyPatches(this.signalObject, patches);
+            applyPatches(this.signalObject_, patches);
         });
 
         const addedRoots = patches.flatMap((p) => {
@@ -491,10 +499,10 @@ export class OrmSubscription<
             const rootPathMatch = p.path.match(/^\/([^/]+)$/); // Targets root (no slashes).
             if (!rootPathMatch) return [];
 
-            if (this.signalObject instanceof Set) {
-                return this.signalObject.getById(rootPathMatch[1]!);
+            if (this.signalObject_ instanceof Set) {
+                return this.signalObject_.getById(rootPathMatch[1]!);
             } else {
-                return this.signalObject[Number(rootPathMatch[1])];
+                return this.signalObject_[Number(rootPathMatch[1])];
             }
         });
 
@@ -505,10 +513,10 @@ export class OrmSubscription<
                 if (!matched) return [];
                 const [_, rootKey] = matched;
 
-                if (this.signalObject instanceof Set) {
-                    return this.signalObject.getById(rootKey);
+                if (this.signalObject_ instanceof Set) {
+                    return this.signalObject_.getById(rootKey);
                 } else {
-                    return this.signalObject[Number(rootKey)];
+                    return this.signalObject_[Number(rootKey)];
                 }
             })
         );
@@ -607,7 +615,7 @@ export class OrmSubscription<
      * This is useful for performance reasons.
      *
      * Note that this does not disable reactivity of the `signalObject`.
-     * Modifications keep being rendered. If in need, use @see structuredClone on the raw object instead.
+     * Modifications keep being rendered. If in need, use {@link structuredClone} on the raw object instead.
      *
      * If already in a transaction, this has no effect.
      */
@@ -646,13 +654,11 @@ export class OrmSubscription<
     };
 
     /**
-     * Loads the next page of items. If `options.maxActivePages` is set and the number of loaded pages
-     * exceeds this option, the left-most page will be removed from the loaded pages in signalObject.
+     * Loads the next page of items. If `options.maxActivePages` is set and the number of items
+     * exceeds the allowed one (`pageSize` × `maxActivePages`), the left-most items will be removed from the {@link signalObject} array.
      * If no more elements are there to be loaded, nothing happens.
      *
-     * **Do not treat the page indexes as absolute numbers**. See the comment in {@link previousPage}.
-     *
-     * Only available when `options.orderBy` was set in the options of {@link getOrCreate}.
+     * Only available when `orderBy` and `pageSize` were set in the options of {@link getOrCreate}.
      */
     public nextPage = () => {
         ngSession.then(async ({ ng, session }) => {
@@ -662,15 +668,12 @@ export class OrmSubscription<
 
     /**
      * Loads the previous page of items. This only has an effect if there were items previously loaded and dropped because
-     * `options.maxActivePages` is set and the number of loaded pages exceeded that option.
-     * Calling this function will have the effect that the right-most page is dropped.
+     * more items were loaded than allowed (configured through `pageSize` × `maxActivePages`).
      *
-     * *Warning*: It can happen that items have been added or removed left of the active window (the loaded pages).
-     * Therefore there might be more or less pages then initially. As a consequence,
-     * the left-most page might be something like `-1` or `1`.
-     * **Do not treat the page indexes as absolute numbers**.
+     * Calling this function will have the effect that the right-most items are dropped.
      *
-     * Only available when `options.orderBy` was set in the options of {@link getOrCreate}.
+     *
+     * Only available when `orderBy`, `pageSize`, and `maxActivePages` were set in the options of {@link getOrCreate}.
      */
     public previousPage = () => {
         ngSession.then(async ({ ng, session }) => {
@@ -678,9 +681,9 @@ export class OrmSubscription<
         });
     };
 
-    public cancelTransaction = async () => {
-        //
-    };
+    // public cancelTransaction = async () => {
+    //     // TODO
+    // };
 }
 
 /**
@@ -692,33 +695,16 @@ function canonicalScope(scope: NormalizedScope): string {
     return `${(scope.graphs || []).slice().sort().join(",")}|${(scope.subjects || []).slice().sort().join(",")}`;
 }
 
-// TODO: apply patches
-// TODO: readonly array
-// TODO: Review here
-// TODO: useShape
 function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
     return patches.flatMap((patch) => {
         if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
             return [];
 
-        // Escape property name.
-        const pathSegments = [...patch.path];
-        if (pathSegments.length > 1)
-            pathSegments[1] = escapePathSegment(String(pathSegments[1] ?? ""));
-        const path = pathSegments.join("/");
-
-        if (isDeepSignal(patch.value)) {
-            return {
-                ...patch,
-                path,
-                value: {
-                    "@id": (patch.value as any)?.["@id"],
-                },
-            };
-        }
+        const path = patch.path.join("/");
 
         if (patch.op === "remove" && typeof patch.value === "object") {
-            // Don't include the removed object in the patch (only for literals). The path is enough for the engine.
+            // Don't include the removed object's value in the patch (only for literals).
+            // The path with its synthetic id is enough.
             return { ...patch, path, value: undefined };
         }
         return { ...patch, path };

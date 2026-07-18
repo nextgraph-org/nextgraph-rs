@@ -210,10 +210,7 @@ function ensureProxiedGetter(
 
 /** Escape JSON-pointer-like path segments so patches remain unambiguous. */
 function escapePathSegment(segment: string): string {
-    return segment
-        .replace(/~/g, "~0")
-        .replace(/\//g, "~1")
-        .replace(/\|/g, "~2");
+    return segment.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
 /** Filter out well-known symbols that should bypass reactivity. */
@@ -450,7 +447,7 @@ function prepareObjectTree(
 /**
  * Return (or create) a proxy for a property value.
  * Ensures the linkage between parent and child in metadata.
- * Does not proxy and returns `value` if @see shouldProxy returns false.
+ * Does not proxy and returns `value` if {@link shouldProxy} returns false.
  * Assumes parent has proxy.
  */
 function ensureChildProxy<T>(
@@ -1075,7 +1072,9 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 graphIri: string,
                 subjectIri: string
             ) {
-                return (this as any).getById(`${graphIri}|${subjectIri}`);
+                return (this as any).getById(
+                    `${graphIri}|${escapePathSegment(subjectIri)}`
+                );
             };
         }
         if (key === "add") {
@@ -1304,7 +1303,7 @@ export function isDeepSignal(
  *       - `first()` to get one element from the set -- useful if you know that there is only one.
  *       - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
  *       - **NOTE**: When assigning a set to `DeepSignal<Set>`, TypeScript will warn you. You can safely ignore this by writing (`parent.children = new Set() as DeepSignal<Set<any>>`). Internally, the set is automatically converted but this is not expressible in TypeScript.
- *   - For all objects: @see RAW_KEY which gives you the underlying non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh.
+ *   - For all objects: {@link RAW_KEY} which gives you the underlying non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh.
  *
  * @throws if provided with unsupported input types.
  */

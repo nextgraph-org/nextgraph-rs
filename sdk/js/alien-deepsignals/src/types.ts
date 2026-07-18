@@ -56,7 +56,7 @@ export interface DeepSignalOptions {
     /**
      * An optional function that is called when an object, array, or set is attached to a (nested) signal object, set, or array.
      * The raw object may be modified or replaced by the function.
-     * For sets, a synthetic id may be specified that is used for creating the patches in the @see watch callback.
+     * For sets, a synthetic id may be specified that is used for creating the patches in the {@link watch} callback.
      * Will also be called on the root object.
      */
     onObjectAttached?: OnObjectAttachedFn;
@@ -286,7 +286,7 @@ export type MaybeSignalOrComputed<T = any> = MaybeSignal<T> | (() => T);
  * A deep signal array that does not allow modifications.
  * You can modify it's values but adding, moving, or removing elements is not allowed.
  *
- * You can generate a ReadOnlyDeepSignalArray from a deep signal array using @see readOnlyArray.
+ * You can generate a ReadOnlyDeepSignalArray from a deep signal array using {@link readOnlyArray}.
  */
 export type ReadOnlyDeepSignalArray<T> = Pick<
     DeepSignal<Array<T>>,

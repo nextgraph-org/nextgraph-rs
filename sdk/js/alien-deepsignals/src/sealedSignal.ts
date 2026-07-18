@@ -99,7 +99,7 @@ export const sealAllProps = Symbol("Key to seal all properties");
 
 /**
  * Checks is property `p` is sealed on `target` object.
- * Target must be a sealed object created with @see createSeal or a nested object thereof.
+ * Target must be a sealed object created with {@link createSeal} or a nested object thereof.
  */
 const isPropSealed = (target: any, p: string | symbol): boolean => {
     const sealMeta = deepSignalToSealMeta.get(target);

@@ -28,7 +28,7 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
     - [Table of Contents](#table-of-contents)
     - [Installation](#installation)
     - [Start](#start)
-    - [RDF (graph) ORM: Defining Schemas](#rdf-graph-orm-defining-schemas)
+    - [RDF (Graph) ORM: Defining Schemas](#rdf-graph-orm-defining-schemas)
     - [Frontend Framework Usage](#frontend-framework-usage)
     - [Working with Data](#working-with-data)
         - [Creating a Document](#creating-a-document)
@@ -38,7 +38,9 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
         - [Example of using an OrmSubscription](#example-of-using-an-ormsubscription)
         - [The DeepSignal\<\> type](#the-deepsignal-type)
             - [Signal Objects in Frontend Frameworks](#signal-objects-in-frontend-frameworks)
-        - [Graph ORM: Relationships](#graph-orm-relationships)
+        - [RDF (Graph) ORM: Relationships](#rdf-graph-orm-relationships)
+        - [RDF (Graph) ORM: Ordering](#rdf-graph-orm-ordering)
+        - [RDF (Graph) ORM: Pagination](#rdf-graph-orm-pagination)
     - [About NextGraph](#about-nextgraph)
     - [License](#license)
 
@@ -100,7 +102,7 @@ await init(
 );
 ```
 
-## RDF (graph) ORM: Defining Schemas
+## RDF (Graph) ORM: Defining Schemas
 
 Define your data model using [SHEX (Shape Expressions)](https://shex.io/):
 See [@ng-org/shex-orm](../shex-orm/README.md) for details.
@@ -287,7 +289,7 @@ The utilities that DeepSignal objects include are:
 
 Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use `useDeepSignal(signalObject)` from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the loading time when creating new subscriptions.
 
-### Graph ORM: Relationships
+### RDF (Graph) ORM: Relationships
 
 To reference external objects, you can use their `@id`.
 
@@ -306,6 +308,52 @@ const jack = people.find((p) => p["@id"] === dog.owner);
 ```
 
 Note that when you delete a nested object from a parent, _only the linkage_ to it is removed. The nested object itself (its quads) are not deleted.
+
+### RDF (Graph) ORM: Ordering
+
+You can specify an `orderBy` property in the config objects passed to `getObjects()`, `useShape()`, and `OrmSubscription.getOrCreate()`.
+
+In that case, the signal object you will receive is not a set but an array.
+
+```ts
+const contactsSubscription = OrmSubscription.getOrCreate(PersonShape, {
+    graphs: [contactDocNuri],
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { birthDate: "desc" }],
+});
+await contactsSubscription.readyPromise;
+
+const contacts: DeepSignal<Dog[]> = dogSubscription.signalObject;
+
+//
+```
+
+Note that you cannot add, move, or remove items in the returned array. This logic is maintained internally. You can however change the items themselves.
+If you want to add an item, you can call `insertObject()` instead which will make the item appear in the array (unless in simple pagination mode, see below). Use `removeObject()` for removing an object. If you want to modify the position, just modify the properties that the data is ordered by and it will update itself.
+
+### RDF (Graph) ORM: Pagination
+
+When there is a lot of data that might be loaded by the ORM, you are advised to use pagination.
+To use pagination, you must specify an ordering.
+
+There are different modes of pagination:
+
+- `orderedPaginatedSimple`:
+  The initial data you will see is an array with as many items as was set in `pageSize`.
+  By calling `nextPage()` and `previousPage()`, new items will be appended or prepended to the data.
+
+    You must set `maxActivePages` to a value greater than 0. If you set it to greater than 1, requesting the next page
+    will not immediately remove the existing items in the array. Instead, only items will be removed if
+    the loaded items exceed `maxActivePages` × `pageSize`.
+    You are recommended to set higher values when implementing infinite feeds.
+
+    Note that if an item becomes invalid, it will be removed from the loaded items. If however an item becomes valid that would fit in the current window by its ordering, it will not appear. Your page can shrink but now grow in size.
+    As long as its ordering changes within the page bounds, it remains and changes positions.
+
+- `orderedPaginatedCumulative`:
+  This mode behaves the same as `orderedPaginatedSimple` with one difference. Because you do not set `maxActivePages`, calling `nextPage()` will not remove previously loaded data.
+  Therefore you can't call `previousPage()`.
+
+    Note that if an item becomes invalid, it will be removed from the loaded item. When an item within the loaded range becomes valid, it will appear at the correct position.
 
 ---
 

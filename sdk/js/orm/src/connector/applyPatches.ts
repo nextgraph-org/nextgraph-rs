@@ -75,7 +75,7 @@ export interface LiteralAddPatch {
  *
  * The syntax is is based on JSON Patch RFC 6902.
  *
- * It supports Sets for multi-valued properties. Add `valType: "set"` to a @see Patch,
+ * It supports Sets for multi-valued properties. Add `valType: "set"` to a {@link Patch},
  * to add literals or values as sets.
  *
  * Path traversal:

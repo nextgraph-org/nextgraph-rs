@@ -1,5 +1,5 @@
 export const readOnlySet = new Proxy(new Set(), {
-    get(target, key, receiver) {
+    get(target, key, _receiver) {
         if (key === "add" || key === "delete" || key === "clear") {
             return () => {
                 throw new Error("Set is readonly because scope is empty.");

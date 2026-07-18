@@ -17,6 +17,10 @@ import type {
 import { RootShapeType } from "./tests/shapes/orm/testShape.shapeTypes.ts";
 import { Scope } from "./types.ts";
 import { OrmSubscription } from "./core.ts";
+import {
+    DeepSignalSet,
+    ReadOnlyDeepSignalArray,
+} from "@ng-org/alien-deepsignals";
 
 /** The typescript equivalent for an ORM basic datatype (string, number, boolean, iri as string). */
 type OrmDataTypeToType<DT extends DataType> =
@@ -79,10 +83,24 @@ type SingleKeyObject<T extends Record<string, unknown>> = {
  * Defines how results are sorted.
  * Must contain a single property with the key being the property to sort by
  * and the value being `"asc"`, `"desc"`.
- * The property must have a cardinality of exactly 1.
+ * The property to sort by must have a cardinality of exactly 1.
+ *
+ * May be used as single object or array of objects if you want secondary ordering.
+ *
+ * @example
+ * ```ts
+ * {
+ *   orderBy: [
+ *     { firstName: "asc"},
+ *     { lastName: "asc"},
+ *     { birthDate: "desc"}
+ *   ],
+ *   ...
+ * }
+ * ```
  */
 // TODO: Rust config requires them to be an array.
-type OrderByConfigObject<
+export type OrderByConfigObject<
     ST extends ShapeType<any>,
     SchemaIri extends keyof ST["schema"] = ST["shape"],
     Pred extends
@@ -168,4 +186,6 @@ export type OrmConfig<
 export type ObjectType<
     CONF extends OrmConfig<any>,
     T extends BaseType,
-> = undefined extends CONF["orderBy"] ? Set<T> : T[];
+> = undefined extends CONF["orderBy"]
+    ? DeepSignalSet<T>
+    : ReadOnlyDeepSignalArray<T>;

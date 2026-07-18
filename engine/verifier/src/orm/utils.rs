@@ -9,7 +9,6 @@
 
 use crate::orm::graph::types::TrackedOrmObject;
 
-// TODO: Escape |?
 /// `~` is encoded as ~0, `/` is encoded as ~1.
 pub fn escape_json_pointer_segment(path_segment: &String) -> String {
     path_segment.replace("~", "~0").replace("/", "~1")
