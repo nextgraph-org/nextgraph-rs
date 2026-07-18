@@ -10,7 +10,7 @@
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { normalizeScope, Scope } from "../types.ts";
-import { RdfOrmSubscription } from "./GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
 import { RAW_KEY } from "@ng-org/alien-deepsignals";
 
 /**

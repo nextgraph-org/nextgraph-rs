@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { ngSession } from "./initNg.ts";
-import type { RdfOrmSubscription } from "./GraphOrmSubscription.ts";
+import type { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
 
 /**
  * Utility for removing *all* data (quads) for a given document and subject.

@@ -482,14 +482,21 @@ export class RdfOrmSubscription<
         });
 
         const addedRoots = patches.flatMap((p) => {
-            if (
-                p.op !== "add" ||
-                typeof p.value !== "object" ||
-                !p.path.match(/^\/[0-9]*$/) // Targets root set or position in array.
-            )
-                return [];
+            if (p.op !== "add" || typeof p.value !== "object") return [];
 
-            return [p.value as T];
+            const match = p.path.match(/^\/([0-9]*)$/); // Targets root set or position in array.
+            if (!match) return [];
+            const syntheticIdOrIndex = match[1];
+
+            if (Array.isArray(this.signalObject_)) {
+                return this.signalObject_[
+                    Number(syntheticIdOrIndex)
+                ] as DeepSignal<T>;
+            } else {
+                return this.signalObject_.getById(
+                    syntheticIdOrIndex
+                ) as DeepSignal<T>;
+            }
         });
 
         const removedRoots = patches.flatMap((p) => {
@@ -499,9 +506,13 @@ export class RdfOrmSubscription<
             if (!rootPathMatch) return [];
 
             if (this.signalObject_ instanceof Set) {
-                return this.signalObject_.getById(rootPathMatch[1]!);
+                return this.signalObject_.getById(
+                    rootPathMatch[1]!
+                ) as DeepSignal<T>;
             } else {
-                return this.signalObject_[Number(rootPathMatch[1])];
+                return this.signalObject_[
+                    Number(rootPathMatch[1])
+                ] as DeepSignal<T>;
             }
         });
 
@@ -513,9 +524,9 @@ export class RdfOrmSubscription<
                 const [_, rootKey] = matched;
 
                 if (this.signalObject_ instanceof Set) {
-                    return this.signalObject_.getById(rootKey);
+                    return this.signalObject_.getById(rootKey) as DeepSignal<T>;
                 } else {
-                    return this.signalObject_[Number(rootKey)];
+                    return this.signalObject_[Number(rootKey)] as DeepSignal<T>;
                 }
             })
         );
@@ -526,7 +537,7 @@ export class RdfOrmSubscription<
                 {
                     adds: addedRoots,
                     removes: removedRoots,
-                    updates: updatedRootObjects,
+                    updates: [...updatedRootObjects],
                 },
             ])
         );
@@ -745,11 +756,19 @@ type RdfOrmSubscriptionFor<
 > = undefined extends OP["pageSize"]
     ? Omit<RdfOrmSubscription<ST, OP, T>, "nextPage" | "previousPage"> // No pagination functions.
     : undefined extends OP["maxActivePages"]
-      ? Omit<RdfOrmSubscription<ST, OP, T>, "nextPage"> // Only forward pagination without `maxActivePages`.
+      ? Omit<RdfOrmSubscription<ST, OP, T>, "previousPage"> // Only forward pagination without `maxActivePages`.
       : RdfOrmSubscription<ST, OP, T>; // Forward and backwards pagination.
 
-type OrmChangeListener<T> = (changes: {
-    adds: T[];
-    updates: T[];
-    removes: T[];
+export type OrmChangeListener<T> = (changes: {
+    adds: DeepSignal<T>[];
+    updates: DeepSignal<T>[];
+    removes: DeepSignal<T>[];
 }) => void;
+
+// const conf = {
+//     graphs: [""],
+//     orderBy: { foo: "asc" },
+//     pageSize: 2,
+// } satisfies OrmConfig<any>;
+// const test: RdfOrmSubscriptionFor<ShapeType<BaseType>, typeof conf>;
+// test.nextPage;

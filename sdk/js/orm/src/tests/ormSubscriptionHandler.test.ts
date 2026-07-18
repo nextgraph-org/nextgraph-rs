@@ -10,7 +10,7 @@
 
 import { describe, test, expect, beforeEach } from "vitest";
 import { initNgSignals } from "../connector/initNg.ts";
-import { RdfOrmSubscription } from "../connector/GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "../connector/RdfOrmSubscription.ts";
 import type { Patch } from "../connector/applyPatches.ts";
 
 // Provide a minimal window mock for Node.js environment.

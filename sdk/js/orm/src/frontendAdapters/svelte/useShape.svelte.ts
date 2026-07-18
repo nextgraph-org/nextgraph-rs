@@ -13,7 +13,7 @@ import { onDestroy } from "svelte";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
-import { RdfOrmSubscription } from "../../connector/GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "../../connector/RdfOrmSubscription.ts";
 import { readOnlySet } from "../utils.ts";
 
 /**

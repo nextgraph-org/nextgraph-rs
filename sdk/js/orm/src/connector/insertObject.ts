@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { RdfOrmSubscription } from "./GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
 
 /**
  * Utility for adding ORM-typed objects to the database without
