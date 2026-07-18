@@ -9,11 +9,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { DiscreteArray, DiscreteObject } from "../types.ts";
-import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
+import { applyPatches, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
 import {
+    batch,
     deepSignal,
     watch as watchDeepSignal,
 } from "@ng-org/alien-deepsignals";
@@ -297,7 +298,9 @@ export class DiscreteOrmSubscription {
         window.OrmDiscreteIncomingPatches.push(patches);
 
         this.suspendDeepWatcher = true;
-        applyPatchesToDeepSignal(this._signalObject!, patches);
+        batch(() => {
+            applyPatches(this._signalObject!, patches);
+        });
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;

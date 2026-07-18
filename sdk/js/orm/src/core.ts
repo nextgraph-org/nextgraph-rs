@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { OrmSubscription } from "./connector/GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "./connector/GraphOrmSubscription.ts";
 import { DiscreteOrmSubscription } from "./connector/DiscreteOrmSubscription.ts";
 import { initNgSignals, ngSession } from "./connector/initNg.ts";
 import { insertObject } from "./connector/insertObject.ts";
@@ -27,7 +27,7 @@ export { getRaw, watch, effect } from "@ng-org/alien-deepsignals";
 export {
     initNgSignals as initNg,
     ngSession,
-    OrmSubscription,
+    RdfOrmSubscription,
     DiscreteOrmSubscription,
     insertObject,
     getObjects,

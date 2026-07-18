@@ -16,7 +16,7 @@ import type {
 } from "@ng-org/shex-orm";
 import { RootShapeType } from "./tests/shapes/orm/testShape.shapeTypes.ts";
 import { Scope } from "./types.ts";
-import { OrmSubscription } from "./core.ts";
+import { RdfOrmSubscription } from "./core.ts";
 import {
     DeepSignalSet,
     ReadOnlyDeepSignalArray,
@@ -145,7 +145,7 @@ type SelectConfig<
           boolean;
 };
 
-/** Options for creating an {@link OrmSubscription}. */
+/** Options for creating an {@link RdfOrmSubscription}. */
 // TODO: Using ShapeTypes instead of the generated types might be overkill.
 export type OrmConfig<
     ST extends ShapeType<any>,

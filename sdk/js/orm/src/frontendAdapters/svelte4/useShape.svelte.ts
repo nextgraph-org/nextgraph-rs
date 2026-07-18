@@ -16,7 +16,7 @@ import {
     type UseDeepSignalResult,
 } from "@ng-org/alien-deepsignals/svelte4";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
-import { OrmSubscription } from "../../connector/GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "../../connector/GraphOrmSubscription.ts";
 import { readOnlySet } from "../utils.ts";
 
 /** Extended result including the originating root signal wrapper from shape logic. @ignore*/
@@ -100,7 +100,7 @@ export function useShape<T extends BaseType>(
         return { root: readOnlySet, ...ds };
     }
 
-    const { signalObject: rootSignal, close } = OrmSubscription.getOrCreate(
+    const { signalObject: rootSignal, close } = RdfOrmSubscription.getOrCreate(
         shape,
         normalizeScope(scope)
     );

@@ -9,20 +9,28 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { ngSession } from "./initNg.ts";
+import type { RdfOrmSubscription } from "./GraphOrmSubscription.ts";
 
 /**
- * Utility for removing *all* data (quads) for a given graph and subject.
+ * Utility for removing *all* data (quads) for a given document and subject.
  *
- * Note that this is equivalent to calling `delete()` on an object in a graph subscription.
+ * Essentially this runs the following SPARQL query:\
+ * `DELETE WHERE { GRAPH <${graphNuri}> { <${subjectIri}> ?p ?o . } }`
+ *
+ * Note that this call has the same effect to calling `delete()` on an object
+ * in an [RDF ORM Subscription]({@link RdfOrmSubscription}).
+ *
+ * @param graphNuri The Nuri of the document to remove data in.
+ * @param subjectIri The IRI of the subject to delete all data for.
  */
-export async function insertObject(graph_nuri: string, subject_iri: string) {
+export async function removeObject(graphNuri: string, subjectIri: string) {
     const {
         ng,
         session: { session_id },
     } = await ngSession;
     ng.sparql_update(
         session_id,
-        `DELETE WHERE { GRAPH <${graph_nuri}> { <${subject_iri}> ?p ?o . } }`,
-        graph_nuri
+        `DELETE WHERE { GRAPH <${graphNuri}> { <${subjectIri}> ?p ?o . } }`,
+        graphNuri
     );
 }

@@ -17,7 +17,6 @@ import {
     deepSignal,
     watch as watchDeepSignal,
     batch,
-    isDeepSignal,
     readOnlyArray,
 } from "@ng-org/alien-deepsignals";
 import type {
@@ -47,12 +46,12 @@ const WAIT_BEFORE_CLOSE = 500;
  *
  * You have two options on how to interact with the ORM:
  * - Use a hook for your favorite framework under `@ng-org/orm/react|vue|svelte`
- * - Call {@link OrmSubscription.getOrCreate} to create a subscription manually
+ * - Call {@link RdfOrmSubscription.getOrCreate} to create a subscription manually
  *
  * For more information about RDF-based ORM subscriptions,
  * see the README and follow the tutorial.
  */
-export class OrmSubscription<
+export class RdfOrmSubscription<
     ST extends ShapeType<any>,
     CONF extends OrmConfig<ST>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
@@ -63,7 +62,7 @@ export class OrmSubscription<
     /** Global store of all subscriptions. We use that for pooling. */
     private static idToEntry = new Map<
         string,
-        OrmSubscription<any, any, any>
+        RdfOrmSubscription<any, any, any>
     >();
 
     /** The shape type that is subscribed to. */
@@ -120,7 +119,7 @@ export class OrmSubscription<
     private stopSignalListening: () => void;
     /** The subscription ID kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
-    /** The number of OrmSubscriptions with the same shape and options (for pooling). */
+    /** The number of RdfOrmSubscriptions with the same shape and options (for pooling). */
     private refCount: number;
     /** Identifier as a canonicalization of the shape type and options, to prevent duplications. */
     private identifier: string;
@@ -162,9 +161,9 @@ export class OrmSubscription<
         identifier: string
     ) {
         // @ts-expect-error
-        window.ormSignalConnections = OrmSubscription.idToEntry;
+        window.rdfOrmSignalConnections = RdfOrmSubscription.idToEntry;
         // @ts-expect-error
-        window.OrmSubscription = OrmSubscription;
+        window.RdfOrmSubscription = RdfOrmSubscription;
 
         this.shapeType = shapeType;
         this.scope = options;
@@ -198,7 +197,7 @@ export class OrmSubscription<
         }
 
         // Schedule cleanup of the connection when the signal object is GC'd.
-        OrmSubscription.cleanupSignalRegistry?.register(
+        RdfOrmSubscription.cleanupSignalRegistry?.register(
             this.signalObject_,
             this.identifier,
             this.signalObject_
@@ -234,7 +233,7 @@ export class OrmSubscription<
     }
 
     /**
-     * Returns an OrmSubscription which subscribes to the given
+     * Returns an RdfOrmSubscription which subscribes to the given
      * {@link ShapeType} and {@link Scope} in a 2-way binding.
      *
      * You **find the data** and objects matching the shape and scope
@@ -268,7 +267,7 @@ export class OrmSubscription<
      *
      * Note: If another call to `getOrCreate` was previously made
      * and `close` was not called on it (or only shortly after),
-     * it will return the same OrmSubscription.
+     * it will return the same RdfOrmSubscription.
      *
      * @param shapeType The {@link ShapeType}
      * @param options The {@link OrmConfig}.
@@ -283,7 +282,7 @@ export class OrmSubscription<
      * //     "store",
      * //     undefined
      * // );
-     * const subscription = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [documentId]});
+     * const subscription = RdfOrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [documentId]});
      * // Wait for data.
      * await subscription.readyPromise;
      *
@@ -303,7 +302,7 @@ export class OrmSubscription<
      * // If you create a new subscription with the same document within a couple of 100ms,
      * // The subscription hasn't been closed and the old one is returned so that the data
      * // is available instantly. This is especially useful in the context of frontend frameworks.
-     * const subscription2 = OrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [documentId]});
+     * const subscription2 = RdfOrmSubscription.getOrCreate(ExpenseShapeType, {graphs: [documentId]});
      *
      * subscription2.signalObject.add({
      *    "@graph": documentId,
@@ -322,7 +321,7 @@ export class OrmSubscription<
     >(
         shapeType: ST,
         options: OP
-    ): OrmSubscriptionFor<ST, OP, T> => {
+    ): RdfOrmSubscriptionFor<ST, OP, T> => {
         const { graphs, subjects, maxActivePages, orderBy, pageSize } = options;
         const normalizedScope = normalizeScope({ graphs, subjects });
         const scopeKey = canonicalScope(normalizedScope);
@@ -338,12 +337,12 @@ export class OrmSubscription<
         // If we already have an object for this options,
         // return it and just increase the reference count.
         // Otherwise, create new one.
-        const existingConnection = OrmSubscription.idToEntry.get(identifier);
+        const existingConnection = RdfOrmSubscription.idToEntry.get(identifier);
         if (existingConnection) {
             existingConnection.refCount += 1;
             return existingConnection as any;
         } else {
-            const newConnection = new OrmSubscription(
+            const newConnection = new RdfOrmSubscription(
                 shapeType,
                 {
                     ...normalizedScope,
@@ -353,7 +352,7 @@ export class OrmSubscription<
                 },
                 identifier
             );
-            OrmSubscription.idToEntry.set(identifier, newConnection as any);
+            RdfOrmSubscription.idToEntry.set(identifier, newConnection as any);
             return newConnection as any;
         }
     };
@@ -381,9 +380,9 @@ export class OrmSubscription<
         setTimeout(() => {
             if (this.refCount > 0) this.refCount--;
             if (this.refCount === 0) {
-                OrmSubscription.idToEntry.delete(this.identifier);
+                RdfOrmSubscription.idToEntry.delete(this.identifier);
 
-                OrmSubscription.cleanupSignalRegistry?.unregister(
+                RdfOrmSubscription.cleanupSignalRegistry?.unregister(
                     this.signalObject_
                 );
 
@@ -738,16 +737,16 @@ type NormalizedOrmOptions<ST extends ShapeType<any>> = Omit<
     "subjects" | "graphs"
 > & { graphs: string[]; subjects: string[] };
 
-/** The {@link OrmSubscription} for a given {@link OrmConfig}. */
-type OrmSubscriptionFor<
+/** The {@link RdfOrmSubscription} for a given {@link OrmConfig}. */
+type RdfOrmSubscriptionFor<
     ST extends ShapeType<any>,
     OP extends OrmConfig<ST>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
 > = undefined extends OP["pageSize"]
-    ? Omit<OrmSubscription<ST, OP, T>, "nextPage" | "previousPage"> // No pagination functions.
+    ? Omit<RdfOrmSubscription<ST, OP, T>, "nextPage" | "previousPage"> // No pagination functions.
     : undefined extends OP["maxActivePages"]
-      ? Omit<OrmSubscription<ST, OP, T>, "nextPage"> // Only forward pagination without `maxActivePages`.
-      : OrmSubscription<ST, OP, T>; // Forward and backwards pagination.
+      ? Omit<RdfOrmSubscription<ST, OP, T>, "nextPage"> // Only forward pagination without `maxActivePages`.
+      : RdfOrmSubscription<ST, OP, T>; // Forward and backwards pagination.
 
 type OrmChangeListener<T> = (changes: {
     adds: T[];

@@ -13,7 +13,7 @@ import { onDestroy } from "svelte";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
-import { OrmSubscription } from "../../connector/GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "../../connector/GraphOrmSubscription.ts";
 import { readOnlySet } from "../utils.ts";
 
 /**
@@ -101,7 +101,7 @@ export function useShape<T extends BaseType>(
         return useDeepSignal(readOnlySet) as DeepSignalSet<T>;
     }
 
-    const { signalObject: rootSignal, close } = OrmSubscription.getOrCreate(
+    const { signalObject: rootSignal, close } = RdfOrmSubscription.getOrCreate(
         shape,
         normalizeScope(scope)
     );

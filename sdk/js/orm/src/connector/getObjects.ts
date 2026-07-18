@@ -10,7 +10,7 @@
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { normalizeScope, Scope } from "../types.ts";
-import { OrmSubscription } from "./GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "./GraphOrmSubscription.ts";
 import { RAW_KEY } from "@ng-org/alien-deepsignals";
 
 /**
@@ -24,7 +24,7 @@ export async function getObjects<T extends BaseType>(
     shapeType: ShapeType<T>,
     scope: Scope | string
 ) {
-    const connection = OrmSubscription.getOrCreate(
+    const connection = RdfOrmSubscription.getOrCreate(
         shapeType,
         normalizeScope(scope)
     );

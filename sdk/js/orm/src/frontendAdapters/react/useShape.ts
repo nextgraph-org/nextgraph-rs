@@ -13,7 +13,7 @@ import { useDeepSignal } from "@ng-org/alien-deepsignals/react";
 import type { ShapeType } from "@ng-org/shex-orm";
 import { useEffect, useMemo, useRef } from "react";
 import { normalizeScope, type Scope } from "../../types.ts";
-import { OrmSubscription } from "../../connector/GraphOrmSubscription.ts";
+import { RdfOrmSubscription } from "../../connector/GraphOrmSubscription.ts";
 import { DeepSignalSet } from "@ng-org/alien-deepsignals";
 import { readOnlySet } from "../utils.ts";
 
@@ -92,7 +92,7 @@ const useShape = <T extends BaseType>(
         [scope, (scope as Scope)?.graphs, (scope as Scope)?.subjects]
     );
 
-    const prevOrmSubscription = useRef<undefined | OrmSubscription<T>>(
+    const prevOrmSubscription = useRef<undefined | RdfOrmSubscription<T>>(
         undefined
     );
 
@@ -100,7 +100,7 @@ const useShape = <T extends BaseType>(
         if (parsedScope === undefined) return undefined;
         if (prevOrmSubscription.current) prevOrmSubscription.current.close();
 
-        const newOrmSubscription = OrmSubscription.getOrCreate(
+        const newOrmSubscription = RdfOrmSubscription.getOrCreate(
             shape,
             parsedScope
         );

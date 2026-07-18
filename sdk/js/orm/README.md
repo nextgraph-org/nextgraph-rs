@@ -15,9 +15,11 @@ Different CRDTs have different APIs. We want to make it as easy as possible to u
 Vice versa, the CRDT is modified and that is reflected in your TS object.\
 We offer this for **React, Vue, and Svelte (5 and 4)**.
 
-Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
+Note that we support single-document, discrete (**JSON**) CRDT and graph (**RDF**) CRDT data.
 
-- For graphs, you specify a schema using a SHEX shape and optionally a scope. This provides you with typing support.
+Because of that **there are two ORM types**:
+
+- For RDF data (graphs), you specify a schema using a SHEX shape and optionally a scope. This provides you with typing support. Unless you specify an ordering, the items you receive are in a set, there are no arrays in RDF.
 - For discrete CRDTs, all you need is a document ID (NURI).
 
 ## Table of Contents
@@ -33,9 +35,9 @@ Note that we support discrete (**JSON**) CRDT and graph (**RDF**) CRDT ORMs.
     - [Working with Data](#working-with-data)
         - [Creating a Document](#creating-a-document)
         - [Using and Modifying ORM Objects](#using-and-modifying-orm-objects)
-        - [The (Discrete)OrmSubscription Class](#the-discreteormsubscription-class)
+        - [The (Rdf|Discrete)OrmSubscription Class](#the-rdfdiscreteormsubscription-class)
         - [Transactions](#transactions)
-        - [Example of using an OrmSubscription](#example-of-using-an-ormsubscription)
+        - [Example of using an RdfOrmSubscription](#example-of-using-an-rdformsubscription)
         - [The DeepSignal\<\> type](#the-deepsignal-type)
             - [Signal Objects in Frontend Frameworks](#signal-objects-in-frontend-frameworks)
         - [RDF (Graph) ORM: Relationships](#rdf-graph-orm-relationships)
@@ -190,7 +192,7 @@ const docNuri = await ng.doc_create(
     undefined
 );
 
-// Add class to RDF part of the document so we can find it again.
+// Add a class to the RDF part of the document so we can find it again.
 await ng.sparql_update(
     session_id,
     `INSERT DATA { GRAPH <${documentId}> {<${documentId}> a <${APPLICATION_CLASS_IRI}> } }`,
@@ -218,14 +220,14 @@ There are multiple ways to get and modify data:
 - Get and modify the data returned by a `useShape()` or `useDiscrete()` hook inside of a component.
 - For graph ORMs (no 2-way binding):
     - [`getObjects(shapeType, scope)`](#getobjects) Gets all object with the given shape type within the `scope`. The returned objects are _not_ `DeepSignal` objects - modifications to them do not trigger updates and changes from other sources do not update the returned object.
-    - [`insertObject(shapeType, object)`](#insertobject): A convenience function to add objects of a given shape to the database. While with `useShape()` and `OrmSubscription`, you can just add objects to the returned set or `subscription.signalObject`, respectively.
-      This function spares you of creating an `OrmSubscription` and can be used outside of components, where you can't call `useShape`.
+    - [`insertObject(shapeType, object)`](#insertobject): A convenience function to add objects of a given shape to the database. While with `useShape()` and `RdfOrmSubscription`, you can just add objects to the returned set or `subscription.signalObject`, respectively.
+      This function spares you of creating an `RdfOrmSubscription` and can be used outside of components, where you can't call `useShape`.
 
-### The (Discrete)OrmSubscription Class
+### The (Rdf|Discrete)OrmSubscription Class
 
-You can establish subscriptions outside of frontend components using the (Discrete)OrmSubscription class. DiscreteOrmSubscriptions are scoped to one document, (RDF-based) OrmSubscriptions can have a `Scope` of more than one document and require a shape type. Once a subscription is established, its `.readyPromise` resolves and the `.signalObject` contains the 2-way bound data.
+You can establish subscriptions outside of frontend components using the (Discrete|Rdf)OrmSubscription class. DiscreteOrmSubscriptions are scoped to one document, RdfOrmSubscriptions can have a `Scope` of more than one document and require a shape type. Once a subscription is established, its `.readyPromise` resolves and the `.signalObject` contains the 2-way bound data.
 
-You can create a new subscription using `(Discrete)OrmSubscription.getOrCreate()`. If a subscription with the same document or scope exists already, a reference to that object is returned. Otherwise, a new one is created.
+You can create a new subscription using `(Discrete|Rdf)OrmSubscription.getOrCreate()`. If a subscription with the same document or scope exists already, a reference to that object is returned. Otherwise, a new one is created.
 This pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useShape()` or `useDiscrete()`. This reduces load and the data is available instantly.
 
 Subscriptions are open until `.close()` is called on all references of this object. The `useShape` and `useDiscrete` hooks call `.close()` on their reference when their component unmounts.
@@ -236,10 +238,10 @@ To improve performance, you can start transactions with subscriptions using `.be
 
 Note that even in non-transaction mode, changes are batched and only committed after the current task finished. The changes are sent to the engine in a [microtask](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide). You can end the current task and flush, for example, by awaiting a promise: `await Promise.resolve()`.
 
-### Example of using an OrmSubscription
+### Example of using an RdfOrmSubscription
 
 ```typescript
-const dogSubscription = OrmSubscription.getOrCreate(DogShape, {
+const dogSubscription = RdfOrmSubscription.getOrCreate(DogShape, {
     graphs: [docNuri],
 });
 await dogSubscription.readyPromise;
@@ -281,7 +283,7 @@ The utilities that DeepSignal objects include are:
 - For sets (with the RDF ORM):
     - iterator helper methods (e.g. `map()`, `filter()`, `reduce()`, `any()`, ...)
     - `first()` to get one element from the set -- useful if you know that there is only one.
-    - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
+    - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph (document) NURI and subject IRI.
     - **NOTE**: When assigning a set to `DeepSignal<Set>`, TypeScript will warn you. You can safely ignore this by writing (`parent.children = new Set() as DeepSignal<Set<any>>`). Internally, the set is automatically converted but this is not expressible in TypeScript.
 - For all objects: `__raw__` which gives you the non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh. If you use `__raw__`, that won't work anymore. This is an _advanced feature with limited use cases_. Modifying the raw object can cause the object to get out of sync.
 
@@ -311,24 +313,31 @@ Note that when you delete a nested object from a parent, _only the linkage_ to i
 
 ### RDF (Graph) ORM: Ordering
 
-You can specify an `orderBy` property in the config objects passed to `getObjects()`, `useShape()`, and `OrmSubscription.getOrCreate()`.
+With the RDF ORM, you can specify an `orderBy` property in the config objects passed to `getObjects()`, `useShape()`, or `RdfOrmSubscription.getOrCreate()`.
 
 In that case, the signal object you will receive is not a set but an array.
 
 ```ts
-const contactsSubscription = OrmSubscription.getOrCreate(PersonShape, {
+const contactsSubscription = RdfOrmSubscription.getOrCreate(ContactShape, {
     graphs: [contactDocNuri],
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { birthDate: "desc" }],
+    orderBy: [
+        // The key is the property name defined in the schema,
+        // the value "asc" for ascending order or "desc" for descending order.
+        { lastName: "asc" },
+        // You can add secondary orderBy values in the array.
+        { firstName: "asc" },
+        { birthDate: "desc" },
+    ],
 });
 await contactsSubscription.readyPromise;
 
-const contacts: DeepSignal<Dog[]> = dogSubscription.signalObject;
+const contacts: ReadOnlyDeepSignalArray<Contact> = dogSubscription.signalObject;
 
 //
 ```
 
 Note that you cannot add, move, or remove items in the returned array. This logic is maintained internally. You can however change the items themselves.
-If you want to add an item, you can call `insertObject()` instead which will make the item appear in the array (unless in simple pagination mode, see below). Use `removeObject()` for removing an object. If you want to modify the position, just modify the properties that the data is ordered by and it will update itself.
+If you want to add an item, you can call [`insertObject()`](#insertobject) instead which will make the item appear in the array (unless in simple pagination mode, see below). Use [`removeObject()`](#removeobject) for removing an object. If you want to modify the position, just modify the properties that the data is ordered by and it will update itself.
 
 ### RDF (Graph) ORM: Pagination
 
