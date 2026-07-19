@@ -10,11 +10,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 -->
 <script setup lang="ts">
-import { runPaginationOrmTests } from "../../utils/temp.ts";
 import ExpenseCategories from "./ExpenseCategories.vue";
 import Expenses from "./Expenses.vue";
 
-runPaginationOrmTests()
 
 </script>
 
@@ -27,8 +25,7 @@ runPaginationOrmTests()
                     Organize categories, log purchases. Encrypted and
                     local-first.
                 </p>
-                <button @click="runPaginationOrmTests">Click for pagination
-                    tests</button>
+
             </header>
             <div class="section-stack">
                 <ExpenseCategories />

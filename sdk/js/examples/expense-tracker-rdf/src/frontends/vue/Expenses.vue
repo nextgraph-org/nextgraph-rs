@@ -8,17 +8,21 @@ import {
 import type { Expense } from "../../shapes/orm/expenseShapes.typings";
 import { sessionPromise, session } from "../../utils/ngSession";
 import ExpenseCard from "./ExpenseCard.vue";
+import { insertObject } from "@ng-org/orm";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const expenses = useShape(ExpenseShapeType, privateNuri);
-const categories = useShape(ExpenseCategoryShapeType, {
+const { data: expenses } = useShape(ExpenseShapeType, privateNuri && {
+    graphs: [privateNuri],
+    orderBy: { dateOfPurchase: "desc" }
+});
+const { data: categories } = useShape(ExpenseCategoryShapeType, {
     graphs: [privateNuri || ""],
 });
 
 async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
 
-    expenses.add({
+    insertObject(ExpenseShapeType, {
         "@graph": `did:ng:${session.private_store_id}`,
         "@type": "did:ng:z:Expense",
         "@id": "",
@@ -34,15 +38,6 @@ async function createExpense(obj: Partial<Expense> = {}) {
     });
 }
 
-const expensesSorted = computed(() =>
-    [...expenses].sort((a, b) =>
-        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    )
-);
-
-function expenseKey(expense: Expense) {
-    return `${expense["@graph"]}|${expense["@id"]}`;
-}
 </script>
 
 <template>
@@ -57,12 +52,15 @@ function expenseKey(expense: Expense) {
             </button>
         </header>
         <div class="cards-stack">
-            <p v-if="expensesSorted.length === 0" class="muted">
+            <p v-if="!expenses || !categories" class="muted">
+                Loading...
+            </p>
+            <p v-else-if="expenses.length === 0" class="muted">
                 Nothing tracked yet - log your first purchase to kick things
                 off.
             </p>
             <template v-else>
-                <ExpenseCard v-for="expense in expensesSorted" :key="expenseKey(expense)" :expense="expense"
+                <ExpenseCard v-for="expense in expenses" :key="expense['@id']" :expense="expense"
                     :available-categories="categories" />
             </template>
         </div>

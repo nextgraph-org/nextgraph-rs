@@ -17,16 +17,22 @@ import {
 import type { Expense } from "../../shapes/orm/expenseShapes.typings";
 import { sessionPromise, session } from "../../utils/ngSession";
 import { ExpenseCard } from "./ExpenseCard";
+import { insertObject } from "@ng-org/orm";
 
 export function Expenses() {
     const privateNuri = session && `did:ng:${session?.private_store_id}`;
-    const expenses = useShape(ExpenseShapeType, privateNuri);
-    const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
+    const {data: expenses , nextPage, previousPage} = useShape(ExpenseShapeType, session && {
+        graphs: [privateNuri!],
+        orderBy: {dateOfPurchase: "desc"},
+        maxActivePages: 2,
+        pageSize: 2
+    });
+    const {data: expenseCategories } = useShape(ExpenseCategoryShapeType, privateNuri );
     const createExpense = useCallback(
         async (obj: Partial<Expense> = {}) => {
             const session = await sessionPromise;
 
-            expenses.add({
+            insertObject(ExpenseShapeType,{
                 "@graph": `did:ng:${session.private_store_id}`,
                 "@type": "did:ng:z:Expense",
                 "@id": "",
@@ -44,13 +50,6 @@ export function Expenses() {
         [expenses]
     );
 
-    const expensesSorted = [...expenses].sort((a, b) =>
-        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    );
-
-    const expenseKey = (expense: Expense) =>
-        `${expense["@graph"]}|${expense["@id"]}`;
-
     return (
         <section className="panel">
             <header className="panel-header">
@@ -65,17 +64,37 @@ export function Expenses() {
                 >
                     + Add expense
                 </button>
+                <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => nextPage()}
+                >
+                    next page
+                </button>
+                <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => previousPage()}
+                >
+                    previous page
+                </button>
             </header>
             <div className="cards-stack">
-                {expensesSorted.length === 0 ? (
+                {!expenses && (
+                    <p className="muted">
+                        Loading...
+                    </p>
+                )}
+                {(expenses && expenses.length === 0) && (
                     <p className="muted">
                         Nothing tracked yet - log your first purchase to kick
                         things off.
                     </p>
-                ) : (
-                    expensesSorted.map((expense) => (
+                )}
+                {expenses && expenses.length > 0 && (
+                    expenses.map((expense) => (
                         <ExpenseCard
-                            key={expenseKey(expense)}
+                            key={expense['@id']}
                             expense={expense}
                             availableCategories={expenseCategories}
                         />

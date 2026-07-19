@@ -71,9 +71,6 @@ function nameOfCategory(categoryIri: string) {
         ?.categoryName;
 }
 
-function categoryKey(category: ExpenseCategory) {
-    return `${category["@graph"]}|${category["@id"]}`;
-}
 </script>
 
 <template>
@@ -199,7 +196,7 @@ function categoryKey(category: ExpenseCategory) {
                 >
                     <label
                         v-for="category in props.availableCategories"
-                        :key="categoryKey(category)"
+                        :key="category['@id']"
                         class="category-option"
                     >
                         <input

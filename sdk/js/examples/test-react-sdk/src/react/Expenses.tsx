@@ -48,9 +48,6 @@ export function Expenses() {
         a.dateOfPurchase.localeCompare(b.dateOfPurchase)
     );
 
-    const expenseKey = (expense: Expense) =>
-        `${expense["@graph"]}|${expense["@id"]}`;
-
     return (
         <section className="panel">
             <header className="panel-header">
@@ -75,7 +72,7 @@ export function Expenses() {
                 ) : (
                     expensesSorted.map((expense) => (
                         <ExpenseCard
-                            key={expenseKey(expense)}
+                            key={expense['@id']}
                             expense={expense}
                             availableCategories={expenseCategories}
                         />

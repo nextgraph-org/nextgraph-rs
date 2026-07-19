@@ -29,8 +29,6 @@ export function ExpenseCategories() {
         });
     }, [expenseCategories]);
 
-    const categoryKey = (category: { "@graph": string; "@id": string }) =>
-        `${category["@graph"]}|${category["@id"]}`;
 
     return (
         <section className="panel">
@@ -61,7 +59,7 @@ export function ExpenseCategories() {
                     {[...expenseCategories].map((category) => (
                         <ExpenseCategoryCard
                             category={category}
-                            key={categoryKey(category)}
+                            key={category["@id"]}
                         />
                     ))}
                 </div>

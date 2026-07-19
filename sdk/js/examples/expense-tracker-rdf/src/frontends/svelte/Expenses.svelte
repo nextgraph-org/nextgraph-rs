@@ -18,15 +18,19 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   import type { Expense } from "../../shapes/orm/expenseShapes.typings";
   import { sessionPromise, session } from "../../utils/ngSession";
   import ExpenseCard from "./ExpenseCard.svelte";
+  import { insertObject } from "@ng-org/orm";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenses = useShape(ExpenseShapeType, privateNuri);
+  const expenses = useShape(
+    ExpenseShapeType,
+    privateNuri && { graphs: privateNuri, orderBy: { dateOfPurchase: "desc" } }
+  );
   const categories = useShape(ExpenseCategoryShapeType, privateNuri);
 
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
 
-    expenses.add({
+    insertObject(ExpenseShapeType, {
       "@graph": `did:ng:${session.private_store_id}`,
       "@type": "did:ng:z:Expense",
       "@id": "",
@@ -41,14 +45,6 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
       title: obj.title ?? "New Expense",
     });
   }
-  const expensesSorted = $derived(
-    [...expenses].sort((a, b) =>
-      a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    )
-  );
-
-  const expenseKey = (expense: Expense) =>
-    `${expense["@graph"]}|${expense["@id"]}`;
 </script>
 
 <section class="panel">
@@ -62,15 +58,17 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     </button>
   </header>
   <div class="cards-stack">
-    {#if !expenses.size}
+    {#if !expenses.data || !categories.data}
+      <p class="muted">Loading...</p>
+    {:else if expenses.data.length === 0}
       <p class="muted">
         Nothing tracked yet - log your first purchase to kick things off.
       </p>
     {:else}
-      {#each expensesSorted as expense, index (expenseKey(expense))}
+      {#each expenses.data as expense, index (expense["@id"])}
         <ExpenseCard
-          expense={expensesSorted[index]}
-          availableCategories={categories}
+          expense={expenses.data[index]}
+          availableCategories={categories.data}
         />
       {/each}
     {/if}

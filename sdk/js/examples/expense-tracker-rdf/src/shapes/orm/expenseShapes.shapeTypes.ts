@@ -1,15 +1,15 @@
 import type { ShapeType } from "@ng-org/shex-orm";
-import { expenseShapesSchema } from "./expenseShapes.schema";
-import type { Expense, ExpenseCategory } from "./expenseShapes.typings";
+import { expenseShapesSchema } from "./expenseShapes.schema.ts";
+import type { Expense, ExpenseCategory } from "./expenseShapes.typings.ts";
 
 // ShapeTypes for expenseShapes
-export const ExpenseShapeType = {
-    schema: expenseShapesSchema,
-    shape: "did:ng:z:ExpenseShape",
-    __type__: undefined as Expense | undefined,
-} as const satisfies ShapeType<Expense>;
 
-export const ExpenseCategoryShapeType = {
-    schema: expenseShapesSchema,
-    shape: "did:ng:z:ExpenseCategoryShape",
-} as const satisfies ShapeType<ExpenseCategory>;
+export const ExpenseShapeType: ShapeType<Expense> = {
+  schema: expenseShapesSchema,
+  shape: "did:ng:z:ExpenseShape",
+};
+
+export const ExpenseCategoryShapeType: ShapeType<ExpenseCategory> = {
+  schema: expenseShapesSchema,
+  shape: "did:ng:z:ExpenseCategoryShape",
+};

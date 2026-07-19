@@ -16,12 +16,12 @@ import { ExpenseCategoryCard } from "./ExpenseCategoryCard";
 
 export function ExpenseCategories() {
     const privateNuri = session && `did:ng:${session?.private_store_id}`;
-    const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
+    const {data: expenseCategories } = useShape(ExpenseCategoryShapeType, privateNuri);
 
     const createCategory = useCallback(async () => {
         const session = await sessionPromise;
 
-        expenseCategories.add({
+        expenseCategories?.add({
             "@graph": `did:ng:${session.private_store_id}`,
             "@type": new Set(["did:ng:z:ExpenseCategory"]),
             "@id": "",
@@ -29,9 +29,6 @@ export function ExpenseCategories() {
             description: "",
         });
     }, [expenseCategories]);
-
-    const categoryKey = (category: { "@graph": string; "@id": string }) =>
-        `${category["@graph"]}|${category["@id"]}`;
 
     return (
         <section className="panel">
@@ -41,7 +38,7 @@ export function ExpenseCategories() {
                     <h2 className="title">
                         Expense Categories
                         <span className="badge">
-                            {expenseCategories.size} total
+                            {expenseCategories?.size} total
                         </span>
                     </h2>
                 </div>
@@ -55,14 +52,18 @@ export function ExpenseCategories() {
                     </button>
                 </div>
             </header>
-            {expenseCategories.size === 0 ? (
+            {!expenseCategories && (
+                <p className="muted">Loading...</p>
+            )}
+            {expenseCategories && expenseCategories.size === 0 && (
                 <p className="muted">No categories yet</p>
-            ) : (
+            )}
+            {expenseCategories && expenseCategories.size > 0 && (
                 <div className="cards-grid">
                     {[...expenseCategories].map((category) => (
                         <ExpenseCategoryCard
                             category={category}
-                            key={categoryKey(category)}
+                            key={category["@id"]}
                         />
                     ))}
                 </div>
