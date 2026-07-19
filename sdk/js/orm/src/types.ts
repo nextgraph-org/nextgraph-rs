@@ -8,6 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { BaseType, ShapeType } from "@ng-org/shex-orm";
+import { RdfOrmConfig } from "./utilTypes.ts";
+
 /**
  * When dealing with shapes (RDF-based graph database ORMs):
  * The scope of a shape request.
@@ -54,6 +57,15 @@ export const normalizeScope = (
     const subjects = scope.subjects ?? [];
 
     return { graphs, subjects };
+};
+
+export const normalizeConf = <T extends BaseType>(
+    conf: string | RdfOrmConfig<T>
+) => {
+    return {
+        ...(typeof conf === "string" ? {} : conf),
+        ...normalizeScope(conf),
+    };
 };
 
 export type NormalizedScope = { graphs: string[]; subjects: string[] };

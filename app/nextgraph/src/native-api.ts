@@ -62,6 +62,8 @@ const mapping = {
     upload_start: ["session_id", "nuri", "mimetype"],
     upload_done: ["upload_id", "session_id", "nuri", "filename"],
     graph_orm_update: ["subscription_id", "diff", "session_id"],
+    graph_orm_next_page: ["subscription_id", "session_id"],
+    graph_orm_previous_page: ["subscription_id", "session_id"],
     discrete_orm_update: ["subscription_id", "diff", "session_id"]
 };
 

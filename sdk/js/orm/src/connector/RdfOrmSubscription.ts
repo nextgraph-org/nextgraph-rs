@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { NormalizedScope, normalizeScope, type Scope } from "../types.ts";
-import { applyPatches, Patch } from "./applyPatches.ts";
+import { applyPatches, parseOrmInitialObject, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -28,10 +28,10 @@ import type {
     DeepSignal,
     DeepPatch,
     DeepSignalOptions,
-    ReadOnlyDeepSignalArray,
+    ReadOnlyArray,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
-import { OrderByConfigObject, OrmConfig } from "../utilTypes.ts";
+import { OrderByConfig, RdfOrmConfig, SubscriptionData } from "../utilTypes.ts";
 import { escapePathSegment } from "./utils.ts";
 
 /**
@@ -53,11 +53,9 @@ const WAIT_BEFORE_CLOSE = 500;
  */
 export class RdfOrmSubscription<
     ST extends ShapeType<any>,
-    CONF extends OrmConfig<ST>,
+    CONF extends RdfOrmConfig<T>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
-    SUBSCRIPTION_DATA = undefined extends CONF["orderBy"]
-        ? DeepSignalSet<T>
-        : ReadOnlyDeepSignalArray<T>,
+    SUBSCRIPTION_DATA = SubscriptionData<T, CONF>,
 > {
     /** Global store of all subscriptions. We use that for pooling. */
     private static idToEntry = new Map<
@@ -70,7 +68,7 @@ export class RdfOrmSubscription<
     /** The {@link Scope} of the subscription. */
     readonly scope: Scope;
     /**
-     * The ordering mode which depends on the passed subscription's {@link OrderByConfigObject}.
+     * The ordering mode which depends on the passed subscription's {@link OrderByConfig}.
      * - `unordered`: The root object is a set (no `orderBy` config set)
      * - `orderedUnpaginated`: `orderBy` is set but `pageSize` not
      *     -> `signalObject` is an array of all items matching the shape and scope.
@@ -91,7 +89,7 @@ export class RdfOrmSubscription<
     /**
      * The signalObject containing all data matching the shape and scope
      * (once subscription is established).
-     * Depending on the orderBy config {@link Or}, the object is a set or an array.
+     * Depending on the [orderBy config]({@link OrderByConfig}), the object is a set or an array.
      * See {@link mode} for more details.
      *
      * This object is a reactive {@link DeepSignal} object.
@@ -104,6 +102,7 @@ export class RdfOrmSubscription<
      * - the iterator utilities, e.g. `.map()`, `.filter()`, ...
      * - Watch for object changes using {@link watchDeepSignal}.
      * - Use can use them in {@link effect} and {@link computed}.
+     * - When used in the frontend with `useShape()`, modifications trigger rerenders.
      */
     get signalObject() {
         return (this.readonlyItemsArray ??
@@ -112,7 +111,7 @@ export class RdfOrmSubscription<
     private readonly signalObject_: undefined extends CONF["orderBy"]
         ? DeepSignalSet<T>
         : DeepSignal<T[]>;
-    private readonlyItemsArray?: ReadOnlyDeepSignalArray<T>;
+    private readonlyItemsArray?: ReadOnlyArray<T>;
 
     /** Listeners that get notified when root objects are added, updated, or removed. */
     private changeListeners: Set<OrmChangeListener<T>> = new Set();
@@ -130,10 +129,10 @@ export class RdfOrmSubscription<
     /** Aggregation of patches to be sent when in transaction. @ignore */
     private pendingPatches: Patch[] = [];
     /** **Await to ensure that the subscription is established and the data arrived.** */
-    private readyPromise_: Promise<void>;
+    private readyPromise_: Promise<SUBSCRIPTION_DATA>;
     private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
-    private resolveReady!: () => void;
+    private resolveReady!: (data: SUBSCRIPTION_DATA) => void;
     /**
      * Set to true when patches are created and collected to be sent to the backend in
      * the next microtask. Prevents scheduling more than one microtask.
@@ -157,7 +156,7 @@ export class RdfOrmSubscription<
 
     private constructor(
         shapeType: ST,
-        options: NormalizedOrmOptions<ST>,
+        options: NormalizedOrmOptions<T>,
         identifier: string
     ) {
         // @ts-expect-error
@@ -212,7 +211,7 @@ export class RdfOrmSubscription<
         this.stopSignalListening = stopListening;
 
         // Set promise to be resolved when data arrived from engine.
-        this.readyPromise_ = new Promise<void>((resolve) => {
+        this.readyPromise_ = new Promise<SUBSCRIPTION_DATA>((resolve) => {
             this.resolveReady = resolve;
         });
 
@@ -270,7 +269,7 @@ export class RdfOrmSubscription<
      * it will return the same RdfOrmSubscription.
      *
      * @param shapeType The {@link ShapeType}
-     * @param options The {@link OrmConfig}.
+     * @param options The {@link RdfOrmConfig}.
      *
      * @example
      * ```typescript
@@ -316,20 +315,22 @@ export class RdfOrmSubscription<
      */
     public static getOrCreate = <
         ST extends ShapeType<any>,
-        const OP extends OrmConfig<ST>,
-        T extends BaseType = Exclude<ST["__type__"], undefined>,
+        T extends BaseType,
+        const CONF extends RdfOrmConfig<T>,
     >(
-        shapeType: ST,
-        options: OP
-    ): RdfOrmSubscriptionFor<ST, OP, T> => {
+        shapeType: ShapeType<T>,
+        options: CONF
+    ): RdfOrmSubscriptionFor<ST, CONF, T> => {
         const { graphs, subjects, maxActivePages, orderBy, pageSize } = options;
         const normalizedScope = normalizeScope({ graphs, subjects });
         const scopeKey = canonicalScope(normalizedScope);
-        const optionsKey = JSON.stringify({
-            maxActivePages,
-            orderBy,
-            pageSize,
-        });
+        // If we have pagination active, we can't pool subscriptions because
+        // otherwise calling the next page on one would effect the other.
+        const optionsKey = pageSize
+            ? Math.random().toString()
+            : JSON.stringify({
+                  orderBy,
+              });
 
         // Unique identifier for a given shape type, scope, and options.
         const identifier = `${shapeType.shape}|${scopeKey}|${optionsKey}`;
@@ -361,15 +362,20 @@ export class RdfOrmSubscription<
     get inTransaction() {
         return this.inTransaction_;
     }
-    /** **Await to ensure that the subscription is established and the data arrived.** */
+    /** Await to ensure that the subscription is established and the data arrived. */
     get readyPromise() {
         return this.readyPromise_;
+    }
+    /** Returns true when {@link readyPromise} resolved. */
+    private isReady_ = false;
+    get isReady(): boolean {
+        return this.isReady_;
     }
 
     /**
      * Stop the subscription.
      *
-     * **If there is more than one subscription with the same shape type and scope
+     * **If there is more than one subscription with the same shape type and scope, and no pagination,
      * the orm subscription will persist.**
      *
      * Additionally, the closing of the subscription is delayed by a couple hundred milliseconds
@@ -409,7 +415,7 @@ export class RdfOrmSubscription<
         if (this.suspendDeepWatcher || !patches.length) return;
 
         // Send patches to engine.
-        this.queuePatches({ patches: deepPatchesToWasm(patches) });
+        this.queuePatches({ patches: this.deepPatchesToWasm(patches) });
     };
 
     /** Add patches to {@link pendingPatches}. Schedules a microtask to send them to the backend batched, if not in transaction. */
@@ -468,7 +474,8 @@ export class RdfOrmSubscription<
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;
             // Resolve readiness after initial data is committed and watcher armed.
-            this.resolveReady();
+            this.isReady_ = true;
+            this.resolveReady(this.signalObject);
         });
     };
 
@@ -672,6 +679,7 @@ export class RdfOrmSubscription<
      */
     public nextPage = () => {
         ngSession.then(async ({ ng, session }) => {
+            await this.readyPromise;
             ng.graph_orm_next_page(this.subscriptionId, session.session_id);
         });
     };
@@ -687,6 +695,7 @@ export class RdfOrmSubscription<
      */
     public previousPage = () => {
         ngSession.then(async ({ ng, session }) => {
+            await this.readyPromise;
             ng.graph_orm_previous_page(this.subscriptionId, session.session_id);
         });
     };
@@ -694,6 +703,37 @@ export class RdfOrmSubscription<
     // public cancelTransaction = async () => {
     //     // TODO
     // };
+
+    private deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
+        const ret = patches.flatMap((patch) => {
+            if (
+                patch.op === "add" &&
+                patch.type === "set" &&
+                !patch.value?.length
+            )
+                return [];
+
+            let path: string;
+            if (Array.isArray(this.signalObject_)) {
+                const rootObjIndex = Number(patch.path[0]);
+                const rootKey = syntheticIdFromObject(
+                    this.signalObject_[rootObjIndex]
+                );
+                path = `/${rootKey}/${patch.path.join("/")}`;
+            } else {
+                path = `/${patch.path.join("/")}`;
+            }
+
+            if (patch.op === "remove" && typeof patch.value === "object") {
+                // Don't include the removed object's value in the patch (only for literals).
+                // The path with its synthetic id is enough.
+                return { ...patch, path, value: undefined };
+            }
+            return { ...patch, path };
+        }) as Patch[];
+
+        return ret;
+    }
 }
 
 /**
@@ -705,59 +745,25 @@ function canonicalScope(scope: NormalizedScope): string {
     return `${(scope.graphs || []).slice().sort().join(",")}|${(scope.subjects || []).slice().sort().join(",")}`;
 }
 
-function deepPatchesToWasm(patches: DeepPatch[]): Patch[] {
-    return patches.flatMap((patch) => {
-        if (patch.op === "add" && patch.type === "set" && !patch.value?.length)
-            return [];
-
-        const path = patch.path.join("/");
-
-        if (patch.op === "remove" && typeof patch.value === "object") {
-            // Don't include the removed object's value in the patch (only for literals).
-            // The path with its synthetic id is enough.
-            return { ...patch, path, value: undefined };
-        }
-        return { ...patch, path };
-    }) as Patch[];
-}
-
 function syntheticIdFromObject(obj: BaseType) {
-    return `/${obj["@graph"]}|${escapePathSegment(obj["@id"])}`;
+    return `${obj["@graph"]}|${escapePathSegment(obj["@id"])}`;
 }
 
-const parseOrmInitialObject = (obj: any): any => {
-    // Regular arrays become sets.
-    if (Array.isArray(obj)) {
-        return new Set(obj.map(parseOrmInitialObject));
-    } else if (obj && typeof obj === "object") {
-        if ("@id" in obj) {
-            // Regular object.
-            for (const key of Object.keys(obj)) {
-                obj[key] = parseOrmInitialObject(obj[key]);
-            }
-        } else {
-            // Object does not have @id, that means it's a set of objects.
-            return new Set(Object.values(obj).map(parseOrmInitialObject));
-        }
-    }
-    return obj;
-};
-
-type NormalizedOrmOptions<ST extends ShapeType<any>> = Omit<
-    OrmConfig<ST>,
+type NormalizedOrmOptions<T extends BaseType> = Omit<
+    RdfOrmConfig<T>,
     "subjects" | "graphs"
 > & { graphs: string[]; subjects: string[] };
 
-/** The {@link RdfOrmSubscription} for a given {@link OrmConfig}. */
-type RdfOrmSubscriptionFor<
+/** The {@link RdfOrmSubscription} for a given {@link RdfOrmConfig}. */
+export type RdfOrmSubscriptionFor<
     ST extends ShapeType<any>,
-    OP extends OrmConfig<ST>,
+    CONF extends RdfOrmConfig<T>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
-> = undefined extends OP["pageSize"]
-    ? Omit<RdfOrmSubscription<ST, OP, T>, "nextPage" | "previousPage"> // No pagination functions.
-    : undefined extends OP["maxActivePages"]
-      ? Omit<RdfOrmSubscription<ST, OP, T>, "previousPage"> // Only forward pagination without `maxActivePages`.
-      : RdfOrmSubscription<ST, OP, T>; // Forward and backwards pagination.
+> = undefined extends CONF["pageSize"]
+    ? Omit<RdfOrmSubscription<ST, CONF, T>, "nextPage" | "previousPage"> // No pagination functions.
+    : undefined extends CONF["maxActivePages"]
+      ? Omit<RdfOrmSubscription<ST, CONF, T>, "previousPage"> // Only forward pagination without `maxActivePages`.
+      : RdfOrmSubscription<ST, CONF, T>; // Forward and backwards pagination.
 
 export type OrmChangeListener<T> = (changes: {
     adds: DeepSignal<T>[];

@@ -283,13 +283,18 @@ export type MaybeSignal<T = any> = T | ReturnType<typeof alienSignal>;
 export type MaybeSignalOrComputed<T = any> = MaybeSignal<T> | (() => T);
 
 /**
- * A deep signal array that does not allow modifications.
+ * An array that does not allow modifications.
  * You can modify it's values but adding, moving, or removing elements is not allowed.
  *
- * You can generate a ReadOnlyDeepSignalArray from a deep signal array using {@link readOnlyArray}.
+ * You can generate a ReadOnlyArray using {@link readOnlyArray}.
  */
-export type ReadOnlyDeepSignalArray<T> = Pick<
-    DeepSignal<Array<T>>,
+export type ReadOnlyArray<T> = Pick<Array<T>, NonModifyingArrayFns> & {
+    /** Gets the length of the array. This is a number one higher than the highest index in the array. */
+    length: number;
+    [Symbol.iterator]: ArrayIterator<T>;
+} & { [I in number]: T };
+
+type NonModifyingArrayFns =
     | "at"
     | "concat"
     | "entries"
@@ -310,4 +315,13 @@ export type ReadOnlyDeepSignalArray<T> = Pick<
     | "with"
     | "toString"
     | "toSpliced"
->;
+    | "filter"
+    | "map"
+    | "flatMap"
+    | "every"
+    | "forEach"
+    | "find"
+    | "some"
+    | "reduce"
+    | "includes"
+    | "copyWithin";

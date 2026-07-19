@@ -1,6 +1,6 @@
 import { META_KEY, RAW_KEY } from "./deepSignal.ts";
 import { nonMutatingArrayFnKeys } from "./iteratorHelpers.ts";
-import { DeepSignal, ReadOnlyDeepSignalArray } from "./types.ts";
+import { DeepSignal, ReadOnlyArray } from "./types.ts";
 
 const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
     construct() {
@@ -15,9 +15,6 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
         throw new Error(`Cannot modify readonly array.`);
     },
     get(target, p: any) {
-        if ([RAW_KEY, META_KEY].includes(p)) {
-            throw new Error(`Readonly arrays do not expose raw and meta data.`);
-        }
         // Do not return functions that can mutate arrays or sets.
         if (typeof target[RAW_KEY][p] === "function") {
             if (!nonMutatingArrayFnKeys.has(p)) {
@@ -61,7 +58,7 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
 };
 
 /**
- * Create a non-modifiable array from a deep signal array.
+ * Create a non-modifiable array from a normal array.
  * Everything is allowed except for adding, moving or removing elements.
  *
  * The returned proxy does not expose mutating functions like `push()` and will throw
@@ -70,8 +67,6 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
  * NOTE: It does not prevent modifications to its children.
  *
  */
-export function readOnlyArray<T>(
-    array: DeepSignal<T[]>
-): ReadOnlyDeepSignalArray<T> {
+export function readOnlyArray<T>(array: DeepSignal<T[]>): ReadOnlyArray<T> {
     return new Proxy(array, readonlyArrayProxy);
 }

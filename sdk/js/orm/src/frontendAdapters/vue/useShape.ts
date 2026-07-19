@@ -8,13 +8,16 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { normalizeScope, type Scope } from "../../types.ts";
+import { normalizeConf, type Scope } from "../../types.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
-import { onBeforeUnmount } from "vue";
+import { computed, ComputedRef, onBeforeUnmount, reactive, ref } from "vue";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { RdfOrmSubscription } from "../../connector/RdfOrmSubscription.ts";
-import { DeepSignalSet } from "@ng-org/alien-deepsignals";
-import { readOnlySet } from "../utils.ts";
+import {
+    RdfOrmSubscription,
+    RdfOrmSubscriptionFor,
+} from "../../connector/RdfOrmSubscription.ts";
+import { DeepSignalSet, DeepSignal } from "@ng-org/alien-deepsignals";
+import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
 
 /**
  * Hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
@@ -86,27 +89,118 @@ import { readOnlySet } from "../utils.ts";
  * </template>
  * ```
  */
-export function useShape<T extends BaseType>(
-    shape: ShapeType<T>,
-    scope: Scope | string | undefined
-) {
-    if (scope === undefined) {
-        return useDeepSignal(readOnlySet) as DeepSignalSet<T>;
+const useShape = <
+    ST extends ShapeType<T>,
+    const CONF extends RdfOrmConfig<T>,
+    T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
+    SUBSCRIPTION_DATA = SubscriptionData<T, CONF>,
+>(
+    shape: ST,
+    conf: CONF | string | undefined
+): UseShapeResult<ST, CONF, T> => {
+    if (conf === undefined) {
+        // @ts-ignore
+        return {
+            data: undefined,
+            isLoading: false,
+            promise: undefined,
+            subscription: undefined,
+        };
     }
 
-    const connection = RdfOrmSubscription.getOrCreate(
-        shape,
-        normalizeScope(scope)
-    );
+    const parsedConf = normalizeConf(conf);
 
-    // Cleanup
+    const subscription = RdfOrmSubscription.getOrCreate(shape, parsedConf);
+
     onBeforeUnmount(() => {
-        connection.close();
+        subscription.close();
     });
 
-    const ref = useDeepSignal(connection.signalObject);
+    const nextPage =
+        subscription?.mode === "orderedPaginatedCumulative" ||
+        subscription?.mode === "orderedPaginatedSimple"
+            ? // @ts-ignore
+              subscription.nextPage
+            : undefined;
+    const previousPage =
+        subscription?.mode === "orderedPaginatedSimple"
+            ? // @ts-ignore
+              subscription.previousPage
+            : undefined;
 
-    return ref;
-}
+    // let data = $state(undefined as SUBSCRIPTION_DATA | undefined);
+    let isLoading = ref(true);
+
+    subscription.readyPromise.then(() => {
+        isLoading.value = false;
+    });
+
+    let data = useDeepSignal(subscription.signalObject);
+    let dataWhenReady = computed(() => (isLoading ? undefined : data));
+
+    // @ts-ignore
+    const ret = {
+        nextPage,
+        previousPage,
+        data: data, // dataWhenReady as ComputedRef<SUBSCRIPTION_DATA>,
+        // data: dataWhenReady,
+        isLoading,
+        promise: subscription.readyPromise,
+        subscription,
+    };
+
+    return ret;
+};
 
 export default useShape;
+
+type UseShapeResult_<
+    ST extends ShapeType<any>,
+    CONF extends RdfOrmConfig<T>,
+    T extends BaseType,
+    SUBSCRIPTION_DATA = SubscriptionData<T, CONF>,
+> = {
+    /**
+     * Initializes loading of the next page.
+     * This will update the data but you will not be called back on it.
+     */
+    nextPage: () => void;
+    /**
+     * Initializes loading of the previous page.
+     * This will update the data but you will not be called back on it.
+     */
+    previousPage: () => void;
+    /**
+     * `true` when no data is available yet and `conf` is not `undefined`.
+     *
+     * It is *not* set to `true` when loading pages (through `nextPage()` or `previousPage()`.
+     */
+    isLoading: boolean;
+    /**
+     * The requested data, once loaded.
+     * Depending on your orderBy config, this will either be a {@link DeepSignalSet}
+     * or a [`DeepSignal<ReadOnlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
+     *
+     * This object is the value returned by {@link RdfOrmSubscription.signalObject}.
+     */
+    data: SUBSCRIPTION_DATA | undefined;
+    /**
+     * A promise that resolves once the data is loaded.
+     * Note that if `conf` is `undefined`, this property is `undefined`.
+     */
+    promise: CONF extends undefined ? undefined : Promise<SUBSCRIPTION_DATA>;
+    /** The underlying {@link RdfOrmSubscription} through which the data is loaded. */
+    subscription: CONF extends undefined
+        ? undefined
+        : RdfOrmSubscriptionFor<ST, CONF, T>;
+};
+
+export type UseShapeResult<
+    ST extends ShapeType<any>,
+    CONF extends RdfOrmConfig<T>,
+    T extends BaseType,
+> = undefined extends CONF["pageSize"]
+    ? Omit<UseShapeResult_<ST, CONF, T>, "nextPage" | "previousPage"> // No pagination functions.
+    : undefined extends CONF["maxActivePages"]
+      ? Omit<UseShapeResult_<ST, CONF, T>, "previousPage"> // Only forward pagination without `maxActivePages`.
+      : UseShapeResult_<ST, CONF, T>; // Forward and backwards pagination.

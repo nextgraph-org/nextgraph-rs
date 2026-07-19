@@ -151,6 +151,11 @@ export function applyPatches(
         }
         const key = lastKey;
 
+        if (typeof patch.value === "object") {
+            // Ensure that arrays are converted to sets.
+            patch.value = parseOrmInitialObject(patch.value);
+        }
+
         if (patch.valType === "set") {
             if (patch.op === "add") {
                 // If target is a set already, just add it.
@@ -273,3 +278,21 @@ function isPrimitive(v: unknown): v is string | number | boolean {
         typeof v === "string" || typeof v === "number" || typeof v === "boolean"
     );
 }
+
+export const parseOrmInitialObject = (obj: any): any => {
+    // Regular arrays become sets.
+    if (Array.isArray(obj)) {
+        return new Set(obj.map(parseOrmInitialObject));
+    } else if (obj && typeof obj === "object") {
+        if ("@id" in obj) {
+            // Regular object.
+            for (const key of Object.keys(obj)) {
+                obj[key] = parseOrmInitialObject(obj[key]);
+            }
+        } else {
+            // Object does not have @id, that means it's a set of objects.
+            return new Set(Object.values(obj).map(parseOrmInitialObject));
+        }
+    }
+    return obj;
+};

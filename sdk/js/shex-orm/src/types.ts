@@ -17,8 +17,6 @@ export interface ShapeType<T extends BaseType> {
     schema: Schema;
     /** The ID (IRI) of the shape. */
     shape: string;
-    /** Internally needed for TS type inference */
-    __type__?: T;
 }
 
 /** The base type that all generated objects inherit from. */
