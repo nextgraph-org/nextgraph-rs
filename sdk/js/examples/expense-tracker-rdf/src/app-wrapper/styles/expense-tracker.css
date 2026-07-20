@@ -74,6 +74,15 @@ body {
     gap: 1.5rem;
 }
 
+.pagination-bar {
+    display: flex;
+    flex-direction: row;
+    margin-left: auto;
+    gap: 1rem;
+    padding: 0.5rem;
+    background: var(--panel-bg);
+}
+
 .panel {
     background: var(--panel-bg);
     border-radius: 1.25rem;

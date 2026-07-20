@@ -21,12 +21,17 @@
   import { insertObject } from "@ng-org/orm";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const { data: expenses } = useShape(
+  const {
+    data: expenses,
+    nextPage,
+    previousPage,
+  } = useShape(
     ExpenseShapeType,
     privateNuri && {
       graphs: [privateNuri],
-
       orderBy: { dateOfPurchase: "desc" },
+      pageSize: 4,
+      maxActivePages: 1,
     }
   );
   const { data: categories } = useShape(ExpenseCategoryShapeType, privateNuri);
@@ -76,5 +81,13 @@
         />
       {/each}
     {/if}
+  </div>
+  <div class="pagination-bar">
+    <button type="button" class="primary-btn" onClick={() => previousPage()}>
+      {"<"} previous page
+    </button>
+    <button type="button" class="primary-btn" onClick={() => nextPage()}>
+      next page {">"}
+    </button>
   </div>
 </section>

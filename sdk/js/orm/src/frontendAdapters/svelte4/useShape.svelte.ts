@@ -151,6 +151,7 @@ const useShape = <
         $isLoading ? undefined : $data
     );
 
+    // @ts-ignore
     return {
         data: dataWhenReady,
         isLoading,

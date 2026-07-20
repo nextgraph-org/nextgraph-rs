@@ -23,7 +23,12 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
   const expenses = useShape(
     ExpenseShapeType,
-    privateNuri && { graphs: privateNuri, orderBy: { dateOfPurchase: "desc" } }
+    privateNuri && {
+      graphs: privateNuri,
+      orderBy: { dateOfPurchase: "desc" },
+      pageSize: 4,
+      maxActivePages: 1,
+    }
   );
   const categories = useShape(ExpenseCategoryShapeType, privateNuri);
 
@@ -72,5 +77,13 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
         />
       {/each}
     {/if}
+  </div>
+  <div class="pagination-bar">
+    <button type="button" class="primary-btn" onClick={() => previousPage()}>
+      {"<"} previous page
+    </button>
+    <button type="button" class="primary-btn" onClick={() => nextPage()}>
+      next page {">"}
+    </button>
   </div>
 </section>

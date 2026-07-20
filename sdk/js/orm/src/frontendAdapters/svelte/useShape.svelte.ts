@@ -104,8 +104,7 @@ const useShape = <
 >(
     shape: ST,
     conf: CONF | string | undefined
-) => {
-    // UseShapeResult<ST, CONF, T>
+): UseShapeResult<ST, CONF, T> => {
     if (conf === undefined) {
         // @ts-ignore
         return {
@@ -142,7 +141,8 @@ const useShape = <
     });
 
     let data = useDeepSignal(subscription.signalObject);
-    let dataWhenReady = $derived(isLoading ? undefined : data);
+    // There is a problem with reactivity when conditionally returning data.
+    // let dataWhenReady = $derived(isLoading ? undefined : data);
 
     // @ts-ignore
     return {
@@ -181,13 +181,14 @@ type UseShapeResult_<
      */
     isLoading: boolean;
     /**
-     * The requested data, once loaded.
+     * The requested data. While still loading, the data will be empty.
+     *
      * Depending on your orderBy config, this will either be a {@link DeepSignalSet}
      * or a [`DeepSignal<ReadOnlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
      *
      * This object is the value returned by {@link RdfOrmSubscription.signalObject}.
      */
-    data: SUBSCRIPTION_DATA | undefined;
+    data: SUBSCRIPTION_DATA;
     /**
      * A promise that resolves once the data is loaded.
      * Note that if `conf` is `undefined`, this property is `undefined`.

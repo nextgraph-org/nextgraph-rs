@@ -288,13 +288,14 @@ export type MaybeSignalOrComputed<T = any> = MaybeSignal<T> | (() => T);
  *
  * You can generate a ReadOnlyArray using {@link readOnlyArray}.
  */
-export type ReadOnlyArray<T> = Pick<Array<T>, NonModifyingArrayFns> & {
+export type ReadOnlyArray<T> = Omit<Array<T>, ModifyingArrayFns> & {
     /** Gets the length of the array. This is a number one higher than the highest index in the array. */
     length: number;
-    [Symbol.iterator]: ArrayIterator<T>;
-} & { [I in number]: T };
+};
 
-type NonModifyingArrayFns =
+type ModifyingArrayFns = Exclude<keyof Array<any>, NonModifyingArrayKeys>;
+
+type NonModifyingArrayKeys =
     | "at"
     | "concat"
     | "entries"
@@ -324,4 +325,6 @@ type NonModifyingArrayFns =
     | "some"
     | "reduce"
     | "includes"
-    | "copyWithin";
+    | "copyWithin"
+    | typeof Symbol.iterator
+    | number;

@@ -24,8 +24,8 @@ export function Expenses() {
     const {data: expenses , nextPage, previousPage} = useShape(ExpenseShapeType, session && {
         graphs: [privateNuri!],
         orderBy: {dateOfPurchase: "desc"},
-        maxActivePages: 2,
-        pageSize: 2
+        maxActivePages: 1,
+        pageSize: 4
     });
     const {data: expenseCategories } = useShape(ExpenseCategoryShapeType, privateNuri );
     const createExpense = useCallback(
@@ -64,20 +64,7 @@ export function Expenses() {
                 >
                     + Add expense
                 </button>
-                <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={() => nextPage()}
-                >
-                    next page
-                </button>
-                <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={() => previousPage()}
-                >
-                    previous page
-                </button>
+
             </header>
             <div className="cards-stack">
                 {!expenses && (
@@ -100,6 +87,23 @@ export function Expenses() {
                         />
                     ))
                 )}
+            </div>
+            <div className="pagination-bar">
+                <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => previousPage()}
+                >
+                    {"<"} previous page
+                </button>
+                <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => nextPage()}
+                >
+                    next page {">"}
+                </button>
+
             </div>
         </section>
     );

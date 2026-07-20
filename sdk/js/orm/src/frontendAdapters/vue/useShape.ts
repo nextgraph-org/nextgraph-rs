@@ -138,17 +138,17 @@ const useShape = <
     let data = useDeepSignal(subscription.signalObject);
     let dataWhenReady = computed(() => (isLoading ? undefined : data));
 
-    // @ts-ignore
     const ret = {
         nextPage,
         previousPage,
-        data: data, // dataWhenReady as ComputedRef<SUBSCRIPTION_DATA>,
-        // data: dataWhenReady,
+        data,
+        // data: dataWhenReady as ComputedRef<SUBSCRIPTION_DATA>,
         isLoading,
         promise: subscription.readyPromise,
         subscription,
     };
 
+    // @ts-ignore
     return ret;
 };
 
@@ -177,13 +177,14 @@ type UseShapeResult_<
      */
     isLoading: boolean;
     /**
-     * The requested data, once loaded.
+     * The requested data, once loaded. While still loading, `data` wil be empty.
+     *
      * Depending on your orderBy config, this will either be a {@link DeepSignalSet}
      * or a [`DeepSignal<ReadOnlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
      *
      * This object is the value returned by {@link RdfOrmSubscription.signalObject}.
      */
-    data: SUBSCRIPTION_DATA | undefined;
+    data: SUBSCRIPTION_DATA;
     /**
      * A promise that resolves once the data is loaded.
      * Note that if `conf` is `undefined`, this property is `undefined`.

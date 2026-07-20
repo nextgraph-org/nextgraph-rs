@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { useShape } from "@ng-org/orm/vue";
 import {
     ExpenseCategoryShapeType,
@@ -11,9 +10,11 @@ import ExpenseCard from "./ExpenseCard.vue";
 import { insertObject } from "@ng-org/orm";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const { data: expenses } = useShape(ExpenseShapeType, privateNuri && {
+const { data: expenses, nextPage, previousPage } = useShape(ExpenseShapeType, privateNuri && {
     graphs: [privateNuri],
-    orderBy: { dateOfPurchase: "desc" }
+    orderBy: { dateOfPurchase: "desc" },
+    pageSize: 4,
+    maxActivePages: 1,
 });
 const { data: categories } = useShape(ExpenseCategoryShapeType, {
     graphs: [privateNuri || ""],
@@ -63,6 +64,13 @@ async function createExpense(obj: Partial<Expense> = {}) {
                 <ExpenseCard v-for="expense in expenses" :key="expense['@id']" :expense="expense"
                     :available-categories="categories" />
             </template>
+        </div>
+        <div class="pagination-bar">
+            <button type="button" class="primary-btn" @click="() => previousPage()">
+                < previous page </button>
+                    <button type="button" class="primary-btn" @click="() => nextPage()">
+                        next page >
+                    </button>
         </div>
     </section>
 </template>
