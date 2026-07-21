@@ -37,30 +37,30 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  * ```html
  * <script lang="ts">
  * // Contains all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
- * const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType,
+ * const { data: expenses, isLoading }: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType,
  *      {graphs: ["<g1 NURI>", "<g2 NURI>"],
  *       subjects: ["<s1 IRI>", "<s2 IRI>"]});
  *
  *
- * const expensesSorted = computed(() => [...expenses].sort((a, b) =>
- *     a.dateOfPurchase.localeCompare(b.dateOfPurchase)
- * ));
  *
  * // Simply call expenses.add({"@graph": "<g1 or g2 NURI>", "@id": "", title: "Example title"}), to add new elements.
  * // Leave `@id` an empty string to auto-generate a subject NURI (adjust your scope accordingly).
  *
  * // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- * // If it is not (i.e. there are two graphs with the same subject), use the combination of `@graph` and `@id`.
+ * // This only affects you if you set custom subject IRIs. The auto-generated `@id`s are globally unique.
  * </script>
  *
  * <template>
  *     <div>
- *         <p v-if="expensesSorted.length === 0">
+ *         <p v-if="isLoading">
+ *             No expenses yet.
+ *         </p>
+ *         <p v-else-if="expenses.size === 0">
  *             No expenses yet.
  *         </p>
  *         <template v-else>
  *             <ExpenseCard
- *                 v-for="expense in expensesSorted"
+ *                 v-for="expense in expenses"
  *                 :key="expense['@id'])"
  *                 :expense="expense"
  *             />
@@ -173,7 +173,7 @@ type UseShapeResult_<
     /**
      * `true` when no data is available yet and `conf` is not `undefined`.
      *
-     * It is *not* set to `true` when loading pages (through `nextPage()` or `previousPage()`.
+     * It is *not* set to `true` while loading pages (through `nextPage()` or `previousPage()`.
      */
     isLoading: boolean;
     /**

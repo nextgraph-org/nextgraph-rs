@@ -136,9 +136,11 @@ impl Verifier {
         &mut self,
         orm_subscription: &mut OrmSubscription,
     ) -> Result<serde_json::Value, NgError> {
-        let queried_page = self.query_items_ordered(orm_subscription, true).await?;
+        let (materialized_objects, _) = self
+            .query_items_ordered(orm_subscription, true, false)
+            .await?;
 
-        Ok(json!(queried_page))
+        Ok(json!(materialized_objects.unwrap()))
     }
 
     /// No pagination, no sorting.
@@ -214,6 +216,8 @@ impl Verifier {
         subscription_id: u64,
         forward: bool,
     ) -> Result<(), NgError> {
+        log_warn!("[orm_load_page] In orm_load_page for subscription_id {subscription_id}");
+
         let mut orm_subscription =
             self.orm_subscriptions
                 .remove(&subscription_id)
@@ -230,29 +234,20 @@ impl Verifier {
             )));
         };
 
-        let n_old_valid_tormos = orm_subscription
-            .ordering_info
-            .as_ref()
-            .unwrap()
-            .tormos
-            .len();
-
         // A new query is started with an updated range.
-        let new_objects = self
-            .query_items_ordered(&mut orm_subscription, forward)
+        let (_, new_objects) = self
+            .query_items_ordered(&mut orm_subscription, forward, true)
             .await?;
 
         let page_info = orm_subscription.ordering_info.as_mut().unwrap();
         let mut patches: Vec<OrmPatch> = Vec::new();
 
         // Create add patches for new objects.
-        for (i, new_object) in new_objects.into_iter().enumerate() {
-            let offset = if forward { n_old_valid_tormos } else { 0 };
-
+        for (i, new_object) in new_objects.unwrap().into_iter() {
             patches.push(OrmPatch {
                 op: OrmPatchOp::add,
                 value: Some(new_object),
-                path: format!("/{}", i + offset),
+                path: format!("/{}", i),
                 ..Default::default()
             });
         }
@@ -325,7 +320,8 @@ impl Verifier {
         &mut self,
         orm_subscription: &mut OrmSubscription,
         forward: bool,
-    ) -> Result<Vec<Value>, NgError> {
+        get_with_insert_pos: bool,
+    ) -> Result<(Option<Vec<Value>>, Option<Vec<(usize, Value)>>), NgError> {
         let mut changes: OrmChanges = HashMap::new();
         let root_shape = orm_subscription.root_shape();
 
@@ -353,8 +349,7 @@ impl Verifier {
         let previously_valid = orm_subscription.valid_object_count();
         let max_allowed_items = orm_subscription.config.max_allowed_items();
 
-        let mut newly_valid: usize;
-        let mut ordered_gs_results = vec![];
+        let mut ordered_gs_results: Vec<(GraphIri, SubjectIri)> = vec![];
 
         // Query database and process results (potentially more than one query when in pagination).
         loop {
@@ -403,6 +398,17 @@ impl Verifier {
                 })
                 .collect::<Vec<_>>();
 
+            if let Some(limit_offset) = limit_offset {
+                log_warn!(
+                    "[query_items_ordered]\n(Offset, Limit:) ({}, {})\nreturned {} items\nthereof new: {}\nnew in total {}",
+                    limit_offset.1,
+                    limit_offset.0,
+                    returned_gs_items,
+                    graph_subject_page_new_only.len(),
+                    ordered_gs_results.len() + graph_subject_page_new_only.len()
+                );
+            }
+
             // Add gs results to existing results.
             ordered_gs_results.extend(graph_subject_page_new_only);
 
@@ -415,11 +421,12 @@ impl Verifier {
                 true,
             )?;
 
-            newly_valid = orm_subscription.valid_object_count() - previously_valid;
-
             // Determine if we should extend the page-order query (because not enough valid items were returned).
             if let Some((old_limit, old_offset)) = limit_offset {
-                if returned_gs_items < old_limit || newly_valid >= page_size {
+                if returned_gs_items < old_limit
+                    || ordered_gs_results.len() >= page_size
+                    || (!forward && old_offset == 0)
+                {
                     // No more items retrievable for query
                     // or enough valid ones were returned.
                     break;
@@ -428,13 +435,14 @@ impl Verifier {
                     if forward {
                         limit_offset = Some((
                             // Increase limit exponentially.
-                            old_limit * 2,
+                            (old_limit as f32 * 1.5) as usize,
                             // Update offset (only in the loop so we don't query and apply the same data twice).
                             old_offset + old_limit,
                         ));
                     } else {
                         // Increase limit exponentially.
-                        let new_offset = old_offset.saturating_sub(old_limit * 2);
+                        let new_offset =
+                            old_offset.saturating_sub((old_limit as f32 * 1.5) as usize);
                         limit_offset = Some((
                             old_offset - new_offset,
                             // Update offset (only in the loop so we don't query and apply the same data twice).
@@ -447,7 +455,7 @@ impl Verifier {
             }
         }
 
-        // If pagination is active: limit the window and tracked objects in size.
+        // If pagination is active: ensure that not more than max allowed is loaded.
         if page_size > 0 {
             // There might be too many new valid items. Remove them now.
             let mut new_tormos_ordered = Vec::with_capacity(ordered_gs_results.len());
@@ -462,8 +470,8 @@ impl Verifier {
                         .unwrap();
 
                     let order_by = orm_subscription.config.order_by.as_ref().unwrap();
-                    let order_key = order_key_from(order_by, &tormo.read().unwrap());
                     if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
+                        let order_key = order_key_from(order_by, &tormo.read().unwrap());
                         new_tormos_ordered.push((order_key, tormo.clone()));
 
                         if new_tormos_ordered.len() == page_size {
@@ -521,9 +529,10 @@ impl Verifier {
                 let (limit, lower_offset, upper_offset) =
                     page_info.limit_lower_upper_offset.as_mut().unwrap();
 
-                // Update limit_heuristic: page_size * (#all+1) / (#valid+1) * 1.6
-                *limit = (page_size as f64 * (n_tormos + 1) as f64 / (newly_valid + 1) as f64 * 1.6)
-                    as usize;
+                // Update limit_heuristic: page_size * (#all+1) / (#valid+1) * 1.3
+                *limit = (page_size as f64 * (n_tormos + 1) as f64
+                    / (previously_valid + ordered_gs_results.len() + 1) as f64
+                    * 1.3) as usize;
 
                 // If a previous page was loaded, update the offset (keeping some overlap).
                 if forward {
@@ -533,45 +542,71 @@ impl Verifier {
                 }
                 // If max amount of pages reached, we shift the other offset as well.
                 if let Some(max_allowed_items) = max_allowed_items {
-                    let excess_elements =
-                        (newly_valid + previously_valid).saturating_sub(max_allowed_items);
+                    let excess_elements = (ordered_gs_results.len() + previously_valid)
+                        .saturating_sub(max_allowed_items);
                     let page_fraction: f32 = excess_elements as f32 / page_size as f32;
                     if forward {
                         // Only start increasing when page offset is far enough to the right.
-                        *lower_offset = (upper_offset
-                            .saturating_sub((n_tormos as f32 + *limit as f32 * 0.8) as usize));
+                        *lower_offset = upper_offset
+                            .saturating_sub((n_tormos as f32 + *limit as f32 * 0.8) as usize);
                     } else {
-                        *upper_offset = *lower_offset
-                            + n_tormos
-                            + (ordered_gs_results.len() as f32 * page_fraction) as usize;
+                        *upper_offset = (*lower_offset
+                            + n_tormos // This includes invalid ones too and is before the next-page cutoff is made.
+                            + (ordered_gs_results.len() as f32 * page_fraction) as usize)
+                            .saturating_sub(page_size)
                     }
                 }
+                log_warn!(
+                    "[query_items_ordered]\nNew (limit, lower, upper): ({}, {}, {})",
+                    limit,
+                    lower_offset,
+                    upper_offset
+                )
             }
         }
 
         // Insert all valid objects in ordered tormos.
         {
-            let mut plain_ordered = Vec::new();
+            let mut inserts: Vec<(usize, Value)> = Vec::new();
+
+            let mut with_keys = Vec::new();
             for (graph_iri, subject_iri) in ordered_gs_results.iter() {
-                let Some(tormo) = orm_subscription.get_tracked_orm_object(
-                    graph_iri,
-                    subject_iri,
-                    &root_shape.iri,
-                ) else {
-                    log_info!("gs not available in tormos: {} {}", subject_iri, graph_iri);
-                    continue;
-                };
+                let tormo = orm_subscription
+                    .get_tracked_orm_object(graph_iri, subject_iri, &root_shape.iri)
+                    .unwrap();
                 if tormo.read().unwrap().valid != TrackedOrmObjectValidity::Valid {
                     continue;
                 }
                 let order_by = orm_subscription.config.order_by.as_ref().unwrap();
                 let order_key = order_key_from(order_by, &tormo.read().unwrap());
-                plain_ordered.push((order_key, tormo));
+                with_keys.push((order_key, tormo));
             }
 
             let order_info = orm_subscription.ordering_info.as_mut().unwrap();
-            for (order_key, tormo) in plain_ordered {
-                order_info.tormos.insert(order_key, tormo);
+            for (order_key, tormo) in with_keys {
+                if order_info.tormos.get(&order_key).is_some() {
+                    // TODO REMOVE
+                    log_warn!(
+                        "[query_items_ordered]: TRYING TO INSERT new item but it already existed."
+                    );
+                }
+
+                order_info.tormos.insert(order_key.clone(), tormo.clone());
+
+                // If we are doing pagination, we record where we inserted to create patches from that data.
+                if get_with_insert_pos && page_size > 0 {
+                    let change_ref = changes
+                        .get(&orm_subscription.shape_type.shape)
+                        .and_then(|g| g.get(&tormo.read().unwrap().graph_iri))
+                        .and_then(|s| s.get(&tormo.read().unwrap().subject_iri))
+                        .unwrap();
+                    let new_val = materialize_orm_object(change_ref, true, &changes);
+                    let insert_pos = order_info.tormos.rank_of(&order_key).unwrap();
+                    inserts.push((insert_pos, new_val));
+                }
+            }
+            if get_with_insert_pos && page_size > 0 {
+                return Ok((None, Some(inserts)));
             }
         }
 
@@ -579,11 +614,9 @@ impl Verifier {
         let mut objects_vec: Vec<Value> = Vec::with_capacity(ordered_gs_results.len());
 
         for (graph_iri, subject_iri) in ordered_gs_results.iter() {
-            let Some(tormo) =
-                orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, &root_shape.iri)
-            else {
-                continue;
-            };
+            let tormo = orm_subscription
+                .get_tracked_orm_object(graph_iri, subject_iri, &root_shape.iri)
+                .unwrap();
             if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
                 if let Some(change_ref) = changes
                     .get(&orm_subscription.shape_type.shape)
@@ -596,7 +629,7 @@ impl Verifier {
             }
         }
 
-        Ok(objects_vec)
+        Ok((Some(objects_vec), None))
     }
 }
 

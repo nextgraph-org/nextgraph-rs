@@ -21,16 +21,38 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   import { insertObject } from "@ng-org/orm";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenses = useShape(
-    ExpenseShapeType,
-    privateNuri && {
-      graphs: privateNuri,
-      orderBy: { dateOfPurchase: "desc" },
-      pageSize: 4,
-      maxActivePages: 1,
-    }
+  let {
+    data: expenses,
+    isLoading: expensesLoading,
+    nextPage,
+    previousPage,
+  } = $derived(
+    useShape(
+      ExpenseShapeType,
+      privateNuri && {
+        graphs: privateNuri,
+        orderBy: { dateOfPurchase: "desc" },
+        pageSize: 4,
+        maxActivePages: 1,
+      }
+    )
   );
-  const categories = useShape(ExpenseCategoryShapeType, privateNuri);
+
+  let { data: categories, isLoading: categoriesLoading } = $derived(
+    useShape(ExpenseCategoryShapeType, privateNuri)
+  );
+
+  // $inspect(exp, cat).with((type, v0, v1) =>
+  //   console.debug(
+  //     "inspect with ",
+  //     type,
+  //     v0,
+  //     v1,
+  //     expensesLoading,
+  //     categoriesLoading
+  //   )
+  // );
+  $inspect(categoriesLoading, expensesLoading).with(console.log);
 
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
@@ -63,26 +85,26 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     </button>
   </header>
   <div class="cards-stack">
-    {#if !expenses.data || !categories.data}
+    {#if !expenses}
       <p class="muted">Loading...</p>
-    {:else if expenses.data.length === 0}
+    {:else if expenses.length === 0}
       <p class="muted">
         Nothing tracked yet - log your first purchase to kick things off.
       </p>
     {:else}
-      {#each expenses.data as expense, index (expense["@id"])}
+      {#each expenses as expense, index (expense["@id"])}
         <ExpenseCard
-          expense={expenses.data[index]}
-          availableCategories={categories.data}
+          expense={expenses[index]}
+          availableCategories={categories}
         />
       {/each}
     {/if}
   </div>
   <div class="pagination-bar">
-    <button type="button" class="primary-btn" onClick={() => previousPage()}>
+    <button type="button" class="primary-btn" onclick={() => previousPage()}>
       {"<"} previous page
     </button>
-    <button type="button" class="primary-btn" onClick={() => nextPage()}>
+    <button type="button" class="primary-btn" onclick={() => nextPage()}>
       next page {">"}
     </button>
   </div>

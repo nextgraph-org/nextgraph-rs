@@ -17,9 +17,8 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   import { insertObject } from "@ng-org/orm";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const { data: expenseCategories } = useShape(
-    ExpenseCategoryShapeType,
-    privateNuri
+  const { data: expenseCategories, isLoading } = $derived(
+    useShape(ExpenseCategoryShapeType, privateNuri)
   );
 
   async function createCategory() {

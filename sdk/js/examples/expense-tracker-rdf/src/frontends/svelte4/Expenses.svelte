@@ -83,10 +83,10 @@
     {/if}
   </div>
   <div class="pagination-bar">
-    <button type="button" class="primary-btn" onClick={() => previousPage()}>
+    <button type="button" class="primary-btn" onclick={() => previousPage()}>
       {"<"} previous page
     </button>
-    <button type="button" class="primary-btn" onClick={() => nextPage()}>
+    <button type="button" class="primary-btn" onclick={() => nextPage()}>
       next page {">"}
     </button>
   </div>

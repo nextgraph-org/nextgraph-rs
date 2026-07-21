@@ -32,9 +32,9 @@ We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but
         - [Using and Modifying RDF ORM Objects](#using-and-modifying-rdf-orm-objects)
         - [RDF ORM: Frontend Framework Integration](#rdf-orm-frontend-framework-integration)
         - [Scopes for Retrieving Data](#scopes-for-retrieving-data)
-        - [RDF (Graph) ORM: Relationships](#rdf-graph-orm-relationships)
-        - [RDF (Graph) ORM: Ordering](#rdf-graph-orm-ordering)
-        - [RDF (Graph) ORM: Pagination](#rdf-graph-orm-pagination)
+        - [Relationships](#relationships)
+        - [Ordering](#ordering)
+        - [Pagination](#pagination)
         - [The RdfOrmSubscription Class](#the-rdformsubscription-class)
         - ["Disappearing" Objects](#disappearing-objects)
     - [Discrete (JSON-based) ORM](#discrete-json-based-orm)
@@ -219,7 +219,7 @@ If you want to query across all datasets, use the following Nuri: `"did:ng:i"` o
 When you specify one or more subject IRIs in the options, only those subject will be considered for your request (those will be queried across all graphs specified).
 Because not all objects with the specified subject IRIs might match the shape you provided, some returned objects might be missing from the subject IRIs of your request.
 
-### RDF (Graph) ORM: Relationships
+### Relationships
 
 To reference external objects, you can use their `@id`.
 
@@ -244,7 +244,7 @@ Note that when you delete a nested object from a parent, _only the linkage_ to i
 
 Note that it is highly recommended to keep _subject IRIs globally unique_. This is not a requirement by RDF and there are certain use cases where it makes sense but generally, you are discouraged to do so. When you create a new object, you are not required to specify the subject IRI (leave the `@id` property undefined or `""`). In that case, the subscription generates a unique one. The `@id` is generated while you attach a new object to the subscription's data so you can use it immediately after that.
 
-### RDF (Graph) ORM: Ordering
+### Ordering
 
 With the RDF ORM, you can specify an `orderBy` property in the options objects passed to `getObjects()`, `useShape()`, or `RdfOrmSubscription.getOrCreate()`.
 
@@ -278,7 +278,7 @@ for (contact of contacts) {
 Note that you cannot add, move, or remove items in the returned array. This logic is maintained internally. You can however change the items themselves.
 If you want to add an item, you can call [`insertObject()`](#insertobject) instead which will make the item appear in the array (unless in simple pagination mode, see below). Use [`removeObject()`](#removeobject) for removing an object. If you want to modify the position, just modify the properties that the data is ordered by and it will update itself.
 
-### RDF (Graph) ORM: Pagination
+### Pagination
 
 As your dataset grows loading all items matching a shape becomes computationally expensive. For that case, you are advised to use pagination.
 To use pagination, you must specify an ordering as described above.

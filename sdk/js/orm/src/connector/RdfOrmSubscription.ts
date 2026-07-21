@@ -719,7 +719,7 @@ export class RdfOrmSubscription<
                 const rootKey = syntheticIdFromObject(
                     this.signalObject_[rootObjIndex]
                 );
-                path = `/${rootKey}/${patch.path.join("/")}`;
+                path = `/${rootKey}/${patch.path.slice(1).join("/")}`;
             } else {
                 path = `/${patch.path.join("/")}`;
             }

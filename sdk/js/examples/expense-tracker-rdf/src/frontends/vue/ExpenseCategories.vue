@@ -6,7 +6,7 @@ import { sessionPromise, session } from "../../utils/ngSession";
 import ExpenseCategoryCard from "./ExpenseCategoryCard.vue";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const { data: expenseCategories } = useShape(ExpenseCategoryShapeType, privateNuri);
+const { data: expenseCategories, isLoading } = useShape(ExpenseCategoryShapeType, privateNuri);
 
 async function createCategory() {
     const session = await sessionPromise;
@@ -20,9 +20,6 @@ async function createCategory() {
     });
 }
 
-function categoryKey(category: ExpenseCategory) {
-    return `${category["@graph"]}|${category["@id"]}`;
-}
 </script>
 
 <template>
@@ -43,8 +40,8 @@ function categoryKey(category: ExpenseCategory) {
                 </button>
             </div>
         </header>
-        <p v-if="!expenseCategories" class="muted">
-            Loading
+        <p v-if="isLoading" class="muted">
+            Loading...
         </p>
         <p v-else-if="expenseCategories.size === 0" class="muted">
             No categories yet

@@ -59,8 +59,8 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  *         [expenses]
  *     );
  *
- *     // Note that if you use `@id` (the subject IRI) as key and chose yourself, you need to ensure that it is unique within your scope.
- *     // If it is not (i.e. there are two graphs with the same subject), use the combination of `@graph` and `@id`.
+ *     // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
+ *     // This only affects you if you set custom subject IRIs. The auto-generated `@id`s are globally unique.
  *
  *     return (
  *         <div>
@@ -75,13 +75,13 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  *                         Loading...
  *                     </p>
  *                 )}
- *                 {expenses && expenses.length === 0 && (
+ *                 {expenses && expenses.size === 0 && (
  *                     <p>
  *                         No expenses yet.
  *                     </p>
  *                 )}
- *                 {expenses && expenses.length > 0 && (
- *                     expenses.map((expense) => (
+ *                 {expenses && expenses.size > 0 && (
+ *                     [...expenses].map((expense) => (
  *                         // You can modify the expense's properties in the ExpenseCard component
  *                         // which will instantly trigger a rerender.
  *                         <ExpenseCard
@@ -205,7 +205,7 @@ type UseShapeResult_<
     /**
      * `true` when no data is available yet and `conf` is not `undefined`.
      *
-     * It is *not* set to `true` when loading pages (through `nextPage()` or `previousPage()`.
+     * It is *not* set to `true` while loading pages (through `nextPage()` or `previousPage()`.
      */
     isLoading: boolean;
     /**

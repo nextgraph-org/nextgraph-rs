@@ -36,13 +36,11 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  * ```svelte
  * <script lang="ts">
  *     // Gets all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
- *     const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType,
+ *     const {data: expenses, isLoading }: DeepSignal<Set<Expense>> = useShape(ExpenseShapeType,
  *         {graphs: ["<g1 NURI>", "<g2 NURI>"],
  *         subjects: ["<s1 NURI>", "<s2 NURI>"]});
  *
- *     const expensesSorted = computed(() => expenses.sort((a, b) =>
- *         a.dateOfPurchase.localeCompare(b.dateOfPurchase)
- *     ));
+
  *
  *     const createExpense = () => {
  *         expenses.add({
@@ -54,9 +52,8 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  *         });
  *     };
  *
- *
  *     // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- *     // If it is not (i.e. there are two graphs with the same subject), use the combination of `@graph` and `@id`.
+ *     // This only affects you if you set custom subject IRIs. The auto-generated `@id`s are globally unique.
  * </script>
  *
  * <section>
@@ -65,12 +62,16 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  *             + Add expense
  *         </button>
  *
- *         {# if expensesSorted.length === 0}
+ *         {# if isLoading}
+ *             <p>
+ *                 Loading...
+ *             </p>
+ *         {:else if expenses.size === 0}
  *             <p>
  *                 No expense yet.
  *             </p>
  *         {:else}
- *             {#each expensesSorted as expense, index (expense['@id']) }
+ *             {#each expenses as expense, index (expense['@id']) }
  *                 <ExpenseCard
  *                     expense={expense}
  *                 />
@@ -133,27 +134,22 @@ const useShape = <
               subscription.previousPage
             : undefined;
 
-    // let data = $state(undefined as SUBSCRIPTION_DATA | undefined);
-    let isLoading = $state(true);
-
-    subscription.readyPromise.then(() => {
-        isLoading = false;
-    });
-
     let data = useDeepSignal(subscription.signalObject);
-    // There is a problem with reactivity when conditionally returning data.
-    // let dataWhenReady = $derived(isLoading ? undefined : data);
 
-    // @ts-ignore
-    return {
+    let ret = {
         nextPage,
         previousPage,
         data: data as SUBSCRIPTION_DATA,
-        // data: dataWhenReady,
-        isLoading,
+        isLoading: !subscription.isReady,
         promise: subscription.readyPromise,
         subscription,
     };
+    subscription.readyPromise.then(() => {
+        ret.isLoading = false;
+    });
+
+    // @ts-ignore
+    return ret;
 };
 
 export default useShape;
@@ -177,7 +173,7 @@ type UseShapeResult_<
     /**
      * `true` when no data is available yet and `conf` is not `undefined`.
      *
-     * It is *not* set to `true` when loading pages (through `nextPage()` or `previousPage()`.
+     * It is *not* set to `true` while loading pages (through `nextPage()` or `previousPage()`.
      */
     isLoading: boolean;
     /**
