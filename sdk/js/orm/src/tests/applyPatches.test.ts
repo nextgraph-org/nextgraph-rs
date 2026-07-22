@@ -89,12 +89,22 @@ describe("applyDiff - array operations", () => {
         applyPatches(obj, [{ op: "remove", path: "/1" }]);
         expect(obj).toEqual([1, 3, 4, 5]);
     });
+    test("moves items 1", () => {
+        let obj = [1, 2, 3, 4, 0, 5];
+        applyPatches(obj, [{ op: "move", path: "/0", from: "/4" }]);
+        expect(obj).toEqual([0, 1, 2, 3, 4, 5]);
+    });
+    test("moves items 2", () => {
+        let obj = [4, 1, 2, 3, 5];
+        applyPatches(obj, [{ op: "move", path: "/3", from: "/0" }]);
+        expect(obj).toEqual([1, 2, 3, 4, 5]);
+    });
 });
 
 describe("applyDiff - set operations (primitives)", () => {
     test("add single primitive into existing set", () => {
         const state: any = { tags: new Set() };
-        const diff: Patch[] = [
+        const diff: Pagtch[] = [
             { op: "add", valType: "set", path: p("tags"), value: "a" },
         ];
         applyPatches(state, diff);

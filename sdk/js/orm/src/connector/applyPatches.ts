@@ -21,7 +21,7 @@ export type Patch = {
     path: string;
     valType?: string & {};
     value?: unknown;
-} & (SetAddPatch | SetRemovePatch | RemovePatch | LiteralAddPatch);
+} & (SetAddPatch | SetRemovePatch | RemovePatch | LiteralAddPatch | MovePatch);
 
 /** @ignore */
 export interface SetAddPatch {
@@ -66,6 +66,14 @@ export interface LiteralAddPatch {
     op: "add";
     /** The literal value to be added at the resolved `path` */
     value: string | number | boolean | object;
+}
+
+/** @ignore Move for items in the same array currently only */
+export interface MovePatch {
+    /** Move. */
+    op: "move";
+    path: string;
+    from: string;
 }
 
 /**
@@ -239,14 +247,19 @@ export function applyPatches(
 
         if (Array.isArray(parentVal)) {
             if (key === "-") {
-                if (patch.op == "add") {
+                if (patch.op === "add") {
                     parentVal.push(patch.value);
                 } else {
                     parentVal.pop();
                 }
-            } else if (patch.op == "add") {
+            } else if (patch.op === "add") {
                 let keyNum = Number(key);
                 parentVal.splice(keyNum, 0, patch.value);
+            } else if (patch.op === "move") {
+                const [, fromIndex] = patch.from.match(/.*\/([0-9]+)$/)!;
+                const [, toIndex] = patch.path.match(/.*\/([0-9]+)$/)!;
+                const [removed] = parentVal.splice(Number(fromIndex), 1);
+                parentVal.splice(Number(toIndex), 0, removed);
             } else {
                 // patch.op == remove
                 let keyNum = Number(key);
