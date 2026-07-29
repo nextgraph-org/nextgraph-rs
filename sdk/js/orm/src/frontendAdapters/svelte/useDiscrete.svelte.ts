@@ -102,24 +102,34 @@ import { DeepSignal } from "@ng-org/alien-deepsignals";
  * </div>
  * ```
  */
-export function useDiscrete<T = DiscreteRoot>(
-    documentIdOrPromise: string | Promise<string> | undefined
-): {
-    doc: DeepSignal<T | undefined>;
-} {
-    let connection: DiscreteOrmSubscription | undefined;
+export function useDiscrete<
+    T = DiscreteRoot,
+    DocIdOrPromise extends string | Promise<string> | undefined =
+        | string
+        | Promise<string>
+        | undefined,
+>(
+    documentIdOrPromise: DocIdOrPromise
+): UseDiscreteResult<
+    // @ts-ignore
+    T,
+    DocIdOrPromise
+> {
+    let subscription: DiscreteOrmSubscription<T> | undefined;
     let isDestroyed = false;
     let doc = $state.raw<DeepSignal<T> | undefined>(undefined);
 
     const init = (docId: string) => {
         if (isDestroyed) return;
-        connection = DiscreteOrmSubscription.getOrCreate(docId);
-        connection.readyPromise.then(() => {
+        subscription = DiscreteOrmSubscription.getOrCreate(docId);
+        subscription.readyPromise.then(() => {
             if (isDestroyed) {
-                connection?.close();
+                subscription?.close();
                 return;
             }
-            doc = useDeepSignal(connection!.signalObject!) as DeepSignal<T>;
+            ret.doc = useDeepSignal(
+                subscription!.signalObject!
+            ) as DeepSignal<T>;
         });
     };
 
@@ -133,14 +143,44 @@ export function useDiscrete<T = DiscreteRoot>(
 
     onDestroy(() => {
         isDestroyed = true;
-        if (connection) {
-            connection.close();
+        if (subscription) {
+            subscription.close();
         }
     });
 
-    return {
-        get doc() {
-            return doc;
-        },
-    };
+    let ret = $state({
+        isLoading: !!subscription && !subscription.isReady,
+        promise: subscription?.readyPromise,
+        subscription,
+        doc,
+    } as UseDiscreteResult<any, DocIdOrPromise>);
+
+    return ret;
 }
+
+type UseDiscreteResult<
+    T extends DiscreteRoot,
+    DocIdOrPromise extends string | Promise<string> | undefined,
+> = {
+    /**
+     * `true` when no data is available yet and `conf` is not `undefined`.
+     */
+    isLoading: boolean;
+    /**
+     * The JSON object of the requested CRDT document.
+     *
+     * This object is a svelte-reactive version of the value returned by {@link DiscreteOrmSubscription.signalObject}.
+     */
+    doc: DeepSignal<T> | undefined;
+    /**
+     * A promise that resolves once the data is loaded.
+     * Note that if `conf` is `undefined`, this property is `undefined`.
+     */
+    promise: DocIdOrPromise extends undefined
+        ? undefined
+        : Promise<DeepSignal<T>>;
+    /** The underlying {@link DiscreteOrmSubscription} through which the data is loaded. */
+    subscription: DocIdOrPromise extends undefined
+        ? undefined
+        : DiscreteOrmSubscription<T>;
+};

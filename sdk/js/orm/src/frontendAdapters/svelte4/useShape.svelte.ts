@@ -47,21 +47,18 @@ export interface UseShapeStoreResult<T = object>
  * ```svelte
  * <script lang="ts">
  *     // Gets all expense objects with `@id` <s1 IRI> or <s2 IRI> and `@graph` <g1 NURI> or <g2 NURI>
- *     const expenses: DeepSignal<Set<Expense>> = useShape(ExpenseShape,
+ *     const { data: expenses, isLoading } = useShape(ExpenseShape,
  *         {graphs: ["<g1 NURI>", "<g2 NURI>"],
  *         subjects: ["<s1 NURI>", "<s2 NURI>"]});
- *
+ *     // expenses has type `: DeepSignal<Set<Expense>>`
  *
  *     // Call expenses.add({"@graph": "<g1 or g2 NURI>", "@id": "", title: "Example title"}), to add new elements.
  *     // Leave `@id` an empty string to auto-generate a subject IRI (adjust your scope accordingly).
- *
- *     // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- *     // This only affects you if you set custom subject IRIs. The auto-generated `@id`s are globally unique.
  * </script>
  *
  * <section>
  *     <div>
- *         {# if loading}
+ *         {# if isLoading}
  *         <p>
  *             Loading...
  *         </p>

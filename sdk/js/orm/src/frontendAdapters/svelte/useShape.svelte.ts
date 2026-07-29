@@ -46,14 +46,12 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  *         expenses.add({
  *             "@graph": `<graph NURI>`,
  *             "@type": "did:ng:z:Expense",
- *             "@id": "", // Assigns ID automatically, if set to "".
+ *             "@id": "", // Assign ID automatically.
  *             title: "New expense",
  *             dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
  *         });
  *     };
  *
- *     // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- *     // This only affects you if you set custom subject IRIs. The auto-generated `@id`s are globally unique.
  * </script>
  *
  * <section>
@@ -101,7 +99,6 @@ const useShape = <
     ST extends ShapeType<T>,
     const CONF extends RdfOrmConfig<T>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
-    SUBSCRIPTION_DATA = SubscriptionData<T, CONF>,
 >(
     shape: ST,
     conf: CONF | string | undefined
@@ -110,7 +107,6 @@ const useShape = <
         // @ts-ignore
         return {
             data: undefined,
-            isLoading: false,
             promise: undefined,
             subscription: undefined,
         };
@@ -139,14 +135,16 @@ const useShape = <
     let ret = {
         nextPage,
         previousPage,
-        data: data as SUBSCRIPTION_DATA,
-        isLoading: !subscription.isReady,
+        // isLoading: !subscription.isReady,
         promise: subscription.readyPromise,
         subscription,
+        data,
     };
-    subscription.readyPromise.then(() => {
-        ret.isLoading = false;
-    });
+
+    // subscription.readyPromise.then(() => {
+    //     ret.isLoading = false;
+    //     ret.data = data as any;
+    // });
 
     // @ts-ignore
     return ret;
@@ -175,14 +173,14 @@ type UseShapeResult_<
      *
      * It is *not* set to `true` while loading pages (through `nextPage()` or `previousPage()`.
      */
-    isLoading: boolean;
+    // isLoading: boolean;
     /**
-     * The requested data. While still loading, the data will be empty.
+     * The requested data. While still loading, data is undefined.
      *
      * Depending on your orderBy config, this will either be a {@link DeepSignalSet}
      * or a [`DeepSignal<ReadOnlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
      *
-     * This object is the value returned by {@link RdfOrmSubscription.signalObject}.
+     * Once loaded, this object is the value returned by {@link RdfOrmSubscription.signalObject}.
      */
     data: SUBSCRIPTION_DATA;
     /**

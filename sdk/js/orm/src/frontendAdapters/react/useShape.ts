@@ -17,12 +17,10 @@ import {
     RdfOrmSubscription,
     RdfOrmSubscriptionFor,
 } from "../../connector/RdfOrmSubscription.ts";
-import type {
-    DeepSignalSet,
-    ReadOnlyArray,
-    DeepSignal,
-} from "@ng-org/alien-deepsignals";
+import type { DeepSignalSet, DeepSignal } from "@ng-org/alien-deepsignals";
 import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
+
+const EMPTY_OBJECT = {} as const;
 
 /**
  * Hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
@@ -58,9 +56,6 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  *         },
  *         [expenses]
  *     );
- *
- *     // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- *     // This only affects you if you set custom subject IRIs. The auto-generated `@id`s are globally unique.
  *
  *     return (
  *         <div>
@@ -153,7 +148,9 @@ const useShape = <
     // If no data has arrived or the scope is unset, use a dummy object
     // that won't be returned (useDeepSignal requires some kind of data).
     const state = useDeepSignal(
-        ormSubscription && isReady ? ormSubscription.signalObject : emptyObject,
+        ormSubscription && isReady
+            ? ormSubscription.signalObject
+            : EMPTY_OBJECT,
         {
             replaceProxiesInBranchOnChange: true,
         }
@@ -181,8 +178,6 @@ const useShape = <
         previousPage,
     };
 };
-
-const emptyObject = {};
 
 export default useShape;
 
@@ -214,7 +209,7 @@ type UseShapeResult_<
      * or a [`DeepSignal<ReadOnlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
      *
      * This object is the value returned by {@link RdfOrmSubscription.signalObject} with the following exception:
-     * The root is a proxy that is replaced on every rerender so that react knows that it changed.
+     * To capture modifications to it in react, the root is a proxy that is replaced on every relevant rerender.
      */
     data: SUBSCRIPTION_DATA | undefined;
     /**

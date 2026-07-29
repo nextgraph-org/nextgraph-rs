@@ -10,7 +10,7 @@
 
 import { normalizeConf, type Scope } from "../../types.ts";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
-import { computed, ComputedRef, onBeforeUnmount, reactive, ref } from "vue";
+import { onBeforeUnmount, Ref, ref, shallowRef } from "vue";
 import type { BaseType, ShapeType } from "@ng-org/shex-orm";
 import {
     RdfOrmSubscription,
@@ -46,8 +46,6 @@ import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
  * // Simply call expenses.add({"@graph": "<g1 or g2 NURI>", "@id": "", title: "Example title"}), to add new elements.
  * // Leave `@id` an empty string to auto-generate a subject NURI (adjust your scope accordingly).
  *
- * // Note that if you use `@id` (the subject IRI) as key, you need to ensure that it is unique within your scope.
- * // This only affects you if you set custom subject IRIs. The auto-generated `@id`s are globally unique.
  * </script>
  *
  * <template>
@@ -99,13 +97,12 @@ const useShape = <
     conf: CONF | string | undefined
 ): UseShapeResult<ST, CONF, T> => {
     if (conf === undefined) {
-        // @ts-ignore
         return {
-            data: undefined,
-            isLoading: false,
+            data: ref(undefined),
+            isLoading: ref(false),
             promise: undefined,
             subscription: undefined,
-        };
+        } as UseShapeResult<ST, CONF, T>;
     }
 
     const parsedConf = normalizeConf(conf);
@@ -128,28 +125,24 @@ const useShape = <
               subscription.previousPage
             : undefined;
 
-    // let data = $state(undefined as SUBSCRIPTION_DATA | undefined);
-    let isLoading = ref(true);
+    const data = useDeepSignal(subscription.signalObject);
+
+    const dataRef = shallowRef(subscription.isReady ? data : undefined);
+    const isLoadingRef = ref(!subscription.isReady);
 
     subscription.readyPromise.then(() => {
-        isLoading.value = false;
+        dataRef.value = subscription.signalObject;
+        isLoadingRef.value = false;
     });
 
-    let data = useDeepSignal(subscription.signalObject);
-    let dataWhenReady = computed(() => (isLoading ? undefined : data));
-
-    const ret = {
+    return {
         nextPage,
         previousPage,
-        data,
-        // data: dataWhenReady as ComputedRef<SUBSCRIPTION_DATA>,
-        isLoading,
         promise: subscription.readyPromise,
         subscription,
-    };
-
-    // @ts-ignore
-    return ret;
+        data: dataRef,
+        isLoading: isLoadingRef,
+    } as UseShapeResult<ST, CONF, T>;
 };
 
 export default useShape;
@@ -175,7 +168,7 @@ type UseShapeResult_<
      *
      * It is *not* set to `true` while loading pages (through `nextPage()` or `previousPage()`.
      */
-    isLoading: boolean;
+    isLoading: Ref<boolean>;
     /**
      * The requested data, once loaded. While still loading, `data` wil be empty.
      *
@@ -184,7 +177,7 @@ type UseShapeResult_<
      *
      * This object is the value returned by {@link RdfOrmSubscription.signalObject}.
      */
-    data: SUBSCRIPTION_DATA;
+    data: Ref<SUBSCRIPTION_DATA | undefined>;
     /**
      * A promise that resolves once the data is loaded.
      * Note that if `conf` is `undefined`, this property is `undefined`.
