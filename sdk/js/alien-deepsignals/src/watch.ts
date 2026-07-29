@@ -91,8 +91,8 @@ export type WatchPatchCallback<T> = (event: WatchPatchEvent<T>) => void;
  * // ]
  * ```
  */
-export function watch<T extends object | Array<any> | Set<any>>(
-    source: DeepSignal<T>,
+export function watch<T extends DeepSignal<any>>(
+    source: T,
     callback: WatchPatchCallback<T>,
     options: WatchOptions = {}
 ) {

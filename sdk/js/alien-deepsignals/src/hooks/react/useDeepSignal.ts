@@ -49,6 +49,9 @@ const useSignal = <T extends object>(
 
     const subscribe = useCallback(
         (onStoreChange: () => void) => {
+            // TODO: Instead of watching everything, we can start an effect manually with deep signals
+            // and close it on useLayoutEffect call.
+            // Then, call onStorageChange when effect would be triggered.
             const { stopListening } = watch(
                 signal,
                 () => {

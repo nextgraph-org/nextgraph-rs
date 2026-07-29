@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { DiscreteArray, DiscreteObject } from "../types.ts";
+import { DiscreteArray, DiscreteObject, DiscreteRoot } from "../types.ts";
 import { applyPatches, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
@@ -23,7 +23,6 @@ import type {
     DeepSignal,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
-import type { BaseType } from "@ng-org/shex-orm";
 
 /**
  * Delay in ms to wait before closing connection.\
@@ -37,20 +36,18 @@ const WAIT_BEFORE_CLOSE = 500;
  *
  * You have two options on how to interact with the ORM:
  * - Use a hook for your favorite framework under `@ng-org/orm/react|vue|svelte`
- * - Call {@link OrmSubscription.getOrCreate} to create a subscription manually
+ * - Call {@link DiscreteOrmSubscription.getOrCreate} to create a subscription manually
  *
  * For more information about RDF-based ORM subscriptions,
  * see the [README](../../../README.md) and follow the tutorial.
  */
-export class DiscreteOrmSubscription {
+export class DiscreteOrmSubscription<T = DiscreteRoot> {
     /** Global store of all subscriptions. We use that for pooling. */
-    private static idToEntry = new Map<string, DiscreteOrmSubscription>();
+    private static idToEntry = new Map<string, DiscreteOrmSubscription<any>>();
 
     /** The document ID (NURI) of the subscribed document. */
     readonly documentId: string;
-    private _signalObject:
-        | DeepSignal<DiscreteArray | DiscreteObject>
-        | undefined;
+    private _signalObject: DeepSignal<T> | undefined;
     private stopSignalListening: undefined | (() => void);
     /** The subscription ID kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
@@ -63,10 +60,10 @@ export class DiscreteOrmSubscription {
     /** Aggregation of patches to be sent when in transaction. @ignore */
     private pendingPatches: Patch[] | undefined;
     /** **Await to ensure that the subscription is established and the data arrived.** */
-    private readyPromise_: Promise<void>;
+    private readyPromise_: Promise<DeepSignal<T>>;
     private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
-    private resolveReady!: () => void;
+    private resolveReady!: (data: Promise<DeepSignal<T>>) => void;
 
     private constructor(documentId: string) {
         // @ts-expect-error
@@ -80,9 +77,10 @@ export class DiscreteOrmSubscription {
         this.refCount = 1;
         this.closeOrmSubscription = () => {};
         this.suspendDeepWatcher = false;
+        this.isReady = false;
 
         // Initialize per-entry readiness promise that resolves in setUpConnection
-        this.readyPromise_ = new Promise<void>((resolve) => {
+        this.readyPromise_ = new Promise<DeepSignal<T>>((resolve) => {
             this.resolveReady = resolve;
         });
 
@@ -190,9 +188,9 @@ export class DiscreteOrmSubscription {
      * subscription2.close();
      * ```
      */
-    public static getOrCreate = <T extends BaseType>(
+    public static getOrCreate = <T>(
         documentId: string
-    ): DiscreteOrmSubscription => {
+    ): DiscreteOrmSubscription<T> => {
         // If we already have a connection open,
         // return that signal object and just increase the reference count.
         // Otherwise, open a new one.
@@ -202,7 +200,7 @@ export class DiscreteOrmSubscription {
             existingConnection.refCount += 1;
             return existingConnection;
         } else {
-            const newConnection = new DiscreteOrmSubscription(documentId);
+            const newConnection = new DiscreteOrmSubscription<T>(documentId);
             DiscreteOrmSubscription.idToEntry.set(documentId, newConnection);
             return newConnection;
         }
@@ -212,10 +210,12 @@ export class DiscreteOrmSubscription {
     get inTransaction() {
         return this.inTransaction_;
     }
-    /** **Await to ensure that the subscription is established and the data arrived.** */
+    /** Await to ensure that the subscription is established and the data arrived. Resolves to {@link signalObject}. */
     get readyPromise() {
         return this.readyPromise_;
     }
+    /** Returns true if the subscription is fully established and the data is available in {@link signalObject} */
+    isReady: boolean;
 
     /**
      * Stop the subscription.
@@ -288,8 +288,9 @@ export class DiscreteOrmSubscription {
         );
         this.stopSignalListening = stopListening;
 
-        // Resolve readiness after initial data is committed and watcher armed.
-        this.resolveReady();
+        // Resolve readiness after initial data is set and watcher listening.
+        this.isReady = true;
+        this.resolveReady(signalObject);
     };
 
     /** Handle incoming patches from the engine */

@@ -26,24 +26,6 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
 
         return target[p];
     },
-    getOwnPropertyDescriptor(target, p) {
-        return {
-            get: () => {
-                readonlyArrayProxy.get!(target, p, undefined);
-            },
-            configurable: false,
-            enumerable: true,
-            get value() {
-                return readonlyArrayProxy.get!(target, p, undefined);
-            },
-            get writable() {
-                return false;
-            },
-            set() {
-                throw new Error(`Cannot modify readonly array.`);
-            },
-        };
-    },
     preventExtensions() {
         throw new Error(
             "preventExtension() is not supported on sealed deep signal objects."
