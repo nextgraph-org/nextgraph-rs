@@ -31,6 +31,7 @@ We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but
         - [Defining a Schema](#defining-a-schema)
         - [Using and Modifying RDF ORM Objects](#using-and-modifying-rdf-orm-objects)
         - [RDF ORM: Frontend Framework Integration](#rdf-orm-frontend-framework-integration)
+        - [Using `@id` as `key` attribute for child components](#using-id-as-key-attribute-for-child-components)
         - [Scopes for Retrieving Data](#scopes-for-retrieving-data)
         - [Relationships](#relationships)
         - [Ordering](#ordering)
@@ -197,7 +198,7 @@ When the component unmounts, the subscription is closed.
 
 ```ts
 // Queries the graphs with NURI did:ng:o:g1 and did:ng:o:g2 and with subject s1 or s2.
-const expenses = useShape(ExpenseShapeType, {
+const { data: expenses } = useShape(ExpenseShapeType, {
     graphs: ["did:ng:o:g1", "did:ng:o:g2"],
     subjects: ["<s1 IRI>", "<s2 IRI>"],
     orderBy: undefined, // One or more properties to order by.
@@ -209,6 +210,12 @@ const expenses = useShape(ExpenseShapeType, {
 // Now you can use expenses in your component
 // and modify them to persist them and trigger a refresh.
 ```
+
+### Using `@id` as `key` attribute for child components
+
+In general, you are encouraged to use ORM object's `@id` properties as unique key when you render child components. Each object in a set or array returned by `useShape` or `useDiscrete` includes such an `@id` property. When you add a new object, a globally unique one will be auto-generated.
+
+In the RDF ORM you are allowed (but not encouraged) to specify your own `@id` (which is an RDF subject IRI). If you want to use it when rendering child components, ensure that it is unique within your scope.
 
 ### Scopes for Retrieving Data
 
