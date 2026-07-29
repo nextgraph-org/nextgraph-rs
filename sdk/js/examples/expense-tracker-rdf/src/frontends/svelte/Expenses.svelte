@@ -22,10 +22,9 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
   let {
-    data: expenses,
-    isLoading: expensesLoading,
     nextPage,
     previousPage,
+    data: expenses,
   } = $derived(
     useShape(
       ExpenseShapeType,
@@ -38,21 +37,9 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     )
   );
 
-  let { data: categories, isLoading: categoriesLoading } = $derived(
+  let { data: categories } = $derived(
     useShape(ExpenseCategoryShapeType, privateNuri)
   );
-
-  // $inspect(exp, cat).with((type, v0, v1) =>
-  //   console.debug(
-  //     "inspect with ",
-  //     type,
-  //     v0,
-  //     v1,
-  //     expensesLoading,
-  //     categoriesLoading
-  //   )
-  // );
-  $inspect(categoriesLoading, expensesLoading).with(console.log);
 
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
@@ -85,7 +72,7 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     </button>
   </header>
   <div class="cards-stack">
-    {#if !expenses}
+    {#if !expenses || !categories}
       <p class="muted">Loading...</p>
     {:else if expenses.length === 0}
       <p class="muted">
@@ -94,8 +81,8 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     {:else}
       {#each expenses as expense, index (expense["@id"])}
         <ExpenseCard
-          expense={expenses[index]}
-          availableCategories={categories}
+          bind:expense={expenses[index]}
+          bind:availableCategories={categories}
         />
       {/each}
     {/if}

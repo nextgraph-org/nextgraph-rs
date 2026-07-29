@@ -10,11 +10,11 @@ import ExpenseCard from "./ExpenseCard.vue";
 import { insertObject } from "@ng-org/orm";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const { data: expenses, nextPage, previousPage, isLoading: loadingExpenses } = useShape(ExpenseShapeType, privateNuri && {
+const { data: expenses, nextPage, previousPage } = useShape(ExpenseShapeType, privateNuri && {
     graphs: [privateNuri],
     orderBy: { title: "desc" },
 });
-const { data: categories, isLoading: loadingCategories } = useShape(ExpenseCategoryShapeType, {
+const { data: categories } = useShape(ExpenseCategoryShapeType, {
     graphs: [privateNuri || ""],
 });
 
@@ -51,7 +51,7 @@ async function createExpense(obj: Partial<Expense> = {}) {
             </button>
         </header>
         <div class="cards-stack">
-            <p v-if="loadingCategories || loadingExpenses" class="muted">
+            <p v-if="!expenses || !categories" class="muted">
                 Loading...
             </p>
             <p v-else-if="expenses.length === 0" class="muted">

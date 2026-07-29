@@ -40,7 +40,7 @@ async function createCategory() {
                 </button>
             </div>
         </header>
-        <p v-if="isLoading" class="muted">
+        <p v-if="!expenseCategories" class="muted">
             Loading...
         </p>
         <p v-else-if="expenseCategories.size === 0" class="muted">
