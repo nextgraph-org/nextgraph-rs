@@ -12,3 +12,18 @@ export const readOnlySet = new Proxy(new Set(), {
         return value;
     },
 });
+
+class RawArray extends Array {}
+class RawObject {}
+class RawSet extends Set {}
+
+export const setRawPrototype = (obj: any) => {
+    if (Array.isArray(obj)) {
+        return Object.setPrototypeOf(obj, RawArray.prototype);
+    } else if (obj instanceof Set) {
+        return Object.setPrototypeOf(obj, RawSet.prototype);
+    } else if (obj && typeof obj === "object") {
+        return Object.setPrototypeOf(obj, RawObject.prototype);
+    }
+    return obj;
+};

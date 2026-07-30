@@ -1,4 +1,4 @@
-import { META_KEY, RAW_KEY } from "./deepSignal.ts";
+import { RAW_KEY } from "./deepSignal.ts";
 import { nonMutatingArrayFnKeys } from "./iteratorHelpers.ts";
 import { DeepSignal, ReadOnlyArray } from "./types.ts";
 
@@ -26,15 +26,8 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
 
         return target[p];
     },
-    preventExtensions() {
-        throw new Error(
-            "preventExtension() is not supported on sealed deep signal objects."
-        );
-    },
+
     set() {
-        throw new Error(`Cannot modify readonly array.`);
-    },
-    setPrototypeOf() {
         throw new Error(`Cannot modify readonly array.`);
     },
 };

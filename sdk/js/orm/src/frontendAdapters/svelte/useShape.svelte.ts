@@ -18,6 +18,7 @@ import {
     RdfOrmSubscriptionFor,
 } from "../../connector/RdfOrmSubscription.ts";
 import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
+import { setRawPrototype } from "../utils.ts";
 
 /**
  * Svelte 5 hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
@@ -131,20 +132,22 @@ const useShape = <
             : undefined;
 
     let data = useDeepSignal(subscription.signalObject);
+    // Prevent data from being proxied by modifying its prototype.
+    setRawPrototype(data);
 
-    let ret = {
+    let ret = $state({
         nextPage,
         previousPage,
-        // isLoading: !subscription.isReady,
+        isLoading: !subscription.isReady,
         promise: subscription.readyPromise,
         subscription,
         data,
-    };
+    });
 
-    // subscription.readyPromise.then(() => {
-    //     ret.isLoading = false;
-    //     ret.data = data as any;
-    // });
+    subscription.readyPromise.then(() => {
+        ret.isLoading = false;
+        ret.data = data as any;
+    });
 
     // @ts-ignore
     return ret;
@@ -173,7 +176,7 @@ type UseShapeResult_<
      *
      * It is *not* set to `true` while loading pages (through `nextPage()` or `previousPage()`.
      */
-    // isLoading: boolean;
+    isLoading: boolean;
     /**
      * The requested data. While still loading, data is undefined.
      *

@@ -13,6 +13,7 @@ import { useDeepSignal } from "@ng-org/alien-deepsignals/svelte";
 import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
 import { DiscreteRoot } from "../../types.ts";
 import { DeepSignal } from "@ng-org/alien-deepsignals";
+import { setRawPrototype } from "../utils.ts";
 
 /**
  * Svelte 5 hook to subscribe to existing discrete (JSON) CRDT documents.
@@ -115,21 +116,27 @@ export function useDiscrete<
     T,
     DocIdOrPromise
 > {
-    let subscription: DiscreteOrmSubscription<T> | undefined;
     let isDestroyed = false;
-    let doc = $state.raw<DeepSignal<T> | undefined>(undefined);
+
+    let ret = $state({}) as UseDiscreteResult<any, DocIdOrPromise>;
 
     const init = (docId: string) => {
         if (isDestroyed) return;
-        subscription = DiscreteOrmSubscription.getOrCreate(docId);
+        const subscription = DiscreteOrmSubscription.getOrCreate(docId);
+        ret.subscription = subscription as any;
+        ret.promise = subscription.readyPromise as any;
         subscription.readyPromise.then(() => {
             if (isDestroyed) {
                 subscription?.close();
                 return;
             }
-            ret.doc = useDeepSignal(
+            const doc = useDeepSignal(
                 subscription!.signalObject!
             ) as DeepSignal<T>;
+            // Set different prototype to prevent svelte from proxying.
+            setRawPrototype(doc);
+            ret.doc = doc;
+            ret.isLoading = false;
         });
     };
 
@@ -143,17 +150,12 @@ export function useDiscrete<
 
     onDestroy(() => {
         isDestroyed = true;
-        if (subscription) {
-            subscription.close();
+        if (ret.subscription) {
+            ret.subscription.close();
         }
     });
 
-    let ret = $state({
-        isLoading: !!subscription && !subscription.isReady,
-        promise: subscription?.readyPromise,
-        subscription,
-        doc,
-    } as UseDiscreteResult<any, DocIdOrPromise>);
+    ret.isLoading = !!ret.subscription && !ret.subscription.isReady;
 
     return ret;
 }
