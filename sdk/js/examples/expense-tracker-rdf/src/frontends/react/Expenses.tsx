@@ -47,7 +47,7 @@ export function Expenses() {
                 recurrenceInterval: obj.recurrenceInterval ?? "",
             });
         },
-        [expenses]
+        []
     );
 
     return (

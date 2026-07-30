@@ -28,7 +28,7 @@ export function ExpenseCategories() {
             categoryName: "New category",
             description: "",
         });
-    }, [expenseCategories]);
+    }, []);
 
     return (
         <section className="panel">

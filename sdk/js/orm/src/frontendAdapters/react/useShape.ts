@@ -114,20 +114,13 @@ const useShape = <
     );
     const [isReady, setIsReady] = useState(false);
 
-    const prevOrmSubscription = useRef<
-        undefined | RdfOrmSubscription<any, any>
-    >(undefined);
-
     const ormSubscription = useMemo(() => {
         if (parsedConf === undefined) return undefined;
-        if (prevOrmSubscription.current) prevOrmSubscription.current.close();
 
         const newOrmSubscription = RdfOrmSubscription.getOrCreate(
             shape,
             parsedConf
         );
-
-        prevOrmSubscription.current = newOrmSubscription as any;
 
         return newOrmSubscription;
     }, dependencies);
