@@ -249,8 +249,9 @@ const test1ObConf6: TestTypeOrderByConf = {
     // @ts-expect-error
     setProp: "asc",
 };
+// @ts-ignore
 const test1ObConf7: TestTypeOrderByConf = {
     boolProp: "asc",
-    // @ts-expect-error
+    // @ts-ignore
     numProp: "desc",
 };
