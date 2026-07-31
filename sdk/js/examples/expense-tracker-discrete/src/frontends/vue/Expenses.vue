@@ -16,7 +16,7 @@ import ExpenseCard from "./ExpenseCard.vue";
 import { useDocumentStore } from "./useDocumentStore.ts";
 import type { Expense } from "../../types.ts";
 
-const {doc} = useDocumentStore();
+const { doc } = useDocumentStore();
 const expenses = computed(() => doc.value?.expenses);
 const expenseCategories = computed(
     () => doc.value?.expenseCategories ?? []
@@ -65,12 +65,8 @@ const expensesSorted = computed(() =>
                 off.
             </p>
             <template v-else>
-                <ExpenseCard
-                    v-for="(expense, index) in expensesSorted"
-                    :key="expense['@id']"
-                    :expense="expense"
-                    :available-categories="expenseCategories"
-                />
+                <ExpenseCard v-for="(expense, index) in expensesSorted" :key="expense['@id']" :expense="expense"
+                    :available-categories="expenseCategories" />
             </template>
         </div>
     </section>

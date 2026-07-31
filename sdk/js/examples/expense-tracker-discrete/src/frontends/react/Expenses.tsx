@@ -10,13 +10,12 @@
 
 import { useCallback, useMemo } from "react";
 
-import { sessionPromise } from "../../utils/ngSession";
 import { ExpenseCard } from "./ExpenseCard";
 import { useDocumentStore } from "./useDocumentStore";
 import type { Expense } from "../../types";
 
 export function Expenses() {
-    const { doc } = useDocumentStore();
+    const { doc, promise } = useDocumentStore();
     const expenses = doc?.expenses;
     const expenseCategories = doc?.expenseCategories;
 
@@ -31,7 +30,7 @@ export function Expenses() {
 
     const createExpense = useCallback(
         async (obj: Partial<Expense> = {}) => {
-            const session = await sessionPromise;
+            await promise;
 
             expenses!.push({
                 amount: obj.amount ?? 1,

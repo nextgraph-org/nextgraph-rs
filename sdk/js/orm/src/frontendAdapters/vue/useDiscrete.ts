@@ -10,13 +10,11 @@
 
 import {
     computed,
+    ComputedRef,
     MaybeRefOrGetter,
     onBeforeUnmount,
     Ref,
-    shallowReactive,
     shallowRef,
-    ToRefs,
-    toRefs,
     toValue,
     watchEffect,
 } from "vue";
@@ -124,18 +122,19 @@ export function useDiscrete<
     DOC_ID extends string | undefined = string | undefined,
 >(
     documentId: MaybeRefOrGetter<DOC_ID>
-): UseDiscreteResult<
-    // @ts-ignore
-    T,
-    DOC_ID
-> {
+): UseDiscreteResult<// @ts-ignore
+T> {
     const ormSubscription = computed(() => {
         const id = toValue(documentId);
         return id ? DiscreteOrmSubscription.getOrCreate(id) : undefined;
     });
 
-    const docRef = shallowRef(undefined);
-    const isLoadingRef = shallowRef(true);
+    const docRef: Ref<DeepSignal<T> | undefined> = shallowRef(undefined);
+    const isLoadingRef: Ref<boolean | undefined> = shallowRef(true);
+    const promiseRef: Ref<Promise<DeepSignal<T>> | undefined> =
+        shallowRef(undefined);
+    const subscriptionRef: Ref<DiscreteOrmSubscription<T> | undefined> =
+        shallowRef(undefined);
 
     watchEffect(() => {
         ormSubscription.value?.readyPromise.then(() => {
@@ -143,50 +142,41 @@ export function useDiscrete<
                 ormSubscription.value!.signalObject as any
             );
             isLoadingRef.value = false;
+            promiseRef.value = ormSubscription.value!.readyPromise as Promise<
+                DeepSignal<T>
+            >;
+            subscriptionRef.value = ormSubscription as any;
         });
     });
 
     onBeforeUnmount(() => {
         ormSubscription.value?.close();
     });
-    if (!ormSubscription.value) {
-        // @ts-ignore
-        return {
-            doc: undefined,
-            isLoading: undefined,
-            promise: undefined,
-            subscription: undefined,
-        } as UseDiscreteResult<any, undefined>;
-    }
+
     return {
         doc: docRef,
         isLoading: isLoadingRef,
-        promise: ormSubscription.value?.readyPromise,
-        subscription: ormSubscription.value,
-    } as UseDiscreteResult<any, DOC_ID>;
+        promise: promiseRef,
+        subscription: subscriptionRef,
+    } as UseDiscreteResult<any>;
 }
 
-type UseDiscreteResult<
-    T extends DiscreteRoot,
-    DOC_ID extends string | undefined,
-> = {
+type UseDiscreteResult<T extends DiscreteRoot> = {
     /**
      * `true` when no data is available yet and `conf` is not `undefined`.
      */
-    isLoading: undefined extends DOC_ID ? undefined : Ref<boolean>;
+    isLoading: Ref<boolean | undefined>;
     /**
      * The requested data, once loaded.
      *
      * This object is the value returned by {@link DiscreteOrmSubscription.signalObject}.
      */
-    doc: undefined extends DOC_ID ? undefined : Ref<DeepSignal<T> | undefined>;
+    doc: Ref<DeepSignal<T> | undefined>;
     /**
      * A promise that resolves once the data is loaded.
      * Note that if `conf` is `undefined`, this property is `undefined`.
      */
-    promise: undefined extends DOC_ID ? undefined : Promise<DeepSignal<T>>;
+    promise: ComputedRef<Promise<DeepSignal<T>> | undefined>;
     /** The underlying {@link DiscreteOrmSubscription} through which the data is loaded. */
-    subscription: undefined extends DOC_ID
-        ? undefined
-        : DiscreteOrmSubscription<T>;
+    subscription: ComputedRef<DiscreteOrmSubscription<T> | undefined>;
 };

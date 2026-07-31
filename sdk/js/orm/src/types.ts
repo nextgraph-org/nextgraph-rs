@@ -77,6 +77,7 @@ export interface DiscreteArray extends Array<DiscreteType> {}
 export interface DiscreteObject {
     [key: string]: DiscreteType;
 }
+
 /** An allowed type in the CRDT. */
 export type DiscreteType =
     | DiscreteArray
@@ -93,7 +94,7 @@ export type DiscreteRootArray = (
     | string
     | number
     | boolean
-    | (DiscreteObject & { readonly "@id": string })
+    | (DiscreteObject & { readonly "@id"?: string })
 )[];
 
 /**

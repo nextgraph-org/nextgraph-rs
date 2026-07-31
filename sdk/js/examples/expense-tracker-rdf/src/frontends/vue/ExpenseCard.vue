@@ -228,11 +228,11 @@ function nameOfCategory(categoryIri: string) {
             <template v-else>
                 <div v-if="expense.expenseCategory?.size" class="chip-list">
                     <span
-                        v-for="category in expense.expenseCategory"
-                        :key="category"
+                        v-for="categoryIri in expense.expenseCategory"
+                        :key="categoryIri"
                         class="chip"
                     >
-                        {{ nameOfCategory(category) || "Unnamed" }}
+                        {{ nameOfCategory(categoryIri) || "Unnamed" }}
                     </span>
                 </div>
                 <p v-else class="muted">No categories linked.</p>

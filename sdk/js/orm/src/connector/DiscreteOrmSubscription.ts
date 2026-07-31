@@ -21,6 +21,7 @@ import {
 import type {
     DeepPatch,
     DeepSignal,
+    OnObjectAttachedFn,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
 
@@ -58,12 +59,17 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
     /** True, if a transaction is running. */
     private inTransaction_: boolean = false;
     /** Aggregation of patches to be sent when in transaction. @ignore */
-    private pendingPatches: Patch[] | undefined;
+    private pendingPatches: Patch[] = [];
     /** **Await to ensure that the subscription is established and the data arrived.** */
     private readyPromise_: Promise<DeepSignal<T>>;
     private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
     private resolveReady!: (data: Promise<DeepSignal<T>>) => void;
+    /**
+     * Set to true when patches are created and collected to be sent to the backend in
+     * the next microtask. Prevents scheduling more than one microtask.
+     */
+    private isPatchMicrotaskScheduled: boolean = false;
 
     private constructor(documentId: string) {
         // @ts-expect-error
@@ -241,26 +247,11 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
     /** Handle updates (patches) coming from signal object modifications. */
     private onSignalObjectUpdate = async ({
         patches,
-    }: WatchPatchEvent<DiscreteArray | DiscreteObject>) => {
+    }: WatchPatchEvent<any>) => {
         if (this.suspendDeepWatcher || !patches.length) return;
 
-        const ormPatches = deepPatchesToWasm(patches);
-
-        // If in transaction, collect patches immediately (no await before).
-        if (this.inTransaction_) {
-            this.pendingPatches?.push(...ormPatches);
-            return;
-        }
-
-        // Wait for session and subscription to be initialized.
-        const { ng, session } = await ngSession;
-        await this.readyPromise_;
-
-        ng.discrete_orm_update(
-            this.subscriptionId!,
-            ormPatches,
-            session.session_id
-        );
+        // Send patches to engine.
+        this.queuePatches({ patches: deepPatchesToWasm(patches) });
     };
 
     /** Handle messages coming from the engine (initial data or patches). */
@@ -280,7 +271,9 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
         number,
     ]) => {
         this.subscriptionId = subscriptionId;
-        const signalObject = deepSignal(initialData, {});
+        const signalObject = deepSignal(initialData, {
+            onObjectAttached: this.onSignalObjectAttached,
+        });
         this._signalObject = signalObject;
         const { stopListening } = watchDeepSignal(
             this._signalObject!,
@@ -308,6 +301,27 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
         });
     };
 
+    /** Add patches to {@link pendingPatches}. Schedules a microtask to send them to the backend batched, if not in transaction. */
+    private queuePatches({ patches }: { patches: Patch[] }) {
+        this.pendingPatches.push(...patches);
+
+        if (!this.inTransaction_ && !this.isPatchMicrotaskScheduled) {
+            queueMicrotask(async () => {
+                this.isPatchMicrotaskScheduled = false;
+
+                if (this.pendingPatches.length > 0 && !this.inTransaction_) {
+                    const { ng, session } = await ngSession;
+                    ng.discrete_orm_update(
+                        this.subscriptionId!,
+                        this.pendingPatches,
+                        session.session_id
+                    );
+                    this.pendingPatches = [];
+                }
+            });
+        }
+    }
+
     /**
      * Begins a transaction that batches changes to be committed to the database.
      * This is useful for performance reasons.
@@ -317,19 +331,6 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
      */
     public beginTransaction = () => {
         this.inTransaction_ = true;
-        this.pendingPatches = [];
-
-        this.readyPromise_.then(() => {
-            // Use a listener that immediately triggers on object modifications.
-            // We don't need the deep-signal's batching (through microtasks) here.
-            this.stopSignalListening?.();
-            const { stopListening } = watchDeepSignal(
-                this.signalObject!,
-                this.onSignalObjectUpdate,
-                { triggerInstantly: true }
-            );
-            this.stopSignalListening = stopListening;
-        });
     };
 
     /**
@@ -359,17 +360,30 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
             );
         }
 
-        this.pendingPatches = undefined;
+        this.pendingPatches = [];
+    };
 
-        // Go back to the regular object modification listening where we want batching
-        // scheduled in a microtask only triggered after the main task.
-        // This way we prevent excessive calls to the backend.
-        this.stopSignalListening!();
-        const { stopListening } = watchDeepSignal(
-            this.signalObject!,
-            this.onSignalObjectUpdate
-        );
-        this.stopSignalListening = stopListening;
+    private tmpIdCounter = 0;
+    private onSignalObjectAttached: OnObjectAttachedFn = ({
+        rawParent,
+        rawObject,
+        path,
+    }) => {
+        // Only deal with objects.
+        if (Array.isArray(rawObject) || rawObject instanceof Set) return;
+        if (this.suspendDeepWatcher) return;
+
+        // If an object is added to an array (this happens in discrete CRDTs), we will eventually receive an @id back.
+        // However, the @id is not available from the beginning but frontend frameworks might depend on @id.
+        // Thus, we set a temporary @id which will be replaced once we are called back with the real @id.
+        // Also, we don't emit a patch for this.
+        if (
+            Array.isArray(rawParent) &&
+            !isNaN(Number(path.at(-1))) &&
+            !rawObject["@id"]
+        ) {
+            rawObject["@id"] = `tmp-${++this.tmpIdCounter}`;
+        }
     };
 }
 

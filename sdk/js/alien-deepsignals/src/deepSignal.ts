@@ -63,7 +63,6 @@ const rootStates = new Map<symbol, RootState>();
 const pendingRoots = new Set<symbol>();
 const supported = new Set([Object, Array, Set]);
 let blankNodeCounter = 0;
-let tmpIdCounter = 0;
 const wellKnownSymbols = new Set<symbol>([
     Symbol.asyncDispose,
     Symbol.asyncIterator,
@@ -936,21 +935,6 @@ const objectHandlers: ProxyHandler<any> = {
                     false,
                     valueIsSignal
                 );
-
-                // TODO: Document
-                // If an object is added to an array (this happens in discrete CRDTs), we will eventually receive an @id back.
-                // However, the @id is not available from the beginning but frontend frameworks might depend on @id.
-                // Thus, we set a temporary @id which will be replaced once we are called back with the real @id.
-                // Also, we don't emit a patch for this.
-                if (
-                    Array.isArray(target) &&
-                    !isNaN(Number(key)) &&
-                    value &&
-                    typeof value === "object" &&
-                    meta?.options.syntheticIdPropertyName !== "@id"
-                ) {
-                    rawValue["@id"] = `tmp-${++tmpIdCounter}`;
-                }
 
                 return patches;
             }

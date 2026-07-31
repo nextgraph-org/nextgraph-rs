@@ -104,7 +104,7 @@ describe("applyDiff - array operations", () => {
 describe("applyDiff - set operations (primitives)", () => {
     test("add single primitive into existing set", () => {
         const state: any = { tags: new Set() };
-        const diff: Pagtch[] = [
+        const diff: Patch[] = [
             { op: "add", valType: "set", path: p("tags"), value: "a" },
         ];
         applyPatches(state, diff);

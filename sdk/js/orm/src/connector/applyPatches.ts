@@ -97,7 +97,8 @@ export interface MovePatch {
  */
 export function applyPatches(
     currentState: DeepSignalObject<any>,
-    patches: Patch[]
+    patches: Patch[],
+    discrete: boolean = false
 ) {
     for (let patchIndex = 0; patchIndex < patches.length; patchIndex++) {
         const patch = patches[patchIndex];
@@ -159,7 +160,7 @@ export function applyPatches(
         }
         const key = lastKey;
 
-        if (typeof patch.value === "object") {
+        if (typeof patch.value === "object" && !discrete) {
             // Ensure that arrays are converted to sets.
             patch.value = parseOrmInitialObject(patch.value);
         }

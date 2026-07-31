@@ -41,6 +41,7 @@ We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but
     - [Discrete (JSON-based) ORM](#discrete-json-based-orm)
         - [Creating an Automerge or YJS Document](#creating-an-automerge-or-yjs-document)
         - [The DiscreteOrmSubscription Class](#the-discreteormsubscription-class)
+        - [Using `@id` as Unique Object Identifier in Arrays](#using-id-as-unique-object-identifier-in-arrays)
     - [Transactions](#transactions)
     - [Reactive Objects: The `DeepSignal<>` Type](#reactive-objects-the-deepsignal-type)
         - [Signal Objects in Frontend Frameworks](#signal-objects-in-frontend-frameworks)
@@ -215,7 +216,7 @@ const { data: expenses } = useShape(ExpenseShapeType, {
 
 In general, you are encouraged to use ORM object's `@id` properties as unique key when you render child components. Each object in a set or array returned by `useShape` or `useDiscrete` includes such an `@id` property. When you add a new object, a globally unique one will be auto-generated.
 
-In the RDF ORM you are allowed (but not encouraged) to specify your own `@id` (which is an RDF subject IRI). If you want to use it when rendering child components, ensure that it is unique within your scope.
+In the RDF ORM you are allowed (but not encouraged) to specify your own `@id` (which is an RDF subject IRI). If you want to use it as key for rendering child components, ensure that it is unique within your scope.
 
 ### Scopes for Retrieving Data
 
@@ -411,6 +412,14 @@ You can create a new subscription using `DiscreteOrmSubscription.getOrCreate()`.
 This pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useDiscrete()`. This reduces load and the data is available instantly.
 
 Subscriptions are open until `.close()` is called on all references of this object. The `useDiscrete` hook calls `.close()` on their reference when their component unmounts. For data that you use frequently throughout the lifetime of your application, you can might want to consider creating a globally available subscription.
+
+### Using `@id` as Unique Object Identifier in Arrays
+
+In root arrays and in arrays of root objects, each object in the array has a unique `@id` property. If you attach a new object, the `@id` will be auto-generated. You cannot choose the `@id` yourself.
+
+You can use the `@id` property as a unique value as the `key` attribute in your frontend framework, for rendering arrays.
+Note that when you add a new array, at first, a temporary id is set which is then replaced with a permanent one assigned by the engine asynchronously.
+Once assigned by the engine, the `@id` property is globally unique and stable. So it can also be useful to refer to objects in arrays of different locations.
 
 ## Transactions
 
