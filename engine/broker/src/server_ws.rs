@@ -194,15 +194,15 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 }
 
 #[derive(RustEmbed)]
-#[folder = "../../app/nextgraph/dist-web/"]
+#[folder = "../../app/shell/dist-web/"]
 #[include = "*.sha256"]
-#[include = "*.gzip"]
+#[include = "**/*.gzip"]
 struct App;
 
 #[derive(RustEmbed)]
 #[folder = "./auth/dist/"]
 #[include = "*.sha256"]
-#[include = "*.gzip"]
+#[include = "**/*.gzip"]
 
 struct AppAuth;
 
@@ -247,33 +247,7 @@ fn upgrade_ws_or_serve_app(
 
     if serve_app && (remote.is_private() || remote.is_loopback()) {
         log_debug!("GET {}", uri.path_and_query().unwrap().as_str());
-        if uri == "/" {
-            log_debug!("Serving the app");
-            let sha_file = App::get("index.sha256").unwrap();
-            let sha = format!(
-                "\"{}\"",
-                std::str::from_utf8(sha_file.data.as_ref()).unwrap()
-            );
-            if last_etag.is_some() && last_etag.unwrap().to_str().unwrap() == sha {
-                // return 304
-                let res = Response::builder()
-                    .status(StatusCode::NOT_MODIFIED)
-                    .header("Cache-Control", "max-age=31536000, must-revalidate")
-                    .header("ETag", sha)
-                    .body(None)
-                    .unwrap();
-                return Err(res);
-            }
-            let file = App::get("index.gzip").unwrap();
-            let res = Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "text/html")
-                .header("Cache-Control", "max-age=31536000, must-revalidate")
-                .header("Content-Encoding", "gzip")
-                .header("ETag", sha)
-                .body(Some(file.data.to_vec()))
-                .unwrap();
-            return Err(res);
+
         // } else if std::env::var("NG_DEV3").is_ok() && uri.path().starts_with("/auth") {
         //     // if referer.is_none() || referer.unwrap().to_str().is_err() || referer.unwrap().to_str().unwrap() != "https://nextgraph.net/" {
         //     //     return Err(make_error(StatusCode::FORBIDDEN));
@@ -316,47 +290,68 @@ fn upgrade_ws_or_serve_app(
         //             return Err(builder.body(Some(buffer)).unwrap());
         //         }
         //     }
-        } else if uri == "/auth/" && !std::env::var("NG_DEV3").is_ok() {
-            log_debug!("Serving auth app");
-            let sha_file = AppAuth::get("index.sha256").unwrap();
-            let sha = format!(
-                "\"{}\"",
-                std::str::from_utf8(sha_file.data.as_ref()).unwrap()
-            );
-            if last_etag.is_some() && last_etag.unwrap().to_str().unwrap() == sha {
-                // return 304
+        if uri.path().starts_with("/auth/") && !std::env::var("NG_DEV3").is_ok() {
+            if uri == "/auth/" {
+                log_debug!("Serving auth app");
+                let sha_file = AppAuth::get("index.sha256").unwrap();
+                let sha = format!(
+                    "\"{}\"",
+                    std::str::from_utf8(sha_file.data.as_ref()).unwrap()
+                );
+                if last_etag.is_some() && last_etag.unwrap().to_str().unwrap() == sha {
+                    // return 304
+                    let res = Response::builder()
+                        .status(StatusCode::NOT_MODIFIED)
+                        .header("Cache-Control", "max-age=31536000, must-revalidate")
+                        .header("ETag", sha)
+                        .body(None)
+                        .unwrap();
+                    return Err(res);
+                }
+                let file = AppAuth::get("index.html.gzip").unwrap();
                 let res = Response::builder()
-                    .status(StatusCode::NOT_MODIFIED)
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "text/html")
                     .header("Cache-Control", "max-age=31536000, must-revalidate")
-                    //.header("Access-Control-Allow-Origin", "https://nextgraph.net")
-                    //.header("Access-Control-Allow-Origin", "https://staging.nextgraph.net")
+                    .header("Content-Encoding", "gzip")
                     .header("ETag", sha)
-                    // .header(
-                    //     "Content-Security-Policy",
-                    //     format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
-                    // )
-                    // .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
-                    .body(None)
+                    .body(Some(file.data.to_vec()))
                     .unwrap();
                 return Err(res);
+            } else {
+                let p = uri.path();
+                let path = p.strip_prefix("/auth/");
+                if path.is_none() {
+                    return Err(make_error(StatusCode::NOT_FOUND));
+                }
+                let path = path.unwrap();
+                let mimetype = if path.ends_with(".js") {
+                    Some("text/javascript; charset=utf-8")
+                } else if path.ends_with(".wasm") {
+                    Some("application/wasm")
+                } else if path.ends_with(".css") {
+                    Some("text/css; charset=utf-8")
+                } else if path.ends_with(".woff2") {
+                    Some("font/woff2")
+                } else if path.ends_with(".woff") {
+                    Some("font/woff")
+                } else {
+                    None
+                };
+                return Err(match AppAuth::get(format!("{}.gzip", path).as_str()) {
+                    Some(file) => {
+                        let mut builder = Response::builder()
+                            .status(StatusCode::OK)
+                            .header("Content-Encoding", "gzip")
+                            .header("Cache-Control", "max-age=31536000");
+                        if let Some(contenttype) = mimetype {
+                            builder = builder.header("Content-Type", contenttype)
+                        }
+                        builder.body(Some(file.data.to_vec())).unwrap()
+                    }
+                    None => make_error(StatusCode::NOT_FOUND),
+                });
             }
-            let file = AppAuth::get("index.gzip").unwrap();
-            let res = Response::builder()
-                .status(StatusCode::OK)
-                // .header(
-                //     "Content-Security-Policy",
-                //     format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
-                // )
-                // .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
-                .header("Content-Type", "text/html")
-                .header("Cache-Control", "max-age=31536000, must-revalidate")
-                .header("Content-Encoding", "gzip")
-                //.header("Access-Control-Allow-Origin", "https://nextgraph.net")
-                //.header("Access-Control-Allow-Origin", "https://staging.nextgraph.net")
-                .header("ETag", sha)
-                .body(Some(file.data.to_vec()))
-                .unwrap();
-            return Err(res);
         } else if uri == NG_BOOTSTRAP_LOCAL_PATH {
             log_debug!("Serving bootstrap");
 
@@ -435,6 +430,65 @@ fn upgrade_ws_or_serve_app(
                     res.copy_to(&mut cursor);
                     return Err(builder.body(Some(buffer)).unwrap());
                 }
+            }
+        } else {
+            if uri == "/" {
+                log_debug!("Serving the app");
+                let sha_file = App::get("index.sha256").unwrap();
+                let sha = format!(
+                    "\"{}\"",
+                    std::str::from_utf8(sha_file.data.as_ref()).unwrap()
+                );
+                if last_etag.is_some() && last_etag.unwrap().to_str().unwrap() == sha {
+                    // return 304
+                    let res = Response::builder()
+                        .status(StatusCode::NOT_MODIFIED)
+                        .header("Cache-Control", "max-age=31536000, must-revalidate")
+                        .header("ETag", sha)
+                        .body(None)
+                        .unwrap();
+                    return Err(res);
+                }
+                let file = App::get("index.html.gzip").unwrap();
+                let res = Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "text/html")
+                    .header("Cache-Control", "max-age=31536000, must-revalidate")
+                    .header("Content-Encoding", "gzip")
+                    .header("ETag", sha)
+                    .body(Some(file.data.to_vec()))
+                    .unwrap();
+                return Err(res);
+            } else {
+                let p = uri.path();
+                let mut path = p.chars();
+                path.next();
+                let mimetype = if p.ends_with(".js") {
+                    Some("text/javascript; charset=utf-8")
+                } else if p.ends_with(".wasm") {
+                    Some("application/wasm")
+                } else if p.ends_with(".css") {
+                    Some("text/css; charset=utf-8")
+                } else if p.ends_with(".woff2") {
+                    Some("font/woff2")
+                } else if p.ends_with(".woff") {
+                    Some("font/woff")
+                } else {
+                    None
+                };
+                return Err(match App::get(format!("{}.gzip", path.as_str()).as_str()) {
+                    Some(file) => {
+                        let mut builder = Response::builder()
+                            .status(StatusCode::OK)
+                            .header("Content-Encoding", "gzip")
+                            .header("Cache-Control", "max-age=31536000");
+                        if let Some(contenttype) = mimetype {
+                            builder = builder.header("Content-Type", contenttype)
+                        }
+                        builder.body(Some(file.data.to_vec())).unwrap()
+                    }
+                    None => make_error(StatusCode::NOT_FOUND),
+                });
             }
         }
     }

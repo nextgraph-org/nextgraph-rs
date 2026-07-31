@@ -16,7 +16,7 @@
   import { origin } from "./store";
   import { onMount, tick, onDestroy } from "svelte";
   import ng from "@ng-org/ui-common/api";
-  import {worker_ready} from "../../../../sdk/js/api-web";
+  import {worker_ready} from "@ng-org/api-web";
   import { 
     NotFound,
     WalletLogin,

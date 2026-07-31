@@ -1,5 +1,5 @@
 import './app.postcss'
-import "../../../app/nextgraph/src/styles.css";
+import "../../../app/shell/src/styles.css";
 import App from './App.svelte'
 
 const app = new App({

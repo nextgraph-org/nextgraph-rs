@@ -1,0 +1,21 @@
+{
+  "extends": "@tsconfig/svelte/tsconfig.json",
+  "compilerOptions": {
+    "declarationDir": "dist",
+    "isolatedModules": true,
+    "composite": true,
+    "target": "esnext",
+    "moduleResolution": "bundler",
+
+    "esModuleInterop": true,
+    "module": "esnext",
+    "allowSyntheticDefaultImports": true,
+    // "moduleResolution": "node",
+    "resolveJsonModule": true,
+
+    "declaration": true,
+    "emitDeclarationOnly": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "src/types/daisyui.d.ts"],
+  "exclude": ["node_modules"]
+}

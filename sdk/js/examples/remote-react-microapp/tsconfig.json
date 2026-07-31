@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "declarationDir": "dist",
+    "isolatedModules": true,
+    "composite": true,
+    "target": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "module": "esnext",
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "jsx": "react-jsx"
+  }
+}

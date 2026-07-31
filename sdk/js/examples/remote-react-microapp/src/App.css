@@ -1,0 +1,17 @@
+@config "../tailwind.config.mts";
+@import "tailwindcss";
+
+@layer components {
+  .ark-switch {
+    @apply flex items-center gap-3;
+  }
+  .ark-switch [data-part="control"] {
+    @apply inline-flex h-7 w-12 items-center rounded-full bg-base-300 transition data-[state=checked]:bg-primary;
+  }
+  .ark-switch [data-part="thumb"] {
+    @apply h-5 w-5 rounded-full bg-base-100 shadow transition data-[state=checked]:translate-x-5;
+  }
+  .ark-switch [data-part="label"] {
+    @apply text-sm font-medium;
+  }
+}

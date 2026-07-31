@@ -1,0 +1,153 @@
+{
+  "name": "@ng-org/frontend",
+  "version": "0.1.2-alpha.1",
+  "description": "Micro FrontEnd framework of NextGraph for sharing micro-apps and components",
+  "type": "module",
+  "keywords": [
+    "vite-plugin",
+    "nextgraph",
+    "micro-frontend",
+    "malleable"
+  ],
+  "authors": [
+    "Laurin Weger",
+    "Niko Bonnieure"
+  ],
+  "license": "MIT/Apache-2.0",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:ts": "rm -rf dist && tsc",
+    "prepublishOnly": "pnpm build:ts"
+  },
+  "dependencies": {
+    "@ng-org/single-spa-vue": "^4.0.0-beta.0",
+    "@wjfe/single-spa-svelte": "^1.0.1",
+    "dom-element-getter-helpers": "^2.1.0",
+    "single-spa-react": "^6.0.2",
+    "vite-plugin-single-spa": "^2.1.1"
+  },
+  "devDependencies": {
+    "@ng-org/alien-deepsignals": "workspace:*",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^7.16.0",
+    "single-spa": "^6.0.3",
+    "svelte": "^5.55.9",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.14",
+    "vue": "^3.5.34"
+  },
+  "peerDependencies": {
+    "@ng-org/alien-deepsignals": "workspace:*",
+    "@svelte-router/core": "^1",
+    "react": "^19 || ^18",
+    "react-dom": "^19 || ^18",
+    "react-router": "^7",
+    "svelte": "^5 || ^4",
+    "vite": "^8",
+    "vue": "^3",
+    "vue-router": "^5"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-router": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "@svelte-router/core": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "vue-router": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    }
+  },
+  "main": "src/index.ts",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./react": {
+      "default": "./src/frontends/react/index.ts"
+    },
+    "./react/router": {
+      "default": "./src/frontends/react/router/index.ts"
+    },
+    "./react/context": {
+      "default": "./src/frontends/react/context/index.ts"
+    },
+    "./svelte": {
+      "default": "./src/frontends/svelte5/index.ts"
+    },
+    "./svelte/router": {
+      "default": "./src/frontends/svelte5/router/index.ts"
+    },
+    "./svelte4": {
+      "default": "./src/frontends/svelte4/index.ts"
+    },
+    "./vue": {
+      "default": "./src/frontends/vue/index.ts"
+    },
+    "./vite": {
+      "default": "./src/vite/index.ts"
+    }
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./react": {
+        "types": "./dist/frontends/react/index.d.ts",
+        "default": "./dist/frontends/react/index.js"
+      },
+      "./react/router": {
+        "types": "./dist/frontends/react/router/index.d.ts",
+        "default": "./dist/frontends/react/router/index.js"
+      },
+      "./react/context": {
+        "types": "./dist/frontends/react/context/index.d.ts",
+        "default": "./dist/frontends/react/context/index.js"
+      },
+      "./svelte": {
+        "types": "./dist/frontends/svelte5/index.d.ts",
+        "default": "./dist/frontends/svelte5/index.js"
+      },
+      "./svelte/router": {
+        "types": "./dist/frontends/svelte5/router/index.d.ts",
+        "default": "./dist/frontends/svelte5/router/index.js"
+      },
+      "./svelte4": {
+        "types": "./dist/frontends/svelte4/index.d.ts",
+        "default": "./dist/frontends/svelte4/index.js"
+      },
+      "./vue": {
+        "types": "./dist/frontends/vue/index.d.ts",
+        "default": "./dist/frontends/vue/index.js"
+      },
+      "./vite": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

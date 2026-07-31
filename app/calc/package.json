@@ -1,0 +1,30 @@
+{
+  "name": "@ng-org/app-calc",
+  "private": true,
+  "version": "0.1.0-alpha.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "dev:standalone": "vite --mode standalone",
+    "build:standalone": "vite build --mode standalone",
+    "preview:standalone": "vite build --mode standalone && vite preview",
+    "lint": "eslint .",
+    "serve": "vite serve",
+    "preview": "vite build && vite preview"
+  },
+  "dependencies": {
+    "@ironcalc/workbook": "^0.5.7",
+    "@ng-org/frontend": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.0"
+  }
+}

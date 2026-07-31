@@ -22,6 +22,9 @@ const jsToBottom = () => {
 // https://vitejs.dev/config/
 export default defineConfig({
   envPrefix: ["VITE_", "NG_"],
+  build: {
+    target: "safari15",
+  },
   server: {
     port: 14401,
     cors: true,
@@ -35,7 +38,7 @@ export default defineConfig({
       plugins : [
         topLevelAwait(),
         wasm(),
-        viteSingleFile()
+        //viteSingleFile()
       ]
     },
   plugins: [
@@ -69,7 +72,7 @@ export default defineConfig({
       }, // See https://github.com/svg/svgo#configuration
       requireSuffix: true, // Set false to accept '.svg' without the '?component'
     }),
-    viteSingleFile(),
+    //viteSingleFile(),
     jsToBottom(),
     // {
     //   name: 'inject-web-script',

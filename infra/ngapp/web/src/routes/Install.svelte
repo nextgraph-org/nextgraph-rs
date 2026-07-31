@@ -12,7 +12,7 @@
 <script type="ts">
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
-  import Install from "../../../../app/nextgraph/src/lib/Install.svelte";
+  import Install from "../../../../app/shell/src/lib/Install.svelte";
   import { push } from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
 

@@ -6,12 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --base=./",
-    "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx mkdir -p ../../../app/nextgraph/public_dev && cp ./dist/index.html ../../../app/nextgraph/public_dev/bootstrap.html",
+    "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx mkdir -p ../../../app/shell/public_dev && cp ./dist/index.html ../../../app/shell/public_dev/bootstrap.html",
     "preview": "vite preview"
   },
   "dependencies": {
     "private-ip": "^3.0.2",
-    "svelte-spa-router": "^3.3.0",
+    "svelte-spa-router": "^4.0.2",
     "@ng-org/ui-common": "workspace:*"
   },
   "devDependencies": {
