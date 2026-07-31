@@ -18,12 +18,10 @@ describe("Read only array", () => {
         }).toThrow(/Readonly arrays do not expose non-mutating functions/);
 
         expect(() => {
-            // @ts-expect-error
             readOnly.length = 2;
         }).toThrow(/Cannot modify readonly array./);
 
         expect(() => {
-            // @ts-expect-error
             readOnly[1] = 5;
         }).toThrow(/Cannot modify readonly array./);
 
