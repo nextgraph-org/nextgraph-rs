@@ -168,7 +168,7 @@ export function applyPatches(
             if (patch.op === "add") {
                 // If target is a set already, just add it.
                 if (parentVal[key] instanceof Set) {
-                    for (const v of [patch.value].flat()) {
+                    for (const v of flat(patch.value)) {
                         parentVal[key].add(v);
                     }
                 } else if (parentVal instanceof Set) {
@@ -176,7 +176,7 @@ export function applyPatches(
                     addWithId(parentVal, patch.value, key);
                 } else if (parentVal[key] === undefined) {
                     // If the target doesn't exist, create a new set.
-                    parentVal[key] = new Set([patch.value].flat());
+                    parentVal[key] = new Set(flat(patch.value));
                 } else {
                     // Tried to add to a set but path target is not a set.
                     console.warn(
@@ -188,10 +188,10 @@ export function applyPatches(
             } else {
                 // patch.op === "remove"
 
-                if (isPrimitive(patch.value) || Array.isArray(patch.value)) {
+                if (isPrimitive(patch.value) || patch.value instanceof Set) {
                     if (parentVal[key] instanceof Set) {
                         // Remove one or more primitives from set (array of objects don't exist).
-                        for (const v of [patch.value].flat())
+                        for (const v of flat(patch.value))
                             parentVal[key].delete(v);
                     } else {
                         console.warn(
@@ -284,6 +284,15 @@ export function applyPatches(
             continue;
         }
     }
+}
+
+function flat(val: any): Iterable<any> {
+    if (val instanceof Set) {
+        return val;
+    } else if (Array.isArray(val)) {
+        return val;
+    }
+    return [val];
 }
 
 function isPrimitive(v: unknown): v is string | number | boolean {
