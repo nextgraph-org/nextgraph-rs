@@ -216,7 +216,7 @@ impl Verifier {
         subscription_id: u64,
         forward: bool,
     ) -> Result<(), NgError> {
-        log_warn!("[orm_load_page] In orm_load_page for subscription_id {subscription_id}");
+        // log_debug!("[orm_load_page] In orm_load_page for subscription_id {subscription_id}");
 
         let mut orm_subscription =
             self.orm_subscriptions
@@ -398,16 +398,16 @@ impl Verifier {
                 })
                 .collect::<Vec<_>>();
 
-            if let Some(limit_offset) = limit_offset {
-                log_warn!(
-                    "[query_items_ordered]\n(Offset, Limit:) ({}, {})\nreturned {} items\nthereof new: {}\nnew in total {}",
-                    limit_offset.1,
-                    limit_offset.0,
-                    returned_gs_items,
-                    graph_subject_page_new_only.len(),
-                    ordered_gs_results.len() + graph_subject_page_new_only.len()
-                );
-            }
+            // if let Some(limit_offset) = limit_offset {
+            //     log_debug!(
+            //         "[query_items_ordered]\n(Offset, Limit:) ({}, {})\nreturned {} items\nthereof new: {}\nnew in total {}",
+            //         limit_offset.1,
+            //         limit_offset.0,
+            //         returned_gs_items,
+            //         graph_subject_page_new_only.len(),
+            //         ordered_gs_results.len() + graph_subject_page_new_only.len()
+            //     );
+            // }
 
             // Add gs results to existing results.
             ordered_gs_results.extend(graph_subject_page_new_only);
@@ -556,12 +556,12 @@ impl Verifier {
                             .saturating_sub(page_size)
                     }
                 }
-                log_warn!(
-                    "[query_items_ordered]\nNew (limit, lower, upper): ({}, {}, {})",
-                    limit,
-                    lower_offset,
-                    upper_offset
-                )
+                // log_debug!(
+                //     "[query_items_ordered]\nNew (limit, lower, upper): ({}, {}, {})",
+                //     limit,
+                //     lower_offset,
+                //     upper_offset
+                // )
             }
         }
 
@@ -584,13 +584,6 @@ impl Verifier {
 
             let order_info = orm_subscription.ordering_info.as_mut().unwrap();
             for (order_key, tormo) in with_keys {
-                if order_info.tormos.get(&order_key).is_some() {
-                    // TODO REMOVE
-                    log_warn!(
-                        "[query_items_ordered]: TRYING TO INSERT new item but it already existed."
-                    );
-                }
-
                 order_info.tormos.insert(order_key.clone(), tormo.clone());
 
                 // If we are doing pagination, we record where we inserted to create patches from that data.
