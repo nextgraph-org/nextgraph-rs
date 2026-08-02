@@ -91,20 +91,10 @@ const useShape = <
     ST extends ShapeType<T>,
     const CONF extends RdfOrmConfig<T>,
     T extends BaseType = ST extends ShapeType<infer T_> ? T_ : never,
-    SUBSCRIPTION_DATA = SubscriptionData<T, CONF>,
 >(
     shape: ST,
-    conf: CONF | string | undefined
+    conf: CONF | string
 ): UseShapeResult<ST, CONF, T> => {
-    if (conf === undefined) {
-        return {
-            data: ref(undefined),
-            isLoading: ref(false),
-            promise: undefined,
-            subscription: undefined,
-        } as UseShapeResult<ST, CONF, T>;
-    }
-
     const parsedConf = normalizeConf(conf);
 
     const subscription = RdfOrmSubscription.getOrCreate(shape, parsedConf);
@@ -135,6 +125,7 @@ const useShape = <
         isLoadingRef.value = false;
     });
 
+    // @ts-ignore
     return {
         nextPage,
         previousPage,
@@ -142,7 +133,7 @@ const useShape = <
         subscription,
         data: dataRef,
         isLoading: isLoadingRef,
-    } as UseShapeResult<ST, CONF, T>;
+    };
 };
 
 export default useShape;
