@@ -8,13 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type {
-    BaseType,
-    DataType,
-    Predicate,
-    ShapeType,
-} from "@ng-org/shex-orm";
-import { RootShapeType } from "./tests/shapes/orm/testShape.shapeTypes.ts";
+import type { BaseType } from "@ng-org/shex-orm";
 import { Scope } from "./types.ts";
 import { RdfOrmSubscription } from "./core.ts";
 import {
@@ -23,83 +17,28 @@ import {
     ReadOnlyArray,
 } from "@ng-org/alien-deepsignals";
 
-// /** The typescript equivalent for an ORM basic datatype (string, number, boolean, iri as string). */
-// type OrmDataTypeToType<DT extends DataType> =
-//     DT["literals"] extends Array<any>
-//         ? Array<DT["literals"][number]>
-//         : "string" extends DT["valType"]
-//           ? string
-//           : "number" extends DT["valType"]
-//             ? number
-//             : "boolean" extends DT["valType"]
-//               ? boolean
-//               : "iri" extends DT["valType"]
-//                 ? string
-//                 : "shape" extends DT["valType"]
-//                   ? object
-//                   : never;
+type ValueOf<T> = T[keyof T];
 
-// type AllowedTypeFromPredicate<P extends Predicate> = OrmDataTypeToType<
-//     P["dataTypes"][number]
-// >;
-
-// type FlattenArray<T> = T extends Array<infer C> ? FlattenArray<C> : T;
-// type AllowArray<T, S = FlattenArray<T>> = S | S[];
-
-// type WhereConfig<
-//     ST extends ShapeType<any>,
-//     SchemaIri extends keyof ST["schema"] = ST["shape"],
-//     Pred extends
-//         ST["schema"][string]["predicates"][number] = ST["schema"][SchemaIri]["predicates"][number],
-// > = {
-//     [P in Pred as P["readablePredicate"]]?: "shape" extends P["dataTypes"][number]["valType"]
-//         ? // Nested shape?
-//           // Only supported if there is a single nested shape
-//           P["dataTypes"] extends [any]
-//             ? WhereConfig<
-//                   ST,
-//                   P["dataTypes"][number]["shape"] extends string
-//                       ? P["dataTypes"][number]["shape"]
-//                       : never
-//               >
-//             : never
-//         : // Basic type
-//           AllowArray<
-//               | AllowedTypeFromPredicate<P>
-//               | { "|gt": AllowedTypeFromPredicate<P> }
-//               | { "|lt": AllowedTypeFromPredicate<P> }
-//               | {
-//                     "|lt": AllowedTypeFromPredicate<P>;
-//                     "|gt": AllowedTypeFromPredicate<P>;
-//                 }
-//           >;
-// };
+type LiteralProps<T extends BaseType> = ValueOf<{
+    [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends
+        | string
+        | boolean
+        | number
+        | Set<string>
+        | Set<number>
+        | Set<boolean>
+        ? K
+        : never;
+}>;
+type WhereConfig<T extends BaseType> = {
+    [P in LiteralProps<T>]?: T[P] extends Set<infer S>
+        ? S | NonEmptyArray<S>
+        : T[P] | NonEmptyArray<T[P]>;
+};
 
 type SingleKeyObject<T extends Record<string, unknown>> = {
     [K in keyof T]: { [_ in K]: T[K] } & { [_ in Exclude<keyof T, K>]?: never };
 }[keyof T];
-
-// export type OldOrderByConfigObject<
-//     ST extends ShapeType<any>,
-//     SchemaIri extends keyof ST["schema"] = ST["shape"],
-//     Pred extends
-//         ST["schema"][string]["predicates"][number] = ST["schema"][SchemaIri]["predicates"][number],
-// > = SingleKeyObject<{
-//     [P in Pred as P["maxCardinality"] extends 1
-//         ? P["minCardinality"] extends 1
-//             ? P["readablePredicate"]
-//             : never
-//         : never]: "shape" extends P["dataTypes"][number]["valType"]
-//         ? //  No support for ordering by nested objects
-//           //  OrderByConfigObject<
-//           //       ST,
-//           //       P["dataTypes"][number]["shape"] extends string
-//           //           ? P["dataTypes"][number]["shape"]
-//           //           : never
-//           //   >
-//           never
-//         : "asc" | "desc";
-// }>;
 
 type NonEmptyArray<T> = [T, ...T[]];
 
@@ -164,7 +103,13 @@ export type RdfOrmConfig<
     PS = number | undefined,
     OB = OrderByConfig<T> | undefined,
 > = Scope & {
-    // where?: WhereConfig<ST>;
+    /**
+     *
+     *
+     *
+     *
+     */
+    // where?: WhereConfig<T>;
 
     /** Property / Properties to sort data by. */
     orderBy?: OB;
@@ -213,7 +158,7 @@ export interface TestType {
     numProp: number;
     boolProp: boolean;
     setProp: Set<string>;
-    objProp: { foo: "bar" };
+    objProp: { foo: string };
     enumProp: "choice1" | "choice2";
 }
 
@@ -255,3 +200,28 @@ const test1ObConf7: TestTypeOrderByConf = {
     // @ts-ignore
     numProp: "desc",
 };
+
+// WhereConfig type tests
+
+function testWhereConf(_conf: WhereConfig<TestType>) {}
+testWhereConf({
+    enumProp: ["choice1", "choice2"],
+    boolProp: true,
+    numProp: [3, 4],
+    stringProp: "foo",
+    setProp: "mau",
+});
+testWhereConf({
+    // @ts-expect-error
+    enumProp: ["choice1", "choice3"],
+    // @ts-expect-error
+    boolProp: "true",
+    // @ts-expect-error
+    stringProp: [],
+    // @ts-ignore
+    objProp: {
+        foo: "sdf",
+    },
+    // @ts-ignore
+    "@graph": "some:id",
+});

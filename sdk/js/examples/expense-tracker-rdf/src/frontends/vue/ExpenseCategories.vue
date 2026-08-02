@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useShape } from "@ng-org/orm/vue";
 import { ExpenseCategoryShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
-import type { ExpenseCategory } from "../../shapes/orm/expenseShapes.typings";
 import { sessionPromise, session } from "../../utils/ngSession";
 import ExpenseCategoryCard from "./ExpenseCategoryCard.vue";
 
@@ -11,7 +10,7 @@ const { data: expenseCategories, isLoading } = useShape(ExpenseCategoryShapeType
 async function createCategory() {
     const session = await sessionPromise;
 
-    expenseCategories?.add({
+    expenseCategories.value?.add({
         "@graph": `did:ng:${session.private_store_id}`,
         "@type": new Set(["did:ng:z:ExpenseCategory"]),
         "@id": "",
