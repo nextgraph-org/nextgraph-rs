@@ -27,6 +27,8 @@ import {
 } from "./frontendAdapters/vue/index.ts";
 
 export * from "./core.ts";
+export type * from "./types.ts";
+export type * from "./utilTypes.ts";
 
 export {
     svelteUseShape,

@@ -151,7 +151,7 @@ export type SubscriptionData<
 // ==========
 // Type tests
 // ==========
-export interface TestType {
+interface TestType {
     readonly "@graph": string;
     readonly "@id": string;
     stringProp: string;

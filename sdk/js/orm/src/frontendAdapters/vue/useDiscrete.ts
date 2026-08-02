@@ -22,7 +22,6 @@ import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
 import { DiscreteRoot } from "../../types.ts";
 import { DeepSignal } from "@ng-org/alien-deepsignals";
-import { UseShapeResult } from "./useShape.ts";
 
 /**
  * Hook to subscribe to an existing discrete (JSON) CRDT document.
