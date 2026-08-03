@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { DiscreteArray, DiscreteObject, DiscreteRoot } from "../types.ts";
+import { DiscreteRoot } from "../types.ts";
 import { applyPatches, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
@@ -293,7 +293,7 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
 
         this.suspendDeepWatcher = true;
         batch(() => {
-            applyPatches(this._signalObject!, patches);
+            applyPatches(this._signalObject!, patches, true);
         });
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {

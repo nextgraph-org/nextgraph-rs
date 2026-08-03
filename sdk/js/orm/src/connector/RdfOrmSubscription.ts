@@ -485,7 +485,7 @@ export class RdfOrmSubscription<
 
         // Apply patches to signal object.
         batch(() => {
-            applyPatches(this.signalObject_, patches, true);
+            applyPatches(this.signalObject_, patches, false);
         });
 
         const addedRoots = patches.flatMap((p) => {
