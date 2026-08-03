@@ -1322,6 +1322,106 @@ describe("watch (patch mode)", () => {
                 },
             ]);
         });
+        it("updates index for shift", async () => {
+            const signalObject = deepSignal([{ v: 0 }, { v: 1 }]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            const o1 = signalObject[1];
+
+            signalObject.shift();
+
+            o1.v += 0.5;
+
+            await Promise.resolve();
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "remove",
+                    path: ["0"],
+                    value: { v: 0 },
+                },
+                {
+                    op: "add",
+                    path: ["0", "v"],
+                    value: 1.5,
+                },
+            ]);
+        });
+        it("updates index for splice", async () => {
+            const signalObject = deepSignal([
+                { v: 0 },
+                { v: 1 },
+                { v: 2 },
+                { v: 3 },
+            ]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            const o3 = signalObject[3];
+
+            signalObject.splice(1, 2, { v: 1.2 });
+
+            o3.v += 0.5;
+
+            await Promise.resolve();
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "remove",
+                    path: ["1"],
+                    value: { v: 1 },
+                },
+                {
+                    op: "remove",
+                    path: ["1"],
+                    value: { v: 2 },
+                },
+                {
+                    op: "add",
+                    path: ["1"],
+                    value: { v: 1.2 },
+                },
+
+                {
+                    op: "add",
+                    path: ["2", "v"],
+                    value: 3.5,
+                },
+            ]);
+        });
+        it("updates index for unshift", async () => {
+            const signalObject = deepSignal([{ v: 1 }]);
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(signalObject, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            const o1 = signalObject[0];
+
+            signalObject.unshift({ v: 0 });
+
+            o1.v += 0.5;
+
+            await Promise.resolve();
+
+            expect(batches[0]).toEqual([
+                {
+                    op: "add",
+                    path: ["0"],
+                    value: { v: 0 },
+                },
+                {
+                    op: "add",
+                    path: ["1", "v"],
+                    value: 1.5,
+                },
+            ]);
+        });
     });
 
     describe("delete patches", () => {
