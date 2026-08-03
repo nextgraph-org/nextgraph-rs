@@ -584,7 +584,7 @@ export class RdfOrmSubscription<
 
         // If no @graph is set, add the parent's graph NURI. If there is no parent, throw.
         if (!rawObject["@graph"] || rawObject["@graph"] === "") {
-            // Check if the parent has a @graph. `parent.parent` might have a graph is parent is a set.
+            // Check if the parent has a @graph. `parent.parent` might have a graph if parent is a set.
             graphIri =
                 (rawParent as any)["@graph"] ??
                 (meta.parent?.parent?.raw as any)?.["graph"];

@@ -141,7 +141,7 @@ const useShape = <
         isLoading: !subscription.isReady,
         promise: subscription.readyPromise,
         subscription,
-        data,
+        data: undefined,
     });
 
     subscription.readyPromise.then(() => {
@@ -185,7 +185,7 @@ type UseShapeResult_<
      *
      * Once loaded, this object is the value returned by {@link RdfOrmSubscription.signalObject}.
      */
-    data: SUBSCRIPTION_DATA;
+    data: SUBSCRIPTION_DATA | undefined;
     /**
      * A promise that resolves once the data is loaded.
      * Note that if `conf` is `undefined`, this property is `undefined`.
