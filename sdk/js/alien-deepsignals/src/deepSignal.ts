@@ -748,6 +748,15 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             // Update length of proxy explicitly.
             receiver.length = target.length;
 
+            // Update the keys of all other items in array.
+            for (let i = 0; i < target.length; i++) {
+                const rawItem = target[i];
+                const meta = rawToMeta.get(rawItem);
+                if (meta) {
+                    meta.key = String(i);
+                }
+            }
+
             // Refresh numeric index signals so shifted indices don't return stale values.
             refreshNumericIndexSignals(meta, target, receiver);
         };
@@ -755,6 +764,17 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
         return (start: number, deleteCount: number, ...items: any[]) => {
             // Call splice on (non-proxied) target.
             const deletedItems = target.splice(start, deleteCount, ...items);
+
+            // Update meta.key for each item whose index shifted.
+
+            // Update the keys of items whose index was shifted.
+            for (let i = start + items.length; i < target.length; i++) {
+                const rawItem = target[i];
+                const meta = rawToMeta.get(rawItem);
+                if (meta) {
+                    meta.key = String(i);
+                }
+            }
 
             // Manually schedule patches.
             schedulePatch(meta, () => {
@@ -796,6 +816,15 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
     } else if (key === "unshift") {
         return (...items: any[]) => {
             const deletedItems = target.unshift(...items);
+
+            // Update the index of all other items in array.
+            for (let i = items.length; i < target.length; i++) {
+                const rawItem = target[i];
+                const meta = rawToMeta.get(rawItem);
+                if (meta) {
+                    meta.key = String(i);
+                }
+            }
 
             schedulePatch(meta, () => {
                 const patches: DeepPatch[] = [];

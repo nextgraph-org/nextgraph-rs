@@ -39,6 +39,7 @@ export const nonMutatingArrayFnKeys = new Set([
     "toSorted",
     "toLocaleString",
     "toSpliced",
+    "slice",
     "values",
     "with",
     "filter",
