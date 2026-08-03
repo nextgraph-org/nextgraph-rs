@@ -4,38 +4,18 @@ import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,
 } from "../../shapes/orm/expenseShapes.shapeTypes";
-import type { Expense } from "../../shapes/orm/expenseShapes.typings";
-import { sessionPromise, session } from "../../utils/ngSession";
+import { session } from "../../utils/ngSession";
 import ExpenseCard from "./ExpenseCard.vue";
-import { insertObject } from "@ng-org/orm";
+import { createExpense } from "../../utils/createExpense.ts";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const { data: expenses, nextPage, previousPage } = useShape(ExpenseShapeType, privateNuri && {
-    graphs: [privateNuri],
-    orderBy: { title: "desc" },
+const { data: expenses, } = useShape(ExpenseShapeType, {
+    graphs: ["did:ng:i"],
+    orderBy: { dateOfPurchase: "desc" },
 });
 const { data: categories } = useShape(ExpenseCategoryShapeType, {
     graphs: [privateNuri || ""],
 });
-
-async function createExpense(obj: Partial<Expense> = {}) {
-    const session = await sessionPromise;
-
-    insertObject(ExpenseShapeType, {
-        "@graph": `did:ng:${session.private_store_id}`,
-        "@type": "did:ng:z:Expense",
-        "@id": "",
-        amount: obj.amount ?? 1,
-        recurrenceInterval: obj.recurrenceInterval ?? "",
-        description: obj.description ?? undefined,
-        totalPrice: obj.totalPrice ?? 0,
-        paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
-        isRecurring: obj.isRecurring ?? false,
-        expenseCategory: obj.expenseCategory ?? new Set<string>(),
-        dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
-        title: obj.title ?? "New Expense",
-    });
-}
 
 </script>
 
@@ -63,12 +43,6 @@ async function createExpense(obj: Partial<Expense> = {}) {
                     :available-categories="categories" />
             </template>
         </div>
-        <div class="pagination-bar">
-            <button type="button" class="primary-btn" @click="() => previousPage()">
-                < previous page </button>
-                    <button type="button" class="primary-btn" @click="() => nextPage()">
-                        next page >
-                    </button>
-        </div>
+
     </section>
 </template>
