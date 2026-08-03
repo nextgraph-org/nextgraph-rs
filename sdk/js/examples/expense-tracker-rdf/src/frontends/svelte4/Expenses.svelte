@@ -15,38 +15,22 @@
     ExpenseCategoryShapeType,
     ExpenseShapeType,
   } from "../../shapes/orm/expenseShapes.shapeTypes";
-  import type { Expense } from "../../shapes/orm/expenseShapes.typings";
-  import { sessionPromise, session } from "../../utils/ngSession";
+  import { session } from "../../utils/ngSession";
   import ExpenseCard from "./ExpenseCard.svelte";
+  import { createExpense } from "../../utils/createExpense";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenses = useShape(ExpenseShapeType, privateNuri);
-  const categories = useShape(ExpenseCategoryShapeType, privateNuri);
-
-  async function createExpense(obj: Partial<Expense> = {}) {
-    const session = await sessionPromise;
-
-    $expenses.add({
-      "@graph": `did:ng:${session.private_store_id}`,
-      "@type": "did:ng:z:Expense",
-      "@id": "",
-      amount: obj.amount ?? 1,
-      recurrenceInterval: obj.recurrenceInterval ?? "",
-      description: obj.description ?? undefined,
-      totalPrice: obj.totalPrice ?? 0,
-      paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
-      isRecurring: obj.isRecurring ?? false,
-      expenseCategory: obj.expenseCategory ?? new Set<string>(),
-      dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
-      title: obj.title ?? "New Expense",
-    });
-  }
-  $: expensesSorted = [...$expenses].sort((a, b) =>
-    a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-  );
-
-  const expenseKey = (expense: Expense) =>
-    `${expense["@graph"]}|${expense["@id"]}`;
+  const {
+    data: expenses,
+    nextPage,
+    previousPage,
+  } = useShape(ExpenseShapeType, {
+    graphs: ["did:ng:i"],
+    orderBy: { dateOfPurchase: "desc" },
+    pageSize: 4,
+    maxActivePages: 1,
+  });
+  const { data: categories } = useShape(ExpenseCategoryShapeType, privateNuri);
 </script>
 
 <section class="panel">

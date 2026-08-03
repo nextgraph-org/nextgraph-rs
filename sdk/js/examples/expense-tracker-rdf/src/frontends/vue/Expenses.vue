@@ -5,44 +5,18 @@ import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,
 } from "../../shapes/orm/expenseShapes.shapeTypes";
-import type { Expense } from "../../shapes/orm/expenseShapes.typings";
-import { sessionPromise, session } from "../../utils/ngSession";
+import { session } from "../../utils/ngSession";
 import ExpenseCard from "./ExpenseCard.vue";
+import { createExpense } from "../../utils/createExpense.ts";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const expenses = useShape(ExpenseShapeType, privateNuri);
-const categories = useShape(ExpenseCategoryShapeType, {
+const { data: expenses } = useShape(ExpenseShapeType, {
+    graphs: ["did:ng:i"],
+    orderBy: { dateOfPurchase: "desc" },
+});
+const { data: categories } = useShape(ExpenseCategoryShapeType, {
     graphs: [privateNuri || ""],
 });
-
-async function createExpense(obj: Partial<Expense> = {}) {
-    const session = await sessionPromise;
-
-    expenses.add({
-        "@graph": `did:ng:${session.private_store_id}`,
-        "@type": "did:ng:z:Expense",
-        "@id": "",
-        amount: obj.amount ?? 1,
-        recurrenceInterval: obj.recurrenceInterval ?? "",
-        description: obj.description ?? undefined,
-        totalPrice: obj.totalPrice ?? 0,
-        paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
-        isRecurring: obj.isRecurring ?? false,
-        expenseCategory: obj.expenseCategory ?? new Set<string>(),
-        dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
-        title: obj.title ?? "New Expense",
-    });
-}
-
-const expensesSorted = computed(() =>
-    [...expenses].sort((a, b) =>
-        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
-    )
-);
-
-function expenseKey(expense: Expense) {
-    return `${expense["@graph"]}|${expense["@id"]}`;
-}
 </script>
 
 <template>
