@@ -35,7 +35,7 @@ use crate::store::wallet_record::*;
 use crate::types::*;
 
 #[derive(RustEmbed)]
-#[folder = "../../app/nextgraph/dist-web"]
+#[folder = "../../app/shell/dist-web"]
 struct Static;
 
 #[tokio::main]

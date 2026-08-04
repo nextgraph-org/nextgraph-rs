@@ -1,0 +1,14 @@
+{
+  "name": "n:g:example:react2",
+  "port": 5100,
+  "entryPoints": [
+    {
+      "path": "src/spa/application2.tsx",
+      "name": "app"
+    },
+    {
+      "path": "src/spa/switch-parcel2.tsx",
+      "name": "switch"
+    }
+  ]
+}

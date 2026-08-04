@@ -1,7 +1,9 @@
 packages:
     - sdk/js/lib-wasm/pkg
+    - sdk/js/api
     - sdk/js/api-web
     - sdk/js/web
+    - sdk/js/frontend
     - sdk/js/auth-ldo-react
     - sdk/js/orm
     - sdk/js/alien-deepsignals
@@ -10,8 +12,11 @@ packages:
     - sdk/js/examples/expense-tracker-rdf
     - sdk/js/examples/react-ldo
     - sdk/js/examples/test-react-sdk
+    - sdk/js/examples/remote-react-microapp
     - app/ui-common
-    - app/nextgraph
+    - app/shell
+    - app/docs
+    - app/calc
     - engine/broker/auth
     - infra/ngaccount/web
     - infra/ngapp/web

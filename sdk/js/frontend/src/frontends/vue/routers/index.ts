@@ -1,0 +1,1 @@
+export { initRouteSync } from "./initRouteSync";

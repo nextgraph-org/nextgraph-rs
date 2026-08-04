@@ -1,0 +1,14 @@
+{
+  "name": "n:g:elfa:docs",
+  "port": 5001,
+  "entryPoints": [
+    {
+      "path": "src/spa/application.tsx",
+      "name": "app"
+    },
+    {
+      "path": "src/spa/parcel.tsx",
+      "name": "parcel"
+    }
+  ]
+}
