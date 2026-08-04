@@ -656,10 +656,22 @@ impl CommitVerifier for AddRepo {
         let user = Some(verifier.user_id().clone());
         let read_cap = self.read_cap();
         let overlay_id = store.overlay_id;
-        verifier
+        let (repo_id, _) = verifier
             .load_repo_from_read_cap(read_cap, &broker, &user, &remote, store, true)
             .await?;
-        verifier.add_doc(repo_id, &overlay_id)?;
+        verifier.add_doc(&repo_id, &overlay_id)?;
+        let main_branch_id = {
+            verifier
+                .repos
+                .get(&repo_id)
+                .unwrap()
+                .main_branch()
+                .unwrap()
+                .id
+        };
+        verifier
+            .open_branch(&repo_id, &main_branch_id, false)
+            .await?;
         Ok(())
     }
 }
