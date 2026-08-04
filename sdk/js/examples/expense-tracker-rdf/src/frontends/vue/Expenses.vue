@@ -10,13 +10,20 @@ import ExpenseCard from "./ExpenseCard.vue";
 import { createExpense } from "../../utils/createExpense.ts";
 
 const privateNuri = session && `did:ng:${session?.private_store_id}`;
-const { data: expenses } = useShape(ExpenseShapeType, {
-    graphs: ["did:ng:i"],
-    orderBy: { dateOfPurchase: "desc" },
-});
-const { data: categories } = useShape(ExpenseCategoryShapeType, {
+const expenses = useShape(ExpenseShapeType, { graphs: ["did:ng:i"] });
+const categories = useShape(ExpenseCategoryShapeType, {
     graphs: [privateNuri || ""],
 });
+
+const expensesSorted = computed(() =>
+    [...expenses].sort((a, b) =>
+        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+    )
+);
+
+function expenseKey(expense: Expense) {
+    return `${expense["@graph"]}|${expense["@id"]}`;
+}
 </script>
 
 <template>

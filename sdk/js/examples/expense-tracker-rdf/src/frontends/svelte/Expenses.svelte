@@ -15,28 +15,24 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     ExpenseCategoryShapeType,
     ExpenseShapeType,
   } from "../../shapes/orm/expenseShapes.shapeTypes";
+  import type { Expense } from "../../shapes/orm/expenseShapes.typings";
   import { session } from "../../utils/ngSession";
   import ExpenseCard from "./ExpenseCard.svelte";
   import { createExpense } from "../../utils/createExpense";
 
-
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  let {
-    nextPage,
-    previousPage,
-    data: expenses,
-  } = $derived(
-    useShape(ExpenseShapeType, {
-      graphs: "did:ng:i",
-        orderBy: { dateOfPurchase: "desc" },
-        pageSize: 4,
-        maxActivePages: 1,
-    })
+  const expenses = useShape(ExpenseShapeType, {graphs: ["did:ng:i"]});
+  const categories = useShape(ExpenseCategoryShapeType, privateNuri);
+
+const expensesSorted = $derived(
+    [...expenses].sort((a, b) =>
+      a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+    )
   );
 
-  let { data: categories } = $derived(
-    useShape(ExpenseCategoryShapeType, privateNuri)
-  );
+  const expenseKey = (expense: Expense) =>
+    `${expense["@graph"]}|${expense["@id"]}`;
+
 </script>
 
 <section class="panel">

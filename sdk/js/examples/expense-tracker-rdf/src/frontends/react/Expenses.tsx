@@ -13,26 +13,22 @@ import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,
 } from "../../shapes/orm/expenseShapes.shapeTypes";
+import type { Expense } from "../../shapes/orm/expenseShapes.typings";
 import {  session } from "../../utils/ngSession";
 import { ExpenseCard } from "./ExpenseCard";
 import { createExpense } from "../../utils/createExpense";
 
 export function Expenses() {
     const privateNuri = session && `did:ng:${session?.private_store_id}`;
-    const {data: expenses , nextPage, previousPage} = useShape(ExpenseShapeType, {
-        graphs: ["did:ng:i"],
-        orderBy: {dateOfPurchase: "desc"},
-        maxActivePages: 1,
-        pageSize: 4
-    });
-    const {data: expenseCategories } = useShape(ExpenseCategoryShapeType, privateNuri );
+    const expenses = useShape(ExpenseShapeType, {graphs: ["did:ng:i"]});
+    const categories = useShape(ExpenseCategoryShapeType, privateNuri);
 
     const expensesSorted = [...expenses].sort((a, b) =>
         a.dateOfPurchase.localeCompare(b.dateOfPurchase)
     );
 
     const expenseKey = (expense: Expense) =>
-        `${expense["@graph"]}|${expense["@id"]}`;
+    `${expense["@graph"]}|${expense["@id"]}`;
 
     return (
         <section className="panel">
@@ -60,7 +56,7 @@ export function Expenses() {
                         <ExpenseCard
                             key={expenseKey(expense)}
                             expense={expense}
-                            availableCategories={expenseCategories}
+                            availableCategories={categories}
                         />
                     ))
                 )}

@@ -15,22 +15,22 @@
     ExpenseCategoryShapeType,
     ExpenseShapeType,
   } from "../../shapes/orm/expenseShapes.shapeTypes";
+  import type { Expense } from "../../shapes/orm/expenseShapes.typings";
   import { session } from "../../utils/ngSession";
   import ExpenseCard from "./ExpenseCard.svelte";
   import { createExpense } from "../../utils/createExpense";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const {
-    data: expenses,
-    nextPage,
-    previousPage,
-  } = useShape(ExpenseShapeType, {
-    graphs: ["did:ng:i"],
-    orderBy: { dateOfPurchase: "desc" },
-    pageSize: 4,
-    maxActivePages: 1,
-  });
-  const { data: categories } = useShape(ExpenseCategoryShapeType, privateNuri);
+  const expenses = useShape(ExpenseShapeType, {graphs: ["did:ng:i"]});
+  const categories = useShape(ExpenseCategoryShapeType, privateNuri);
+
+  $: expensesSorted = [...$expenses].sort((a, b) =>
+    a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+  );
+
+  const expenseKey = (expense: Expense) =>
+    `${expense["@graph"]}|${expense["@id"]}`;
+
 </script>
 
 <section class="panel">
