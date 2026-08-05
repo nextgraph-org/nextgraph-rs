@@ -13,8 +13,9 @@ use crate::local_broker::{
 };
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact, await_graph_patches,
-    create_doc_with_data, create_orm_connection_with_conf, find_key_for_obj,
+    add_graph_fields, assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact,
+    await_graph_patches, create_doc_with_data, create_orm_connection_with_conf, find_key_for_obj,
+    rewrite_expected_paths_with_graph,
 };
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
@@ -661,6 +662,39 @@ async fn test_orm_creation() {
     log_info!("=== Starting test test_sort_paginated_grow_mode ===");
     test_sort_paginated_grow_mode(session_id).await;
     log_info!("=== Test test_sort_paginated_grow_mode ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_num ===");
+    test_filter_shape_num(session_id).await;
+    log_info!("=== Test test_filter_shape_num ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_str ===");
+    test_filter_shape_str(session_id).await;
+    log_info!("=== Test test_filter_shape_str ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_str_iri ===");
+    test_filter_shape_str_iri(session_id).await;
+    log_info!("=== Test test_filter_shape_str_iri ran successfully ===\n\n");
+
+    // Distinction between strings and iris on literal level not implemented
+    // log_info!("=== Starting test test_filter_shape_iri ===");
+    // _test_filter_shape_iri(session_id).await;
+    // log_info!("=== Test test_filter_shape_iri ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_bool ===");
+    test_filter_shape_bool(session_id).await;
+    log_info!("=== Test test_filter_shape_bool ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_nested ===");
+    test_filter_shape_nested(session_id).await;
+    log_info!("=== Test test_filter_shape_nested ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_nested_2 ===");
+    test_filter_shape_nested_2(session_id).await;
+    log_info!("=== Test test_filter_shape_nested_2 ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_nested_3 ===");
+    test_filter_shape_nested_3(session_id).await;
+    log_info!("=== Test test_filter_shape_nested_3 ran successfully ===\n\n");
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -3490,6 +3524,855 @@ INSERT DATA {
     let new_page_patches = await_graph_patches(&mut receiver).await;
 
     assert_orm_json_eq_exact(&json!([]), &json!(new_page_patches));
+}
+
+async fn test_filter_shape_num(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val 1, 2 .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val 2, 3 .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val 3 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": 3
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": [2, 3]},
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject", "val": [3]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_str(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "1", "2" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val "3" .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val "4", "5" .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": ["3", "4"]
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": ["3"]},
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject", "val": ["4", "5"]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_str_iri(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "not matching" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val ex:matchingIri .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val "matchingString" .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![
+                        OrmSchemaDataType {
+                            valType: OrmSchemaValType::string,
+                            literals: None,
+                            shape: None,
+                        },
+                        OrmSchemaDataType {
+                            valType: OrmSchemaValType::iri,
+                            literals: None,
+                            shape: None,
+                        },
+                    ],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": ["did:ng:z:matchingIri", "matchingString"]
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": ["did:ng:z:matchingIri"]},
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject", "val": ["matchingString"]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn _test_filter_shape_iri(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "1", "2" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val ex:matchingIri .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val "did:ng:z:matchingIri" .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": ["did:ng:z:matchingIri"]
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": ["did:ng:z:matchingIri"]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_bool(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "1" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val true .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val false .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::boolean,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": true
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": true},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_nested(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:child ex:child1 .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:child ex:child2 .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:child ex:child3 .
+
+    <did:ng:z:child1> a ex:MatchObject ;
+                        ex:val "not matching" .
+    <did:ng:z:child2> a ex:MatchObject ;
+                        ex:val "matching" .
+    <did:ng:z:child3> a ex:MatchObject ;
+                        ex:val "matching", "foo" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:RootShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:RootShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:z:val".to_string(),
+                extra: Some(false),
+                maxCardinality: -1,
+                minCardinality: 0,
+                readablePredicate: "val".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "child": {
+                "val": ["matching"]
+            }
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": { "@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching"],
+                    "@id": "did:ng:z:child2"
+                }
+            },
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching", "foo"],
+                    "@id": "did:ng:z:child3"
+                }
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+/// Tests that two different predicates with same child shape don't interfere.
+async fn test_filter_shape_nested_2(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:child ex:child1 ;
+                        ex:child2 ex:child4 .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:child ex:child2 ;
+                        ex:child2 ex:child5 .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:child ex:child3 ;
+                        ex:child2 ex:child6 .
+
+    <did:ng:z:child1> ex:val "not matching" .
+    <did:ng:z:child2> ex:val "matching" .
+    <did:ng:z:child3> ex:val "matching", "foo" .
+
+    <did:ng:z:child4> ex:val "foo" .
+    <did:ng:z:child5> ex:val "boo" .
+    <did:ng:z:child6> ex:val "bar", "baz" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:RootShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:RootShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child2".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child2".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:z:val".to_string(),
+                extra: Some(false),
+                maxCardinality: -1,
+                minCardinality: 0,
+                readablePredicate: "val".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "child": {
+                "val": ["matching"]
+            }
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": { "@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching"],
+                    "@id": "did:ng:z:child2"
+                },
+                "child2": {
+                    "val": ["boo"],
+                    "@id": "did:ng:z:child5"
+                }
+            },
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching", "foo"],
+                    "@id": "did:ng:z:child3"
+                },
+                "child2": {
+                    "val": ["baz", "bar"],
+                    "@id": "did:ng:z:child6"
+                }
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_nested_3(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:noMatch> a ex:MatchObject ;
+                                   ex:child ex:child1 .
+                <did:ng:z:match1>  a ex:MatchObject ;
+                                   ex:child ex:child2 .
+                <did:ng:z:match2>  a ex:MatchObject ;
+                                   ex:child ex:child3 .
+
+                <did:ng:z:child1> ex:val "foo" ;
+                                  ex:childChild ex:child4 .
+                <did:ng:z:child2> ex:val "baz" ;
+                                  ex:childChild ex:child5 .
+                <did:ng:z:child3> ex:val "bar" ;
+                                  ex:childChild ex:child6
+
+                <did:ng:z:child4> ex:val "no match" .
+                <did:ng:z:child5> ex:val "match" .
+                <did:ng:z:child6> ex:val "match", "foo" .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:RootShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:RootShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:childChild".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "childChild".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildChildShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:z:val".to_string(),
+                extra: Some(false),
+                maxCardinality: -1,
+                minCardinality: 0,
+                readablePredicate: "val".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "child": {
+                "childChild": {
+                    "val": ["match"]
+                }
+            }
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": { "@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "@id": "did:ng:z:child2",
+                    "val": ["baz"],
+                    "childChild": {
+                        "val": ["match"],
+                        "@id": "did:ng:z:child5"
+                    }
+                },
+            },
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "@id": "did:ng:z:child3",
+                    "val": ["bar"],
+                    "childChild": {
+                        "val": ["match", "foo"],
+                        "@id": "did:ng:z:child6"
+                    }
+                },
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
 }
 
 //

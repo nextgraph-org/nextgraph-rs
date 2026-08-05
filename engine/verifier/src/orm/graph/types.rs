@@ -8,8 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::cmp::Ordering;
-use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;
@@ -326,6 +324,21 @@ impl OrmSubscription {
                 .as_array()
                 .map(Vec::as_slice)
                 .unwrap_or(std::slice::from_ref(where_val));
+
+            // Remove original predicate data types
+            Self::mutate_target_predicate(
+                schema,
+                target_shape_iri,
+                readable_pred,
+                move |target_pred_schema| {
+                    target_pred_schema.dataTypes.drain(..);
+                    // We _always_ allow extra for literals when filtering because we assume that
+                    //  additional values might be present too which we don't want to ignore.
+                    if !target_pred_schema.is_object() {
+                        target_pred_schema.extra = Some(true);
+                    }
+                },
+            )?;
 
             for val in where_values {
                 match val {
