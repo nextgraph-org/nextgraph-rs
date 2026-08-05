@@ -283,9 +283,9 @@ impl OrmSubscription {
         target_shape_iri: &String,
         where_config: &WhereConfig,
     ) -> Result<(), NgError> {
-        let where_obj = where_config
-            .as_object()
-            .ok_or(NgError::OrmError("where-config root not an object.".into()))?;
+        let Some(where_obj) = where_config.as_object() else {
+            return Ok(());
+        };
 
         let source_shape = schema.get(source_shape_iri).cloned().ok_or_else(|| {
             NgError::OrmError(format!(
