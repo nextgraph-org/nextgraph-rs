@@ -30,10 +30,21 @@ type LiteralProps<T extends BaseType> = ValueOf<{
         ? K
         : never;
 }>;
-type WhereConfig<T extends BaseType> = {
+type ObjectProps<T extends BaseType> = ValueOf<{
+    [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends object | Set<object>
+        ? K
+        : never;
+}>;
+
+/** Used in {@link RdfOrmConfig}. */
+export type WhereConfig<T extends BaseType> = {
     [P in LiteralProps<T>]?: T[P] extends Set<infer S>
         ? S | NonEmptyArray<S>
         : T[P] | NonEmptyArray<T[P]>;
+} & {
+    [P in ObjectProps<T>]?: T[P] extends Set<infer S extends BaseType>
+        ? WhereConfig<S>
+        : WhereConfig<T[P]>;
 };
 
 type SingleKeyObject<T extends Record<string, unknown>> = {
@@ -104,12 +115,32 @@ export type RdfOrmConfig<
     OB = OrderByConfig<T> | undefined,
 > = Scope & {
     /**
+     * Properties or nested properties to filter by.
      *
+     * @example
+     * ```ts
+     * {
+     *    "name": ["Jon Doe", "Jane Doe"],
+     *    "birthPlace": {
+     *       "city": "Berlin"
+     *    }
+     * }
+     * ```
      *
+     * Note that when you specify a property value, this is equivalent to marking this property as `EXTRA` in the SHEX definition.
+     * The equivalent SHEX expression for the above is:
      *
-     *
+     * ```shex
+     * ex:PersonShape EXTRA ex:name {
+     *     ex:name [ "Jon Doe" "Jane Doe" ] ;
+     *     # ... rest of shape
+     * }
+     * ex:PlaceShape EXTRA ex:city {
+     *     ex:city [ "Berlin" ] ;
+     *     # ... rest of shape
+     * ```
      */
-    // where?: WhereConfig<T>;
+    where?: WhereConfig<T>;
 
     /** Property / Properties to sort data by. */
     orderBy?: OB;
@@ -158,7 +189,8 @@ interface TestType {
     numProp: number;
     boolProp: boolean;
     setProp: Set<string>;
-    objProp: { foo: string };
+    objProp: { "@id": string; "@graph": string; foo: string };
+    obj2Prop: Set<{ "@id": string; "@graph": string; bar: string | number }>;
     enumProp: "choice1" | "choice2";
 }
 
@@ -210,6 +242,12 @@ testWhereConf({
     numProp: [3, 4],
     stringProp: "foo",
     setProp: "mau",
+    objProp: {
+        foo: "3",
+    },
+    obj2Prop: {
+        bar: 2,
+    },
 });
 testWhereConf({
     // @ts-expect-error
@@ -218,10 +256,12 @@ testWhereConf({
     boolProp: "true",
     // @ts-expect-error
     stringProp: [],
-    // @ts-ignore
     objProp: {
-        foo: "sdf",
+        // @ts-expect-error
+        foo: true,
     },
+    // @ts-ignore
+    obj2Prop: 2,
     // @ts-ignore
     "@graph": "some:id",
 });
