@@ -43,8 +43,12 @@ export type WhereConfig<T extends BaseType> = {
         : T[P] | NonEmptyArray<T[P]>;
 } & {
     [P in ObjectProps<T>]?: T[P] extends Set<infer S extends BaseType>
-        ? WhereConfig<S>
-        : WhereConfig<T[P]>;
+        ? IsUnion<S> extends true
+            ? never
+            : WhereConfig<S>
+        : IsUnion<T[P]> extends true
+          ? never
+          : WhereConfig<T[P]>;
 };
 
 type SingleKeyObject<T extends Record<string, unknown>> = {
@@ -52,6 +56,13 @@ type SingleKeyObject<T extends Record<string, unknown>> = {
 }[keyof T];
 
 type NonEmptyArray<T> = [T, ...T[]];
+
+type IsUnion<T> = [T] extends [UnionToIntersection<T>] ? false : true;
+type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
+    x: infer I
+) => void
+    ? I
+    : never;
 
 /**
  * Defines how results are sorted.

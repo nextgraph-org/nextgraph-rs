@@ -12,8 +12,7 @@ import { BaseType, ShapeType } from "@ng-org/shex-orm";
 import { RdfOrmConfig } from "./utilTypes.ts";
 
 /**
- * When dealing with shapes (RDF-based graph database ORMs):
- * The scope of a shape request.
+ * The scope of a shape request. Part of the {@link RdfOrmConfig}.
  * In most cases, it is recommended to use a narrow scope for performance.
  * You can filter results by `subjects` and `graphs`. Only objects in that scope will be returned.
  *
@@ -59,6 +58,7 @@ export const normalizeScope = (
     return { graphs, subjects };
 };
 
+/** @ignore */
 export const normalizeConf = <T extends BaseType>(
     conf: string | RdfOrmConfig<T>
 ) => {
@@ -68,6 +68,7 @@ export const normalizeConf = <T extends BaseType>(
     };
 };
 
+/** @ignore */
 export type NormalizedScope = { graphs: string[]; subjects: string[] };
 
 /** An allowed array in the CRDT. @ignore */
