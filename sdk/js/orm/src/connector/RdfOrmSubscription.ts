@@ -321,7 +321,8 @@ export class RdfOrmSubscription<
         shapeType: ShapeType<T>,
         options: CONF
     ): RdfOrmSubscriptionFor<ST, CONF, T> => {
-        const { graphs, subjects, maxActivePages, orderBy, pageSize } = options;
+        const { graphs, subjects, maxActivePages, orderBy, pageSize, where } =
+            options;
         const normalizedScope = normalizeScope({ graphs, subjects });
         const scopeKey = canonicalScope(normalizedScope);
         // If we have pagination active, we can't pool subscriptions because
@@ -350,6 +351,7 @@ export class RdfOrmSubscription<
                     maxActivePages,
                     orderBy,
                     pageSize,
+                    where,
                 },
                 identifier
             );
