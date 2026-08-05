@@ -36,6 +36,7 @@ We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but
         - [Relationships](#relationships)
         - [Ordering](#ordering)
         - [Pagination](#pagination)
+        - [Filtering](#filtering)
         - [The RdfOrmSubscription Class](#the-rdformsubscription-class)
         - ["Disappearing" Objects](#disappearing-objects)
     - [Discrete (JSON-based) ORM](#discrete-json-based-orm)
@@ -312,6 +313,38 @@ There are different modes of pagination:
     Note that if an item becomes invalid, it will be removed from the loaded item. When an item within the loaded range becomes valid, it will appear at the correct position.
 
 Note: When the order of an item changes to the last position of the page (or in case of `orderedPaginatedSimple` also the first), it will disappear. It is not deleted but won't be tracked because it can't be checked if it actually moved to just the position at the end/beginning of the page or beyond that.
+
+### Filtering
+
+When you specified a shape but only want to query a certain subset of items, you can specify the `where` config to filter by one or more values.
+
+```ts
+const colleaguesInParisOrBerlinSubscription = RdfOrmSubscription.getOrCreate(ContactShape, {
+    graphs: [contactDocNuri],
+    where: {
+        affiliation: "colleague"
+        location: {
+            city: ["Paris", "Berlin"]
+        }
+    }
+});
+```
+
+Internally, this is equivalent to modifying the SHEX shape of `ContactShape`, marking the `affiliation` and `city` predicate as `EXTRA`, and setting the allowed literal values `"colleague"` and `"city"`, respectively.
+That means that a colleague that is based in Paris but has the affiliation `"friend"` too, will be loaded as well.
+
+The SHEX equivalent after applying the `where` filter:
+
+```shex
+ex:ContactShape EXTRA ex:name {
+    ex:affiliation [ "colleague" ] * ;
+    # ... rest of shape
+}
+ex:LocationShape EXTRA ex:city {
+    ex:city [ "Paris" "Berlin" ] ;
+    # ... rest of shape
+}
+```
 
 ### The RdfOrmSubscription Class
 

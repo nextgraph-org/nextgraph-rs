@@ -149,6 +149,7 @@ export type RdfOrmConfig<
      * ex:PlaceShape EXTRA ex:city {
      *     ex:city [ "Berlin" ] ;
      *     # ... rest of shape
+     * }
      * ```
      */
     where?: WhereConfig<T>;
