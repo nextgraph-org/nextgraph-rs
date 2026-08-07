@@ -35,5 +35,7 @@ export async function getObjects<T extends BaseType>(
         connection.close();
     }, 1_000);
 
-    return structuredClone(connection.signalObject[RAW_KEY]);
+    return structuredClone(
+        (connection.signalObject as { [RAW_KEY]: Set<T> | T[] })[RAW_KEY]
+    );
 }
