@@ -199,7 +199,7 @@ export type SubscriptionData<
  * Utility type to make `nextPage()` and `previousPage()` properties optional,
  * if conf does not have `pageSize` or `maxActivePages`.
  */
-export type PaginationAdjusted<
+export type WithMaybePagination<
     MAYBE_SHADOW,
     CONF extends RdfOrmConfig<T>,
     T extends BaseType,

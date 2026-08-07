@@ -20,7 +20,11 @@ import {
     RdfOrmSubscription,
     RdfOrmSubscriptionFor,
 } from "../../connector/RdfOrmSubscription.ts";
-import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
+import {
+    RdfOrmConfig,
+    SubscriptionData,
+    WithMaybePagination,
+} from "../../utilTypes.ts";
 import { derived, Readable, writable } from "svelte/store";
 
 /** Extended result including the originating root signal wrapper from shape logic. @ignore*/
@@ -205,8 +209,4 @@ export type UseShapeResult<
     ST extends ShapeType<any>,
     CONF extends RdfOrmConfig<T>,
     T extends BaseType,
-> = undefined extends CONF["pageSize"]
-    ? Omit<UseShapeResult_<ST, CONF, T>, "nextPage" | "previousPage"> // No pagination functions.
-    : undefined extends CONF["maxActivePages"]
-      ? Omit<UseShapeResult_<ST, CONF, T>, "previousPage"> // Only forward pagination without `maxActivePages`.
-      : UseShapeResult_<ST, CONF, T>; // Forward and backwards pagination.
+> = WithMaybePagination<UseShapeResult_<ST, CONF, T>, CONF, T>;
