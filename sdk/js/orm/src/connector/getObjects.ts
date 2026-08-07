@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { normalizeScope, Scope } from "../types.ts";
+import { normalizeConf, Scope } from "../types.ts";
 import { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
 import { RAW_KEY } from "@ng-org/alien-deepsignals";
 import { RdfOrmConfig } from "../utilTypes.ts";
@@ -27,7 +27,7 @@ export async function getObjects<T extends BaseType>(
 ) {
     const connection = RdfOrmSubscription.getOrCreate(
         shapeType,
-        normalizeScope(config)
+        normalizeConf(config)
     );
     await connection.readyPromise;
 
