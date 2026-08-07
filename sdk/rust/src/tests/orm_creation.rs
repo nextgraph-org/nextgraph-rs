@@ -9,17 +9,19 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::local_broker::{
-    doc_create, doc_query_quads_for_shape_type, doc_sparql_update, orm_start_graph,
+    self, doc_create, doc_query_quads_for_shape_type, doc_sparql_update, orm_start_graph,
 };
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_json_eq, assert_orm_json_eq, create_doc_with_data, create_orm_connection_with_conf,
+    add_graph_fields, assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact,
+    await_graph_patches, create_doc_with_data, create_orm_connection_with_conf, find_key_for_obj,
+    rewrite_expected_paths_with_graph,
 };
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    BasicType, OrmSchema, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
-    OrmShapeType,
+    BasicType, OrmConfig, OrmSchema, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape,
+    OrmSchemaValType, OrmShapeType,
 };
 
 use ng_repo::log::*;
@@ -645,14 +647,54 @@ async fn test_orm_creation() {
     test_orm_cardinality_scoping(session_id).await;
     log_info!("=== Test test_orm_cardinality_scoping ran successfully ===\n\n");
 
-    // TODO: Uncomment when sort etc. is implemented fully.
-    // log_info!("=== Starting test test_sort ===");
-    // test_sort(session_id).await;
-    // log_info!("=== Test test_sort ran successfully ===\n\n");
-    //
-    // log_info!("=== Starting test test_sort_paginated ===");
-    // test_sort_paginated(session_id).await;
-    // log_info!("=== Test test_sort_paginated ran successfully ===\n\n");
+    log_info!("=== Starting test test_sort ===");
+    test_sort(session_id).await;
+    log_info!("=== Test test_sort ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_sort_paginated_single_page ===");
+    test_sort_paginated_single_page(session_id).await;
+    log_info!("=== Test test_sort_paginated_single_page ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_sort_paginated_multi_page ===");
+    test_sort_paginated_multi_page(session_id).await;
+    log_info!("=== Test test_sort_paginated_multi_page ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_sort_paginated_grow_mode ===");
+    test_sort_paginated_grow_mode(session_id).await;
+    log_info!("=== Test test_sort_paginated_grow_mode ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_num ===");
+    test_filter_shape_num(session_id).await;
+    log_info!("=== Test test_filter_shape_num ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_str ===");
+    test_filter_shape_str(session_id).await;
+    log_info!("=== Test test_filter_shape_str ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_str_iri ===");
+    test_filter_shape_str_iri(session_id).await;
+    log_info!("=== Test test_filter_shape_str_iri ran successfully ===\n\n");
+
+    // Distinction between strings and iris on literal level not implemented
+    // log_info!("=== Starting test test_filter_shape_iri ===");
+    // _test_filter_shape_iri(session_id).await;
+    // log_info!("=== Test test_filter_shape_iri ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_bool ===");
+    test_filter_shape_bool(session_id).await;
+    log_info!("=== Test test_filter_shape_bool ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_nested ===");
+    test_filter_shape_nested(session_id).await;
+    log_info!("=== Test test_filter_shape_nested ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_nested_2 ===");
+    test_filter_shape_nested_2(session_id).await;
+    log_info!("=== Test test_filter_shape_nested_2 ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_filter_shape_nested_3 ===");
+    test_filter_shape_nested_3(session_id).await;
+    log_info!("=== Test test_filter_shape_nested_3 ran successfully ===\n\n");
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -727,9 +769,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -744,21 +798,16 @@ INSERT DATA {
         // and every object (root and nested) includes an "@graph" field.
         let actual_obj = orm_json
             .as_object()
+            .cloned()
             .expect("expected root ORM JSON to be an object");
 
-        log_info!("[test_orm_big_object] actual_obj: {:?}", actual_obj);
+        log_info!(
+            "[test_orm_big_object] actual_obj: {:?}",
+            orm_json.to_string()
+        );
 
-        // Find dynamic keys for the two roots by suffix
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:obj1");
-        let k2 = find_key_with_suffix("|urn:test:obj2");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:obj1");
+        let k2 = find_key_for_obj(&actual_obj, "urn:test:obj2");
 
         // Extract graph parts from keys
         let g1 = k1.split('|').next().unwrap().to_string();
@@ -772,18 +821,18 @@ INSERT DATA {
             .as_str()
             .expect("obj1 objectValue @graph")
             .to_string();
-        // Nested children are keyed by dynamic "graph|subject" keys; resolve them by suffix
+        // Nested children are keyed by dynamic "graph|subject" keys
         let a1_children = a1["anotherObject"]
             .as_object()
             .expect("obj1 anotherObject map");
         let c1k = a1_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj1AnotherSub1"))
+            .find(|k| k.contains("|urn:test:obj1AnotherSub1"))
             .expect("obj1 child1 key not found")
             .to_string();
         let c2k = a1_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj1AnotherSub2"))
+            .find(|k| k.contains("|urn:test:obj1AnotherSub2"))
             .expect("obj1 child2 key not found")
             .to_string();
         let obj1_child1_graph = a1["anotherObject"][&c1k]["@graph"]
@@ -804,12 +853,12 @@ INSERT DATA {
             .expect("obj2 anotherObject map");
         let d1k = a2_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj2AnotherSub1"))
+            .find(|k| k.contains("|urn:test:obj2AnotherSub1"))
             .expect("obj2 child1 key not found")
             .to_string();
         let d2k = a2_children
             .keys()
-            .find(|k| k.ends_with("|urn:test:obj2AnotherSub2"))
+            .find(|k| k.contains("|urn:test:obj2AnotherSub2"))
             .expect("obj2 child2 key not found")
             .to_string();
         let obj2_child1_graph = a2["anotherObject"][&d1k]["@graph"]
@@ -830,15 +879,15 @@ INSERT DATA {
                 "anotherObject":{
                     c1k.clone():{
                         "@id":"urn:test:obj1AnotherSub1",
+                        "@graph": obj1_child1_graph,
                         "prop1":"one",
                         "prop2":1.0,
-                        "@graph": obj1_child1_graph,
                     },
                     c2k.clone():{
                         "@id":"urn:test:obj1AnotherSub2",
+                        "@graph": obj1_child2_graph,
                         "prop1":"two",
                         "prop2":2.0,
-                        "@graph": obj1_child2_graph,
                     }
                 },
                 "arrayValue":[1.0,2.0,3.0],
@@ -862,15 +911,15 @@ INSERT DATA {
                 "anotherObject":{
                     d1k.clone():{
                         "@id":"urn:test:obj2AnotherSub1",
+                        "@graph": obj2_child1_graph,
                         "prop1":"one2",
                         "prop2":12.0,
-                        "@graph": obj2_child1_graph,
                     },
                     d2k.clone():{
                         "@id":"urn:test:obj2AnotherSub2",
+                        "@graph": obj2_child2_graph,
                         "prop1":"two2",
                         "prop2":22.0,
-                        "@graph": obj2_child2_graph,
                     }
                 },
                 "arrayValue":[4.0,5.0,6.0],
@@ -1060,9 +1109,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1081,15 +1142,7 @@ INSERT DATA {
             actual_obj
         );
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_alice = find_key_with_suffix("|urn:test:aliceOpt");
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:aliceOpt");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
 
         // Expect cats to be an empty object map (no valid kittens yet)
@@ -1194,9 +1247,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1215,15 +1280,7 @@ INSERT DATA {
             actual_obj
         );
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_alice = find_key_with_suffix("|urn:test:alice2");
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:alice2");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
 
         let cats_obj = actual_obj[&k_alice]["cats"].as_object().unwrap();
@@ -1239,11 +1296,7 @@ INSERT DATA {
             .unwrap()
             .to_string();
         // Extract the subject IRI from the composite key for robustness
-        let id_k1 = k_k1
-            .split('|')
-            .last()
-            .expect("expected composite key with '|'")
-            .to_string();
+        let id_k1 = k_k1.split('|').collect::<Vec<_>>()[1].to_string();
 
         let mut expected = json!({
             k_alice.clone(): {
@@ -1251,7 +1304,10 @@ INSERT DATA {
                 "@graph": g_alice,
                 "type": "http://example.org/Person",
                 "cats": {
-                    k_k1.clone(): { "@graph": g_k1, "@id": id_k1, "type": "http://example.org/Cat" }
+                    k_k1.clone(): {
+                        "@graph": g_k1,
+                        "@id": id_k1,
+                        "type": "http://example.org/Cat" }
                 }
             }
         });
@@ -1343,9 +1399,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1362,19 +1430,11 @@ INSERT DATA {
             .as_object()
             .expect("expected root ORM JSON to be an object");
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_obj1 = find_key_with_suffix("|urn:test:obj1");
-        let k_obj2 = find_key_with_suffix("|urn:test:obj2");
-        let k_na1 = find_key_with_suffix("|urn:test:numArrayObj1");
-        let k_na2 = find_key_with_suffix("|urn:test:numArrayObj2");
-        let k_na3 = find_key_with_suffix("|urn:test:numArrayObj3");
+        let k_obj1 = find_key_for_obj(&actual_obj, "urn:test:obj1");
+        let k_obj2 = find_key_for_obj(&actual_obj, "urn:test:obj2");
+        let k_na1 = find_key_for_obj(&actual_obj, "urn:test:numArrayObj1");
+        let k_na2 = find_key_for_obj(&actual_obj, "urn:test:numArrayObj2");
+        let k_na3 = find_key_for_obj(&actual_obj, "urn:test:numArrayObj3");
 
         let g_obj1 = actual_obj[&k_obj1]["@graph"].as_str().unwrap().to_string();
         let g_obj2 = actual_obj[&k_obj2]["@graph"].as_str().unwrap().to_string();
@@ -1472,9 +1532,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1493,15 +1565,7 @@ INSERT DATA {
 
         log_info!("[test_orm_with_optional] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
 
         let mut expected = json!({
@@ -1589,9 +1653,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1608,16 +1684,8 @@ INSERT DATA {
             .expect("expected root ORM JSON to be an object");
         log_info!("[test_orm_literal] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
-        let k2 = find_key_with_suffix("|urn:test:obj2");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
+        let k2 = find_key_for_obj(&actual_obj, "urn:test:obj2");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
         let g2 = actual_obj[&k2]["@graph"].as_str().unwrap().to_string();
 
@@ -1707,9 +1775,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1725,15 +1805,7 @@ INSERT DATA {
             .expect("expected root ORM JSON to be an object");
         log_info!("[test_orm_multi_type] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
         let mut expected = json!({
             k1.clone(): {
@@ -1941,9 +2013,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -1961,15 +2045,7 @@ INSERT DATA {
 
         log_info!("[test_orm_nested_1] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str| -> String {
-            actual_obj
-                .keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k1 = find_key_with_suffix("|urn:test:oj1");
+        let k1 = find_key_for_obj(&actual_obj, "urn:test:oj1");
         let g1 = actual_obj[&k1]["@graph"].as_str().unwrap().to_string();
 
         let mut expected = json!({
@@ -2079,9 +2155,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2291,9 +2379,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2446,9 +2546,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_entire_user_site();
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2464,25 +2576,18 @@ INSERT DATA {
             .expect("expected root ORM JSON to be an object");
         log_info!("[test_orm_nested_4] actual_obj: {:?}", actual_obj);
 
-        let find_key_with_suffix = |suffix: &str, obj: &serde_json::Map<String, Value>| -> String {
-            obj.keys()
-                .find(|k| k.ends_with(suffix))
-                .expect("root key with expected subject suffix not found")
-                .to_string()
-        };
-
-        let k_alice = find_key_with_suffix("|urn:test:alice", actual_obj);
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:alice");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
 
-        let k_kitten1 = find_key_with_suffix(
-            "|urn:test:kitten1",
+        let k_kitten1 = find_key_for_obj(
             actual_obj[&k_alice]["cats"].as_object().unwrap(),
+            "urn:test:kitten1",
         );
         let g_kitten1 = actual_obj[&k_alice]["cats"][&k_kitten1]["@graph"].clone();
 
-        let k_kitten2 = find_key_with_suffix(
-            "|urn:test:kitten2",
+        let k_kitten2 = find_key_for_obj(
             actual_obj[&k_alice]["cats"].as_object().unwrap(),
+            "urn:test:kitten2",
         );
         let g_kitten2 = actual_obj[&k_alice]["cats"][&k_kitten2]["@graph"].clone();
 
@@ -2609,9 +2714,21 @@ INSERT DATA {
     };
 
     let nuri = NuriV0::new_from(&doc_root).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start_graph(vec![nuri], vec![], shape_type, session_id)
-        .await
-        .expect("orm_start_graph");
+    let (mut receiver, cancel_fn) = orm_start_graph(
+        vec![nuri],
+        vec![],
+        shape_type,
+        session_id,
+        OrmConfig {
+            max_active_pages: 0,
+            page_size: 0,
+            where_: None,
+            order_by: None,
+            select: None,
+        },
+    )
+    .await
+    .expect("orm_start_graph");
 
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
@@ -2635,16 +2752,12 @@ INSERT DATA {
         // According to spec, only same-graph or subject-graph prefix graphs count; since we created
         // one such extra, maxCardinality=1 should still pass if implementation deduplicates or picks
         // one; otherwise it would fail. We assert that it materializes with a single name.
-        let k_alice = actual_obj
-            .keys()
-            .find(|k| k.ends_with("|urn:test:groot:alice"))
-            .expect("alice key")
-            .to_string();
+        let k_alice = find_key_for_obj(&actual_obj, "urn:test:groot:alice");
         let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
         let name_val = actual_obj[&k_alice]["name"].as_str().unwrap();
         assert!(name_val == "Alice" || name_val == "Alice-Scoped");
 
-        let  expected = json!({
+        let expected = json!({
             k_alice.clone(): {
                 "@id": "urn:test:groot:alice",
                 "@graph": g_alice,
@@ -2653,7 +2766,7 @@ INSERT DATA {
             }
         });
 
-        let  actual_mut = orm_json.clone();
+        let actual_mut = orm_json.clone();
         assert_json_eq(&expected, &actual_mut);
         break;
     }
@@ -2760,7 +2873,7 @@ INSERT DATA {
         json!({"orderBy": {"sortBy": "asc"}}),
     )
     .await;
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
@@ -2785,7 +2898,7 @@ INSERT DATA {
         json!({"orderBy": [{"sortBy": "desc"}]}),
     )
     .await;
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
@@ -2805,20 +2918,20 @@ INSERT DATA {
     )
     .await;
 
-    assert_json_eq(
+    assert_orm_json_eq_exact(
         &json!([
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj51", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 1},
             {"@graph": doc_nuri, "@id": "did:ng:z:sortObj52", "type": "did:ng:z:SortObject", "sortBy": 5, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3", "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
-            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1", "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4",  "type": "did:ng:z:SortObject", "sortBy": 4, "sortBy2": 4},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj3",  "type": "did:ng:z:SortObject", "sortBy": 3, "sortBy2": 3},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2",  "type": "did:ng:z:SortObject", "sortBy": 2, "sortBy2": 2},
+            {"@graph": doc_nuri, "@id": "did:ng:z:sortObj1",  "type": "did:ng:z:SortObject", "sortBy": 1, "sortBy2": 1},
         ]),
         &initial,
     );
 }
 
-async fn test_sort_paginated(session_id: u64) {
+async fn test_sort_paginated_single_page(session_id: u64) {
     let doc_nuri: String = create_doc_with_data(
         session_id,
         r#"
@@ -2836,6 +2949,18 @@ INSERT DATA {
     <did:ng:z:sortObj3> a ex:SortObject ;
                         ex:required "invalid" ;
                         ex:sortBy 3 .
+    <did:ng:z:sortObj5> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 5 .
+    <did:ng:z:sortObj6> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 6 .
+    <did:ng:z:sortObj7> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 7 .
+    <did:ng:z:sortObj8> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 8 .
 }
 "#
         .to_string(),
@@ -2897,26 +3022,1357 @@ INSERT DATA {
         shape: "did:ng:z:SortShape".to_string(),
     };
 
-    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
         vec![doc_nuri.clone()],
         vec![],
         shape_type.clone(),
         session_id,
-        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2}),
+        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2, "maxActivePages": 1}),
     )
     .await;
 
-    assert_json_eq(
-        &json!({
-            "0": {
-                "items": [
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
-                    {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
-                ]
-            }
-        }),
+    assert_orm_json_eq_exact(
+        &json!([
+                {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+        ]),
         &initial,
     );
+
+    //
+    // Now test requesting the next page.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([{
+                "op": "add",
+                "path": "/2",
+                "value":  {
+                    "sortBy": 5,
+                    "@id": "did:ng:z:sortObj5",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/3",
+                "value":  {
+                    "sortBy": 6,
+                    "@id": "did:ng:z:sortObj6",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "remove",
+                "path": "/0",
+            },
+            {
+                "op": "remove",
+                "path": "/0",
+            },
+        ]),
+        &json!(new_page_patches),
+    );
+
+    local_broker::new_orm_graph_previous_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+            {
+                "op": "add",
+                "path": "/0",
+                "value":  {
+                    "sortBy": 2,
+                    "@id": "did:ng:z:sortObj2",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/1",
+                "value":  {
+                    "sortBy": 4,
+                    "@id": "did:ng:z:sortObj4",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "remove",
+                "path": "/2",
+            },
+            {
+                "op": "remove",
+                "path": "/3",
+            },
+        ]),
+        &json!(new_page_patches),
+    );
+}
+
+async fn test_sort_paginated_multi_page(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:sortObj2> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 2 .
+    <did:ng:z:sortObj1> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 1 .
+    <did:ng:z:sortObj4> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 4 .
+    <did:ng:z:sortObj3> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 3 .
+    <did:ng:z:sortObj5> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 5 .
+    <did:ng:z:sortObj6> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 6 .
+    <did:ng:z:sortObj7> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 7 .
+    <did:ng:z:sortObj8> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 8 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:required".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "required".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: Some(vec![BasicType::Str("required".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2, "maxActivePages": 2}),
+    )
+    .await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+                {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+        ]),
+        &initial,
+    );
+
+    //
+    // Now test requesting the next page.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([{
+            "op": "add",
+            "path": "/2",
+            "value":  {
+                "sortBy": 5,
+                "@id": "did:ng:z:sortObj5",
+                "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+            },
+        },
+        {
+            "op": "add",
+            "path": "/3",
+            "value":  {
+                "sortBy": 6,
+                "@id": "did:ng:z:sortObj6",
+                "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+            },
+        }
+        ]),
+        &json!(new_page_patches),
+    );
+
+    //
+    // Now test requesting a 3rd page which is above maxActivePages.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+            {
+                "op": "add",
+                "path": "/4",
+                "value":  {
+                    "sortBy": 7,
+                    "@id": "did:ng:z:sortObj7",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/5",
+                "value":  {
+                    "sortBy": 8,
+                    "@id": "did:ng:z:sortObj8",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "remove",
+                "path": "/0",
+            },
+            {
+                "op": "remove",
+                "path": "/0",
+            },
+        ]),
+        &json!(new_page_patches),
+    );
+
+    local_broker::new_orm_graph_previous_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+            {
+                "op": "add",
+                "path": "/0",
+                "value":  {
+                    "sortBy": 2,
+                    "@id": "did:ng:z:sortObj2",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/1",
+                "value":  {
+                    "sortBy": 4,
+                    "@id": "did:ng:z:sortObj4",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "remove",
+                "path": "/4",
+            },
+            {
+                "op": "remove",
+                "path": "/5",
+            },
+        ]),
+        &json!(new_page_patches),
+    );
+}
+
+async fn test_sort_paginated_grow_mode(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:sortObj2> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 2 .
+    <did:ng:z:sortObj1> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 1 .
+    <did:ng:z:sortObj4> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 4 .
+    <did:ng:z:sortObj3> a ex:SortObject ;
+                        ex:required "invalid" ;
+                        ex:sortBy 3 .
+    <did:ng:z:sortObj5> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 5 .
+    <did:ng:z:sortObj6> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 6 .
+    <did:ng:z:sortObj7> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 7 .
+    <did:ng:z:sortObj8> a ex:SortObject ;
+                        ex:required "required" ;
+                        ex:sortBy 8 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:required".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "required".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: Some(vec![BasicType::Str("required".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": {"sortBy": "asc"}, "pageSize": 2,}),
+    )
+    .await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+                {"@graph": doc_nuri, "@id": "did:ng:z:sortObj2", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 2},
+                {"@graph": doc_nuri, "@id": "did:ng:z:sortObj4", "type": "did:ng:z:SortObject", "required": "required", "sortBy": 4},
+        ]),
+        &initial,
+    );
+
+    //
+    // Now test requesting the next page.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([{
+            "op": "add",
+            "path": "/2",
+            "value":  {
+                "sortBy": 5,
+                "@id": "did:ng:z:sortObj5",
+                "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+            },
+        },
+        {
+            "op": "add",
+            "path": "/3",
+            "value":  {
+                "sortBy": 6,
+                "@id": "did:ng:z:sortObj6",
+                "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+            },
+        }
+        ]),
+        &json!(new_page_patches),
+    );
+
+    //
+    // Now test requesting a 3rd page which is above maxActivePages.
+    //
+
+    local_broker::new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(
+        &json!([
+            {
+                "op": "add",
+                "path": "/4",
+                "value":  {
+                    "sortBy": 7,
+                    "@id": "did:ng:z:sortObj7",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            },
+            {
+                "op": "add",
+                "path": "/5",
+                "value":  {
+                    "sortBy": 8,
+                    "@id": "did:ng:z:sortObj8",
+                    "@graph": doc_nuri, "type": "did:ng:z:SortObject", "required": "required",
+                },
+            }
+        ]),
+        &json!(new_page_patches),
+    );
+
+    // Loading more items has no effect.
+    local_broker::new_orm_graph_previous_page(subscription_id, session_id)
+        .await
+        .expect("Loading next page failed.");
+
+    let new_page_patches = await_graph_patches(&mut receiver).await;
+
+    assert_orm_json_eq_exact(&json!([]), &json!(new_page_patches));
+}
+
+async fn test_filter_shape_num(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val 1, 2 .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val 2, 3 .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val 3 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": 3
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": [2, 3]},
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject", "val": [3]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_str(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "1", "2" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val "3" .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val "4", "5" .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": ["3", "4"]
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": ["3"]},
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject", "val": ["4", "5"]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_str_iri(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "not matching" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val ex:matchingIri .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val "matchingString" .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![
+                        OrmSchemaDataType {
+                            valType: OrmSchemaValType::string,
+                            literals: None,
+                            shape: None,
+                        },
+                        OrmSchemaDataType {
+                            valType: OrmSchemaValType::iri,
+                            literals: None,
+                            shape: None,
+                        },
+                    ],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": ["did:ng:z:matchingIri", "matchingString"]
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": ["did:ng:z:matchingIri"]},
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject", "val": ["matchingString"]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn _test_filter_shape_iri(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "1", "2" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val ex:matchingIri .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val "did:ng:z:matchingIri" .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": ["did:ng:z:matchingIri"]
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": ["did:ng:z:matchingIri"]},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_bool(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:val "1" .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:val true .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:val false .
+
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:MatchShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:MatchShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::boolean,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:MatchShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "val": true
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": {"@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject", "val": true},
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_nested(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:child ex:child1 .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:child ex:child2 .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:child ex:child3 .
+
+    <did:ng:z:child1> a ex:MatchObject ;
+                        ex:val "not matching" .
+    <did:ng:z:child2> a ex:MatchObject ;
+                        ex:val "matching" .
+    <did:ng:z:child3> a ex:MatchObject ;
+                        ex:val "matching", "foo" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:RootShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:RootShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:z:val".to_string(),
+                extra: Some(false),
+                maxCardinality: -1,
+                minCardinality: 0,
+                readablePredicate: "val".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "child": {
+                "val": ["matching"]
+            }
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": { "@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching"],
+                    "@id": "did:ng:z:child2"
+                }
+            },
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching", "foo"],
+                    "@id": "did:ng:z:child3"
+                }
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+/// Tests that two different predicates with same child shape don't interfere.
+async fn test_filter_shape_nested_2(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <did:ng:z:>
+INSERT DATA {
+    <did:ng:z:noMatch> a ex:MatchObject ;
+                        ex:child ex:child1 ;
+                        ex:child2 ex:child4 .
+    <did:ng:z:match1> a ex:MatchObject ;
+                        ex:child ex:child2 ;
+                        ex:child2 ex:child5 .
+    <did:ng:z:match2> a ex:MatchObject ;
+                        ex:child ex:child3 ;
+                        ex:child2 ex:child6 .
+
+    <did:ng:z:child1> ex:val "not matching" .
+    <did:ng:z:child2> ex:val "matching" .
+    <did:ng:z:child3> ex:val "matching", "foo" .
+
+    <did:ng:z:child4> ex:val "foo" .
+    <did:ng:z:child5> ex:val "boo" .
+    <did:ng:z:child6> ex:val "bar", "baz" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:RootShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:RootShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child2".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child2".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:z:val".to_string(),
+                extra: Some(false),
+                maxCardinality: -1,
+                minCardinality: 0,
+                readablePredicate: "val".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "child": {
+                "val": ["matching"]
+            }
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": { "@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching"],
+                    "@id": "did:ng:z:child2"
+                },
+                "child2": {
+                    "val": ["boo"],
+                    "@id": "did:ng:z:child5"
+                }
+            },
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "val": ["matching", "foo"],
+                    "@id": "did:ng:z:child3"
+                },
+                "child2": {
+                    "val": ["baz", "bar"],
+                    "@id": "did:ng:z:child6"
+                }
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
+async fn test_filter_shape_nested_3(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:noMatch> a ex:MatchObject ;
+                                   ex:child ex:child1 .
+                <did:ng:z:match1>  a ex:MatchObject ;
+                                   ex:child ex:child2 .
+                <did:ng:z:match2>  a ex:MatchObject ;
+                                   ex:child ex:child3 .
+
+                <did:ng:z:child1> ex:val "foo" ;
+                                  ex:childChild ex:child4 .
+                <did:ng:z:child2> ex:val "baz" ;
+                                  ex:childChild ex:child5 .
+                <did:ng:z:child3> ex:val "bar" ;
+                                  ex:childChild ex:child6
+
+                <did:ng:z:child4> ex:val "no match" .
+                <did:ng:z:child5> ex:val "match" .
+                <did:ng:z:child6> ex:val "match", "foo" .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:RootShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:RootShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:child".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "child".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:val".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "val".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:childChild".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "childChild".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildChildShape".into()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:ChildChildShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:ChildChildShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:z:val".to_string(),
+                extra: Some(false),
+                maxCardinality: -1,
+                minCardinality: 0,
+                readablePredicate: "val".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+        json!({"where": {
+            "child": {
+                "childChild": {
+                    "val": ["match"]
+                }
+            }
+        }}),
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:match1": { "@id": "did:ng:z:match1", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "@id": "did:ng:z:child2",
+                    "val": ["baz"],
+                    "childChild": {
+                        "val": ["match"],
+                        "@id": "did:ng:z:child5"
+                    }
+                },
+            },
+            "did:ng:z:match2": {"@id": "did:ng:z:match2", "type": "did:ng:z:MatchObject",
+                "child": {
+                    "@id": "did:ng:z:child3",
+                    "val": ["bar"],
+                    "childChild": {
+                        "val": ["match", "foo"],
+                        "@id": "did:ng:z:child6"
+                    }
+                },
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
 }
 
 //

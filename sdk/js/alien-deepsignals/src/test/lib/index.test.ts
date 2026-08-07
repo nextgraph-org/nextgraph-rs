@@ -378,7 +378,9 @@ describe("deepsignal/core", () => {
                 },
                 {
                     syntheticIdPropertyName: "id",
-                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                    onObjectAttached: ({ rawObject: object }) => ({
+                        syntheticId: (object as any).id,
+                    }),
                 }
             );
 

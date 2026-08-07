@@ -12,6 +12,8 @@
 <script setup lang="ts">
 import ExpenseCategories from "./ExpenseCategories.vue";
 import Expenses from "./Expenses.vue";
+
+
 </script>
 
 <template>
@@ -23,6 +25,7 @@ import Expenses from "./Expenses.vue";
                     Organize categories, log purchases. Encrypted and
                     local-first.
                 </p>
+
             </header>
             <div class="section-stack">
                 <ExpenseCategories />

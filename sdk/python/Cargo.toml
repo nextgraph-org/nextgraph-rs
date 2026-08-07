@@ -17,9 +17,9 @@ name = "nextgraphpy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.23.5"
-pyo3-async-runtimes = { version = "0.23", features = ["async-std-runtime"] }
-pythonize = "0.23.0"
+pyo3 = "0.29.0"
+pyo3-async-runtimes = { version = "0.29.0", features = ["async-std-runtime"] }
+pythonize = "0.29.0"
 async-std = "1.12.0"
 serde = { version = "1.0.142", features = ["derive"] }
 nextgraph = { path = "../rust" }

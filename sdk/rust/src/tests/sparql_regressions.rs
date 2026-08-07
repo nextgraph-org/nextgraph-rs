@@ -172,8 +172,8 @@ async fn test_delete_insert_where_after_y_map_commit(session_id: u64) {
         vec![OrmPatch {
             op: OrmPatchOp::add,
             path: "/someDiscreteKey".to_string(),
-            valType: None,
             value: Some(json!("yrs commit marker")),
+            ..Default::default()
         }],
         session_id,
     )

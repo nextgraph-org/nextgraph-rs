@@ -11,8 +11,9 @@
 
 #![allow(non_snake_case)]
 
-use std::{collections::HashMap, sync::Arc};
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 
+use ng_repo::log::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,6 +28,8 @@ pub struct OrmShapeType {
 pub enum OrmPatchOp {
     add,
     remove,
+    #[serde(rename = "move")]
+    move_,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -35,6 +38,14 @@ pub enum OrmPatchType {
     set,
 }
 
+/// Types of possible patches:
+/// For discrete ORM, things are just like regular JSON patches.
+/// For graph ORM:
+/// - There is no nesting, the path's first segment is a composite of `<graph NURI>|<subject URI>|<shape URI>/<readable predicate name>`
+/// - For adding or removing objects, the path should be `/` and valType `set`. Value should contain `@graph` and `@id` (and `@shape` when adding objects).
+/// - For linking nested objects to their parents, Make an `add` with a value containing, @graph, @id, @shape.
+/// - The path should be `<graph NURI>|<subject URI>|<shape URI>/<readable predicate name>`
+/// - if valType equals `set`, the values under that path are a set. This can be true for literals and objects
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmPatch {
     pub op: OrmPatchOp,
@@ -42,7 +53,21 @@ pub struct OrmPatch {
     pub valType: Option<OrmPatchType>,
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<serde_json::Value>, // TODO: Improve type
+    pub from: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<serde_json::Value>,
+}
+
+impl Default for OrmPatch {
+    fn default() -> Self {
+        Self {
+            op: OrmPatchOp::remove,
+            path: String::new(),
+            valType: None,
+            from: None,
+            value: None,
+        }
+    }
 }
 
 pub type OrmPatches = Vec<OrmPatch>;
@@ -65,12 +90,43 @@ pub enum OrmSchemaValType {
     shape,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BasicType {
     Bool(bool),
     Num(f64),
     Str(String),
+}
+
+impl PartialEq for BasicType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (BasicType::Num(a), BasicType::Num(b)) => {
+                // Usually nan is != nan
+                if a.is_nan() && b.is_nan() {
+                    true
+                } else {
+                    a == b
+                }
+            }
+            (BasicType::Str(a), BasicType::Str(b)) => a == b,
+            (BasicType::Bool(a), BasicType::Bool(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for BasicType {}
+
+impl PartialOrd for BasicType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (BasicType::Num(a), BasicType::Num(b)) => a.partial_cmp(b),
+            (BasicType::Str(a), BasicType::Str(b)) => a.partial_cmp(b),
+            (BasicType::Bool(a), BasicType::Bool(b)) => a.partial_cmp(b),
+            _ => None, // Different types are not comparable.
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -101,32 +157,116 @@ impl OrmSchemaPredicate {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize, Copy)]
+pub enum OrderDirection {
+    #[serde(rename = "asc")]
+    Ascending,
+    #[serde(rename = "desc")]
+    Descending,
+}
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct OrderKey {
+    pub val_types: Vec<(BasicType, OrderDirection)>,
+}
+
+/// Iterate over all items in val_types.
+/// Take OrderDirection in to consideration (reverses greater / less comparisons).
+/// If lengths mismatch but previous values do, the longer one is considered greater.
+fn order_key_partial_cmp(first: &OrderKey, other: &OrderKey) -> Option<std::cmp::Ordering> {
+    for i in 0..usize::max(first.val_types.len(), other.val_types.len()) {
+        let self_current_val_op = first.val_types.get(i);
+        let other_current_val_op = other.val_types.get(i);
+
+        if let Some(self_current_val) = self_current_val_op {
+            if let Some(other_current_val) = other_current_val_op {
+                let direction = self_current_val.1.clone();
+                if direction != other_current_val.1 {
+                    // Conflicting order directions. Not comparable.
+                    return None;
+                }
+
+                let cmp_res_op = self_current_val.0.partial_cmp(&other_current_val.0);
+                if let Some(cmp_res) = cmp_res_op {
+                    if cmp_res == Ordering::Equal {
+                        // This position is equal, check secondary/next order-by values.
+                        continue;
+                    } else if direction == OrderDirection::Ascending {
+                        return Some(cmp_res);
+                    } else {
+                        // direction == OrderDirection::Descending
+                        if cmp_res == Ordering::Greater {
+                            return Some(Ordering::Less);
+                        } else {
+                            return Some(Ordering::Greater);
+                        }
+                    }
+                } else {
+                    // Compared values were of different type.
+                    return None;
+                }
+            } else {
+                // Self is longer thus greater.
+                return Some(std::cmp::Ordering::Greater);
+            }
+        } else {
+            // other_current_val_op.is_some()
+            // Self is shorter thus less.
+            return Some(std::cmp::Ordering::Less);
+        }
+    }
+
+    Some(Ordering::Equal)
+}
+impl PartialOrd for OrderKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        order_key_partial_cmp(self, other)
+    }
+}
+impl Ord for OrderKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if let Some(res) = order_key_partial_cmp(self, other) {
+            res
+        } else {
+            log_err!(
+                "Compared two incomparable values:\nself: {:?}\nother: {:?}",
+                self,
+                other
+            );
+            panic!("Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared.")
+        }
+        // expect(
+        // "Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared."
+        // )
+    }
+}
+
 pub type WhereConfig = serde_json::Value;
 pub type SelectConfig = serde_json::Value;
-type IsAscending = bool;
-pub type OrderByConfig = Vec<(Arc<OrmSchemaPredicate>, IsAscending)>;
+pub type IsAscending = bool;
+pub type OrderByConfig = Vec<(Arc<OrmSchemaPredicate>, OrderDirection)>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmConfig {
     pub where_: Option<WhereConfig>,
     pub order_by: Option<OrderByConfig>,
     pub select: Option<SelectConfig>,
     /// No paging == 0
-    pub page_size: u64,
+    pub page_size: usize,
     /// Infinite == 0
-    pub max_active_pages: u64,
+    pub max_active_pages: usize,
 }
 impl OrmConfig {
     /// Parse OrmConfig from json.
     pub fn from_json(
-        // TODO: Use json in libwasm context.
         config: &serde_json::Value,
         shape_type: &OrmShapeType,
     ) -> Result<OrmConfig, String> {
         let config_obj = config.as_object().ok_or("Orm config must be an object")?;
 
         // Parse orderBy config
-        let order_by: Option<OrderByConfig> = if let Some(order_by_obj) = config_obj.get("orderBy")
+        let order_by: Option<OrderByConfig> = if let Some(order_by_obj) = config_obj
+            .get("orderBy")
+            .map_or(None, |ob| if ob.is_null() { None } else { Some(ob) })
         {
             let parsed = Self::parse_order_by(order_by_obj)?;
             let mut order_by_config: OrderByConfig = Vec::with_capacity(parsed.len());
@@ -143,7 +283,17 @@ impl OrmConfig {
                         "Predicate not found in orderBy config: {}",
                         readable_pred
                     ))?;
-                order_by_config.push((found_pred.clone(), is_asc));
+                if found_pred.maxCardinality != 1 || found_pred.minCardinality != 1 {
+                    return Err("Orm config order by properties must have cardinality 1.".into());
+                }
+                order_by_config.push((
+                    Arc::clone(found_pred),
+                    if is_asc {
+                        OrderDirection::Ascending
+                    } else {
+                        OrderDirection::Descending
+                    },
+                ));
             }
             Some(order_by_config)
         } else {
@@ -153,7 +303,7 @@ impl OrmConfig {
         let page_size = config_obj
             .get("pageSize")
             .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+            .unwrap_or(0) as usize;
 
         if page_size > 0 && order_by.is_none() {
             return Err("If page size is set and > 0, orderBy must be set too.".into());
@@ -161,7 +311,7 @@ impl OrmConfig {
         let max_active_pages = config_obj
             .get("maxActivePages")
             .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+            .unwrap_or(0) as usize;
 
         Ok(OrmConfig {
             where_: config_obj.get("where").cloned(),
@@ -174,7 +324,7 @@ impl OrmConfig {
 
     /// Returns a Vec<(property name, is_asc)>
     fn parse_order_by(order_by: &serde_json::Value) -> Result<Vec<(String, bool)>, String> {
-        /// For a Value::Object {propertyToOrderBy: "asc" | "desc"}, return Ok("property", is_asc)
+        /// For a Value::Object {<propertyToOrderBy>: "asc" | "desc"}, return Ok("property", is_asc)
         fn parse_obj(
             obj: &serde_json::Map<String, serde_json::Value>,
         ) -> Result<(String, bool), String> {
@@ -213,10 +363,19 @@ impl OrmConfig {
                 }
                 Ok(out)
             }
-            _ => Err(
-                "When defined, order by config must be an object or an array of objects"
-                    .to_string(),
-            ),
+            _ => Err(format!(
+                "When defined, order by config must be an object or an array of objects. Got: {:?}",
+                order_by
+            )),
+        }
+    }
+
+    /// Returns Some(page_size * max_active_pages), if both are set, else None.
+    pub fn max_allowed_items(&self) -> Option<usize> {
+        if self.max_active_pages > 0 && self.page_size > 0 {
+            Some(self.max_active_pages * self.page_size)
+        } else {
+            None
         }
     }
 }

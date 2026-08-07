@@ -115,13 +115,16 @@ const EMPTY_OBJECT = {} as const;
  * ```
  */
 
-export function useDiscrete<T = DiscreteRoot>(documentId: string | undefined) {
-    const prevDocumentId = useRef<string | undefined>(undefined);
-    const prevOrmSubscription = useRef<DiscreteOrmSubscription | undefined>(
+export function useDiscrete<
+    T extends DiscreteRoot = DiscreteRoot,
+    DocId extends DocumentId = DocumentId,
+>(documentId: DocId): UseDiscreteResult<T, DocId> {
+    const prevDocumentId = useRef<DocumentId>(undefined);
+    const prevOrmSubscription = useRef<DiscreteOrmSubscription<T> | undefined>(
         undefined
     );
 
-    const ormConnection = useMemo(() => {
+    const subscription = useMemo(() => {
         // Close previous connection if documentId changed.
         if (
             prevOrmSubscription.current &&
@@ -157,15 +160,57 @@ export function useDiscrete<T = DiscreteRoot>(documentId: string | undefined) {
     }, []);
 
     // useDeepSignal requires an object, so pass empty object when no connection.
-    const signalSource = ormConnection?.signalObject ?? EMPTY_OBJECT;
-    const deepSignalValue = useDeepSignal(signalSource, {
+    const signalSource = subscription?.signalObject ?? EMPTY_OBJECT;
+    const deepSignalProxy = useDeepSignal(signalSource, {
         replaceProxiesInBranchOnChange: true,
     }) as DeepSignal<T>;
 
+    if (!documentId || !subscription) {
+        return {
+            doc: undefined,
+            isLoading: false,
+            promise: undefined,
+            subscription: undefined,
+        } as UseDiscreteResult<T, DocId>;
+    }
+
     // Only return doc if we have a valid connection with a signal object.
-    const docOrUndefined = ormConnection?.signalObject
-        ? deepSignalValue
+    const docOrUndefined = subscription.signalObject
+        ? deepSignalProxy
         : undefined;
 
-    return { doc: docOrUndefined };
+    return {
+        doc: docOrUndefined,
+        isLoading: !subscription.isReady,
+        promise: subscription.readyPromise,
+        subscription: subscription,
+    } as UseDiscreteResult<T, DocId>;
 }
+
+type UseDiscreteResult<
+    T extends DiscreteRoot,
+    DocId extends string | undefined,
+> = {
+    /**
+     * `true` when no data is available yet and `conf` is not `undefined`.
+     */
+    isLoading: boolean;
+    /**
+     * The requested data, once loaded.
+     *
+     * This object is the value returned by {@link DiscreteOrmSubscription.signalObject} with the following exception:
+     * To capture modifications to it in react, the root is a proxy that is replaced on every relevant rerender.
+     */
+    doc: DeepSignal<T> | undefined;
+    /**
+     * A promise that resolves once the data is loaded.
+     * Note that if `conf` is `undefined`, this property is `undefined`.
+     */
+    promise: DocId extends undefined ? undefined : Promise<DeepSignal<T>>;
+    /** The underlying {@link DiscreteOrmSubscription} through which the data is loaded. */
+    subscription: DocId extends undefined
+        ? undefined
+        : DiscreteOrmSubscription<T>;
+};
+
+type DocumentId = string | undefined;

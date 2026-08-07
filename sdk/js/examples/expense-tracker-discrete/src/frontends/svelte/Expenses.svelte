@@ -36,8 +36,8 @@
   const expensesSorted = $derived(
     expenses &&
       [...expenses].sort((a, b) =>
-        a.dateOfPurchase.localeCompare(b.dateOfPurchase),
-      ),
+        a.dateOfPurchase.localeCompare(b.dateOfPurchase)
+      )
   );
 </script>
 

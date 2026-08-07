@@ -41,9 +41,6 @@ export function ExpenseCard({
         : "Date not set";
     const totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
 
-    const categoryKey = (category: ExpenseCategory) =>
-        `${category["@graph"]}|${category["@id"]}`;
-
     const isCategorySelected = (category: ExpenseCategory) =>
         !!expense.expenseCategory?.has(category["@id"]);
 
@@ -213,7 +210,7 @@ export function ExpenseCard({
                             {[...availableCategories].map((category) => (
                                 <label
                                     className="category-option"
-                                    key={categoryKey(category)}
+                                    key={category["@id"]}
                                 >
                                     <input
                                         type="checkbox"

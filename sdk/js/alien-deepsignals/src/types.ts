@@ -10,13 +10,26 @@
 
 import { computed, alienSignal } from "./core.ts";
 import { deepSignal } from "./deepSignal.ts";
+import type { watch } from "./watch.ts";
+import type { readOnlyArray } from "./readOnlyArray.ts";
 
 /** Deep mutation emitted from a deepSignal root. */
 export type DeepPatch = {
-    path: (string | number)[];
+    path: (string | number | symbol)[];
 } & (
-    | { op: "add"; type?: "object" | "set"; value?: any }
-    | { op: "remove"; type?: "set"; value?: any }
+    | {
+          op: "add";
+          type?: "set";
+          /** The value being added, overwritten, or removed */
+
+          value?: any;
+      }
+    | {
+          op: "remove";
+          type?: "set";
+          /** The value being added, overwritten, or removed */
+          value: any;
+      }
 );
 
 /** Batched patch payload tagged with a monotonically increasing version. */
@@ -41,10 +54,12 @@ export type DeepPatchJITSubscriber = (batch: DeepPatchJITBatch) => void;
  */
 export interface DeepSignalOptions {
     /**
-     * An optional function that is called when new objects are attached and
-     * that may return additional properties to be attached.
+     * An optional function that is called when an object, array, or set is attached to a (nested) signal object, set, or array.
+     * The raw object may be modified or replaced by the function.
+     * For sets, a synthetic id may be specified that is used for creating the patches in the {@link watch} callback.
+     * Will also be called on the root object.
      */
-    propGenerator?: DeepSignalPropGenFn;
+    onObjectAttached?: OnObjectAttachedFn;
     /**
      * The property name which should be used as an object identifier in sets.
      * You will see it when patches are generated with a path to an object in a set.
@@ -54,8 +69,8 @@ export interface DeepSignalOptions {
     syntheticIdPropertyName?: string;
     /**
      * Optional: Properties that are made read-only in objects.
-     * Can only be attached by propGenerator or must already be member
-     * of the new object before attaching it.
+     * Can only be attached by `onObjectAttached` callback or must already be set
+     * on the new object before attaching it.
      */
     readOnlyProps?: string[];
     /**
@@ -77,47 +92,61 @@ export type ExternalSubscriberFactory<T = any> = () => {
 };
 
 /**
- * @internal
  *
- * The `propGenerator` function is called when a new object is added to the deep signal tree.
+ * The `onObjectAttached` function is called when an object is added to the deep signal tree.
  * @example
  * ```ts
  * let counter = 0;
  * const state = deepSignal(
  *     { items: new Set() },
  *     {
- *         propGenerator: ({ path, inSet, object }) => ({
- *             syntheticId: inSet
- *                 ? `urn:item:${++counter}`
- *                 : `urn:obj:${path.join("-")}`,
- *             extraProps: { createdAt: new Date().toISOString() },
- *         }),
- *         syntheticIdPropertyName: "@id",
+ *         onObjectAttached: ({ path, inSet, object }) => {
+ *             return {
+ *                 syntheticId: inSet
+ *                     ? `urn:item:${++counter}`
+ *                     : undefined,
+ *                 replaceWith: {
+ *                      createdAt: new Date().toISOString(),
+ *                      name: object.name,
+ *                      bar: object.bar
+ *                 }
+ *             };
+ *         }
  *     }
  * );
  *
- * state.items.add({ name: "Item 1" });
- * // Attaches `{ name: "Item 1", `@id`: "urn:item:1", createdAt: <current date>`
+ * state.items.add({ name: "Item 1", ignoredProp: "won't be added" });
+ * // Attaches `{ name: "Item 1",  createdAt: <current date>}`
  *
  * state.foo = {bar: 42};
- * // Attaches `{bar: 42, "@id": "urn:obj:foo", createdAt: <current date>}`
+ * // Attaches `{bar: 42, createdAt: <current date>}`
  * ```
  */
-export type DeepSignalPropGenFn = (props: {
+export type OnObjectAttachedFn = (props: {
     /**
-     * The path of the newly added object.
+     * The path of the newly added object. In case of sets, the synthetic id is not part of the path.
      */
-    path: (string | number)[];
-    /** Whether the object is being added to a Set (true) or not (false) */
-    inSet: boolean;
-    /** The newly added object itself */
-    object: any;
-}) => {
-    /** A custom identifier for the object (used in Set entry paths and optionally as a property). */
-    syntheticId?: string | number;
-    /** Additional properties to be added to the object (overwriting existing ones). */
-    extraProps?: Record<string, unknown>;
-};
+    path: (string | number | symbol)[];
+    /** The parent object, set, or array that `rawObject` is being added to. */
+    rawParent: Set<any> | Record<string, any> | any[];
+    /** The newly added, non-proxied raw object. You may modify it. */
+    rawObject: Record<string, any> | Set<any> | any[];
+    /** @ignore Signal object metadata containing the parent hierarchy. */
+    meta: ProxyMeta;
+}) =>
+    | void
+    | undefined
+    | {
+          /** A custom identifier for the object (used in Set entry paths and optionally as a property). */
+          syntheticId?: string | number;
+          /**
+           * By returning a replaceObject, you can intercept what is added to the raw object. The original object won't be used.
+           * The value may be a signal in which case, the underlying raw object is attached.
+           *
+           * If left undefined / unset, the original object is attached (which you may still modify).
+           */
+          replaceWith?: any;
+      };
 
 /**@ignore*/
 export interface ProxyMeta {
@@ -127,13 +156,12 @@ export interface ProxyMeta {
     isSyntheticId?: boolean;
     root: symbol;
     options: DeepSignalOptions;
-    setInfo?: SetMeta;
 }
 
 /** @hidden */
 export interface SetMeta {
-    idForObject: WeakMap<object, string>;
-    objectForId: Map<string, object>;
+    objectToId: WeakMap<object, string | number | symbol>;
+    idToObject: Map<string | number | symbol, object>;
 }
 
 /**@ignore*/
@@ -253,3 +281,50 @@ export type UnwrapDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
 export type MaybeSignal<T = any> = T | ReturnType<typeof alienSignal>;
 /** Union allowing value, writable signal, computed signal or plain getter function. */
 export type MaybeSignalOrComputed<T = any> = MaybeSignal<T> | (() => T);
+
+/**
+ * An array that does not allow modifications.
+ * You can modify it's values but adding, moving, or removing elements is not allowed.
+ *
+ * You can generate a ReadOnlyArray using {@link readOnlyArray}.
+ */
+export type ReadOnlyArray<T> = Omit<Array<T>, ModifyingArrayFns> & {
+    /** Gets the length of the array. This is a number one higher than the highest index in the array. */
+    length: number;
+};
+
+type ModifyingArrayFns = Exclude<keyof Array<any>, NonModifyingArrayKeys>;
+
+type NonModifyingArrayKeys =
+    | "at"
+    | "concat"
+    | "entries"
+    | "findIndex"
+    | "findLast"
+    | "findLastIndex"
+    | "flat"
+    | "indexOf"
+    | "join"
+    | "keys"
+    | "lastIndexOf"
+    | "reduceRight"
+    | "toLocaleString"
+    | "toReversed"
+    | "toSorted"
+    | "toLocaleString"
+    | "values"
+    | "with"
+    | "toString"
+    | "toSpliced"
+    | "filter"
+    | "map"
+    | "flatMap"
+    | "every"
+    | "forEach"
+    | "find"
+    | "some"
+    | "reduce"
+    | "includes"
+    | "copyWithin"
+    | typeof Symbol.iterator
+    | number;

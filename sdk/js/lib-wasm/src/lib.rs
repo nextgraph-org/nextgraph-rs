@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use wasm_bindgen::JsValue;
 
 use nextgraph::net::app_protocol::AppRequest;
 use nextgraph::net::app_protocol::NuriV0;
@@ -1923,7 +1924,8 @@ pub async fn doc_subscribe(
     app_request_stream_(request, callback).await
 }
 
-/// Not to be used by frontend directly.
+/// **Not to be used by frontend directly.**
+///
 /// Use a useShape hook or DiscreteOrmSubscription to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn orm_start_discrete(
@@ -1945,7 +1947,8 @@ pub async fn orm_start_discrete(
     app_request_stream_(request, callback).await
 }
 
-/// Not to be used by frontend directly.
+/// **Not to be used by frontend directly.**
+///
 /// Use a useShape hook or OrmSubscription to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn orm_start_graph(
@@ -1953,8 +1956,11 @@ pub async fn orm_start_graph(
     subject_scope: Array,
     shapeType: JsValue,
     session_id: JsValue,
+    config: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
+    // TODO: Move graph and subject scope to config as well.
+
     let graph_scope: Vec<String> = graph_scope.iter().map(|s| s.as_string().unwrap()).collect();
     let subject_scope: Vec<String> = subject_scope
         .iter()
@@ -1963,6 +1969,8 @@ pub async fn orm_start_graph(
 
     let shape_type: OrmShapeType = serde_wasm_bindgen::from_value::<OrmShapeType>(shapeType)
         .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
+    let config: serde_json::Value = serde_wasm_bindgen::from_value(config)
+        .map_err(|e| format!("Deserialization error of config {e}"))?;
     let session_id: u64 =
         serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
             format!(
@@ -1972,7 +1980,8 @@ pub async fn orm_start_graph(
         })?;
 
     let graph_nuris: Vec<NuriV0> = if graph_scope.is_empty() {
-        vec![NuriV0::new_entire_user_site()]
+        // Empty graph scope means: "Don't subscribe to any changes / object, open for insertions only".
+        vec![]
     } else {
         let mut graph_nuris = vec![];
         for gs in graph_scope {
@@ -1987,12 +1996,15 @@ pub async fn orm_start_graph(
         graph_nuris
     };
 
-    let mut request = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type);
+    let config = OrmConfig::from_json(&config, &shape_type)?;
+    let mut request =
+        AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type, config);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }
 
-/// Not to be used by frontend directly.
+/// **Not to be used by frontend directly.**
+///
 /// Use a useShape hook or OrmSubscription to establish ORM subscriptions
 #[wasm_bindgen]
 pub async fn graph_orm_update(
@@ -2026,8 +2038,10 @@ pub async fn graph_orm_update(
     Ok(())
 }
 
-/// Not to be used by frontend directly.
+/// **Not to be used by frontend directly.**
+///
 /// Use a useShape hook or DiscreteOrmSubscription to establish ORM subscriptions
+/// and modify the objects, to propagate the updates.
 #[wasm_bindgen]
 pub async fn discrete_orm_update(
     subscription_id: JsValue,
@@ -2053,6 +2067,68 @@ pub async fn discrete_orm_update(
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
 
     let mut request = AppRequest::new_orm_discrete_update(subscription_id, diff);
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    Ok(())
+}
+
+/// **Not to be used by frontend directly.**
+///
+/// Call the OrmSubscription object's `nextPage()` function.
+#[wasm_bindgen]
+pub async fn graph_orm_next_page(
+    subscription_id: JsValue,
+    session_id: JsValue,
+) -> Result<(), String> {
+    let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
+        .map_err(|_| {
+            format!(
+                "Deserialization error of subscription_id {:?} graph_orm_update",
+                subscription_id
+            )
+        })?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} graph_orm_update",
+                session_id
+            )
+        })?;
+    let mut request = AppRequest::new_orm_graph_next_page(subscription_id);
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    Ok(())
+}
+
+/// **Not to be used by frontend directly.**
+///
+/// Call the OrmSubscription object's `previousPage()` function.
+#[wasm_bindgen]
+pub async fn graph_orm_previous_page(
+    subscription_id: JsValue,
+    session_id: JsValue,
+) -> Result<(), String> {
+    let subscription_id: u64 = serde_wasm_bindgen::from_value::<u64>(subscription_id.clone())
+        .map_err(|_| {
+            format!(
+                "Deserialization error of subscription_id {:?} graph_orm_update",
+                subscription_id
+            )
+        })?;
+    let session_id: u64 =
+        serde_wasm_bindgen::from_value::<u64>(session_id.clone()).map_err(|_| {
+            format!(
+                "Deserialization error of session_id {:?} graph_orm_update",
+                session_id
+            )
+        })?;
+    let mut request = AppRequest::new_orm_graph_previous_page(subscription_id);
     request.set_session_id(session_id);
 
     let response = nextgraph::local_broker::app_request(request)

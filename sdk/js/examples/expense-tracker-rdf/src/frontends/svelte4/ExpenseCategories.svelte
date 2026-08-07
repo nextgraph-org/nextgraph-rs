@@ -16,11 +16,14 @@
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
+  const { data: expenseCategories } = useShape(
+    ExpenseCategoryShapeType,
+    privateNuri
+  );
 
   async function createCategory() {
     const session = await sessionPromise;
-    $expenseCategories.add({
+    $expenseCategories?.add({
       "@graph": `did:ng:${session.private_store_id}`,
       "@type": new Set(["did:ng:z:ExpenseCategory"]),
       "@id": "",
@@ -28,9 +31,6 @@
       description: "",
     });
   }
-
-  const categoryKey = (category: any) =>
-    `${category["@graph"]}|${category["@id"]}`;
 </script>
 
 <section class="panel">
@@ -48,11 +48,13 @@
       </button>
     </div>
   </header>
-  {#if !$expenseCategories.size}
+  {#if !$expenseCategories}
+    <p class="muted">Loading...</p>
+  {:else if $expenseCategories.size === 0}
     <p class="muted">No categories yet</p>
   {:else}
     <div class="cards-grid">
-      {#each $expenseCategories as category (categoryKey(category))}
+      {#each $expenseCategories as category (category["@id"])}
         <ExpenseCategoryCard {category} />
       {/each}
     </div>

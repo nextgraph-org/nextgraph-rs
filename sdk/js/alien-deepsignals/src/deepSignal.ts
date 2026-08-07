@@ -63,7 +63,6 @@ const rootStates = new Map<symbol, RootState>();
 const pendingRoots = new Set<symbol>();
 const supported = new Set([Object, Array, Set]);
 let blankNodeCounter = 0;
-let tmpIdCounter = 0;
 const wellKnownSymbols = new Set<symbol>([
     Symbol.asyncDispose,
     Symbol.asyncIterator,
@@ -82,7 +81,8 @@ const wellKnownSymbols = new Set<symbol>([
     Symbol.toStringTag,
     Symbol.unscopables,
 ]);
-const forcedSyntheticIds = new WeakMap<object, string>();
+
+const syntheticIds: WeakMap<Set<any>, SetMeta> = new Map();
 
 export const META_KEY = "__meta__" as const;
 export const RAW_KEY = "__raw__" as const;
@@ -209,10 +209,7 @@ function ensureProxiedGetter(
 
 /** Escape JSON-pointer-like path segments so patches remain unambiguous. */
 function escapePathSegment(segment: string): string {
-    return segment
-        .replace(/~/g, "~0")
-        .replace(/\//g, "~1")
-        .replace(/\|/g, "~2");
+    return segment.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
 /** Filter out well-known symbols that should bypass reactivity. */
@@ -340,117 +337,116 @@ function schedulePatch(
 }
 
 /**
- * Apply the user-provided propGenerator result, injecting synthetic IDs and extra props.
+ * Recursively apply meta.options.onObjectAttached results to new objects, if applicable.
+ * For sets, adds the synthetic ids (from prop generator, syntheticIdPropertyName or a new one).
  */
-function applyPropGeneratorResult(
+function prepareObjectTree(
     meta: ProxyMeta,
-    value: any,
-    basePath: (string | number)[],
-    inSet: boolean
+    rawValue: any,
+    basePath: (string | number | symbol)[] = [],
+    rawParent: any
 ) {
-    if (
-        !value ||
-        typeof value !== "object" ||
-        value.constructor !== Object ||
-        !meta.options?.propGenerator
-    ) {
-        return;
-    }
-    const result = meta.options.propGenerator({
-        path: basePath,
-        inSet,
-        object: value,
-    });
-    if (result.extraProps) {
-        Object.entries(result.extraProps).forEach(([k, v]) => {
-            value[k] = v;
-        });
-    }
-    if (
-        result.syntheticId !== undefined &&
-        meta.options.syntheticIdPropertyName &&
-        !(meta.options.syntheticIdPropertyName in value)
-    ) {
-        Object.defineProperty(value, meta.options.syntheticIdPropertyName, {
-            value: result.syntheticId,
-            enumerable: true,
-            configurable: false,
-            writable: false,
-        });
-    }
-}
+    if (!rawValue || typeof rawValue !== "object") return rawValue;
 
-/** Recursively add synthetic IDs/extra props from prop generator. */
-function initializeObjectTree(
-    meta: ProxyMeta,
-    value: any,
-    basePath: (string | number)[],
-    inSet: boolean
-) {
-    if (!meta.options?.propGenerator) return;
-    if (!value || typeof value !== "object") return;
-    if (Array.isArray(value)) {
-        value.forEach((entry, idx) => {
-            if (entry && typeof entry === "object") {
-                initializeObjectTree(meta, entry, [...basePath, idx], false);
-            }
-        });
-        return;
-    }
-    if (value instanceof Set) {
-        for (const entry of value) {
-            if (entry && typeof entry === "object") {
-                const synthetic = assignSyntheticId(
-                    meta,
-                    entry,
-                    basePath,
-                    true
-                );
-                initializeObjectTree(
-                    meta,
-                    entry,
-                    [...basePath, synthetic],
-                    true
-                );
+    const idPropName = meta.options.syntheticIdPropertyName;
+
+    // Call onObjectAttached and process results.
+    const propGenRes =
+        (meta.options.onObjectAttached &&
+            meta.options.onObjectAttached({
+                path: basePath,
+                rawParent,
+                rawObject: rawValue,
+                meta,
+            })) ??
+        {};
+
+    if (rawParent) {
+        // Handle synthetic ids.
+
+        const setInfo = ensureSetInfo(rawParent);
+        let syntheticId = setInfo.objectToId.get(rawValue);
+
+        // Set the synthetic id for the set.
+        if (propGenRes.syntheticId) {
+            // If a new one was generated, use that one.
+            syntheticId = propGenRes.syntheticId;
+        } else if (syntheticId === undefined) {
+            // Otherwise, default to the syntheticIdPropertyName...
+            if (idPropName && rawValue[idPropName]) {
+                syntheticId = rawValue[idPropName];
+            } else {
+                // ...or a generated one.
+                syntheticId = `_s${++blankNodeCounter}`;
             }
         }
-        return;
+
+        setInfo.objectToId.set(rawValue, syntheticId!);
+        setInfo.idToObject.set(syntheticId!, rawValue);
+        basePath = [...basePath, syntheticId!];
     }
-    if (value.constructor !== Object) return;
 
-    applyPropGeneratorResult(meta, value, basePath, inSet);
+    // Do not recurse if already a signal object
+    if (rawToMeta.has(rawValue)) return rawValue;
 
-    Object.keys(value).forEach((childKey) => {
-        if (childKey === meta.options.syntheticIdPropertyName) return;
-        const child = value[childKey];
+    // Handle arrays.
+    if (Array.isArray(rawValue)) {
+        rawValue.forEach((entry, idx) => {
+            if (entry && typeof entry === "object") {
+                rawValue[idx] = prepareObjectTree(
+                    meta,
+                    entry,
+                    [...basePath, idx],
+                    rawValue
+                );
+            }
+        });
+        return rawValue;
+    }
+
+    // Handle sets.
+    if (rawValue instanceof Set) {
+        for (const entry of rawValue) {
+            if (entry && typeof entry === "object") {
+                let path = basePath;
+
+                const newVal = prepareObjectTree(meta, entry, path, rawValue);
+                if (newVal !== entry) {
+                    rawValue.delete(entry);
+                    rawValue.add(newVal);
+                }
+            }
+        }
+        return rawValue;
+    }
+
+    // rawValue of other type (e.g. Map)?
+    if (rawValue.constructor !== Object) return rawValue;
+
+    Object.keys(rawValue).forEach((childKey) => {
+        if (childKey === idPropName) return;
+        // Don't call getters.
+        const desc = Object.getOwnPropertyDescriptor(rawValue, childKey);
+        if (desc && typeof desc.get === "function") return;
+
+        const child = rawValue[childKey];
         if (child && typeof child === "object") {
-            initializeObjectTree(meta, child, [...basePath, childKey], false);
+            rawValue[childKey] = prepareObjectTree(
+                meta,
+                child,
+                [...basePath, childKey],
+                rawValue
+            );
         }
     });
-}
 
-/** Apply prop generator side-effects only when the root has no live subscribers. */
-function initializeObjectTreeIfNoListeners(
-    meta: ProxyMeta | undefined,
-    basePath: (string | number)[] | undefined,
-    value: any,
-    inSet: boolean
-) {
-    if (!meta || !meta.options?.propGenerator) return;
-    if (!value || typeof value !== "object") return;
-    const state = rootStates.get(meta.root);
-    if (
-        state &&
-        (state.listeners.size > 0 || state.justInTimeListeners.size > 0)
-    )
-        return;
-    initializeObjectTree(meta, value, basePath ?? [], inSet);
+    return rawValue;
 }
 
 /**
  * Return (or create) a proxy for a property value.
  * Ensures the linkage between parent and child in metadata.
- * Does not proxy and returns `value` if @see shouldProxy returns false.
+ * Does not proxy and returns `value` if {@link shouldProxy} returns false.
  * Assumes parent has proxy.
  */
 function ensureChildProxy<T>(
@@ -464,15 +460,9 @@ function ensureChildProxy<T>(
     const parentRaw = parent[RAW_KEY] || parent;
     const parentMeta = rawToMeta.get(parentRaw)!;
 
-    // Child is already proxied, ensure the linkage from parent to child.
+    // Child is already proxied, nothing more to do.
     if (rawToProxy.has(rawChild)) {
         const proxied = rawToProxy.get(rawChild);
-        const proxiedMeta = rawToMeta.get(rawChild);
-        if (proxiedMeta) {
-            proxiedMeta.parent = parentMeta;
-            proxiedMeta.key = key;
-            proxiedMeta.isSyntheticId = isSyntheticId;
-        }
         return proxied;
     }
 
@@ -492,103 +482,31 @@ function ensureChildProxy<T>(
  * Sets `idForObject: new WeakMap(), objectForId: new Map()`
  * to `meta.setInfo` if it does not exist yet.
  */
-function ensureSetInfo(meta: ProxyMeta): SetMeta {
-    if (!meta.setInfo) {
-        meta.setInfo = {
-            idForObject: new WeakMap(),
-            objectForId: new Map(),
+function ensureSetInfo(rawValue: Set<any>): SetMeta {
+    let setInfo = syntheticIds.get(rawValue);
+    if (!setInfo) {
+        setInfo = {
+            objectToId: new Map(),
+            idToObject: new Map(),
         };
+        syntheticIds.set(rawValue, setInfo);
     }
-    return meta.setInfo;
+
+    return setInfo;
 }
 
 /**
- * Assign (or reuse) a synthetic identifier for a Set entry, respecting user options:
- * - Use user-provided propGenerator for synthetic ids and add add returned extra properties
- * - Check if the object has a property of `syntheticIdPropertyName` (default `@id`)
- * - Use a blank node ID as a fallback.
- * - Add object and ID to `idForObject` and `objectForId` maps.
+ * Gets the set info (synthetic id maps) for a given object and its set.
  */
-function assignSyntheticId(
-    meta: ProxyMeta,
-    entry: any,
-    path: (string | number)[],
-    inSet: boolean
-) {
-    const rawEntry: any = entry?.[RAW_KEY] ?? entry;
+function getSyntheticId(entry: any, rawSet: Set<any>) {
+    let rawEntry: any = entry?.[RAW_KEY] ?? entry;
     if (!rawEntry || typeof rawEntry !== "object") {
         return rawEntry as string | number;
     }
 
-    const info = ensureSetInfo(meta);
-    if (info.idForObject.has(rawEntry)) return info.idForObject.get(rawEntry)!;
+    const info = ensureSetInfo(rawSet);
 
-    let synthetic: string | number | undefined =
-        forcedSyntheticIds.get(rawEntry);
-
-    const generatorValue = meta.options?.propGenerator?.({
-        path,
-        inSet,
-        object: rawEntry,
-    });
-
-    // If the propGenerator returned a syntheticId, use it.
-    if (synthetic === undefined && generatorValue?.syntheticId !== undefined) {
-        synthetic = generatorValue.syntheticId;
-    }
-
-    // Add extra props from propGenerator (if present).
-    if (
-        generatorValue?.extraProps &&
-        rawEntry &&
-        typeof rawEntry === "object"
-    ) {
-        Object.entries(generatorValue.extraProps).forEach(([k, v]) => {
-            rawEntry[k] = v;
-        });
-    }
-
-    const idPropName = meta.options?.syntheticIdPropertyName;
-    // If synthetic id is still undefined, try to get it
-    // from `syntheticIdPropertyName` (default `@id` property).
-    if (
-        synthetic === undefined &&
-        idPropName &&
-        rawEntry &&
-        typeof rawEntry === "object" &&
-        rawEntry[idPropName] !== undefined
-    ) {
-        synthetic = rawEntry[idPropName];
-    }
-
-    // If `synthetic` still undefined, add a blank node id.
-    if (synthetic === undefined) {
-        synthetic = `_s${++blankNodeCounter}`;
-    }
-
-    const idString = String(synthetic);
-
-    // Add mappings for `id -> object` and `object -> id`.
-    info.idForObject.set(rawEntry, idString);
-    info.objectForId.set(idString, rawEntry);
-
-    // Add synthetic id to `idPropertyName` property (default `@id`)
-    // if not set.
-    if (
-        idPropName &&
-        rawEntry &&
-        typeof rawEntry === "object" &&
-        !(idPropName in rawEntry)
-    ) {
-        Object.defineProperty(rawEntry, idPropName, {
-            value: idString,
-            enumerable: true,
-            configurable: false,
-            writable: false,
-        });
-    }
-
-    return idString;
+    return info.objectToId.get(rawEntry);
 }
 
 /** Create the appropriate proxy (object vs Set) and track its metadata. */
@@ -598,7 +516,8 @@ function createProxy<T extends object>(
     options: DeepSignalOptions,
     parentMeta?: ProxyMeta,
     key?: PropertyKey,
-    isSyntheticId?: boolean
+    isSyntheticId?: boolean,
+    isRoot = false
 ): DeepSignal<T> {
     const handlers = target instanceof Set ? setHandlers : objectHandlers;
     const proxy = new Proxy(target, handlers);
@@ -611,17 +530,15 @@ function createProxy<T extends object>(
         options,
     };
 
+    // Only prepare for new signal objects. If this is just creating a new proxy for an object already attached, do nothing.
+    if (isRoot) prepareObjectTree(meta, target, [], target);
+
     getOrCreateSignalMap(target);
     rawToMeta.set(target, meta);
     rawToProxy.set(target, proxy);
 
-    // if (target.sealedArray) {
-    //     proxyVersionsForSealedArrayObj.add(target);
-    //     proxyVersionsForSealedArrayObj.add(proxy);
-    // }
     return proxy as DeepSignal<T>;
 }
-const proxyVersionsForSealedArrayObj = new Set<any>();
 
 /** Return primitive literals (string/number/boolean) for patch serialization. */
 function snapshotLiteral(value: any) {
@@ -636,19 +553,23 @@ function snapshotLiteral(value: any) {
 }
 
 /**
- * Emit a recursive patch sequence for a whole object, array, or set
+ * Create a recursive patch sequence for a whole object, array, or set
  * that was added to the deepSignal object.
  *
  */
-function emitPatchesForNew(
-    value: any,
+function createPatchesForNew(
+    rawValue: any,
     meta: ProxyMeta,
-    basePath: (string | number)[],
-    inSet = false
+    basePath: (string | number | symbol)[],
+    inSet = false,
+    valueWasDeepSignal: boolean
 ): DeepPatch[] {
-    applyPropGeneratorResult(meta, value, basePath, inSet);
-    if (value === null || value === undefined || typeof value !== "object") {
-        const literal = snapshotLiteral(value);
+    if (
+        rawValue === null ||
+        rawValue === undefined ||
+        typeof rawValue !== "object"
+    ) {
+        const literal = snapshotLiteral(rawValue);
         if (literal === undefined) return [];
         return [
             {
@@ -658,20 +579,34 @@ function emitPatchesForNew(
             },
         ];
     }
+    // Is value a deep signal object? Return an add patch of the proxy without recursing as-is.
+    if (valueWasDeepSignal) {
+        const raw = rawValue[RAW_KEY] ?? rawValue;
+        const proxy = rawToProxy.get(raw);
+        return [
+            {
+                path: basePath,
+                op: "add",
+                value: proxy,
+                type: inSet ? "set" : undefined,
+            },
+        ];
+    }
+
     const patches: DeepPatch[] = [
         {
             path: basePath,
             op: "add",
-            value: value instanceof Set || Array.isArray(value) ? [] : {},
-            type: value instanceof Set ? "set" : undefined,
+            value: rawValue instanceof Set || Array.isArray(rawValue) ? [] : {},
+            ...(rawValue instanceof Set ? { type: "set" } : {}),
         },
     ];
 
     // The id property name, usually `@id`
     const idPropName = meta.options.syntheticIdPropertyName!;
 
-    if (idPropName in value) {
-        const literal = snapshotLiteral(value[idPropName]);
+    if (idPropName in rawValue) {
+        const literal = snapshotLiteral(rawValue[idPropName]);
         if (literal !== undefined) {
             patches.push({
                 path: [...basePath, idPropName],
@@ -682,31 +617,40 @@ function emitPatchesForNew(
     }
 
     // For array, recurse
-    if (Array.isArray(value)) {
-        value.forEach((entry, idx) => {
-            patches.push(...emitPatchesForNew(entry, meta, [...basePath, idx]));
-        });
-    } else if (value instanceof Set) {
-        const setMeta = ensureSetInfo(meta);
-        for (const entry of value) {
-            if (entry && typeof entry === "object") {
-                const synthetic = assignSyntheticId(
+    if (Array.isArray(rawValue)) {
+        rawValue.forEach((childVal, idx) => {
+            const childValIsDeepSignal =
+                !!childVal?.[RAW_KEY] || rawToMeta.has(childVal);
+
+            patches.push(
+                ...createPatchesForNew(
+                    childVal,
                     meta,
-                    entry,
-                    basePath,
-                    true
-                );
-                setMeta.objectForId.set(String(synthetic), entry);
+                    [...basePath, idx],
+                    false,
+                    childValIsDeepSignal
+                )
+            );
+        });
+    } else if (rawValue instanceof Set) {
+        const setMeta = ensureSetInfo(rawValue);
+        for (const setValue of rawValue) {
+            if (setValue && typeof setValue === "object") {
+                const synthetic = getSyntheticId(setValue, rawValue)!;
+                const entryIsDeepSignal =
+                    !!setValue?.[RAW_KEY] || rawToMeta.has(setValue);
+
                 patches.push(
-                    ...emitPatchesForNew(
-                        entry,
+                    ...createPatchesForNew(
+                        setValue,
                         meta,
                         [...basePath, synthetic],
-                        true
+                        true,
+                        entryIsDeepSignal
                     )
                 );
             } else {
-                const literal = snapshotLiteral(entry);
+                const literal = snapshotLiteral(setValue);
                 if (literal !== undefined) {
                     patches.push({
                         path: basePath,
@@ -718,13 +662,21 @@ function emitPatchesForNew(
             }
         }
     } else {
-        Object.keys(value).forEach((childKey) => {
+        Object.keys(rawValue).forEach((childKey) => {
             if (childKey === idPropName) return;
+            const childVal = rawValue[childKey];
+
+            const childValIsDeepSignal =
+                !!childVal?.[RAW_KEY] || rawToMeta.has(childVal);
+
             patches.push(
-                ...emitPatchesForNew(value[childKey], meta, [
-                    ...basePath,
-                    childKey,
-                ])
+                ...createPatchesForNew(
+                    childVal,
+                    meta,
+                    [...basePath, childKey],
+                    false,
+                    childValIsDeepSignal
+                )
             );
         });
     }
@@ -785,15 +737,25 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
         return target.toSorted;
     } else if (key === "shift") {
         return () => {
-            target.shift();
+            const removed = target.shift();
 
             schedulePatch(meta, () => ({
                 op: "remove",
                 path: buildPath(meta, "0"),
+                value: rawToProxy.get(removed) ?? removed,
             }));
 
             // Update length of proxy explicitly.
             receiver.length = target.length;
+
+            // Update the keys of all other items in array.
+            for (let i = 0; i < target.length; i++) {
+                const rawItem = target[i];
+                const meta = rawToMeta.get(rawItem);
+                if (meta) {
+                    meta.key = String(i);
+                }
+            }
 
             // Refresh numeric index signals so shifted indices don't return stale values.
             refreshNumericIndexSignals(meta, target, receiver);
@@ -803,6 +765,17 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             // Call splice on (non-proxied) target.
             const deletedItems = target.splice(start, deleteCount, ...items);
 
+            // Update meta.key for each item whose index shifted.
+
+            // Update the keys of items whose index was shifted.
+            for (let i = start + items.length; i < target.length; i++) {
+                const rawItem = target[i];
+                const meta = rawToMeta.get(rawItem);
+                if (meta) {
+                    meta.key = String(i);
+                }
+            }
+
             // Manually schedule patches.
             schedulePatch(meta, () => {
                 const patches: DeepPatch[] = [];
@@ -811,6 +784,8 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
                     patches.push({
                         op: "remove",
                         path: buildPath(meta, String(start)),
+                        value:
+                            rawToProxy.get(deletedItems[i]) ?? deletedItems[i],
                     });
                 }
                 // All items can be inserted at same path / index, by adding items in reverse order.
@@ -841,6 +816,15 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
     } else if (key === "unshift") {
         return (...items: any[]) => {
             const deletedItems = target.unshift(...items);
+
+            // Update the index of all other items in array.
+            for (let i = items.length; i < target.length; i++) {
+                const rawItem = target[i];
+                const meta = rawToMeta.get(rawItem);
+                if (meta) {
+                    meta.key = String(i);
+                }
+            }
 
             schedulePatch(meta, () => {
                 const patches: DeepPatch[] = [];
@@ -930,13 +914,14 @@ const objectHandlers: ProxyHandler<any> = {
             return Reflect.set(target, key, value, receiver);
 
         const meta = rawToMeta.get(target)!;
-        if (meta?.options?.readOnlyProps?.includes(String(key))) {
+        if (meta.options?.readOnlyProps?.includes(String(key))) {
             throw new Error(`Cannot modify readonly property '${String(key)}'`);
         }
 
-        const path = meta ? buildPath(meta, key) : undefined;
+        const path = buildPath(meta, key);
 
-        const proxied = ensureChildProxy(value, target, key);
+        const valueIsSignal = !!value?.[RAW_KEY] || rawToProxy.has(value);
+
         const rawValue = value?.[RAW_KEY] ?? value;
 
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
@@ -955,13 +940,15 @@ const objectHandlers: ProxyHandler<any> = {
         // === Set value on actual target ===
         const result = Reflect.set(target, key, rawValue, receiver);
 
+        if (meta && path && typeof rawValue === "object") {
+            prepareObjectTree(meta, rawValue, path, target);
+        }
+
         // Set signal value.
+        const proxied = ensureChildProxy(value, target, key);
         setSignalValue(meta, key, proxied);
 
         if (!hadKey) touchIterable(meta, target);
-        if (meta && path && typeof rawValue === "object") {
-            initializeObjectTreeIfNoListeners(meta, path, rawValue, false);
-        }
 
         // Modifications to the length should not emit patches
         if (Array.isArray(target) && key === "length") {
@@ -969,34 +956,20 @@ const objectHandlers: ProxyHandler<any> = {
         }
 
         schedulePatch(meta, () => {
-            const resolvedPath = path ?? buildPath(meta, key);
             if (!hadKey || typeof rawValue === "object") {
-                const patches = emitPatchesForNew(
+                const patches = createPatchesForNew(
                     rawValue,
                     meta!,
-                    resolvedPath
+                    path,
+                    false,
+                    valueIsSignal
                 );
-
-                // TODO: Document
-                // If an object is added to an array (this happens in discrete CRDTs), we will eventually receive an @id back.
-                // However, the @id is not available from the beginning but frontend frameworks might depend on @id.
-                // Thus, we set a temporary @id which will be replaced once we are called back with the real @id.
-                // Also, we don't emit a patch for this.
-                if (
-                    Array.isArray(target) &&
-                    !isNaN(Number(key)) &&
-                    value &&
-                    typeof value === "object" &&
-                    meta?.options.syntheticIdPropertyName !== "@id"
-                ) {
-                    rawValue["@id"] = `tmp-${++tmpIdCounter}`;
-                }
 
                 return patches;
             }
             if (snapshotLiteral(rawValue) === undefined) return undefined;
             return {
-                path: resolvedPath,
+                path,
                 op: "add",
                 value: rawValue,
             };
@@ -1011,6 +984,7 @@ const objectHandlers: ProxyHandler<any> = {
         const meta = rawToMeta.get(target)!;
 
         const hadKey = Object.prototype.hasOwnProperty.call(target, key);
+        const toDelete = target[key];
         const result = Reflect.deleteProperty(target, key);
         if (hadKey) {
             // Trigger signal
@@ -1027,6 +1001,7 @@ const objectHandlers: ProxyHandler<any> = {
             schedulePatch(meta, () => ({
                 path: buildPath(meta, key),
                 op: "remove",
+                value: rawToProxy.get(toDelete) ?? toDelete,
             }));
         }
         return result;
@@ -1051,11 +1026,11 @@ function createSetIterator(
     return createIteratorWithHelpers(() => {
         const next = iterator.next();
         if (next.done) return next;
-        const meta = rawToMeta.get(target)!;
+
         const proxied = ensureChildProxy(
             next.value,
             target,
-            assignSyntheticId(meta, next.value, [], true),
+            getSyntheticId(next.value, target)!,
             true
         );
 
@@ -1086,7 +1061,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 const proxy = ensureChildProxy(
                     iterator.value,
                     target,
-                    assignSyntheticId(meta!, iterator.value, [], true),
+                    getSyntheticId(iterator.value, target)!,
                     true
                 );
                 ensureIterableSignal(meta, target);
@@ -1094,9 +1069,9 @@ const setHandlers: ProxyHandler<Set<any>> = {
             };
         }
         if (key === "getById") {
-            return function getById(this: any, id: string | number) {
-                if (!meta?.setInfo) return undefined;
-                const entry = meta.setInfo.objectForId.get(String(id));
+            return function getById(this: any, id: string | number | symbol) {
+                const setInfo = ensureSetInfo(target);
+                const entry = setInfo.idToObject.get(id);
                 if (!entry) return undefined;
 
                 const proxy = ensureChildProxy(entry, target, String(id));
@@ -1110,7 +1085,9 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 graphIri: string,
                 subjectIri: string
             ) {
-                return (this as any).getById(`${graphIri}|${subjectIri}`);
+                return (this as any).getById(
+                    `${graphIri}|${escapePathSegment(subjectIri)}`
+                );
             };
         }
         if (key === "add") {
@@ -1127,29 +1104,22 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 target.add(rawValue);
 
                 if (rawValue && typeof rawValue === "object") {
+                    const valueIsDeepSignal = rawToMeta.has(rawValue);
+
                     // Case: Object in set
-                    const synthetic = assignSyntheticId(
-                        meta!,
-                        rawValue,
-                        containerPath,
-                        true
-                    );
-                    initializeObjectTreeIfNoListeners(
-                        meta,
-                        [...containerPath, synthetic],
-                        rawValue,
-                        true
-                    );
+                    prepareObjectTree(meta, rawValue, containerPath, target);
+                    const synthetic = getSyntheticId(rawValue, target)!;
                     ensureChildProxy(rawValue, target, synthetic, true);
 
                     touchIterable(meta, target);
 
                     schedulePatch(meta, () =>
-                        emitPatchesForNew(
+                        createPatchesForNew(
                             rawValue,
                             meta!,
                             [...containerPath, synthetic],
-                            true
+                            true,
+                            valueIsDeepSignal
                         )
                     );
                 } else {
@@ -1176,7 +1146,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 const rawValue = value?.[RAW_KEY] ?? value;
                 const synthetic =
                     rawValue && typeof rawValue === "object"
-                        ? ensureSetInfo(meta!).idForObject.get(rawValue)
+                        ? ensureSetInfo(target).objectToId.get(rawValue)
                         : rawValue;
 
                 const existed = target.delete(rawValue);
@@ -1191,17 +1161,17 @@ const setHandlers: ProxyHandler<Set<any>> = {
                         schedulePatch(meta, () => ({
                             path: [...containerPath, synthetic as string],
                             op: "remove",
+                            value: rawToProxy.get(rawValue) ?? rawValue,
                         }));
-                        if (meta!.setInfo) {
-                            meta!.setInfo.objectForId.delete(String(synthetic));
-                            meta!.setInfo.idForObject.delete(rawValue);
-                        }
+                        const setInfo = ensureSetInfo(target);
+                        setInfo.idToObject.delete(synthetic);
+                        setInfo.objectToId.delete(rawValue);
                     } else {
                         schedulePatch(meta, () => ({
                             path: containerPath,
                             op: "remove",
                             type: "set",
-                            value: rawValue,
+                            value: rawToProxy.get(rawValue) ?? rawValue,
                         }));
                     }
                 }
@@ -1214,10 +1184,9 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 if (target.size === 0) return;
 
                 const containerPath = resolveContainerPath(meta);
-                if (meta!.setInfo) {
-                    meta!.setInfo.objectForId.clear();
-                    meta!.setInfo.idForObject = new WeakMap();
-                }
+                const setInfo = ensureSetInfo(target);
+                setInfo.idToObject.clear();
+                setInfo.objectToId = new WeakMap();
 
                 target.clear();
 
@@ -1281,7 +1250,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                     const proxied = ensureChildProxy(
                         entry,
                         target,
-                        assignSyntheticId(meta!, entry, [], true),
+                        getSyntheticId(entry, target)!,
                         true
                     );
                     if (expectsIteratorSignature) {
@@ -1316,7 +1285,9 @@ const setHandlers: ProxyHandler<Set<any>> = {
 };
 
 /** Runtime guard that checks whether a value is a deepSignal proxy. */
-export function isDeepSignal(value: unknown): value is DeepSignal<any> {
+export function isDeepSignal(
+    value: unknown
+): value is DeepSignal<object | any[] | Set<any>> {
     return !!(value as any)?.[RAW_KEY];
 }
 
@@ -1345,7 +1316,7 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
  *       - `first()` to get one element from the set -- useful if you know that there is only one.
  *       - `getBy(graphNuri: string, subjectIri: string)`, to find objects by their graph NURI and subject IRI.
  *       - **NOTE**: When assigning a set to `DeepSignal<Set>`, TypeScript will warn you. You can safely ignore this by writing (`parent.children = new Set() as DeepSignal<Set<any>>`). Internally, the set is automatically converted but this is not expressible in TypeScript.
- *   - For all objects: `__raw__` which gives you the non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh. If you use `__raw__`, that won't work anymore.
+ *   - For all objects: {@link RAW_KEY} which gives you the underlying non-proxied object without tracking value access and without triggering updates upon modifications. Tracking value access is used in the frontend so it knows on what changes to refresh.
  *
  * @throws if provided with unsupported input types.
  */
@@ -1390,7 +1361,15 @@ export function deepSignal<T extends object>(
 
     rootStates.set(root, rootState);
 
-    const proxy = createProxy(input, root, rootState.options);
+    const proxy = createProxy(
+        input,
+        root,
+        rootState.options,
+        undefined,
+        undefined,
+        undefined,
+        true
+    );
     return proxy as DeepSignal<T>;
 }
 
@@ -1452,27 +1431,35 @@ export function shallow<T extends object>(obj: T): T {
     return obj;
 }
 
-/** Force a specific synthetic ID to be used for a Set entry prior to insertion. */
-export function setSetEntrySyntheticId(obj: object, id: string | number) {
-    if (!obj || typeof obj !== "object") return;
-    // @ts-ignore
-    forcedSyntheticIds.set(obj[RAW_KEY] ?? obj, String(id));
-}
+/**
+ * Convenience helper to add an entry to a proxied Set with a pre-defined synthetic ID.
+ * If the entry is already present, updates the id.
+ */
+export function addWithId<T extends object | Set<any> | any[]>(
+    set: Set<T> | DeepSignal<Set<T>>,
+    entry: T,
+    id: string | number | symbol
+): T {
+    const rawSet = (set as any)[RAW_KEY] ?? set;
+    const deepSignalSet = rawToProxy.get(rawSet);
+    if (!deepSignalSet) {
+        throw new Error("`set` as/is not a deep signal.");
+    }
 
-/** Convenience helper to add an entry to a proxied Set with a pre-defined synthetic ID. */
-export function addWithId<T>(set: Set<T>, entry: T, id: string | number): T {
-    if (entry && typeof entry === "object") {
-        setSetEntrySyntheticId(entry as object, id);
+    const setInfo = ensureSetInfo(rawSet);
+    const rawEntry = (entry as any)[RAW_KEY] ?? entry;
+
+    const oldId = setInfo.objectToId.get(rawEntry);
+    if (oldId) {
+        setInfo.idToObject.delete(oldId);
     }
-    set.add(entry);
-    if (entry && typeof entry === "object") {
-        const getter = (set as any)?.getById;
-        if (typeof getter === "function") {
-            const proxied = getter.call(set, String(id));
-            if (proxied) return proxied;
-        }
-    }
-    return entry;
+
+    setInfo.objectToId.set(rawEntry, id);
+    setInfo.idToObject.set(id, rawEntry);
+    deepSignalSet.add(entry);
+
+    // Return proxied entry.
+    return deepSignalSet.getById(id);
 }
 
 /** Get the original, raw value of a deep signal. */

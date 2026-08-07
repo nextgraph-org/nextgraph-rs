@@ -15,80 +15,17 @@ import { watch } from "../../watch.ts";
 import { DeepPatch, DeepSignalOptions } from "../../types.ts";
 
 describe("deepSignal options", () => {
-    describe("custom ID generator", () => {
-        it("uses custom ID generator for objects without @id", async () => {
-            let counter = 1000;
-            const options: DeepSignalOptions = {
-                propGenerator: () => ({ syntheticId: `custom-${counter++}` }),
-                syntheticIdPropertyName: "@id",
-            };
-
-            const state = deepSignal({ data: {} as any }, options);
-            const patches: DeepPatch[][] = [];
-            const { stopListening: stop } = watch(state, ({ patches: batch }) =>
-                patches.push(batch)
-            );
-
-            state.data.user = { name: "Alice" };
-            await Promise.resolve();
-
-            // Check that @id was assigned
-            expect((state.data.user as any)["@id"]).toBe("custom-1000");
-
-            // Check that patch was emitted for @id
-            const flat = patches.flat().map((p) => p.path.join("."));
-            expect(flat).toContain("data.user.@id");
-
-            stop();
-        });
-
-        it("respects existing @id on objects", async () => {
-            const options: DeepSignalOptions = {
-                propGenerator: () => ({ syntheticId: "should-not-be-used" }),
-                syntheticIdPropertyName: "@id",
-            };
-
-            const state = deepSignal({ items: [] as any[] }, options);
-
-            state.items.push({ "@id": "existing-123", value: 42 });
-
-            // Should use the existing @id
-            expect((state.items[0] as any)["@id"]).toBe("existing-123");
-        });
-
-        it("uses @id property from objects added to Sets", async () => {
-            const options: DeepSignalOptions = {
-                propGenerator: ({ object }) => ({
-                    syntheticId: object["@id"] || "fallback-id",
-                }),
-                syntheticIdPropertyName: "@id",
-            };
-
-            const state = deepSignal({ s: new Set<any>() }, options);
-            const patches: DeepPatch[][] = [];
-            const { stopListening: stop } = watch(state, ({ patches: batch }) =>
-                patches.push(batch)
-            );
-
-            const obj = { "@id": "set-entry-1", data: "test" };
-            state.s.add(obj);
-
-            await Promise.resolve();
-
-            const flat = patches.flat().map((p) => p.path.join("."));
-            // Path should use the @id as synthetic key
-            expect(flat.some((p) => p.startsWith("s.set-entry-1"))).toBe(true);
-
-            stop();
-        });
-    });
-
-    describe("syntheticIdPropertyName option", () => {
-        it("adds @id to all nested objects when enabled", async () => {
+    describe("attaching in onObjectAttached callback", () => {
+        it("attach property to all nested objects", async () => {
             let counter = 100;
             const options: DeepSignalOptions = {
-                propGenerator: () => ({ syntheticId: `auto-${counter++}` }),
-                syntheticIdPropertyName: "@id",
+                onObjectAttached: ({ rawObject }) => {
+                    if (Array.isArray(rawObject) || rawObject instanceof Set)
+                        return;
+
+                    rawObject["attachedProp"] = `auto-${counter++}`;
+                    return {};
+                },
             };
 
             const state = deepSignal({ root: {} as any }, options);
@@ -105,23 +42,25 @@ describe("deepSignal options", () => {
 
             await Promise.resolve();
 
-            // Check all levels have @id
-            expect((state.root.level1 as any)["@id"]).toBeDefined();
-            expect((state.root.level1.level2 as any)["@id"]).toBeDefined();
+            // Check all levels have attachedProp
+            expect((state.root.level1 as any)["attachedProp"]).toBeDefined();
             expect(
-                (state.root.level1.level2.level3 as any)["@id"]
+                (state.root.level1.level2 as any)["attachedProp"]
+            ).toBeDefined();
+            expect(
+                (state.root.level1.level2.level3 as any)["attachedProp"]
             ).toBeDefined();
 
-            // Check patches were emitted for all @id fields
+            // Check patches were emitted for all attachedProp fields
             const flat = patches.flat().map((p) => p.path.join("."));
-            expect(flat).toContain("root.level1.@id");
-            expect(flat).toContain("root.level1.level2.@id");
-            expect(flat).toContain("root.level1.level2.level3.@id");
+            expect(flat).toContain("root.level1.attachedProp");
+            expect(flat).toContain("root.level1.level2.attachedProp");
+            expect(flat).toContain("root.level1.level2.level3.attachedProp");
 
             stop();
         });
 
-        it("does not add @id when option is false", () => {
+        it("does not attach @id when option is undefined", () => {
             const state = deepSignal({ data: { nested: {} } });
 
             // Should not have @id
@@ -129,11 +68,16 @@ describe("deepSignal options", () => {
             expect("@id" in (state.data.nested as any)).toBe(false);
         });
 
-        it("adds @id to objects in arrays", async () => {
+        it("attaches to objects in arrays", async () => {
             let counter = 200;
             const options: DeepSignalOptions = {
-                propGenerator: () => ({ syntheticId: `arr-${counter++}` }),
-                syntheticIdPropertyName: "@id",
+                onObjectAttached: ({ rawObject }) => {
+                    if (Array.isArray(rawObject) || rawObject instanceof Set)
+                        return;
+
+                    rawObject["attachedProp"] = `arr-${counter++}`;
+                    return {};
+                },
             };
 
             const state = deepSignal({ items: [] as any[] }, options);
@@ -146,23 +90,28 @@ describe("deepSignal options", () => {
 
             await Promise.resolve();
 
-            // Both items should have @id
-            expect((state.items[0] as any)["@id"]).toBeDefined();
-            expect((state.items[1] as any)["@id"]).toBeDefined();
+            // Both items should have attachedProp
+            expect((state.items[0] as any)["attachedProp"]).toBeDefined();
+            expect((state.items[1] as any)["attachedProp"]).toBeDefined();
 
             // Check patches
             const flat = patches.flat().map((p) => p.path.join("."));
-            expect(flat).toContain("items.0.@id");
-            expect(flat).toContain("items.1.@id");
+            expect(flat).toContain("items.0.attachedProp");
+            expect(flat).toContain("items.1.attachedProp");
 
             stop();
         });
 
         it("adds @id to objects in Sets", async () => {
             const options: DeepSignalOptions = {
-                propGenerator: () => ({
-                    syntheticId: `gen-${Math.random().toString(36).substr(2, 9)}`,
-                }),
+                onObjectAttached: ({ rawObject }) => {
+                    if (Array.isArray(rawObject) || rawObject instanceof Set)
+                        return;
+
+                    rawObject["@id"] =
+                        `gen-${Math.random().toString(36).substr(2, 9)}`;
+                    return {};
+                },
                 syntheticIdPropertyName: "@id",
             };
 
@@ -214,7 +163,13 @@ describe("deepSignal options", () => {
         it("makes @id enumerable", () => {
             let counter = 300;
             const options: DeepSignalOptions = {
-                propGenerator: () => ({ syntheticId: `enum-${counter++}` }),
+                onObjectAttached: ({ rawObject }) => {
+                    if (Array.isArray(rawObject) || rawObject instanceof Set)
+                        return;
+
+                    rawObject["@id"] = `enum-${counter++}`;
+                    return {};
+                },
                 syntheticIdPropertyName: "@id",
             };
 
@@ -261,10 +216,13 @@ describe("deepSignal options", () => {
         it("child objects inherit options from root", async () => {
             let idCounter = 5000;
             const options: DeepSignalOptions = {
-                propGenerator: () => ({
-                    syntheticId: `inherited-${idCounter++}`,
-                }),
-                syntheticIdPropertyName: "@id",
+                onObjectAttached: ({ rawObject }) => {
+                    if (Array.isArray(rawObject) || rawObject instanceof Set)
+                        return;
+
+                    rawObject["attachedProp"] = `inherited-${idCounter++}`;
+                    return {};
+                },
             };
 
             const state = deepSignal({ root: {} as any }, options);
@@ -277,19 +235,24 @@ describe("deepSignal options", () => {
             };
 
             // All should have IDs generated by the custom generator
-            expect((state.root.child as any)["@id"]).toMatch(/^inherited-/);
-            expect((state.root.child.grandchild as any)["@id"]).toMatch(
+            expect((state.root.child as any)["attachedProp"]).toMatch(
                 /^inherited-/
             );
+            expect(
+                (state.root.child.grandchild as any)["attachedProp"]
+            ).toMatch(/^inherited-/);
         });
 
         it("objects added to Sets inherit options", async () => {
             let counter = 9000;
             const options: DeepSignalOptions = {
-                propGenerator: () => ({
-                    syntheticId: `set-child-${counter++}`,
-                }),
-                syntheticIdPropertyName: "@id",
+                onObjectAttached: ({ rawObject }) => {
+                    if (Array.isArray(rawObject) || rawObject instanceof Set)
+                        return;
+
+                    rawObject["attachedProp"] = `set-child-${counter++}`;
+                    return {};
+                },
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);
@@ -301,8 +264,10 @@ describe("deepSignal options", () => {
             const proxied = Array.from(state.s)[0];
 
             // Object and nested object should have custom IDs
-            expect((proxied as any)["@id"]).toMatch(/^set-child-/);
-            expect((proxied.nested as any)["@id"]).toMatch(/^set-child-/);
+            expect((proxied as any)["attachedProp"]).toMatch(/^set-child-/);
+            expect((proxied.nested as any)["attachedProp"]).toMatch(
+                /^set-child-/
+            );
         });
     });
 });

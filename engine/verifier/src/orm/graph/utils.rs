@@ -9,7 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_oxigraph::oxrdf::{GraphName, Quad, Subject};
-use ng_repo::types::OverlayId;
+use ng_repo::{log_info, types::OverlayId};
+use serde_json::json;
 
 use std::collections::HashMap;
 
@@ -19,12 +20,16 @@ use regex::Regex;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{
     app_protocol::*,
-    orm::{OrmSchemaPredicate, OrmSchemaValType},
+    orm::{
+        BasicType, OrderByConfig, OrderDirection, OrderKey, OrmSchemaPredicate, OrmSchemaValType,
+    },
 };
 
 use std::sync::{Arc, RwLock};
 
-use crate::orm::graph::types::{TrackedOrmObject, TrackedOrmObjectValidity};
+use crate::orm::graph::types::{
+    TrackedOrmObject, TrackedOrmObjectChange, TrackedOrmObjectValidity,
+};
 // use ng_oxigraph::oxrdf::Triple;
 
 pub type GraphSubjectKey = (String, String);
@@ -94,6 +99,13 @@ pub fn escape_sparql_string(lit: &str) -> String {
     return out;
 }
 
+pub fn basic_type_to_json(val: &BasicType) -> serde_json::Value {
+    match val {
+        BasicType::Bool(b) => json!(*b),
+        BasicType::Num(n) => json!(*n),
+        BasicType::Str(s) => json!(s),
+    }
+}
 pub fn is_uri_escaped(iri: &str) -> bool {
     let re = Regex::new(r"^[^<>\{\}\|^`\\\x00-\x20]*$").unwrap();
     re.is_match(iri)
@@ -333,6 +345,81 @@ pub fn assess_and_rank_children(
         }
     }
     make_res(all, HeuristicUsed::All)
+}
+
+/// Create an order key consisting of the values to order by and the graph and subject iris of the tormo as secondary indexes.
+pub(crate) fn order_key_from(order_by_conf: &OrderByConfig, tormo: &TrackedOrmObject) -> OrderKey {
+    let vals = order_by_conf
+        .iter()
+        .filter_map(|(pred_schema, order_dir)| {
+            tormo
+                .tracked_predicates
+                .get(&pred_schema.iri)?
+                .read()
+                .ok()?
+                .current_literals
+                .clone()?
+                .first()
+                .cloned()
+                .map_or(None, |v| Some((v.clone(), *order_dir)))
+        })
+        .chain([
+            (
+                BasicType::Str(tormo.graph_iri.clone()),
+                OrderDirection::Ascending,
+            ),
+            (
+                BasicType::Str(tormo.subject_iri.clone()),
+                OrderDirection::Ascending,
+            ),
+        ])
+        .collect();
+
+    OrderKey { val_types: vals }
+}
+
+pub(crate) fn order_key_before_change(
+    order_by_conf: &OrderByConfig,
+    tormo: &TrackedOrmObject,
+    change: &TrackedOrmObjectChange,
+) -> OrderKey {
+    OrderKey {
+        val_types: order_by_conf
+            .iter()
+            .enumerate()
+            .map(|(i, (pred, dir))| {
+                // Get the removed value or if none there, the current one.
+                let old_or_current_val = change
+                    .predicates
+                    .get(&pred.iri)
+                    .and_then(|change_pred| change_pred.values_removed.first().cloned())
+                    .unwrap_or_else(|| {
+                        tormo
+                            .tracked_predicates
+                            .get(&pred.iri)
+                            .unwrap()
+                            .read()
+                            .unwrap()
+                            .current_literals
+                            .as_ref()
+                            .unwrap()[0]
+                            .clone()
+                    });
+
+                (old_or_current_val.clone(), dir.clone())
+            })
+            .chain([
+                (
+                    BasicType::Str(tormo.graph_iri.clone()),
+                    OrderDirection::Ascending,
+                ),
+                (
+                    BasicType::Str(tormo.subject_iri.clone()),
+                    OrderDirection::Ascending,
+                ),
+            ])
+            .collect(),
+    }
 }
 
 #[cfg(test)]

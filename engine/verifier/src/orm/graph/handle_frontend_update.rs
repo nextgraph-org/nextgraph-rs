@@ -129,6 +129,7 @@ impl Verifier {
                         valType: Some(OrmPatchType::set),
                         path: failed_patch.path,
                         value: failed_patch.value,
+                        ..Default::default()
                     });
                 } else {
                     // remove operation
@@ -138,6 +139,7 @@ impl Verifier {
                             valType: Some(OrmPatchType::set),
                             path: failed_patch.path,
                             value: failed_patch.value,
+                            ..Default::default()
                         });
                     } else {
                         // All values from set were deleted and we need to fetch them.
@@ -158,6 +160,7 @@ impl Verifier {
                                             valType: Some(OrmPatchType::set),
                                             path: failed_patch.path.clone(),
                                             value: Some(json_val),
+                                            ..Default::default()
                                         });
                                     }
                                 }
@@ -212,17 +215,17 @@ impl Verifier {
                         if let Some(prev_val) = current_value {
                             fix_patches.push(OrmPatch {
                                 op: OrmPatchOp::add,
-                                valType: None,
                                 path: failed_patch.path,
                                 value: Some(prev_val),
+                                ..Default::default()
                             });
                         } else {
                             // No previous value existed, so remove the failed add.
                             fix_patches.push(OrmPatch {
                                 op: OrmPatchOp::remove,
-                                valType: None,
                                 path: failed_patch.path,
                                 value: failed_patch.value,
+                                ..Default::default()
                             });
                         }
                     } else {
@@ -230,9 +233,9 @@ impl Verifier {
                         if let Some(curr_val) = current_value {
                             fix_patches.push(OrmPatch {
                                 op: OrmPatchOp::add,
-                                valType: None,
                                 path: failed_patch.path,
                                 value: Some(curr_val),
+                                ..Default::default()
                             });
                         }
                     }
@@ -275,7 +278,11 @@ fn create_sparql_update_query_for_patches(
     orm_subscription: &OrmSubscription,
     patches: &OrmPatches,
 ) -> (String, Vec<(OrmPatch, PathTarget)>) {
-    // TODO: Support patches by array id.
+    // Cases to cover:
+    // Possibles paths:
+    // - `/g|s/` <- remove object
+    // - `/g|s/prop` <- add/remove single/multiple literals, add object, remove object
+    // - Support patches by array index?
 
     // ------------------------- Schema Selection Helper ----------------------
     fn select_child_schema(
@@ -334,31 +341,19 @@ fn create_sparql_update_query_for_patches(
             return None;
         }
 
-        // root composite
+        // root composite (<graph>|<subject>)
         let mut root_split = segs[0].split('|');
-        let raw_graph = root_split.next()?.to_string();
-        let raw_subject = root_split.next()?.to_string();
-        let graph = decode_json_pointer(&raw_graph);
-        let subject = decode_json_pointer(&raw_subject);
+        let mut current_graph = decode_json_pointer(&root_split.next()?.to_string());
+        let mut current_subject = decode_json_pointer(&root_split.next()?.to_string());
+        let mut current_schema = orm_subscription.root_shape();
 
         let mut idx = 1;
-        let mut current_graph = graph.clone();
-        let mut current_subject = subject.clone();
-        let mut current_schema = orm_subscription
-            .shape_type
-            .schema
-            .get(&orm_subscription.shape_type.shape)
-            .unwrap()
-            .clone();
 
         // Path points to root object?
-        if idx == segs.len() {
-            let mut cs = segs[0].split('|');
-            let graph = decode_json_pointer(&cs.next()?.to_string());
-            let subject = decode_json_pointer(&cs.next()?.to_string());
+        if segs.len() == 1 {
             return Some(PathTarget {
-                graph,
-                subject,
+                graph: current_graph,
+                subject: current_subject,
                 child_iri: None,
                 pred_schema: None,
             });
@@ -478,14 +473,11 @@ fn create_sparql_update_query_for_patches(
                                         current_graph = child_guard.graph_iri.clone();
 
                                         // Determine child schema now that we have descended.
-                                        if let Some(child_shape_iri) = child_guard.shape_iri() {
-                                            if let Some(child_schema) = orm_subscription
-                                                .shape_type
-                                                .schema
-                                                .get(&child_shape_iri)
-                                            {
-                                                current_schema = child_schema.clone();
-                                            }
+                                        let child_shape_iri = &child_guard.shape().iri;
+                                        if let Some(child_schema) =
+                                            orm_subscription.shape_type.schema.get(child_shape_iri)
+                                        {
+                                            current_schema = child_schema.clone();
                                         }
                                     }
                                 }
@@ -594,14 +586,8 @@ fn create_sparql_update_query_for_patches(
     let mut builder = SparqlBuilder::new();
     let mut failed_patches: Vec<(OrmPatch, PathTarget)> = vec![];
 
-    // Helper to decode JSON Pointer encoded IRIs that appear in path segments
-    // (e.g., http:~1~1example.org~1exampleAddress -> http://example.org/exampleAddress)
-    fn decode_json_pointer_iri(iri: &str) -> String {
-        iri.replace("~1", "/").replace("~0", "~")
-    }
-
     // ------------------------- Staged Child Collection -----------------------
-    let mut staged_children: HashMap<String, (String, String)> = HashMap::new();
+    let mut staged_children: HashMap<String, (SubjectIri, GraphIri)> = HashMap::new();
     // Sort patches by path depth so that shallower object modifications create or track
     // intermediate objects before deeper nested primitive updates (e.g., companyName before headquarter/street).
     let mut ordered_patches = patches.clone();
@@ -633,7 +619,7 @@ fn create_sparql_update_query_for_patches(
         }
     }
 
-    // ------------------------- Handle staged single children -----------------
+    // --------------------- Handle staged single children linking to parents ----------------
     for (base, (child_id, child_graph)) in staged_children.iter() {
         if child_id.is_empty() || child_graph.is_empty() {
             continue;
@@ -641,7 +627,7 @@ fn create_sparql_update_query_for_patches(
         if let Some(target) = resolve_path(base, orm_subscription, &staged_children) {
             if let Some(pred_schema) = target.pred_schema {
                 if pred_schema.is_object() && !pred_schema.is_multi() {
-                    let decoded_child = decode_json_pointer_iri(child_id);
+                    let decoded_child = decode_json_pointer(child_id);
                     builder.overwrite_link(
                         &target.graph,
                         &target.subject,
@@ -714,7 +700,7 @@ fn create_sparql_update_query_for_patches(
             OrmPatchOp::add => {
                 if pred_schema.is_object() {
                     if let Some(child) = target.child_iri.as_ref() {
-                        let decoded_child = decode_json_pointer_iri(child);
+                        let decoded_child = decode_json_pointer(child);
                         if pred_schema.is_multi() {
                             builder.add_link(graph, subj, pred, &decoded_child);
                         } else {
@@ -742,6 +728,10 @@ fn create_sparql_update_query_for_patches(
                         }
                     }
                 }
+            }
+            OrmPatchOp::move_ => {
+                // Does not happen.
+                log_err!("Received move patch which is not supported. Skipping.");
             }
         }
     }

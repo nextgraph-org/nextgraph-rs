@@ -8,21 +8,22 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { DiscreteArray, DiscreteObject } from "../types.ts";
-import { applyPatchesToDeepSignal, Patch } from "./applyPatches.ts";
+import { DiscreteRoot } from "../types.ts";
+import { applyPatches, Patch } from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
 import {
+    batch,
     deepSignal,
     watch as watchDeepSignal,
 } from "@ng-org/alien-deepsignals";
 import type {
     DeepPatch,
     DeepSignal,
+    OnObjectAttachedFn,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
-import type { BaseType } from "@ng-org/shex-orm";
 
 /**
  * Delay in ms to wait before closing connection.\
@@ -36,20 +37,18 @@ const WAIT_BEFORE_CLOSE = 500;
  *
  * You have two options on how to interact with the ORM:
  * - Use a hook for your favorite framework under `@ng-org/orm/react|vue|svelte`
- * - Call {@link OrmSubscription.getOrCreate} to create a subscription manually
+ * - Call {@link DiscreteOrmSubscription.getOrCreate} to create a subscription manually
  *
  * For more information about RDF-based ORM subscriptions,
  * see the [README](../../../README.md) and follow the tutorial.
  */
-export class DiscreteOrmSubscription {
+export class DiscreteOrmSubscription<T = DiscreteRoot> {
     /** Global store of all subscriptions. We use that for pooling. */
-    private static idToEntry = new Map<string, DiscreteOrmSubscription>();
+    private static idToEntry = new Map<string, DiscreteOrmSubscription<any>>();
 
     /** The document ID (NURI) of the subscribed document. */
     readonly documentId: string;
-    private _signalObject:
-        | DeepSignal<DiscreteArray | DiscreteObject>
-        | undefined;
+    private _signalObject: DeepSignal<T> | undefined;
     private stopSignalListening: undefined | (() => void);
     /** The subscription ID kept as an identifier for communicating with the verifier. */
     private subscriptionId: number | undefined;
@@ -60,12 +59,17 @@ export class DiscreteOrmSubscription {
     /** True, if a transaction is running. */
     private inTransaction_: boolean = false;
     /** Aggregation of patches to be sent when in transaction. @ignore */
-    private pendingPatches: Patch[] | undefined;
+    private pendingPatches: Patch[] = [];
     /** **Await to ensure that the subscription is established and the data arrived.** */
-    private readyPromise_: Promise<void>;
+    private readyPromise_: Promise<DeepSignal<T>>;
     private closeOrmSubscription: () => void;
     /** Function to call once initial data has been applied. */
-    private resolveReady!: () => void;
+    private resolveReady!: (data: Promise<DeepSignal<T>>) => void;
+    /**
+     * Set to true when patches are created and collected to be sent to the backend in
+     * the next microtask. Prevents scheduling more than one microtask.
+     */
+    private isPatchMicrotaskScheduled: boolean = false;
 
     private constructor(documentId: string) {
         // @ts-expect-error
@@ -79,9 +83,10 @@ export class DiscreteOrmSubscription {
         this.refCount = 1;
         this.closeOrmSubscription = () => {};
         this.suspendDeepWatcher = false;
+        this.isReady = false;
 
         // Initialize per-entry readiness promise that resolves in setUpConnection
-        this.readyPromise_ = new Promise<void>((resolve) => {
+        this.readyPromise_ = new Promise<DeepSignal<T>>((resolve) => {
             this.resolveReady = resolve;
         });
 
@@ -189,9 +194,9 @@ export class DiscreteOrmSubscription {
      * subscription2.close();
      * ```
      */
-    public static getOrCreate = <T extends BaseType>(
+    public static getOrCreate = <T>(
         documentId: string
-    ): DiscreteOrmSubscription => {
+    ): DiscreteOrmSubscription<T> => {
         // If we already have a connection open,
         // return that signal object and just increase the reference count.
         // Otherwise, open a new one.
@@ -201,7 +206,7 @@ export class DiscreteOrmSubscription {
             existingConnection.refCount += 1;
             return existingConnection;
         } else {
-            const newConnection = new DiscreteOrmSubscription(documentId);
+            const newConnection = new DiscreteOrmSubscription<T>(documentId);
             DiscreteOrmSubscription.idToEntry.set(documentId, newConnection);
             return newConnection;
         }
@@ -211,10 +216,12 @@ export class DiscreteOrmSubscription {
     get inTransaction() {
         return this.inTransaction_;
     }
-    /** **Await to ensure that the subscription is established and the data arrived.** */
+    /** Await to ensure that the subscription is established and the data arrived. Resolves to {@link signalObject}. */
     get readyPromise() {
         return this.readyPromise_;
     }
+    /** Returns true if the subscription is fully established and the data is available in {@link signalObject} */
+    isReady: boolean;
 
     /**
      * Stop the subscription.
@@ -240,26 +247,11 @@ export class DiscreteOrmSubscription {
     /** Handle updates (patches) coming from signal object modifications. */
     private onSignalObjectUpdate = async ({
         patches,
-    }: WatchPatchEvent<DiscreteArray | DiscreteObject>) => {
+    }: WatchPatchEvent<any>) => {
         if (this.suspendDeepWatcher || !patches.length) return;
 
-        const ormPatches = deepPatchesToWasm(patches);
-
-        // If in transaction, collect patches immediately (no await before).
-        if (this.inTransaction_) {
-            this.pendingPatches?.push(...ormPatches);
-            return;
-        }
-
-        // Wait for session and subscription to be initialized.
-        const { ng, session } = await ngSession;
-        await this.readyPromise_;
-
-        ng.discrete_orm_update(
-            this.subscriptionId!,
-            ormPatches,
-            session.session_id
-        );
+        // Send patches to engine.
+        this.queuePatches({ patches: deepPatchesToWasm(patches) });
     };
 
     /** Handle messages coming from the engine (initial data or patches). */
@@ -280,7 +272,7 @@ export class DiscreteOrmSubscription {
     ]) => {
         this.subscriptionId = subscriptionId;
         const signalObject = deepSignal(initialData, {
-            syntheticIdPropertyName: undefined,
+            onObjectAttached: this.onSignalObjectAttached,
         });
         this._signalObject = signalObject;
         const { stopListening } = watchDeepSignal(
@@ -289,8 +281,9 @@ export class DiscreteOrmSubscription {
         );
         this.stopSignalListening = stopListening;
 
-        // Resolve readiness after initial data is committed and watcher armed.
-        this.resolveReady();
+        // Resolve readiness after initial data is set and watcher listening.
+        this.isReady = true;
+        this.resolveReady(signalObject);
     };
 
     /** Handle incoming patches from the engine */
@@ -299,12 +292,35 @@ export class DiscreteOrmSubscription {
         window.OrmDiscreteIncomingPatches.push(patches);
 
         this.suspendDeepWatcher = true;
-        applyPatchesToDeepSignal(this._signalObject!, patches, "discrete");
+        batch(() => {
+            applyPatches(this._signalObject!, patches, true);
+        });
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;
         });
     };
+
+    /** Add patches to {@link pendingPatches}. Schedules a microtask to send them to the backend batched, if not in transaction. */
+    private queuePatches({ patches }: { patches: Patch[] }) {
+        this.pendingPatches.push(...patches);
+
+        if (!this.inTransaction_ && !this.isPatchMicrotaskScheduled) {
+            queueMicrotask(async () => {
+                this.isPatchMicrotaskScheduled = false;
+
+                if (this.pendingPatches.length > 0 && !this.inTransaction_) {
+                    const { ng, session } = await ngSession;
+                    ng.discrete_orm_update(
+                        this.subscriptionId!,
+                        this.pendingPatches,
+                        session.session_id
+                    );
+                    this.pendingPatches = [];
+                }
+            });
+        }
+    }
 
     /**
      * Begins a transaction that batches changes to be committed to the database.
@@ -315,19 +331,6 @@ export class DiscreteOrmSubscription {
      */
     public beginTransaction = () => {
         this.inTransaction_ = true;
-        this.pendingPatches = [];
-
-        this.readyPromise_.then(() => {
-            // Use a listener that immediately triggers on object modifications.
-            // We don't need the deep-signal's batching (through microtasks) here.
-            this.stopSignalListening?.();
-            const { stopListening } = watchDeepSignal(
-                this.signalObject!,
-                this.onSignalObjectUpdate,
-                { triggerInstantly: true }
-            );
-            this.stopSignalListening = stopListening;
-        });
     };
 
     /**
@@ -357,17 +360,30 @@ export class DiscreteOrmSubscription {
             );
         }
 
-        this.pendingPatches = undefined;
+        this.pendingPatches = [];
+    };
 
-        // Go back to the regular object modification listening where we want batching
-        // scheduled in a microtask only triggered after the main task.
-        // This way we prevent excessive calls to the backend.
-        this.stopSignalListening!();
-        const { stopListening } = watchDeepSignal(
-            this.signalObject!,
-            this.onSignalObjectUpdate
-        );
-        this.stopSignalListening = stopListening;
+    private tmpIdCounter = 0;
+    private onSignalObjectAttached: OnObjectAttachedFn = ({
+        rawParent,
+        rawObject,
+        path,
+    }) => {
+        // Only deal with objects.
+        if (Array.isArray(rawObject) || rawObject instanceof Set) return;
+        if (this.suspendDeepWatcher) return;
+
+        // If an object is added to an array (this happens in discrete CRDTs), we will eventually receive an @id back.
+        // However, the @id is not available from the beginning but frontend frameworks might depend on @id.
+        // Thus, we set a temporary @id which will be replaced once we are called back with the real @id.
+        // Also, we don't emit a patch for this.
+        if (
+            Array.isArray(rawParent) &&
+            !isNaN(Number(path.at(-1))) &&
+            !rawObject["@id"]
+        ) {
+            rawObject["@id"] = `tmp-${++this.tmpIdCounter}`;
+        }
     };
 }
 

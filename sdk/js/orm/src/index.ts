@@ -27,6 +27,13 @@ import {
 } from "./frontendAdapters/vue/index.ts";
 
 export * from "./core.ts";
+export type * from "./types.ts";
+export type {
+    OrderByConfig,
+    RdfOrmConfig,
+    SubscriptionData,
+    WhereConfig,
+} from "./utilTypes.ts";
 
 export {
     svelteUseShape,

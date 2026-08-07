@@ -8,9 +8,11 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { BaseType, ShapeType } from "@ng-org/shex-orm";
+import { RdfOrmConfig } from "./utilTypes.ts";
+
 /**
- * When dealing with shapes (RDF-based graph database ORMs):
- * The scope of a shape request.
+ * The scope of a shape request. Part of the {@link RdfOrmConfig}.
  * In most cases, it is recommended to use a narrow scope for performance.
  * You can filter results by `subjects` and `graphs`. Only objects in that scope will be returned.
  *
@@ -29,7 +31,7 @@ export type Scope = {
      * - Set value to `["did:ng:i"]` or `[""]` for whole dataset.
      * - Setting value to `[]` or leaving it `undefined`, no objects are returned.
      */
-    graphs?: string[] | string;
+    graphs: string[] | string;
 
     /**
      * Subjects to filter for. Set to `[]` or leave it `undefined` for no filtering.
@@ -38,17 +40,17 @@ export type Scope = {
 };
 
 /**
- * Converts undefined to [] and for graphs "" to "did:ng:i". If scope is string, it means {graphs: [\<scope string>], subjects: []}.
+ * Converts undefined to [] and if scope is string, it's converted to {graphs: [\<scope string>], subjects: []}.
  * @ignore
  */
 export const normalizeScope = (
-    scope: Scope | string | undefined = {}
+    scope: Scope | string | undefined = { graphs: [] }
 ): NormalizedScope => {
     if (typeof scope === "string") {
         return { graphs: [scope], subjects: [] };
     }
     // Convert "" to did:ng:i
-    const graphs = (!scope.graphs ? [] : [scope.graphs])
+    const graphs = [scope.graphs]
         .flat()
         .map((g) => (g === "" ? "did:ng:i" : g));
     const subjects = scope.subjects ?? [];
@@ -56,6 +58,17 @@ export const normalizeScope = (
     return { graphs, subjects };
 };
 
+/** @ignore */
+export const normalizeConf = <T extends BaseType>(
+    conf: string | RdfOrmConfig<T>
+) => {
+    return {
+        ...(typeof conf === "string" ? {} : conf),
+        ...normalizeScope(conf),
+    };
+};
+
+/** @ignore */
 export type NormalizedScope = { graphs: string[]; subjects: string[] };
 
 /** An allowed array in the CRDT. @ignore */
@@ -65,6 +78,7 @@ export interface DiscreteArray extends Array<DiscreteType> {}
 export interface DiscreteObject {
     [key: string]: DiscreteType;
 }
+
 /** An allowed type in the CRDT. */
 export type DiscreteType =
     | DiscreteArray
@@ -81,7 +95,7 @@ export type DiscreteRootArray = (
     | string
     | number
     | boolean
-    | (DiscreteObject & { readonly "@id": string })
+    | (DiscreteObject & { readonly "@id"?: string })
 )[];
 
 /**

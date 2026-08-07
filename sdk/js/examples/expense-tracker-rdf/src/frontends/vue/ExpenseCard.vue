@@ -71,9 +71,6 @@ function nameOfCategory(categoryIri: string) {
         ?.categoryName;
 }
 
-function categoryKey(category: ExpenseCategory) {
-    return `${category["@graph"]}|${category["@id"]}`;
-}
 </script>
 
 <template>
@@ -199,7 +196,7 @@ function categoryKey(category: ExpenseCategory) {
                 >
                     <label
                         v-for="category in props.availableCategories"
-                        :key="categoryKey(category)"
+                        :key="category['@id']"
                         class="category-option"
                     >
                         <input
@@ -231,11 +228,11 @@ function categoryKey(category: ExpenseCategory) {
             <template v-else>
                 <div v-if="expense.expenseCategory?.size" class="chip-list">
                     <span
-                        v-for="category in expense.expenseCategory"
-                        :key="category"
+                        v-for="categoryIri in expense.expenseCategory"
+                        :key="categoryIri"
                         class="chip"
                     >
-                        {{ nameOfCategory(category) || "Unnamed" }}
+                        {{ nameOfCategory(categoryIri) || "Unnamed" }}
                     </span>
                 </div>
                 <p v-else class="muted">No categories linked.</p>

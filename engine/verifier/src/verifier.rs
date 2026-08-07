@@ -2233,7 +2233,7 @@ impl Verifier {
         Ok(())
     }
 
-    /// return the repo_id and an option branch_id of the Store branch, if any
+    /// return the repo_id and an optional branch_id of the Store branch, if any
     pub(crate) async fn load_repo_from_read_cap<'a>(
         &mut self,
         read_cap: &ReadCap,
@@ -2243,7 +2243,7 @@ impl Verifier {
         store: Arc<Store>,
         load_branches: bool,
     ) -> Result<(RepoId, Option<BranchId>), NgError> {
-        // first we fetch the read_cap commit of private store repo.
+        // first we fetch the read_cap commit.
         let root_branch_commit = Self::get_commit(
             read_cap.clone(),
             None,
@@ -2296,7 +2296,7 @@ impl Verifier {
                             })
                             .collect();
 
-                        // loading the other Branches of store
+                        // loading the other Branches of repo
                         for (branch_id, topic, secret) in other_branches {
                             if branch_id == *repo_id {
                                 // root branch of store is already synced

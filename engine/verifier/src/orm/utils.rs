@@ -7,6 +7,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use crate::orm::graph::types::TrackedOrmObject;
+
 /// `~` is encoded as ~0, `/` is encoded as ~1.
 pub fn escape_json_pointer_segment(path_segment: &String) -> String {
     path_segment.replace("~", "~0").replace("/", "~1")
@@ -14,4 +16,12 @@ pub fn escape_json_pointer_segment(path_segment: &String) -> String {
 /// `~` is encoded as ~0, `/` is encoded as ~1.
 pub fn decode_json_pointer(path: &String) -> String {
     path.replace("~1", "/").replace("~0", "~")
+}
+
+pub fn composite_key(tormo: &TrackedOrmObject) -> String {
+    format!(
+        "{}|{}",
+        tormo.graph_iri,
+        escape_json_pointer_segment(&tormo.subject_iri)
+    )
 }

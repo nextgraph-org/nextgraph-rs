@@ -8,13 +8,14 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use assert_json_diff::assert_json_matches;
+use assert_json_diff::{assert_json_matches, assert_json_matches_no_panic};
 use async_std::future::timeout;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
-use ng_net::orm::{OrmPatch, OrmShapeType};
+use ng_net::orm::{OrmConfig, OrmPatch, OrmShapeType};
 use ng_oxigraph::oxrdf::{Quad, Subject};
+use ng_repo::log_err;
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -62,10 +63,21 @@ pub(crate) fn assert_orm_json_eq(expected: &mut Value, actual: &mut Value) {
 
     assert_json_eq(expected, actual);
 }
+pub(crate) fn assert_orm_json_eq_exact(expected: &Value, actual: &Value) {
+    assert_json_eq(expected, actual);
+}
 
 pub(crate) fn assert_json_eq(expected: &Value, actual: &Value) {
     let json_diff_config = assert_json_diff::Config::new(assert_json_diff::CompareMode::Strict)
         .numeric_mode(assert_json_diff::NumericMode::AssumeFloat);
+
+    if assert_json_matches_no_panic(expected, actual, json_diff_config.clone()).is_err() {
+        log_err!(
+            "JSON doesn't match.\nexpected: {}\nactual: {}",
+            expected.to_string(),
+            actual.to_string()
+        );
+    }
     assert_json_matches!(actual, expected, json_diff_config);
 }
 
@@ -120,15 +132,18 @@ async fn create_orm_connection_with_conf(
     u64,
     serde_json::Value,
 ) {
+    let config = OrmConfig::from_json(&config, &shape_type).expect("parsing orm config failed");
+
     let nuris = nuris
         .iter()
         .map(|nuri_str| NuriV0::new_from(&nuri_str).expect("parse nuri"))
         .collect();
 
     // let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id, config)
-    let (mut receiver, cancel_fn) = orm_start_graph(nuris, subjects, shape_type, session_id)
-        .await
-        .expect("orm_start_graph failed");
+    let (mut receiver, cancel_fn) =
+        orm_start_graph(nuris, subjects, shape_type, session_id, config)
+            .await
+            .expect("orm_start_graph failed");
 
     // Get initial state with timeout
     let (initial_value, subscription_id) = await_app_response(&mut receiver, |res| match res {
@@ -146,6 +161,42 @@ async fn await_graph_patches(receiver: &mut UnboundedReceiver<AppResponse>) -> V
         _ => None,
     })
     .await
+}
+
+async fn await_graph_patches_empty_if_timeout(
+    receiver: &mut UnboundedReceiver<AppResponse>,
+) -> Vec<OrmPatch> {
+    await_app_response_none_if_timeout(receiver, |res| match res {
+        AppResponseV0::GraphOrmUpdate(patches) => Some(patches),
+        _ => None,
+    })
+    .await
+    .unwrap_or(vec![])
+}
+
+async fn await_app_response_none_if_timeout<T, F>(
+    receiver: &mut UnboundedReceiver<AppResponse>,
+    mut matcher: F,
+) -> Option<T>
+where
+    F: FnMut(AppResponseV0) -> Option<T>,
+{
+    loop {
+        let res = timeout(Duration::from_millis(200), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => return None,
+        };
+        match opt {
+            Some(app_response) => {
+                let AppResponse::V0(v0) = app_response;
+                if let Some(val) = matcher(v0) {
+                    return Some(val);
+                }
+            }
+            None => panic!("ORM receiver closed before expected response"),
+        }
+    }
 }
 
 async fn await_app_response<T, F>(
@@ -230,7 +281,7 @@ async fn await_discrete_patches(receiver: &mut UnboundedReceiver<AppResponse>) -
 
 /// Extract the graph IRI from the first patch path in the actual patches JSON array.
 pub(crate) fn extract_graph_from_actual_paths(actual: &Value) -> Option<String> {
-    // Expecting actual to be an array of objects with a "path" string like "/graph|subject/..."
+    // Expecting actual to be an array of objects with a "path" string like "/graph|subject|shape/..."
     let arr = actual.as_array()?;
     for item in arr {
         if let Some(path) = item.get("path").and_then(|v| v.as_str()) {
@@ -247,14 +298,14 @@ pub(crate) fn extract_graph_from_actual_paths(actual: &Value) -> Option<String> 
 
 /// Prefix every subject segment (urn:...) in an expected JSON path with "{graph}|".
 pub(crate) fn prefix_graph_in_path(path: &str, graph: &str) -> String {
-    let mut out = String::from("/");
+    let mut out = String::from("");
     let mut first = true;
     for seg in path.split('/').filter(|s| !s.is_empty()) {
         if !first {
             out.push('/');
         }
         // Only prefix subject segments, not properties or @-fields
-        if (seg.starts_with("urn:") || seg.starts_with("did:")) && !seg.contains('|') {
+        if seg.starts_with("urn:") || seg.starts_with("did:") {
             out.push_str(graph);
             out.push('|');
         }
@@ -266,15 +317,50 @@ pub(crate) fn prefix_graph_in_path(path: &str, graph: &str) -> String {
 
 /// Rewrite all "path" fields in the expected JSON with the graph-prefixed subject segments.
 pub(crate) fn rewrite_expected_paths_with_graph(expected: &mut Value, graph: &str) {
-    if let Some(arr) = expected.as_array_mut() {
-        for item in arr.iter_mut() {
-            if let Some(path_val) = item.get_mut("path") {
-                if let Some(path) = path_val.as_str() {
-                    let new_path = prefix_graph_in_path(path, graph);
-                    *path_val = Value::String(new_path);
+    match expected {
+        Value::Object(map) => {
+            let map_keys: Vec<String> = map.keys().cloned().collect();
+            for k in map_keys {
+                let (_k, mut v) = map.remove_entry(&k).unwrap();
+
+                if k == "path" {
+                    if let Some(path) = v.as_str() {
+                        let new_path = prefix_graph_in_path(path, graph);
+                        v = Value::String(format!("/{}", new_path));
+                    }
+                } else {
+                    rewrite_expected_paths_with_graph(&mut v, graph);
                 }
+
+                let new_key = prefix_graph_in_path(&k, graph);
+                map.insert(new_key, v);
             }
         }
+        Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                rewrite_expected_paths_with_graph(v, graph);
+            }
+        }
+        _ => {}
+    }
+}
+
+pub(crate) fn add_graph_fields(expected: &mut Value, graph: &str) {
+    match expected {
+        Value::Object(map) => {
+            if map.get("@id").is_some() && map.get("@graph").is_none() {
+                map.insert("@graph".to_string(), Value::String(graph.to_string()));
+            }
+            for v in map.values_mut() {
+                add_graph_fields(v, graph);
+            }
+        }
+        Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                add_graph_fields(v, graph);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -440,19 +526,20 @@ pub(crate) fn escape_pointer_segment(segment: &str) -> String {
 }
 
 // Helper: build root path prefix "/graph|subject" for a given graph and subject
-pub(crate) fn root_path(graph: &str, subject: &str) -> String {
-    format!(
-        "/{}|{}",
-        escape_pointer_segment(graph),
-        escape_pointer_segment(subject)
-    )
+pub(crate) fn root_path(graph: &str, subject: &str, _shape: &str) -> String {
+    format!("/{}|{}", graph, escape_pointer_segment(subject),)
 }
 
 // Helper: build a composite key segment "graph|subject" for multi-children
 pub(crate) fn composite_key(graph: &str, subject: &str) -> String {
-    format!(
-        "{}|{}",
-        escape_pointer_segment(graph),
-        escape_pointer_segment(subject)
-    )
+    format!("{}|{}", graph, escape_pointer_segment(subject))
+}
+
+/// Finds the key of a multi-valued object for a given subject_iri.
+pub fn find_key_for_obj(actual_obj: &serde_json::Map<String, Value>, object_iri: &str) -> String {
+    actual_obj
+        .keys()
+        .find(|k| k.contains(&format!("|{object_iri}")))
+        .expect("key with expected subject not found")
+        .to_string()
 }

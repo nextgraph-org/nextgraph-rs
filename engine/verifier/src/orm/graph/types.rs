@@ -8,13 +8,13 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;
 use ng_net::{orm::*, utils::Sender};
 use ng_repo::errors::NgError;
-use std::sync::{RwLock, Weak};
+use std::sync::{RwLock, RwLockReadGuard, Weak};
+use wabi_tree::OSBTreeMap;
 
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
@@ -55,8 +55,8 @@ impl TrackedOrmPredicate {
             .filter_map(|w| w.upgrade())
             .collect()
     }
-    pub fn schema_arc(&self) -> Option<Arc<OrmSchemaPredicate>> {
-        self.schema.upgrade()
+    pub fn schema_arc(&self) -> Arc<OrmSchemaPredicate> {
+        self.schema.upgrade().unwrap()
     }
 }
 
@@ -78,11 +78,11 @@ impl TrackedOrmObject {
     pub fn prune_parents(&mut self) {
         self.parents.retain(|w| w.upgrade().is_some());
     }
-    pub fn shape_arc(&self) -> Option<Arc<OrmSchemaShape>> {
-        self.shape.upgrade()
+    pub fn shape(&self) -> Arc<OrmSchemaShape> {
+        self.shape.upgrade().unwrap()
     }
-    pub fn shape_iri(&self) -> Option<String> {
-        self.shape.upgrade().map(|s| s.iri.clone())
+    pub fn shape_iri(&self) -> String {
+        self.shape.upgrade().unwrap().iri.clone()
     }
 }
 
@@ -103,7 +103,7 @@ pub struct TrackedOrmPredicate {
     pub tracked_children: Vec<Weak<RwLock<TrackedOrmObject>>>,
     /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
-    /// If schema is of type literal, the currently present ones.
+    /// If schema is of type literal or the tormos are ordered by this predicate, the currently present ones.
     pub current_literals: Option<Vec<BasicType>>,
 }
 
@@ -127,6 +127,36 @@ pub struct TrackedOrmPredicateChanges {
     pub values_removed: Vec<BasicType>,
 }
 
+impl TrackedOrmPredicateChanges {
+    pub fn tracked_predicate(&self) -> RwLockReadGuard<TrackedOrmPredicate> {
+        return self.tracked_predicate.read().unwrap();
+    }
+    pub fn first_tormo_for_subj(
+        &self,
+        subject_iri: &String,
+    ) -> Option<Arc<RwLock<TrackedOrmObject>>> {
+        if let Some(child_tormo) = self
+            .tracked_predicate()
+            .tracked_children
+            .iter()
+            .find_map(|tc| {
+                let tormo = tc.upgrade().unwrap();
+                let tormo_read = tormo.read().unwrap();
+                if tormo_read.subject_iri == *subject_iri {
+                    drop(tormo_read);
+                    Some(tormo)
+                } else {
+                    None
+                }
+            })
+        {
+            Some(Arc::clone(&child_tormo))
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Term {
     Str(String),
@@ -136,32 +166,20 @@ pub enum Term {
 }
 
 #[derive(Debug)]
-pub struct OrmSubscriptionPageInfo {
-    pub limit_heuristic: u64,
-    /// The lowest active page presented to JS-land.
-    pub lowest_active_page: i64,
-    /// The highest active page presented to JS-land.
-    pub highest_active_page: i64,
-    /// The offset in the sparql queries for the lowest page.
-    pub offset: u64,
-    /// The number of changes that might have affected the current offset.
-    /// This value is reset whenever a new page is queried.
-    pub potential_offset_shift: u64,
-    /// All items that are below the current window and whose changes therefore
-    /// might affect shifts in the offset. Also see potential_offset_shift.
-    pub all_up_to_offset: HashSet<(String, String)>,
-    pub items_in_window: Vec<Arc<RwLock<TrackedOrmObject>>>,
-    /// TODO: The logic for this is not implemented yet.
+pub struct OrmSubscriptionOrderInfo {
+    /// In case of pagination:
+    /// Element 1: The sparql query limit to use.
+    /// Expected to be higher than page_size because there might be invalid graph-subjects returned.
     ///
-    /// The idea of this property is that we need to track which object belongs to which page.
-    /// `items_in_window` keeps the order and config.page_size tells us the page size.
+    /// Element 2: lower offset
+    /// The offset used for the sparql query of the lowest page.
     ///
-    /// But when we go back to a page that was previously dropped but loading the page
-    /// does not yield as many objects as config.page_size, we document the
-    /// number of returned objects to know where the page ends.
-    ///
-    /// Alternatively, we could store the page for each object.
-    pub backwards_page_offset: u64,
+    /// Element 3: higher offset
+    /// The offset used for the sparql query of the highest page.
+    pub limit_lower_upper_offset: Option<(usize, usize, usize)>,
+
+    /// The valid, ordered, actively tracked objects.
+    pub tormos: OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>,
 }
 
 #[derive(Debug)]
@@ -172,7 +190,8 @@ pub struct OrmSubscription {
     pub subject_scope: Vec<String>,
     pub config: OrmConfig,
 
-    pub page_info: Option<OrmSubscriptionPageInfo>,
+    // Ordering mode and its respective metadata.
+    pub ordering_info: Option<OrmSubscriptionOrderInfo>,
 
     pub sender: Sender<AppResponse>,
     // Keep private: always use the helper methods below to access/modify
@@ -195,7 +214,7 @@ pub type ShapeIri = String;
 pub type SubjectIri = String;
 pub type GraphIri = String;
 
-// Structure to store changes in. By shape iri > graph iri > subject iri > OrmTrackedSubjectChange
+/// Structure to store changes in. By shape iri > graph iri > subject iri > OrmTrackedSubjectChange
 pub type OrmChanges =
     HashMap<ShapeIri, HashMap<GraphIri, HashMap<SubjectIri, TrackedOrmObjectChange>>>;
 
@@ -230,16 +249,14 @@ impl OrmSubscription {
             )?;
         }
 
-        let page_info = if config.page_size > 0 {
-            Some(OrmSubscriptionPageInfo {
-                all_up_to_offset: HashSet::new(),
-                items_in_window: vec![],
-                limit_heuristic: (config.page_size as f64 * 1.5) as u64,
-                offset: 0,
-                lowest_active_page: 0,
-                highest_active_page: 0,
-                potential_offset_shift: 0,
-                backwards_page_offset: 0,
+        let ordering_info: Option<OrmSubscriptionOrderInfo> = if config.order_by.is_some() {
+            Some(OrmSubscriptionOrderInfo {
+                tormos: OSBTreeMap::new(),
+                limit_lower_upper_offset: if config.page_size > 0 {
+                    Some(((config.page_size as f64 * 1.5) as usize, 0, 0))
+                } else {
+                    None
+                },
             })
         } else {
             None
@@ -253,8 +270,8 @@ impl OrmSubscription {
             sender,
             tracked_orm_objects: HashMap::new(),
             tracked_nested_subjects: HashMap::new(),
+            ordering_info,
             config,
-            page_info,
         })
     }
 
@@ -266,9 +283,9 @@ impl OrmSubscription {
         target_shape_iri: &String,
         where_config: &WhereConfig,
     ) -> Result<(), NgError> {
-        let where_obj = where_config
-            .as_object()
-            .ok_or(NgError::OrmError("where-config root not an object.".into()))?;
+        let Some(where_obj) = where_config.as_object() else {
+            return Ok(());
+        };
 
         let source_shape = schema.get(source_shape_iri).cloned().ok_or_else(|| {
             NgError::OrmError(format!(
@@ -307,6 +324,21 @@ impl OrmSubscription {
                 .as_array()
                 .map(Vec::as_slice)
                 .unwrap_or(std::slice::from_ref(where_val));
+
+            // Remove original predicate data types
+            Self::mutate_target_predicate(
+                schema,
+                target_shape_iri,
+                readable_pred,
+                move |target_pred_schema| {
+                    target_pred_schema.dataTypes.drain(..);
+                    // We _always_ allow extra for literals when filtering because we assume that
+                    //  additional values might be present too which we don't want to ignore.
+                    if !target_pred_schema.is_object() {
+                        target_pred_schema.extra = Some(true);
+                    }
+                },
+            )?;
 
             for val in where_values {
                 match val {
@@ -653,7 +685,7 @@ impl OrmSubscription {
             .clone()
     }
 
-    pub fn valid_object_count(&self) -> u64 {
+    pub fn valid_object_count(&self) -> usize {
         self.tracked_orm_objects
             .values()
             .flat_map(|subjects| subjects.values())
@@ -667,12 +699,20 @@ impl OrmSubscription {
             })
     }
 
-    pub fn object_count(&self) -> u64 {
+    pub fn object_count(&self) -> usize {
         self.tracked_orm_objects
             .values()
             .flat_map(|subjects| subjects.values())
             .flat_map(|shapes| shapes.values())
-            .count() as u64
+            .count()
+    }
+
+    /// Returns true if at least one object with the given graph and subject is tracked.
+    pub fn has_graph_subject(&self, graph_iri: &str, subject_iri: &str) -> bool {
+        self.tracked_orm_objects
+            .get(graph_iri)
+            .and_then(|subject_to_shape| subject_to_shape.get(subject_iri))
+            .is_some()
     }
 
     /// Returns true if there are no tracked ORM objects in this subscription.
@@ -802,6 +842,28 @@ impl OrmSubscription {
                 }
             }
         }
+    }
+
+    /// Get the first-level order-by predicate and it's lowest and highest value + order direction
+    pub fn get_page_window_bounds(&self) -> Option<(&str, OrderDirection, BasicType, BasicType)> {
+        let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
+        let order_predicate_iri = &order_by.iri;
+
+        let Some(order_info) = self.ordering_info.as_ref() else {
+            return None;
+        };
+
+        let first_key = order_info.tormos.first_key_value()?.0;
+        let last_key = order_info.tormos.last_key_value()?.0;
+        let first_first_order_basic_type = first_key.val_types[0].0.clone();
+        let last_first_order_basic_type = last_key.val_types[0].0.clone();
+
+        Some((
+            order_predicate_iri,
+            *asc,
+            first_first_order_basic_type,
+            last_first_order_basic_type,
+        ))
     }
 }
 

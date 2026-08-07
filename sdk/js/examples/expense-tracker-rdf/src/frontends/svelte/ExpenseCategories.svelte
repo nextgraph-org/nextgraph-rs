@@ -14,13 +14,16 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   import { ExpenseCategoryShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
   import { sessionPromise, session } from "../../utils/ngSession";
   import ExpenseCategoryCard from "./ExpenseCategoryCard.svelte";
+  import { insertObject } from "@ng-org/orm";
 
   const privateNuri = session && `did:ng:${session?.private_store_id}`;
-  const expenseCategories = useShape(ExpenseCategoryShapeType, privateNuri);
+  const { data: expenseCategories, isLoading } = $derived(
+    useShape(ExpenseCategoryShapeType, privateNuri)
+  );
 
   async function createCategory() {
     const session = await sessionPromise;
-    expenseCategories.add({
+    insertObject(ExpenseCategoryShapeType, {
       "@graph": `did:ng:${session.private_store_id}`,
       "@type": new Set(["did:ng:z:ExpenseCategory"]),
       "@id": "",
@@ -28,9 +31,6 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
       description: "",
     });
   }
-
-  const categoryKey = (category: any) =>
-    `${category["@graph"]}|${category["@id"]}`;
 </script>
 
 <section class="panel">
@@ -48,11 +48,13 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
       </button>
     </div>
   </header>
-  {#if !expenseCategories.size}
+  {#if !expenseCategories}
+    <p class="muted">Loading...</p>
+  {:else if expenseCategories.size === 0}
     <p class="muted">No categories yet</p>
   {:else}
     <div class="cards-grid">
-      {#each expenseCategories as category (categoryKey(category))}
+      {#each expenseCategories as category (category["@id"])}
         <ExpenseCategoryCard {category} />
       {/each}
     </div>

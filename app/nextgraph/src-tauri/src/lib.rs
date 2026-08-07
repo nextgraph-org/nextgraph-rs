@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fs::write;
 
 use async_std::stream::StreamExt;
-use ng_net::orm::OrmPatches;
+use ng_net::orm::{OrmConfig, OrmPatches};
 use oxrdf::Triple;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -599,6 +599,7 @@ async fn new_orm_start_graph(
     subject_scope: Vec<String>,
     shape_type: ng_net::orm::OrmShapeType,
     session_id: u64,
+    config: OrmConfig,
 ) -> Result<AppRequest, String> {
     let graph_nuris: Vec<NuriV0> = if graph_scope.is_empty() {
         vec![NuriV0::new_entire_user_site()]
@@ -616,7 +617,7 @@ async fn new_orm_start_graph(
         graph_nuris
     };
 
-    let mut req = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type);
+    let mut req = AppRequest::new_orm_start_graph(graph_nuris, subject_scope, shape_type, config);
     req.set_session_id(session_id);
     Ok(req)
 }

@@ -16,6 +16,8 @@ import {
 import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
 import { DiscreteRoot } from "../../types.ts";
 import { UseShapeStoreResult } from "./useShape.svelte.ts";
+import { Readable, Writable, writable } from "svelte/store";
+import { DeepSignal } from "@ng-org/alien-deepsignals";
 
 /**
  * Svelte 4 hook to subscribe to discrete (JSON) CRDT documents.
@@ -43,7 +45,7 @@ import { UseShapeStoreResult } from "./useShape.svelte.ts";
  *     //     "store",
  *     //     undefined
  *
- *     const doc = useDiscrete(documentIdPromise);
+ *     const { doc, isLoading } = useDiscrete(documentIdPromise);
  *
  *     // If the CRDT document is still empty, we need to initialize it.
  *     $: if (doc && !doc.expenses) {
@@ -62,7 +64,7 @@ import { UseShapeStoreResult } from "./useShape.svelte.ts";
  *
  * <section>
  *     <div>
- *         {#if !doc}
+ *         {#if isLoading}
  *             Loading...
  *         {:else if doc.expenses.length === 0}
  *         <p>
@@ -99,38 +101,73 @@ import { UseShapeStoreResult } from "./useShape.svelte.ts";
  */
 export function useDiscrete<T = DiscreteRoot>(
     documentIdOrPromise: string | Promise<string> | undefined
-): { doc: UseDeepSignalResult<T | undefined> } {
-    let connection: DiscreteOrmSubscription | undefined;
+): UseDiscreteResult<T> {
+    let subscription: Writable<DiscreteOrmSubscription<T> | undefined> =
+        writable(undefined);
+    let sub: DiscreteOrmSubscription<T> | undefined = undefined;
     let isDestroyed = false;
+    let isLoading = writable(false);
+    let promise: Writable<Promise<DeepSignal<T>> | undefined> =
+        writable(undefined);
 
     const objectPromise = new Promise((resolve) => {
         const init = (docId: string) => {
             if (isDestroyed) return;
-            connection = DiscreteOrmSubscription.getOrCreate(docId);
-            connection.readyPromise.then(() => {
+            sub = DiscreteOrmSubscription.getOrCreate<T>(docId);
+            subscription.set(sub);
+            sub.readyPromise.then(() => {
+                isLoading.set(false);
                 if (isDestroyed) {
-                    connection?.close();
+                    sub!.close();
                     return;
                 }
-                resolve(connection!.signalObject!);
+                resolve(sub!.signalObject!);
             });
+            promise.set(sub.readyPromise);
         };
 
         if (typeof documentIdOrPromise === "string") {
+            isLoading.set(true);
             init(documentIdOrPromise);
         } else if (documentIdOrPromise === undefined) {
             // There is nothing to do without a document ID.
         } else {
+            isLoading.set(true);
             documentIdOrPromise.then(init);
         }
     });
 
     onDestroy(() => {
         isDestroyed = true;
-        if (connection) {
-            connection.close();
+        if (sub) {
+            sub.close();
         }
     });
 
-    return { doc: useDeepSignal(objectPromise) as UseShapeStoreResult<T> };
+    return {
+        doc: useDeepSignal(objectPromise) as UseShapeStoreResult<T>,
+        promise,
+        subscription,
+        isLoading,
+    };
 }
+
+type UseDiscreteResult<T = DiscreteRoot> = {
+    /**
+     * `true` when no data is available yet and `conf` is not `undefined`.
+     */
+    isLoading: Readable<boolean>;
+    /**
+     * The JSON object of the requested CRDT document.
+     *
+     * This object is a svelte-reactive version of the value returned by {@link DiscreteOrmSubscription.signalObject}.
+     */
+    doc: UseDeepSignalResult<T | undefined>;
+    /**
+     * A promise that resolves once the data is loaded.
+     * Note that if `conf` is `undefined`, this property is `undefined`.
+     */
+    promise: Readable<undefined | Promise<DeepSignal<T>>>;
+    /** The underlying {@link DiscreteOrmSubscription} through which the data is loaded. */
+    subscription: Readable<DiscreteOrmSubscription<T> | undefined>;
+};

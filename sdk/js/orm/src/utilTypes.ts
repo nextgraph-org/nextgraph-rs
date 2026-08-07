@@ -8,170 +8,297 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { DataType, Predicate, ShapeType } from "@ng-org/shex-orm";
-import { RootShapeType } from "./tests/shapes/orm/testShape.shapeTypes.ts";
+import type { BaseType } from "@ng-org/shex-orm";
 import { Scope } from "./types.ts";
+import { RdfOrmSubscription } from "./core.ts";
+import {
+    DeepSignal,
+    DeepSignalSet,
+    ReadOnlyArray,
+} from "@ng-org/alien-deepsignals";
 
-/** The typescript equivalent for an ORM basic datatype (string, number, boolean, iri as string). */
-type OrmDataTypeToType<DT extends DataType> =
-    DT["literals"] extends Array<any>
-        ? Array<DT["literals"][number]>
-        : "string" extends DT["valType"]
-          ? string
-          : "number" extends DT["valType"]
-            ? number
-            : "boolean" extends DT["valType"]
-              ? boolean
-              : "iri" extends DT["valType"]
-                ? string
-                : "shape" extends DT["valType"]
-                  ? object
-                  : never;
+type ValueOf<T> = T[keyof T];
 
-type AllowedTypeFromPredicate<P extends Predicate> = OrmDataTypeToType<
-    P["dataTypes"][number]
->;
+type LiteralProps<T extends BaseType> = ValueOf<{
+    [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends
+        | string
+        | boolean
+        | number
+        | Set<string>
+        | Set<number>
+        | Set<boolean>
+        | undefined
+        ? K
+        : never;
+}>;
+type ObjectProps<T extends BaseType> = ValueOf<{
+    [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends
+        | BaseType
+        | Set<BaseType>
+        ? K
+        : never;
+}>;
 
-type NonEmptyArray<T> = [T, ...T[]];
-type FlattenArray<T> = T extends Array<infer C> ? FlattenArray<C> : T;
-type AllowArray<T, S = FlattenArray<T>> = S | S[];
-
-type WhereConfig<
-    ST extends ShapeType<any>,
-    SchemaIri extends keyof ST["schema"] = ST["shape"],
-    Pred extends
-        ST["schema"][string]["predicates"][number] = ST["schema"][SchemaIri]["predicates"][number],
-> = {
-    [P in Pred as P["readablePredicate"]]?: "shape" extends P["dataTypes"][number]["valType"]
-        ? // Nested shape?
-          // Only supported if there is a single nested shape
-          P["dataTypes"] extends [any]
-            ? WhereConfig<
-                  ST,
-                  P["dataTypes"][number]["shape"] extends string
-                      ? P["dataTypes"][number]["shape"]
-                      : never
-              >
-            : never
-        : // Basic type
-          AllowArray<
-              | AllowedTypeFromPredicate<P>
-              | { "|gt": AllowedTypeFromPredicate<P> }
-              | { "|lt": AllowedTypeFromPredicate<P> }
-              | {
-                    "|lt": AllowedTypeFromPredicate<P>;
-                    "|gt": AllowedTypeFromPredicate<P>;
-                }
-          >;
+/** Used in {@link RdfOrmConfig}. */
+export type WhereConfig<T extends BaseType> = {
+    [P in LiteralProps<T>]?: T[P] extends Set<infer S> | undefined
+        ? S | NonEmptyArray<Exclude<S, undefined>>
+        : T[P] | NonEmptyArray<Exclude<T[P], undefined>>;
+} & {
+    [P in ObjectProps<T>]?: T[P] extends Set<infer S extends BaseType>
+        ? IsUnion<S> extends true
+            ? never
+            : WhereConfig<S>
+        : IsUnion<T[P]> extends true
+          ? never
+          : WhereConfig<T[P]>;
 };
 
 type SingleKeyObject<T extends Record<string, unknown>> = {
     [K in keyof T]: { [_ in K]: T[K] } & { [_ in Exclude<keyof T, K>]?: never };
 }[keyof T];
 
+type NonEmptyArray<T> = [T, ...T[]];
+
+type IsUnion<T> = [T] extends [UnionToIntersection<T>] ? false : true;
+type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
+    x: infer I
+) => void
+    ? I
+    : never;
+
 /**
  * Defines how results are sorted.
  * Must contain a single property with the key being the property to sort by
  * and the value being `"asc"`, `"desc"`.
+ * The property to sort by must have a cardinality of exactly 1.
+ *
+ * May be used as single object or array of objects if you want secondary ordering.
+ *
+ * @example
+ * ```ts
+ * {
+ *   orderBy: [
+ *     { firstName: "asc"},
+ *     { lastName: "asc"},
+ *     { birthDate: "desc"}
+ *   ],
+ *   ...
+ * }
+ * ```
  */
-// TODO: Rust config requires them to be an array.
-type OrderByConfigObject<
-    ST extends ShapeType<any>,
-    SchemaIri extends keyof ST["schema"] = ST["shape"],
-    Pred extends
-        ST["schema"][string]["predicates"][number] = ST["schema"][SchemaIri]["predicates"][number],
-> = SingleKeyObject<{
-    [P in Pred as P["maxCardinality"] extends 1
-        ? P["readablePredicate"]
-        : never]: "shape" extends P["dataTypes"][number]["valType"]
-        ? //  No support for ordering by nested objects
-          //  OrderByConfigObject<
-          //       ST,
-          //       P["dataTypes"][number]["shape"] extends string
-          //           ? P["dataTypes"][number]["shape"]
-          //           : never
-          //   >
-          never
-        : "asc" | "desc";
+export type OrderByConfig<T extends BaseType> =
+    | NonEmptyArray<OrderByConfigObject<T>>
+    | OrderByConfigObject<T>;
+export type OrderByConfigObject<T extends BaseType> = SingleKeyObject<{
+    [K in Exclude<keyof T, "@graph" | "@id">]: T[K] extends
+        | string
+        | number
+        | boolean
+        ? "asc" | "desc"
+        : never;
 }>;
 
-type SelectConfig<
-    ST extends ShapeType<any>,
-    SchemaIri extends keyof ST["schema"] = ST["shape"],
-    Pred extends
-        ST["schema"][string]["predicates"][number] = ST["schema"][SchemaIri]["predicates"][number],
-> = {
-    [P in Pred as P["readablePredicate"]]?: "shape" extends P["dataTypes"][number]["valType"]
-        ? // Nested shape?
-          // Only supported if there is a single nested shape
-          P["dataTypes"] extends [any]
-            ?
-                  | SelectConfig<
-                        ST,
-                        P["dataTypes"][number]["shape"] extends string
-                            ? P["dataTypes"][number]["shape"]
-                            : never
-                    >
-                  | boolean
-            : boolean
-        : // Basic type
-          boolean;
-};
+// type SelectConfig<
+//     ST extends ShapeType<any>,
+//     SchemaIri extends keyof ST["schema"] = ST["shape"],
+//     Pred extends
+//         ST["schema"][string]["predicates"][number] = ST["schema"][SchemaIri]["predicates"][number],
+// > = {
+//     [P in Pred as P["readablePredicate"]]?: "shape" extends P["dataTypes"][number]["valType"]
+//         ? // Nested shape?
+//           // Only supported if there is a single nested shape
+//           P["dataTypes"] extends [any]
+//             ?
+//                   | SelectConfig<
+//                         ST,
+//                         P["dataTypes"][number]["shape"] extends string
+//                             ? P["dataTypes"][number]["shape"]
+//                             : never
+//                     >
+//                   | boolean
+//             : boolean
+//         : // Basic type
+//           boolean;
+// };
 
-type OrmConfig<ST extends ShapeType<any>> = Scope & {
-    where?: WhereConfig<ST>;
+/** Options for creating an {@link RdfOrmSubscription}. */
+export type RdfOrmConfig<
+    T extends BaseType,
+    PS = number | undefined,
+    OB = OrderByConfig<T> | undefined,
+> = Scope & {
+    /**
+     * Properties or nested properties to filter by.
+     *
+     * @example
+     * ```ts
+     * {
+     *    "name": ["Jon Doe", "Jane Doe"],
+     *    "birthPlace": {
+     *       "city": "Berlin"
+     *    }
+     * }
+     * ```
+     *
+     * Note that when you specify a property value, this is equivalent to marking this property as `EXTRA` in the SHEX definition.
+     * The equivalent SHEX expression for the above is:
+     *
+     * ```shex
+     * ex:PersonShape EXTRA ex:name {
+     *     ex:name [ "Jon Doe" "Jane Doe" ] ;
+     *     # ... rest of shape
+     * }
+     * ex:PlaceShape EXTRA ex:city {
+     *     ex:city [ "Berlin" ] ;
+     *     # ... rest of shape
+     * }
+     * ```
+     */
+    where?: WhereConfig<T>;
 
     /** Property / Properties to sort data by. */
-    orderBy?: NonEmptyArray<OrderByConfigObject<ST>> | OrderByConfigObject<ST>;
+    orderBy?: OB;
 
     /** Optional subset of properties to query. */
-    select?: SelectConfig<ST>;
+    // select?: SelectConfig<ST>;
 
-    /** If set to a value greater than `0`, pagination is activated with the here specified size. */
-    pageSize?: number;
+    /**
+     * If set to a value greater than `0`, pagination is activated with the here specified size.
+     *
+     * Requires `orderBy` to be set.
+     */
+    pageSize?: OB extends undefined ? never : PS;
     /**
      * The number of pages after which loading the next page will discard the first one of the current window.
      * Leave undefined or set to 0, for no page disposal.
      * Note that once items are outside of the current window, they are not tracked and therefore
      * creations and invalidations do not cause "page shifts" - the first item in the window remains stable.
+     *
+     * Requires `pageSize` to be set.
      */
-    maxActivePages?: number;
+    maxActivePages?: PS extends undefined ? never : number;
 
     /**
      * If false, no query is made. Useful in frontend components where not all data is available yet.
      * @default true
      */
-    enabled?: boolean;
+    // enabled?: boolean;
 };
 
-type RST = OrmConfig<typeof RootShapeType>;
+/** The data type of signal objects depending on the OrmConfig. */
+export type SubscriptionData<
+    T extends BaseType,
+    CONF extends RdfOrmConfig<any>,
+> = undefined extends CONF["orderBy"]
+    ? DeepSignalSet<T>
+    : DeepSignal<ReadOnlyArray<T>>;
 
-const typeTest: RST = {
-    graphs: "did:ng:my:nuri:doc",
-    subjects: ["some:iri1", "some:iri2", "some:iri3", "some:iri4"],
-    where: {
-        child3: {
-            "@type": ["did:ng:z:Child2"],
-            childChild: { childChildNum: 2 },
-        },
-        // @ts-expect-error
-        children1Or2: {},
-    },
-    orderBy: [
-        { anInteger: "desc" },
-        {
-            // @ts-expect-error
-            child3: { childChild: { childChildNum: "asc" } },
-        },
-        // @ts-expect-error
-        {},
-        // @ts-expect-error
-        { aDate: "asc", anInteger: "desc" },
-    ],
-    select: {
-        aString: true,
-        // @ts-expect-error
-        children1Or2: {},
-        child3: true,
-    },
+/**
+ * @internal
+ * Utility type to make `nextPage()` and `previousPage()` properties optional,
+ * if conf does not have `pageSize` or `maxActivePages`.
+ */
+export type WithMaybePagination<
+    MAYBE_SHADOW,
+    CONF extends RdfOrmConfig<T>,
+    T extends BaseType,
+> = undefined extends CONF["pageSize"]
+    ? Omit<MAYBE_SHADOW, "nextPage" | "previousPage"> & {
+          nextPage?: () => void;
+          previousPage?: () => void;
+      } // No pagination functions.
+    : undefined extends CONF["maxActivePages"] // Only forward pagination.
+      ? Omit<MAYBE_SHADOW, "previousPage"> & {
+            previousPage?: () => void;
+        }
+      : MAYBE_SHADOW; // Forward and backwards pagination.
+
+// ==========
+// Type tests
+// ==========
+type IRI = string;
+interface TestType {
+    readonly "@graph": string;
+    readonly "@id": string;
+    stringProp: string;
+    numProp: number;
+    boolProp: boolean;
+    setProp: Set<string>;
+    set2Prop?: Set<IRI>;
+    objProp: { "@id": string; "@graph": string; foo: string };
+    obj2Prop: Set<{ "@id": string; "@graph": string; bar: string | number }>;
+    enumProp: "choice1" | "choice2";
+}
+
+// OrderByConfig type tests
+
+type TestTypeOrderByConf = OrderByConfig<TestType>;
+
+const test1ObConf0: TestTypeOrderByConf = {
+    stringProp: "asc",
 };
+const test1ObConf1: TestTypeOrderByConf = {
+    boolProp: "asc",
+};
+const test1ObConf2: TestTypeOrderByConf = [
+    {
+        boolProp: "asc",
+    },
+];
+const test1ObConf3: TestTypeOrderByConf = [
+    {
+        boolProp: "asc",
+    },
+    { enumProp: "desc" },
+];
+const test1ObConf4: TestTypeOrderByConf = {
+    numProp: "asc",
+};
+const test1ObConf5: TestTypeOrderByConf = {
+    // @ts-expect-error
+    objProp: "asc",
+};
+const test1ObConf6: TestTypeOrderByConf = {
+    // @ts-expect-error
+    setProp: "asc",
+};
+// @ts-ignore
+const test1ObConf7: TestTypeOrderByConf = {
+    boolProp: "asc",
+    // @ts-ignore
+    numProp: "desc",
+};
+
+// WhereConfig type tests
+
+function testWhereConf(_conf: WhereConfig<TestType>) {}
+testWhereConf({
+    enumProp: ["choice1", "choice2"],
+    boolProp: true,
+    numProp: [3, 4],
+    stringProp: "foo",
+    setProp: "mau",
+    set2Prop: "maumau",
+    objProp: {
+        foo: "3",
+    },
+    obj2Prop: {
+        bar: 2,
+    },
+});
+testWhereConf({
+    // @ts-expect-error
+    enumProp: ["choice1", "choice3"],
+    // @ts-expect-error
+    boolProp: "true",
+    // @ts-expect-error
+    stringProp: [],
+    objProp: {
+        // @ts-expect-error
+        foo: true,
+    },
+    obj2Prop: {},
+    // @ts-ignore
+    "@graph": "some:id",
+});

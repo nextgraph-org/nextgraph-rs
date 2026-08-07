@@ -4,7 +4,9 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "lib": ["DOM", "ESNext"],
+    "types": ["react", "react-dom"]
   },
   "include": [".astro/types.d.ts", "src"]
 }

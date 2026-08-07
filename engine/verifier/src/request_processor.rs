@@ -15,6 +15,7 @@ use std::sync::Arc;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use futures::StreamExt;
+use ng_net::orm::OrmConfig;
 use ng_net::types::InboxPost;
 use ng_net::types::NgQRCode;
 use ng_net::types::NgQRCodeProfileSharingV0;
@@ -51,17 +52,19 @@ impl Verifier {
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match command {
             AppRequestCommandV0::OrmStartGraph => match payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart((
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStartGraph((
                     shape_type,
                     graph_scope,
                     subject_scope,
+                    config,
                 )))) => {
                     for nuri in graph_scope.iter() {
                         if nuri.is_valid_for_sparql_update() {
                             self.open_for_target(&nuri.target, true).await?;
                         }
                     }
-                    self.start_orm(graph_scope, subject_scope, shape_type).await
+                    self.start_orm(graph_scope, subject_scope, shape_type, config)
+                        .await
                 }
                 _ => return Err(NgError::InvalidArgument),
             },
@@ -973,7 +976,7 @@ impl Verifier {
     ) -> Result<AppResponse, NgError> {
         match command {
             AppRequestCommandV0::OrmGraphUpdate => match payload {
-                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmGraphUpdate((
                     patches,
                     subscription_id,
                 )))) => {
@@ -984,6 +987,34 @@ impl Verifier {
                 }
                 _ => {
                     log_err!("orm update has wrong payload: {:?}", payload);
+                    return Err(NgError::InvalidArgument);
+                }
+            },
+            AppRequestCommandV0::OrmGraphNextPage => match payload {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmSubscriptionId(
+                    subscription_id,
+                ))) => {
+                    return match self.orm_load_next_page(subscription_id).await {
+                        Err(e) => Ok(AppResponse::error(e.to_string())),
+                        Ok(()) => Ok(AppResponse::ok()),
+                    };
+                }
+                _ => {
+                    log_err!("orm next page has wrong payload: {:?}", payload);
+                    return Err(NgError::InvalidArgument);
+                }
+            },
+            AppRequestCommandV0::OrmGraphPreviousPage => match payload {
+                Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmSubscriptionId(
+                    subscription_id,
+                ))) => {
+                    return match self.orm_load_previous_page(subscription_id).await {
+                        Err(e) => Ok(AppResponse::error(e.to_string())),
+                        Ok(()) => Ok(AppResponse::ok()),
+                    };
+                }
+                _ => {
+                    log_err!("orm previous page has wrong payload: {:?}", payload);
                     return Err(NgError::InvalidArgument);
                 }
             },
