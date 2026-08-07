@@ -12,6 +12,7 @@ import { RdfOrmSubscription } from "./connector/RdfOrmSubscription.ts";
 import { DiscreteOrmSubscription } from "./connector/DiscreteOrmSubscription.ts";
 import { initNgSignals, ngSession } from "./connector/initNg.ts";
 import { insertObject } from "./connector/insertObject.ts";
+import { removeObject } from "./connector/removeObject.ts";
 import { getObjects } from "./connector/getObjects.ts";
 
 export * from "./types.ts";
@@ -30,5 +31,6 @@ export {
     RdfOrmSubscription,
     DiscreteOrmSubscription,
     insertObject,
+    removeObject,
     getObjects,
 };

@@ -331,6 +331,7 @@ export class RdfOrmSubscription<
             ? Math.random().toString()
             : JSON.stringify({
                   orderBy,
+                  where,
               });
 
         // Unique identifier for a given shape type, scope, and options.
