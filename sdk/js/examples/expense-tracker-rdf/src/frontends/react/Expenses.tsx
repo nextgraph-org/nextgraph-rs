@@ -8,47 +8,86 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useShape } from "@ng-org/orm/react";
 import {
     ExpenseCategoryShapeType,
     ExpenseShapeType,
-} from "../../shapes/orm/expenseShapes.shapeTypes";
-import type { Expense } from "../../shapes/orm/expenseShapes.typings";
-import { sessionPromise, session } from "../../utils/ngSession";
-import { ExpenseCard } from "./ExpenseCard";
+} from "../../shapes/orm/expenseShapes.shapeTypes.ts";
+import type { Expense } from "../../shapes/orm/expenseShapes.typings.ts";
+import { sessionPromise, session } from "../../utils/ngSession.ts";
 import { insertObject } from "@ng-org/orm";
+import { ExpenseList } from "./ExpenseList.tsx";
+
+const paymentStatusLabels = {
+    "": "All statuses",
+    "did:ng:z:Paid": "Paid",
+    "did:ng:z:Pending": "Pending",
+    "did:ng:z:Overdue": "Overdue",
+    "did:ng:z:Refunded": "Refunded",
+} as const;
+
+const sortByLabels = {
+	dateOfPurchase: "date",
+	amount: "quantity",
+	totalPrice: "price",
+} as const;
+
+
+type PaymentStatusFilter = keyof typeof paymentStatusLabels;
+type SortByFilter = keyof typeof sortByLabels;
+type PageSize = 5 | 10 | 15;
 
 export function Expenses() {
     const privateNuri = session && `did:ng:${session?.private_store_id}`;
-    const {data: expenses , nextPage, previousPage} = useShape(ExpenseShapeType, session && {
-        graphs: [privateNuri!],
-        orderBy: {dateOfPurchase: "desc"},
-        maxActivePages: 1,
-        pageSize: 4
+    const { data: expenseCategories } = useShape(ExpenseCategoryShapeType, {
+        graphs: privateNuri ? [privateNuri] : [],
     });
-    const {data: expenseCategories } = useShape(ExpenseCategoryShapeType, privateNuri );
+
+    const [selectedPaymentStatus, setSelectedPaymentStatus] = useState(
+        "" as PaymentStatusFilter
+    );
+	const [selectedSortBy, setSelectedSortBy] = useState(
+		"dateOfPurchase" as SortByFilter
+	);
+    const [selectedCategoryId, setSelectedCategoryId] = useState("");
+    const [selectedPageSize, setSelectedPageSize] = useState(
+        undefined as PageSize | undefined
+    );
+
+    const categoryOptions = useMemo(
+        () => Array.from(expenseCategories ?? []),
+        [expenseCategories]
+    );
+    const expenseListKey = useMemo(
+        () => `${selectedPaymentStatus}:${selectedCategoryId}:${selectedPageSize}`,
+        [selectedCategoryId, selectedPageSize, selectedPaymentStatus]
+    );
     const createExpense = useCallback(
         async (obj: Partial<Expense> = {}) => {
             const session = await sessionPromise;
 
-            insertObject(ExpenseShapeType,{
+            insertObject(ExpenseShapeType, {
                 "@graph": `did:ng:${session.private_store_id}`,
                 "@type": "did:ng:z:Expense",
                 "@id": "",
                 amount: obj.amount ?? 1,
-                description: obj.description ?? "",
+                recurrenceInterval: obj.recurrenceInterval ?? "",
+                description: obj.description ?? undefined,
                 totalPrice: obj.totalPrice ?? 0,
                 paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
                 isRecurring: obj.isRecurring ?? false,
                 expenseCategory: obj.expenseCategory ?? new Set<string>(),
                 dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
-                title: obj.title ?? "New expense",
-                recurrenceInterval: obj.recurrenceInterval ?? "",
+                title: obj.title ?? "New Expense",
             });
         },
         []
     );
+
+    const paymentStatusEntries = Object.entries(paymentStatusLabels);
+
+    const expensePageSize = selectedPageSize ?? undefined;
 
     return (
         <section className="panel">
@@ -64,47 +103,88 @@ export function Expenses() {
                 >
                     + Add expense
                 </button>
-
             </header>
-            <div className="cards-stack">
-                {!expenses && (
-                    <p className="muted">
-                        Loading...
-                    </p>
-                )}
-                {(expenses && expenses.length === 0) && (
-                    <p className="muted">
-                        Nothing tracked yet - log your first purchase to kick
-                        things off.
-                    </p>
-                )}
-                {expenses && expenses.length > 0 && (
-                    expenses.map((expense) => (
-                        <ExpenseCard
-                            key={expense['@id']}
-                            expense={expense}
-                            availableCategories={expenseCategories}
-                        />
-                    ))
-                )}
+            <div className="filters-bar">
+                <label className="field-group">
+                    <span className="field-label">Payment status</span>
+                    <select
+                        className="select"
+                        value={selectedPaymentStatus}
+                        onChange={(event) =>
+                            setSelectedPaymentStatus(
+                                event.target.value as PaymentStatusFilter
+                            )
+                        }
+                    >
+                        {paymentStatusEntries.map(([statusIri, label]) => (
+                            <option key={statusIri} value={statusIri}>
+                                {label}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label className="field-group">
+                  <span className="field-label">Sort by</span>
+                  <select
+                    className="select"
+                    value={selectedSortBy}
+                    onChange={(event) =>
+                      setSelectedSortBy(
+                        event.target.value as SortByFilter
+                      )
+                    }
+                  >
+                    {Object.entries(sortByLabels).map(([sortField, label]) => (
+                      <option key={sortField} value={sortField}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field-group">
+                    <span className="field-label">Category</span>
+                    <select
+                        className="select"
+                        value={selectedCategoryId}
+                        onChange={(event) =>
+                            setSelectedCategoryId(event.target.value)
+                        }
+                    >
+                        <option value="">All categories</option>
+                        {categoryOptions.map((category) => (
+                            <option key={category["@id"]} value={category["@id"]}>
+                                {category.categoryName || "Unnamed category"}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label className="field-group">
+                    <span className="field-label">Pagination</span>
+                    <select
+                        className="select"
+                        value={selectedPageSize ?? ""}
+                        onChange={(event) => {
+                            const next = event.target.value;
+                            setSelectedPageSize(
+                                next ? (Number(next) as PageSize) : undefined
+                            );
+                        }}
+                    >
+                        <option value="">No pagination</option>
+                        <option value="5">Page size 5</option>
+                        <option value="10">Page size 10</option>
+                        <option value="15">Page size 15</option>
+                    </select>
+                </label>
             </div>
-            <div className="pagination-bar">
-                <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={() => previousPage()}
-                >
-                    {"<"} previous page
-                </button>
-                <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={() => nextPage()}
-                >
-                    next page {">"}
-                </button>
-
-            </div>
+              <ExpenseList
+                  key={expenseListKey}
+                  paymentStatusFilter={selectedPaymentStatus || undefined}
+                  categoryFilter={selectedCategoryId || undefined}
+                  sortBy={selectedSortBy}
+                  pageSize={expensePageSize}
+                  availableCategories={expenseCategories}
+              />
         </section>
     );
 }
