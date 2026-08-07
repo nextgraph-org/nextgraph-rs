@@ -9,24 +9,25 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { normalizeScope, Scope } from "../types.ts";
+import { normalizeConf, Scope } from "../types.ts";
 import { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
 import { RAW_KEY } from "@ng-org/alien-deepsignals";
+import { RdfOrmConfig } from "../utilTypes.ts";
 
 /**
  * Utility for retrieving objects once without establishing a two-way subscription.
  *
  * @param shapeType The shape type of the objects to be retrieved.
- * @param scope The scope of the objects to be retrieved as Scope object or as graph NURI string.
+ * @param conf The config that can be a document nuri or {@link RdfOrmConfig} (excluding pagination).
  * @returns A set of all objects matching the shape and scope
  */
 export async function getObjects<T extends BaseType>(
     shapeType: ShapeType<T>,
-    scope: Scope | string
+    config: Omit<RdfOrmConfig<T>, "pageSize" | "maxActivePages">
 ) {
     const connection = RdfOrmSubscription.getOrCreate(
         shapeType,
-        normalizeScope(scope)
+        normalizeConf(config)
     );
     await connection.readyPromise;
 
@@ -34,5 +35,7 @@ export async function getObjects<T extends BaseType>(
         connection.close();
     }, 1_000);
 
-    return structuredClone(connection.signalObject[RAW_KEY]);
+    return structuredClone(
+        (connection.signalObject as { [RAW_KEY]: Set<T> | T[] })[RAW_KEY]
+    );
 }

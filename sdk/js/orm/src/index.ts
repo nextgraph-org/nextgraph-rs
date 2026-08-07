@@ -28,7 +28,12 @@ import {
 
 export * from "./core.ts";
 export type * from "./types.ts";
-export type * from "./utilTypes.ts";
+export type {
+    OrderByConfig,
+    RdfOrmConfig,
+    SubscriptionData,
+    WhereConfig,
+} from "./utilTypes.ts";
 
 export {
     svelteUseShape,

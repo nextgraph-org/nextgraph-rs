@@ -27,20 +27,23 @@ type LiteralProps<T extends BaseType> = ValueOf<{
         | Set<string>
         | Set<number>
         | Set<boolean>
+        | undefined
         ? K
         : never;
 }>;
 type ObjectProps<T extends BaseType> = ValueOf<{
-    [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends object | Set<object>
+    [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends
+        | BaseType
+        | Set<BaseType>
         ? K
         : never;
 }>;
 
 /** Used in {@link RdfOrmConfig}. */
 export type WhereConfig<T extends BaseType> = {
-    [P in LiteralProps<T>]?: T[P] extends Set<infer S>
-        ? S | NonEmptyArray<S>
-        : T[P] | NonEmptyArray<T[P]>;
+    [P in LiteralProps<T>]?: T[P] extends Set<infer S> | undefined
+        ? S | NonEmptyArray<Exclude<S, undefined>>
+        : T[P] | NonEmptyArray<Exclude<T[P], undefined>>;
 } & {
     [P in ObjectProps<T>]?: T[P] extends Set<infer S extends BaseType>
         ? IsUnion<S> extends true
@@ -191,9 +194,30 @@ export type SubscriptionData<
     ? DeepSignalSet<T>
     : DeepSignal<ReadOnlyArray<T>>;
 
+/**
+ * @internal
+ * Utility type to make `nextPage()` and `previousPage()` properties optional,
+ * if conf does not have `pageSize` or `maxActivePages`.
+ */
+export type WithMaybePagination<
+    MAYBE_SHADOW,
+    CONF extends RdfOrmConfig<T>,
+    T extends BaseType,
+> = undefined extends CONF["pageSize"]
+    ? Omit<MAYBE_SHADOW, "nextPage" | "previousPage"> & {
+          nextPage?: () => void;
+          previousPage?: () => void;
+      } // No pagination functions.
+    : undefined extends CONF["maxActivePages"] // Only forward pagination.
+      ? Omit<MAYBE_SHADOW, "previousPage"> & {
+            previousPage?: () => void;
+        }
+      : MAYBE_SHADOW; // Forward and backwards pagination.
+
 // ==========
 // Type tests
 // ==========
+type IRI = string;
 interface TestType {
     readonly "@graph": string;
     readonly "@id": string;
@@ -201,6 +225,7 @@ interface TestType {
     numProp: number;
     boolProp: boolean;
     setProp: Set<string>;
+    set2Prop?: Set<IRI>;
     objProp: { "@id": string; "@graph": string; foo: string };
     obj2Prop: Set<{ "@id": string; "@graph": string; bar: string | number }>;
     enumProp: "choice1" | "choice2";
@@ -254,6 +279,7 @@ testWhereConf({
     numProp: [3, 4],
     stringProp: "foo",
     setProp: "mau",
+    set2Prop: "maumau",
     objProp: {
         foo: "3",
     },
@@ -272,8 +298,7 @@ testWhereConf({
         // @ts-expect-error
         foo: true,
     },
-    // @ts-ignore
-    obj2Prop: 2,
+    obj2Prop: {},
     // @ts-ignore
     "@graph": "some:id",
 });

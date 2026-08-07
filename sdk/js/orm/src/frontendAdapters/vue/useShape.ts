@@ -17,7 +17,11 @@ import {
     RdfOrmSubscriptionFor,
 } from "../../connector/RdfOrmSubscription.ts";
 import { DeepSignalSet, DeepSignal } from "@ng-org/alien-deepsignals";
-import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
+import {
+    RdfOrmConfig,
+    SubscriptionData,
+    WithMaybePagination,
+} from "../../utilTypes.ts";
 
 /**
  * Hook to subscribe to RDF data in the graph database using a shape, see {@link ShapeType}.
@@ -184,8 +188,4 @@ export type UseShapeResult<
     ST extends ShapeType<any>,
     CONF extends RdfOrmConfig<T>,
     T extends BaseType,
-> = undefined extends CONF["pageSize"]
-    ? Omit<UseShapeResult_<ST, CONF, T>, "nextPage" | "previousPage"> // No pagination functions.
-    : undefined extends CONF["maxActivePages"]
-      ? Omit<UseShapeResult_<ST, CONF, T>, "previousPage"> // Only forward pagination without `maxActivePages`.
-      : UseShapeResult_<ST, CONF, T>; // Forward and backwards pagination.
+> = WithMaybePagination<UseShapeResult_<ST, CONF, T>, CONF, T>;

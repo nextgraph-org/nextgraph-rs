@@ -18,7 +18,11 @@ import {
     RdfOrmSubscriptionFor,
 } from "../../connector/RdfOrmSubscription.ts";
 import type { DeepSignalSet, DeepSignal } from "@ng-org/alien-deepsignals";
-import { RdfOrmConfig, SubscriptionData } from "../../utilTypes.ts";
+import {
+    WithMaybePagination,
+    RdfOrmConfig,
+    SubscriptionData,
+} from "../../utilTypes.ts";
 
 const EMPTY_OBJECT = {} as const;
 
@@ -220,8 +224,4 @@ export type UseShapeResult<
     ST extends ShapeType<any>,
     CONF extends RdfOrmConfig<T>,
     T extends BaseType,
-> = undefined extends CONF["pageSize"]
-    ? Omit<UseShapeResult_<ST, CONF, T>, "nextPage" | "previousPage"> // No pagination functions.
-    : undefined extends CONF["maxActivePages"]
-      ? Omit<UseShapeResult_<ST, CONF, T>, "previousPage"> // Only forward pagination without `maxActivePages`.
-      : UseShapeResult_<ST, CONF, T>; // Forward and backwards pagination.
+> = WithMaybePagination<UseShapeResult_<ST, CONF, T>, CONF, T>;
