@@ -71,7 +71,7 @@ export class RdfOrmSubscription<
      * The ordering mode which depends on the passed subscription's {@link OrderByConfig}.
      * - `unordered`: The root object is a set (no `orderBy` config set)
      * - `orderedUnpaginated`: `orderBy` is set but `pageSize` not
-     *     -> `signalObject` is an array of all items matching the shape and scope.
+     *     -> `signalObject` is an array of all items matching the shape, scope, and where config..
      * - `orderedPaginatedSimple`: `orderBy`, `pageSize`, and `maxActivePages` are set
      *     -> `signalObject` is an array but only contains the items of the loaded pages.
      *         Pages will be removed from `signalObject` when more pages are loaded than `maxActivePages` allows.
@@ -269,7 +269,7 @@ export class RdfOrmSubscription<
      * it will return the same RdfOrmSubscription.
      *
      * @param shapeType The {@link ShapeType}
-     * @param options The {@link RdfOrmConfig}.
+     * @param conf The {@link RdfOrmConfig}.
      *
      * @example
      * ```typescript
@@ -319,10 +319,10 @@ export class RdfOrmSubscription<
         const CONF extends RdfOrmConfig<T>,
     >(
         shapeType: ShapeType<T>,
-        options: CONF
+        conf: CONF
     ): RdfOrmSubscriptionFor<ST, CONF, T> => {
         const { graphs, subjects, maxActivePages, orderBy, pageSize, where } =
-            options;
+            conf;
         const normalizedScope = normalizeScope({ graphs, subjects });
         const scopeKey = canonicalScope(normalizedScope);
         // If we have pagination active, we can't pool subscriptions because
