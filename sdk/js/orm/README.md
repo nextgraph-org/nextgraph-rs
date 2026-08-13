@@ -1,13 +1,13 @@
 # NextGraph ORM SDK
 
-Reactive ORM library for NextGraph: use reactive (typed) objects that automatically sync to NextGraph's encrypted, local-first storage.
+Reactive ORM library for NextGraph: use (typed) objects that automatically sync to NextGraph's encrypted, local-first storage.
 
-For a walk-through you can see the the expense-tracker example apps for [JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) or [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
+For a walk-through you can see the expense-tracker example apps for [JSON documents](https://git.nextgraph.org/NextGraph/expense-tracker-discrete) or [typed graph documents](https://git.nextgraph.org/NextGraph/expense-tracker-graph).
 
 Note that there are two variants of the SDK:
 
 - The RDF ORM for working with **RDF** (graph) data (good for interoperability, cross-document data, evolving schemas)
-- The discrete ORM for working discrete (single-document) **JSON-based** CRDTs: Automerge & YJS currently supported (you need to enforce the schema in the code yourself)
+- The discrete ORM for working with discrete (single-document), **JSON-based** CRDTs: Automerge & YJS currently supported (you need to enforce the schema in the code yourself)
 
 The SDK is reactive. Modifications to your received "plain old TypeScript objects" are **instantly synced with the database and other devices**.\
 Vice versa, when the data is modified on a different device, that is reflected in your TS object and your frontend rerenders the data.\
@@ -30,12 +30,13 @@ We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but
         - [Creating an RDF Document](#creating-an-rdf-document)
         - [Defining a Schema](#defining-a-schema)
         - [Using and Modifying RDF ORM Objects](#using-and-modifying-rdf-orm-objects)
-        - [RDF ORM: Frontend Framework Integration](#rdf-orm-frontend-framework-integration)
+        - [Frontend Framework Integration: `useShape()`](#frontend-framework-integration-useshape)
         - [Using `@id` as `key` attribute for child components](#using-id-as-key-attribute-for-child-components)
         - [Scopes for Retrieving Data](#scopes-for-retrieving-data)
         - [Relationships](#relationships)
         - [Ordering](#ordering)
-        - [Pagination](#pagination)
+        - [Pagination / Infinite Scroll](#pagination--infinite-scroll)
+            - [Some Remarks on Pagination](#some-remarks-on-pagination)
         - [Filtering](#filtering)
         - [The RdfOrmSubscription Class](#the-rdformsubscription-class)
         - ["Disappearing" Objects](#disappearing-objects)
@@ -118,12 +119,14 @@ modifications coming from other devices update the ORM objects too and your fron
 
 [RDF (Resource Description Framework)](https://en.wikipedia.org/wiki/Resource_Description_Framework) is a standard to describe data. Rather than organizing data as tables (e.g. SQL) or trees (e.g. JSON), RDF represents data as a non-hierarchical, unstructured set of triples (a graph aka network).
 
-Each triple consists of a _subject_ (about which you are describing something), a _predicate_ (the property of the relationship, e.g. the first name), and an _object_ (the value of that property or a reference). Triples belong to documents, also called _graphs_ in the context of RDF. Subjects, predicates and graphs are all _IRIs_ (the generalization of URLs). There are many specifications for describing data, to aid application interoperability.
+Each triple consists of a _subject_ (about which you are describing something), a _predicate_ (the property of the relationship, e.g. the first name), and an _object_ (the value of that property or a reference). Triples belong to documents, also called _graphs_ in the context of RDF. Together with a graph, triples become _quads_. Subjects, predicates and graphs are all _IRIs_ (the generalization of URLs). There are many specifications for describing data, to aid application interoperability.
+
+A NextGraph-related IRI is called _NURI_: "NextGraph URI". Auto-generated subjects (the `@id`) and graphs are such NURIs. Every NextGraph document id is a graph NURI.
 
 RDF's flexible and schema-less design aids in schema-evolution, interoperability, and data relationships.
 You are advised to take a moment to get yourself familiar with RDF if you are new to it.
 
-To work with RDF in applications and bring structure to it, we will define schemas to query the data below.
+To work with RDF in applications and bring structure to it, we need to define schemas to query the data below.
 
 ### Creating an RDF Document
 
@@ -159,12 +162,12 @@ const ret = await ng.sparql_query(
     undefined,
     undefined
 );
-let documentId = ret?.results.bindings?.[0]?.storeId?.value;
+const documentId = ret?.results.bindings?.[0]?.storeId?.value;
 ```
 
 ### Defining a Schema
 
-In order to work with typed data, you need to define a SHEX schema. The schema defines the properties the orm objects have and how they map to RDF.
+In order to work with typed data, you need to define a SHEX schema. The schema defines the properties that the orm objects have and how they map to RDF.
 
 You create those schemas with the help of `@ng-org/shex-orm`, as documented [here](https://docs.nextgraph.org/en/reference/shex-orm/).
 
@@ -172,68 +175,78 @@ When you followed the steps there, you will have generated so-called `ShapeType`
 
 ### Using and Modifying RDF ORM Objects
 
-To retrieve your data, you need to create an `RdfOrmSubscription` or use a function that does that for you. The RdfOrmSubscription receives a `ShapeType` and options (scope, ordering, pagination, ...) and loads the data and keeps it in sync.
+To retrieve your data, you need to create an `RdfOrmSubscription` or use a higher-level function. The `RdfOrmSubscription.getOrCreate(shapeType, conf)` function receives a `ShapeType` and config (scope, ordering, pagination, ...) and loads the data and keeps it in sync.
 
-The data that you will receive is either a reactive ([`DeepSignal`](https://docs.nextgraph.org/en/reference/alien-deepsignals/)) set or a read-only reactive array (when you specified an ordering). To sets, you are allowed to add and remove items. Because order is managed by the subscription, you are not allowed to make modifications affecting adds, moves, or removes.
+The data that you will receive is a reactive ([`DeepSignal`](https://docs.nextgraph.org/en/reference/alien-deepsignals/)) set or array. If you specified no ordering, it will be a set, otherwise a read-only array. To sets, you are allowed to add and remove items. Because order is managed by the subscription, you are not allowed to make modifications affecting adds, moves, or removes.
 
 There are multiple ways to create a subscription and get the data (you will see examples for them in the next sections):
 
-- Get and modify the data returned by a `useShape(shapeType, options)` hook inside of a component.
-- Get and modify the signalObject of the subscription returned by [`RdfOrmSubscription.getOrCreate(shapeType, options)`](#the-rdformsubscription-class). Note that this only works for subscriptions without ordering since you are not allowed to modify the order of the items.
+- You can get and modify the data returned by a [`useShape(shapeType, config)`](#frontend-framework-integration-useshape) hook inside of a frontend component.
+- You can get and modify the signalObject of the subscription returned by [`RdfOrmSubscription.getOrCreate(shapeType, config)`](#the-rdformsubscription-class) directly.
 - No 2-way binding:
-    - [`getObjects(shapeType, options)`](#getobjects) Gets all object with the given shape type within the scope specified in `options`. The returned objects are _not_ reactive (`DeepSignal`) objects - modifications to them do not trigger updates and changes from other sources do not update the returned data.
-    - [`insertObject(shapeType, object)`](#insertobject): A convenience function to add objects of a given shape to the database without sustaining an OrmSubscription.
+    - [`getObjects(shapeType, config)`](#getobjects) Gets all object with the given shape type within the scope specified in `config`. The returned objects are _not_ reactive (`DeepSignal`) objects - modifications to them do not trigger updates and changes from other sources do not update the returned data.
+    - [`insertObject(shapeType, config)`](#insertobject): A convenience function to add objects of a given shape to the database without sustaining an OrmSubscription.
+- [`removeObject(graphNuri, subjectIri)`](#removeobject) removes _all_ quads with the given graph and subject. Note that this might affect quads that were not loaded with your ShapeType.
 
-### RDF ORM: Frontend Framework Integration
+### Frontend Framework Integration: `useShape()`
 
-The SDK offers hooks for the following frameworks:
+The SDK offers `useShape(ShapeType, config)` hooks that let you load and interact with data inside of components.
+Implementations are available for [Svelte 5](#svelteuseshape), [Svelte 4](#svelte4useshape), [Vue](#vueuseshape), and [React](#reactuseshape).
 
-- Svelte 5: [useShape](#svelteuseshape)
-- Svelte 4: [useShape](#svelte4useshape)
-- Vue: [useShape](#vueuseshape)
-- React: [useShape](#reactuseshape)
-
-All of them share the same logic. They create a 2-way binding to the engine.
-You can modify the returned object like any other JSON object. Changes are immediately
-reflected in the database and components refresh on affecting changes.
+The hooks create a 2-way binding between the engine and the frontend.
+You can modify the data returned by the hook like any other object. Changes are immediately
+reflected in the database. When data used inside a component changed, the component rerenders (thanks to the [`useDeepSignal`](../alien-deepsignals/#frontend-hooks) hooks).
 When the component unmounts, the subscription is closed.
 
+The returned `data` object is identical to the subscription's `.signalObject`. \
+The second parameter, the [config](#RdfOrmConfig) has the same type as the config you pass to [`RdfOrmSubscription.getOrCreate(shapeType, conf)`](#the-rdformsubscription-class).
+
+You can find more detailed descriptions of the parameters and return types in the inline-comments or the reference of the respective `useShape` implementation.
+
+The following example loads the expenses with the subject IRI (`@id`) `<s1 IRI>` and `<s2 IRI>` in the documents `did:ng:o:g1` and `did:ng:o:g2`.
+
 ```ts
-// Queries the graphs with NURI did:ng:o:g1 and did:ng:o:g2 and with subject s1 or s2.
-const { data: expenses } = useShape(ExpenseShapeType, {
+const {
+    data, // The `subscription.signalObject`, once loaded.
+    promise, // Resolves and returns `data`, once loaded.
+    subscription, // The underlying RdfOrmSubscription managing the data.
+    isLoading, // True while the data is loading (usually very short).
+} = useShape(ExpenseShapeType, {
     graphs: ["did:ng:o:g1", "did:ng:o:g2"],
     subjects: ["<s1 IRI>", "<s2 IRI>"],
-    orderBy: undefined, // One or more properties to order by.
-    pageSize: 0, // No pagination.
+    orderBy: [{ price: "asc" }], // One or more properties to order by.
+    pageSize: undefined, // No pagination.
     maxActivePages: 0, // In case of pagination, how many to hold loaded at once (0 = no limit).
 });
-// Note: While the returned `expenses` object has type `DeepSignal<Set<Expense>>`, you can treat and type it as `Set<Expense>` as well, for convenience.
+// When orderBy is `undefined`, the returned data has type:
+// `DeepSignal<Set<Expense>>`
+// Otherwise: `DeepSignal<ReadonlyArray<Expense>>`.
 
-// Now you can use expenses in your component
-// and modify them to persist them and trigger a refresh.
+// Now you can use the data in your component
+// and modify it, to persist it and trigger a refresh.
 ```
 
 ### Using `@id` as `key` attribute for child components
 
 In general, you are encouraged to use ORM object's `@id` properties as unique key when you render child components. Each object in a set or array returned by `useShape` or `useDiscrete` includes such an `@id` property. When you add a new object, a globally unique one will be auto-generated.
 
-In the RDF ORM you are allowed (but not encouraged) to specify your own `@id` (which is an RDF subject IRI). If you want to use it as key for rendering child components, ensure that it is unique within your scope.
+In the RDF ORM, the `@id` is the RDF subject IRI. You are allowed (but not encouraged) to set your own `@id`. If you want to use it as key for rendering child components, ensure that it is unique within your scope.
 
 ### Scopes for Retrieving Data
 
-The RDF ORM lets you retrieve data across different documents using the `graphs` parameter in the options, as you can see in the example above.
+The RDF ORM lets you retrieve data across different documents using the `graphs` parameter in the config, as you can see in the example above.
 
 If you want to query across all datasets, use the following Nuri: `"did:ng:i"` or simply use `""`.
 
-When you specify one or more subject IRIs in the options, only those subject will be considered for your request (those will be queried across all graphs specified).
+When you specify one or more subject IRIs in the config, only those subject will be considered for your request (those will be queried across all graphs specified).
 Because not all objects with the specified subject IRIs might match the shape you provided, some returned objects might be missing from the subject IRIs of your request.
 
 ### Relationships
 
-To reference external objects, you can use their `@id`.
+To reference external objects, you can use their `@id` (the RDF subject IRI).
 
 ```typescript
-// Note that jackIri is the subject IRI of an object that describes Jack.
+// Note that jackIri is the `@id` (subject IRI) of an object that describes Jack.
 const jackIri = ...;
 
 casey.friends.add(jackIri);
@@ -242,7 +255,7 @@ casey.friends.add(jackIri);
 // you can establish the link by adding an object that contains the `@id` property only.
 shoppingExpense.category.add({ "@id": "<Subject IRI of expense category>" });
 
-// Or if the property has cardinality 1, set it like this:
+// If the property has cardinality 1, set it like this:
 dog.owner = jackIri;
 
 // Resolve the relationship
@@ -255,9 +268,9 @@ Note that it is highly recommended to keep _subject IRIs globally unique_. This 
 
 ### Ordering
 
-With the RDF ORM, you can specify an `orderBy` property in the options objects passed to `getObjects()`, `useShape()`, or `RdfOrmSubscription.getOrCreate()`.
+With the RDF ORM, you can specify an `orderBy` property in the config objects passed to `getObjects()`, `useShape()`, or `RdfOrmSubscription.getOrCreate()`.
 
-In that case, the signal object you will receive is not a set but an array.
+When `orderBy` is set, the returned data is not a set but an array.
 
 ```ts
 const contactsSubscription = RdfOrmSubscription.getOrCreate(ContactShape, {
@@ -287,36 +300,82 @@ for (contact of contacts) {
 Note that you cannot add, move, or remove items in the returned array. This logic is maintained internally. You can however change the items themselves.
 If you want to add an item, you can call [`insertObject()`](#insertobject) instead which will make the item appear in the array (unless in simple pagination mode, see below). Use [`removeObject()`](#removeobject) for removing an object. If you want to modify the position, just modify the properties that the data is ordered by and it will update itself.
 
-### Pagination
+If two objects have the same `oderBy` value, the ordering will be decided by their `@graph` and secondly their `@id`, sorted alphabetically.
 
-As your dataset grows loading all items matching a shape becomes computationally expensive. For that case, you are advised to use pagination.
-To use pagination, you must specify an ordering as described above.
+### Pagination / Infinite Scroll
 
-There are different modes of pagination:
+As your dataset grows, loading all items of a ShapeType becomes computationally expensive. For that case, you are advised to use pagination.
+As a prerequisit, you must specify an ordering as described above.
 
-- `orderedPaginatedSimple`:
+Currently we do not support "classical pagination" by page numbers. Similar to tanstack's [`useInfiniteQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useInfiniteQuery), you can only load the next page (and depending on the mode, the previous page).
+
+When pagination is configured, you can call `nextPage()` and `previousPage()` on your `RdfOrmSubscription` object or the object returned by `useShape()`.
+
+There are two parameters, to configure pagination:
+
+- `pageSize` (mandatory): The number of items to load at once
+- `maxActivePages` (optional): If specified, the number of pages to keep loaded
+
+From that, two modes of pagination arise:
+
+- "**cumulative pagination**": Once an item was loaded, it remains loaded. `maxActivePages` is not set and you can only call `nextPage()`. On a `nextPage()` call, the data array is extended to include the new elements.
+  When an item within the loaded range becomes valid, it will appear at the correct position.
+  When you implement an infinite scroll and expect a lot of data to be iterated though, keeping all items loaded might become computationally heavy. In that cases, you can use "simple pagination" instead.\
+  In the RdfOrmSubscription class, the property `mode` will be set to `"orderedPaginatedCumulative"` under this configuration.
+
+- "**simple pagination**":
   The initial data you will see is an array with as many items as was set in `pageSize`.
-  By calling `nextPage()` and `previousPage()`, new items will be added to the data.
+  When you call `nextPage()` and `previousPage()`, previously loaded items in the array are removed.
 
     You must set `maxActivePages` to a value greater than 0. If you set it to greater than 1, requesting the next page
-    will not immediately remove the existing items in the array. Instead, only items will be removed if
-    the loaded items exceed `maxActivePages` × `pageSize`.
-    You are recommended to set higher values when implementing infinite feeds.
+    will not immediately remove the existing items in the array. Instead, items will be removed only when
+    the loaded items exceed `maxActivePages` × `pageSize`. Because the items are ordered that means that when `nextPage()` is called, the first _pageSize_ items are removed from the array; when `previousPage()` is called, the last _pageSize_ items are removed.
+    When you implement infinite scroll, you are recommended to set higher values for `maxActivePages` so that not all items are replaced at the same time.
 
     Note that if an item becomes invalid, it will be removed from the loaded items. If however an item becomes valid that would fit in the current window by its ordering, it will not appear. Your page can shrink but not grow in size.
     As long as its ordering changes within the page bounds, it remains and changes positions.
+    In the RdfOrmSubscription class, the property `mode` will be set to `"orderedPaginatedSimple"` under this configuration.
 
-- `orderedPaginatedCumulative`:
-  This mode behaves the same as `orderedPaginatedSimple` with one difference. Because you do not set `maxActivePages`, calling `nextPage()` will not remove previously loaded data.
-  Therefore you can't call `previousPage()`.
+Simple example in React:
 
-    Note that if an item becomes invalid, it will be removed from the loaded item. When an item within the loaded range becomes valid, it will appear at the correct position.
+```tsx
+const { data, nextPage, previousPage } = useShape(ExpenseShapeType, {
+    graphs: [docNuri],
+    orderBy: {dateOfPurchase: "desc"}
+    pageSize: 15,
+    maxActivePages: 4,
+});
 
-Note: When the order of an item changes to the last position of the page (or in case of `orderedPaginatedSimple` also the first), it will disappear. It is not deleted but won't be tracked because it can't be checked if it actually moved to just the position at the end/beginning of the page or beyond that.
+return (
+    <div>
+        <label>Expenses</label>
+        <div>
+            {data?.map((expense) =>
+                <Expense key={expense['@id']} expense={expense} />
+            )}
+        </div>
+
+        <button onClick={previousPage}>Load previous</button>
+        <button onClick={nextPage}>Load more</button>
+    </div>
+);
+```
+
+#### Some Remarks on Pagination
+
+`nextPage()` and `previousPage()` are not async function. And there is no direct way to know if the data has loaded or not. Since you are in a local-first context though, the delay for loading new items is negligible.
+
+When there are no (more) loadable items, calling `nextPage()` and `previousPage()` has no effect.
+
+When an item is deleted or becomes invalid, it is removed from the page without a new item being loaded. That means, the array containing the items can even become empty.
+
+In the simple pagination mode, when items become valid or invalid that are below the currently loaded items (previously loaded but removed after `nextPage()` call), that does not affect the loaded items. If there are a lot of changes, it can happen though that `nextPage()` and `previousPage()` load "the wrong" elements. That means that there might be items skipped between the previously and the newly loaded page.
+
+When the order of an item changes to the last position of the page (or in case of `orderedPaginatedSimple` also the first), it will disappear. It is not deleted but untracked because it can't be checked if it actually moved to just the position at the end/beginning of the page or beyond that.
 
 ### Filtering
 
-When you specified a shape but only want to query a certain subset of items, you can specify the `where` config to filter by one or more values.
+When you specified a shape but only want to query a certain subset of items, you can specify the `where` config, to filter by one or more values.
 
 ```ts
 const colleaguesInParisOrBerlinSubscription = RdfOrmSubscription.getOrCreate(ContactShape, {
@@ -336,7 +395,7 @@ That means that a colleague that is based in Paris but has the affiliation `"fri
 The SHEX equivalent after applying the `where` filter:
 
 ```shex
-ex:ContactShape EXTRA ex:name {
+ex:ContactShape EXTRA ex:affiliation {
     ex:affiliation [ "colleague" ] * ;
     # ... rest of shape
 }
@@ -348,12 +407,12 @@ ex:LocationShape EXTRA ex:city {
 
 ### The RdfOrmSubscription Class
 
-In many cases, it is enough to use `insertObject()`, `getObjects()`, and `deleteObject()` or the `useShape()` inside of a component. You can however establish a subscriptions outside of frontend components using the RdfOrmSubscription class directly using `RdfOrmSubscription.getOrCreate()` which returns an instance of the class. Once the subscription is fully established, its `.readyPromise` resolves and the `.signalObject` contains the 2-way bound data (before that, `signalObject` is defined but no data is present).
+In many cases, it is enough to use `insertObject()`, `getObjects()`, and `deleteObject()` or the `useShape()` hook inside of a component. You can however establish a subscriptions outside of frontend components using the RdfOrmSubscription class directly using `RdfOrmSubscription.getOrCreate()` which returns an instance of the class. Once the subscription is fully established, its `.readyPromise` resolves and the `.signalObject` contains the 2-way bound data (before that, `signalObject` is an empty object).
 
 If a subscription with the same document or scope (and no pagination) exists already, a reference to that object is returned. Otherwise, a new one is created.
 This pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useShape()` or `useDiscrete()`. This reduces load and the data updates even quicker.
 
-Subscriptions are open until `.close()` is called on all references of this object. The `useShape` hook calls `.close()` on their reference when their component unmounts. For data that you use frequently throughout the lifetime of your application, you can might want to consider creating a globally available subscription.
+Subscriptions are open until `.close()` is called on all references of this object. The `useShape` hook calls `.close()` on their reference when their component unmounts. For data that you use frequently throughout the lifetime of your application, you can create a globally available subscription. You can then use [`useDeepSignal`](../alien-deepsignals/#frontend-hooks) on the `signalObject` of the subscription.
 
 Example:
 
@@ -363,7 +422,6 @@ const dogSubscription = RdfOrmSubscription.getOrCreate(DogShape, {
 });
 await dogSubscription.readyPromise;
 
-// If we used OrmDiscreteSubscription, the signalObject type would be an array or object.
 const dogSet: DeepSignal<Set<Dog>> = dogSubscription.signalObject;
 
 dogs.add({
@@ -388,7 +446,6 @@ const sameDog = dogs.getBy(aDog["@graph"], aDog["@id"]);
 // Attention: This deletes all triples in dog's document where the subject is that of `aDog`.
 // Not only the triples with predicates that are available in the loaded data.
 dogs.delete(aDog);
-testObjects;
 ```
 
 ### "Disappearing" Objects
@@ -417,7 +474,7 @@ const docNuri = await ng.doc_create(
 const APPLICATION_CLASS_IRI = "did:ng:z:MyApplicationWithYjs";
 
 // Add a class to the RDF part of the document so we can find it again.
-// Note: Every type of document can store RDF data.
+// Note: Every type of document can additionally store RDF data.
 await ng.sparql_update(
     session_id,
     `INSERT DATA { GRAPH <${documentId}> {<${documentId}> a <${APPLICATION_CLASS_IRI}> } }`,
@@ -444,7 +501,7 @@ You can establish subscriptions outside of frontend components using the Discret
 You can create a new subscription using `DiscreteOrmSubscription.getOrCreate()`. If a subscription with the same document or scope exists already, a reference to that object is returned. Otherwise, a new one is created.
 This pooling is especially useful when more than one frontend component subscribes to the same data and scope by calling `useDiscrete()`. This reduces load and the data is available instantly.
 
-Subscriptions are open until `.close()` is called on all references of this object. The `useDiscrete` hook calls `.close()` on their reference when their component unmounts. For data that you use frequently throughout the lifetime of your application, you can might want to consider creating a globally available subscription.
+Subscriptions are open until `.close()` is called on all references of this object. The `useDiscrete` hook calls `.close()` on their reference when their component unmounts. For data that you use frequently throughout the lifetime of your application, you can create a globally available subscription. You can then use [`useDeepSignal`](../alien-deepsignals/#frontend-hooks) on the `signalObject` of the subscription.
 
 ### Using `@id` as Unique Object Identifier in Arrays
 
@@ -452,7 +509,7 @@ In root arrays and in arrays of root objects, each object in the array has a uni
 
 You can use the `@id` property as a unique value as the `key` attribute in your frontend framework, for rendering arrays.
 Note that when you add a new array, at first, a temporary id is set which is then replaced with a permanent one assigned by the engine asynchronously.
-Once assigned by the engine, the `@id` property is globally unique and stable. So it can also be useful to refer to objects in arrays of different locations.
+Once assigned by the engine, the `@id` property is globally unique and stable. So it can also be useful to refer to objects in arrays of different locations (rather than by index).
 
 ## Transactions
 
@@ -476,7 +533,7 @@ The utilities that DeepSignal objects include are:
 
 ### Signal Objects in Frontend Frameworks
 
-Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use `useDeepSignal(signalObject)` from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the delay when creating new subscriptions.
+Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use [`useDeepSignal(signalObject)`](../alien-deepsignals/#frontend-hooks) from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the delay when creating new subscriptions.
 
 ---
 

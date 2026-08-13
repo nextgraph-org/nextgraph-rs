@@ -165,6 +165,7 @@ export type RdfOrmConfig<
 
     /**
      * If set to a value greater than `0`, pagination is activated with the here specified size.
+     * Use `nextPage()` or `previousPage()`, to load the next / previous items.
      *
      * Requires `orderBy` to be set.
      */
