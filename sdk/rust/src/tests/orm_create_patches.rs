@@ -8,8 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{self, doc_sparql_update};
+use crate::local_broker::doc_sparql_update;
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
+use crate::tests::test_schemas::create_house_schema;
 use crate::tests::{
     add_graph_fields, assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact,
     augment_expected_with_graph_fields, await_graph_patches, await_graph_patches_empty_if_timeout,
@@ -23,11 +24,31 @@ use ng_net::orm::{
     BasicType, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
     OrmShapeType,
 };
+use std::hint;
 use std::time::Duration;
 
 use ng_repo::log::*;
 use serde_json::json;
 use std::collections::HashMap;
+
+// #![feature(test)]
+// extern crate test;
+// use test::Bencher
+// #[bench]
+// async fn test_orm_patch_creation(b: &mut Bencher) {
+#[async_std::test]
+async fn bench_orm_patch_creation() {
+    let (_wallet, session_id) = create_or_open_wallet().await;
+
+    bench_test_add_remove_move_in_plain_sorted(session_id).await;
+    // bench_test_add_remove_move_in_plain_sorted(session_id, &mut b).await;
+
+    bench_nested(session_id).await;
+
+    // Do this so the actually printed lines are written to stdio.
+    print!("dividing by zero");
+    let m = 1 / 0;
+}
 
 #[async_std::test]
 async fn test_orm_patch_creation() {
@@ -780,207 +801,14 @@ INSERT DATA {
     )
     .await;
 
-    // Define the ORM schema
-    let mut schema = HashMap::new();
-
-    // House shape
-    schema.insert(
-        "http://example.org/HouseShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/HouseShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/House".to_string(),
-                        )]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/rootColor".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 0,
-                    readablePredicate: "rootColor".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/inhabitants".to_string(),
-                    extra: Some(false),
-                    maxCardinality: -1,
-                    minCardinality: 1,
-                    readablePredicate: "inhabitants".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/PersonShape".to_string()),
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-
-    // Person shape
-    schema.insert(
-        "http://example.org/PersonShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/PersonShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/name".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "name".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/hasCat".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 0,
-                    readablePredicate: "cat".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/CatShape".to_string()),
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-
-    // Cat shape
-    schema.insert(
-        "http://example.org/CatShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/CatShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/catName".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 0,
-                    readablePredicate: "name".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                // New nested layer: Cat -> Toy
-                OrmSchemaPredicate {
-                    iri: "http://example.org/hasToy".to_string(),
-                    extra: Some(false),
-                    maxCardinality: -1,
-                    minCardinality: 0,
-                    readablePredicate: "toy".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/ToyShape".to_string()),
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-
-    // Toy shape
-    schema.insert(
-        "http://example.org/ToyShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/ToyShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("http://example.org/Toy".to_string())]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/toyName".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "name".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
+    let house_schema = create_house_schema();
 
     let shape_type = OrmShapeType {
-        schema,
+        schema: house_schema,
         shape: "http://example.org/HouseShape".to_string(),
     };
 
-    let (mut receiver, cancel_fn, subscription_id, initial) =
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
         create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
 
     log_info!(
@@ -1939,6 +1767,455 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     add_graph_fields(&mut expected_patches, &doc_nuri);
 
     assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
+}
+
+// async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64, b: &mut Bencher) {
+//     let doc_nuri = create_doc_with_data(
+//         session_id,
+//         r#"
+//             PREFIX ex: <did:ng:z:>
+//             INSERT DATA {
+//                 <did:ng:z:sortObj2> a ex:SortObject ;
+//                                     ex:sortBy 2 ;
+//                                     ex:sortBy2 2 .
+//                 <did:ng:z:sortObj1AndThen23> a ex:SortObject ;
+//                                     ex:sortBy 1 ;
+//                                     ex:sortBy2 1 .
+//                 <did:ng:z:sortObj4> a ex:SortObject ;
+//                                     ex:sortBy 4 ;
+//                                     ex:sortBy2 4 .
+//                 <did:ng:z:sortObj3> a ex:SortObject ;
+//                                     ex:sortBy 3 ;
+//                                     ex:sortBy2 3 .
+//                 <did:ng:z:sortObj51> a ex:SortObject ;
+//                                     ex:sortBy 5 ;
+//                                     ex:sortBy2 1 .
+//                 <did:ng:z:sortObj52> a ex:SortObject ;
+//                                     ex:sortBy 5 ;
+//                                     ex:sortBy2 2 .
+//             }
+//     "#
+//         .to_string(),
+//     )
+//     .await;
+
+//     let mut schema = HashMap::new();
+//     schema.insert(
+//         "did:ng:z:SortShape".to_string(),
+//         OrmSchemaShape {
+//             iri: "did:ng:z:SortShape".to_string(),
+//             predicates: vec![
+//                 OrmSchemaPredicate {
+//                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+//                     extra: None,
+//                     maxCardinality: 1,
+//                     minCardinality: 1,
+//                     readablePredicate: "type".to_string(),
+//                     dataTypes: vec![OrmSchemaDataType {
+//                         valType: OrmSchemaValType::iri,
+//                         literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+//                         shape: None,
+//                     }],
+//                 }
+//                 .into(),
+//                 OrmSchemaPredicate {
+//                     iri: "did:ng:z:sortBy".to_string(),
+//                     extra: Some(false),
+//                     maxCardinality: 1,
+//                     minCardinality: 1,
+//                     readablePredicate: "sortBy".to_string(),
+//                     dataTypes: vec![OrmSchemaDataType {
+//                         valType: OrmSchemaValType::number,
+//                         literals: None,
+//                         shape: None,
+//                     }],
+//                 }
+//                 .into(),
+//                 OrmSchemaPredicate {
+//                     iri: "did:ng:z:sortBy2".to_string(),
+//                     extra: Some(false),
+//                     maxCardinality: 1,
+//                     minCardinality: 1,
+//                     readablePredicate: "sortBy2".to_string(),
+//                     dataTypes: vec![OrmSchemaDataType {
+//                         valType: OrmSchemaValType::number,
+//                         literals: None,
+//                         shape: None,
+//                     }],
+//                 }
+//                 .into(),
+//             ],
+//         }
+//         .into(),
+//     );
+
+//     let shape_type = OrmShapeType {
+//         schema,
+//         shape: "did:ng:z:SortShape".to_string(),
+//     };
+
+//     // Sort by two predicates.
+//     let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+//         vec![doc_nuri.clone()],
+//         vec![], // All objects
+//         shape_type.clone(),
+//         session_id,
+//         json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}]}),
+//     )
+//     .await;
+
+//     let mut bench_index = 7;
+//     b.iter(async || {
+//         doc_sparql_update(
+//             session_id,
+//             format!(
+//                 r#"
+//                     PREFIX ex: <did:ng:z:>
+//                     INSERT DATA {{
+//                         GRAPH <{}> {{
+//                             ex:sortObj{} a ex:SortObject ;
+//                                         ex:sortBy {} ;
+//                                         ex:sortBy2 1.5 .
+//                             ex:sortObj{} a ex:SortObject ;
+//                                         ex:sortBy {} ;
+//                                         ex:sortBy2 1.5 .
+//                             ex:sortObj{} a ex:SortObject ;
+//                                         ex:sortBy {} ;
+//                                         ex:sortBy2 1.5 .
+//                             ex:sortObj{} a ex:SortObject ;
+//                                         ex:sortBy {} ;
+//                                         ex:sortBy2 1.5 .
+//                         }}
+//                     }}
+//                     "#,
+//                 doc_nuri,
+//                 bench_index, bench_index,
+//                 bench_index+1, bench_index+1,
+//                 bench_index+2, bench_index+2,
+//                 bench_index+3, bench_index+3,
+//             ),
+//             Some(doc_nuri.clone()),
+//         )
+//         .await
+//         .expect("SPARQL update failed");
+//         //
+//         let received_patches = await_graph_patches(&mut receiver).await;
+//         test::black_box(received_patches);
+//         bench_index+=4;
+
+//     });
+// }
+async fn bench_nested(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                ex:foo ex:bar 0 .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let house_schema = create_house_schema();
+
+    let shape_type = OrmShapeType {
+        schema: house_schema,
+        shape: "http://example.org/HouseShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    use std::time::Instant;
+
+    // Collect per-section call counts and timings from the ORM change processor.
+    ng_verifier::orm::graph::process_changes::perf::set_enabled(true);
+    ng_verifier::orm::graph::process_changes::perf::reset();
+
+    let now = Instant::now();
+    let mut chunk_start = Instant::now();
+    let mut update_total = Duration::ZERO;
+    let mut patch_total = Duration::ZERO;
+
+    for i in 0..200 {
+        let sparql_query = format!(
+            r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {{
+                <urn:test:house{}> 
+                    a ex:House ;
+                    ex:rootColor "color_{}" ;
+                    ex:inhabitants <urn:test:person{}> .
+
+                <urn:test:person{}>
+                    a ex:Person ;
+                    ex:name "name_{}" ;
+                    ex:hasCat <urn:test:cat{}> .
+
+                <urn:test:cat{}>
+                    a ex:Cat ;
+                    ex:catName "cat_{}" ;
+                    ex:hasToy <urn:test:toy1_{}> ;
+                    ex:hasToy <urn:test:toy2_{}> .
+
+                <urn:test:toy1_{}>
+                    a ex:Toy ;
+                    ex:toyName "toy1_{}" .
+
+                <urn:test:toy2_{}>
+                    a ex:Toy ;
+                    ex:toyName "toy2_{}" .
+            }}
+            "#,
+            i, i, i, i, i, i, i, i, i, i, i, i, i, i
+        );
+        // INSERT: Add a new person with a cat, modify house color, modify existing person's name, add cat to Bob
+        let update_start = Instant::now();
+        doc_sparql_update(session_id, sparql_query, Some(doc_nuri.clone()))
+            .await
+            .expect("INSERT SPARQL update failed");
+        update_total += update_start.elapsed();
+
+        let patch_start = Instant::now();
+        let received_patches = await_graph_patches(&mut receiver).await;
+        patch_total += patch_start.elapsed();
+
+        hint::black_box(received_patches);
+
+        // Print the trend, so a super-linear slowdown is visible while it happens.
+        if (i + 1) % 10 == 0 {
+            println!(
+                "[bench_nested] iters {:>3}-{:<3}: {:?} (total {:?})",
+                i - 8,
+                i + 1,
+                chunk_start.elapsed(),
+                now.elapsed()
+            );
+            chunk_start = Instant::now();
+        }
+    }
+
+    println!(
+        "[bench_nested] Elapsed time for 200 iters, 5 (partly nested) objects each: {:?} (sparql update: {:?}, waiting for patches: {:?})",
+        now.elapsed(),
+        update_total,
+        patch_total
+    );
+    println!(
+        "{}",
+        ng_verifier::orm::graph::process_changes::perf::report_and_reset()
+    );
+}
+
+async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:sortObj2> a ex:SortObject ;
+                                    ex:sortBy 2 ;
+                                    ex:sortBy2 2 .
+                <did:ng:z:sortObj1AndThen23> a ex:SortObject ;
+                                    ex:sortBy 1 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj4> a ex:SortObject ;
+                                    ex:sortBy 4 ;
+                                    ex:sortBy2 4 .
+                <did:ng:z:sortObj3> a ex:SortObject ;
+                                    ex:sortBy 3 ;
+                                    ex:sortBy2 3 .
+                <did:ng:z:sortObj51> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj52> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 2 .
+            }
+    "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy2".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy2".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    // Sort by two predicates.
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}]}),
+    )
+    .await;
+    use std::time::Instant;
+    let now = Instant::now();
+
+    let mut bench_index = 7;
+    for _i in 0..200 {
+        doc_sparql_update(
+            session_id,
+            format!(
+                r#"
+                    PREFIX ex: <did:ng:z:>
+                    INSERT DATA {{
+                        GRAPH <{}> {{
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+
+                        }}
+                    }}
+                    "#,
+                doc_nuri,
+                bench_index,
+                bench_index,
+                bench_index + 1,
+                bench_index + 1,
+                bench_index + 2,
+                bench_index + 2,
+                bench_index + 3,
+                bench_index + 3,
+                bench_index + 4,
+                bench_index + 4,
+                bench_index + 5,
+                bench_index + 5,
+                bench_index + 6,
+                bench_index + 6,
+                bench_index + 7,
+                bench_index + 7,
+                bench_index + 8,
+                bench_index + 8,
+                bench_index + 9,
+                bench_index + 9,
+                bench_index + 10,
+                bench_index + 10,
+                bench_index + 11,
+                bench_index + 11,
+                bench_index + 12,
+                bench_index + 12,
+                bench_index + 13,
+                bench_index + 13,
+                bench_index + 14,
+                bench_index + 14,
+                bench_index + 15,
+                bench_index + 15,
+            ),
+            Some(doc_nuri.clone()),
+        )
+        .await
+        .expect("SPARQL update failed");
+        //
+        let received_patches = await_graph_patches(&mut receiver).await;
+
+        hint::black_box(received_patches);
+        bench_index += 4;
+    }
+
+    println!(
+        "[bench_plain] Elapsed time for 200 iters, 16 entries each: {:?}",
+        now.elapsed()
+    );
 }
 
 async fn test_add_remove_move_in_pagination(session_id: u64) {
