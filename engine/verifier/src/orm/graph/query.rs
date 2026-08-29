@@ -506,36 +506,36 @@ pub fn schema_shape_to_sparql(
         }
     }
 
-    // Assemble WHERE body with GRAPH block
-    let mut where_lines: Vec<String> = vec![
-        "  GRAPH ?g {".to_string(),
-        graph_lines.join("\n"),
-        "  }".to_string(),
-    ];
+    // Assemble WHERE body.
+    let mut where_lines: Vec<String> = vec![];
+
+    // Build a `VALUES ?var { <iri> ... }` line.
+    let values_line = |var: &str, iris: &Vec<String>| -> String {
+        let list = iris
+            .iter()
+            .map(|iri| format!("<{}>", iri))
+            .collect::<Vec<_>>()
+            .join(" ");
+        format!("  VALUES ?{} {{ {} }}", var, list)
+    };
 
     // Subject filter
     if let Some(subjects) = filter_subjects {
         if !subjects.is_empty() {
-            let in_list = subjects
-                .iter()
-                .map(|s| format!("<{}>", s))
-                .collect::<Vec<_>>()
-                .join(", ");
-            where_lines.push(format!("  FILTER(?s IN ({}))", in_list));
+            where_lines.push(values_line("s", subjects));
         }
     }
 
     // Graph filter
     if let Some(graphs) = filter_graphs {
         if !graphs.is_empty() {
-            let in_list = graphs
-                .iter()
-                .map(|g| format!("<{}>", g))
-                .collect::<Vec<_>>()
-                .join(", ");
-            where_lines.push(format!("  FILTER(?g IN ({}))", in_list));
+            where_lines.push(values_line("g", graphs));
         }
     }
+
+    where_lines.push("  GRAPH ?g {".to_string());
+    where_lines.push(graph_lines.join("\n"));
+    where_lines.push("  }".to_string());
 
     // Filters that depend on internal object vars should come after GRAPH block
     where_lines.extend(post_graph_filters);
