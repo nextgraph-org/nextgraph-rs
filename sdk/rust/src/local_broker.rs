@@ -2983,6 +2983,7 @@ pub async fn doc_query_quads_for_shape_type(
     session
         .verifier
         .query_quads_for_shape(&nuris, schema, shape, filter_subjects)
+        .map(|fetched| fetched.quads)
 }
 
 pub async fn doc_create(

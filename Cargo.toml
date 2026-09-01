@@ -17,7 +17,7 @@ members = [
   "infra/ngaccount",
   "infra/ngapp",
   "infra/ngnet",
-  "app/nextgraph/src-tauri"
+  "app/nextgraph/src-tauri",
 ]
 default-members = ["sdk/rust"]
 
@@ -26,7 +26,10 @@ version = "0.1.2"
 edition = "2021"
 rust-version = "1.88.0"
 license = "MIT/Apache-2.0"
-authors = ["Niko PLP <niko@nextgraph.org>", "Laurin Weger <mail@laurinweger.de>"]
+authors = [
+  "Niko PLP <niko@nextgraph.org>",
+  "Laurin Weger <mail@laurinweger.de>",
+]
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 homepage = "https://nextgraph.org"
 keywords = [
@@ -84,3 +87,6 @@ opt-level = 2
 [workspace.metadata.scripts]
 libwasm = "cd sdk/js/lib-wasm && cargo run-script app && cd ../../.."
 libwasmdev3 = "cd sdk/js/lib-wasm && cargo run-script appdev3 && cd ../../.."
+
+[profile.test.package.nextgraph]
+opt-level = 0

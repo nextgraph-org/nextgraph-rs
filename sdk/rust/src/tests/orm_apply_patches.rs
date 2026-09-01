@@ -1025,8 +1025,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
-                            "http://example-test_patch_multilevel_nested.org/AddressShape"
-                                .to_string(),
+                            "http://example-test_patch_multilevel_nested.org/Address".to_string(),
                         )]),
                         shape: None,
                     }],
@@ -2028,7 +2027,7 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "remove",
-                "value": {},
+                "valType": "set",
                 "path": root,
             },
         ]);

@@ -151,25 +151,35 @@ impl Verifier {
         // Changes to tormos which we use for materialization.
         let mut changes: OrmChanges = HashMap::new();
 
-        // Query quads for this shape
-        let shape_quads = if orm_subscription.graph_scope.is_empty() {
-            vec![]
+        // Query quads for this shape.
+        let fetched = if orm_subscription.graph_scope.is_empty() {
+            None
         } else {
-            self.query_quads_for_shape(
+            Some(self.query_quads_for_shape(
                 &orm_subscription.graph_scope,
                 &orm_subscription.shape_type.schema,
                 &orm_subscription.shape_type.shape,
                 Some(&orm_subscription.subject_scope),
-            )?
+            )?)
         };
+        let shape_quads = fetched.as_ref().map(|f| f.quads.as_slice()).unwrap_or(&[]);
 
         self.process_changes_for_subscription(
             orm_subscription,
-            &shape_quads,
+            shape_quads,
             &[],
             &mut changes,
             true,
         )?;
+
+        // Everything the query returned is on record as holding all the store has for it, so
+        // updates never have to trigger full re-queries.
+        if let Some(fetched) = fetched.as_ref() {
+            orm_subscription.mark_fetched_complete(
+                &fetched.loaded,
+                &LoadedScope::from_query_scope(&orm_subscription.graph_scope),
+            );
+        }
 
         // === Materialization ===
         let mut materialized_objects: serde_json::Value;
@@ -369,6 +379,7 @@ impl Verifier {
                     &orm_subscription.shape_type.shape,
                     Some(&graph_subject_page.iter().map(|(_g, s)| s.clone()).collect()),
                 )?
+                .quads
             };
 
             let graph_subject_page_new_only: Vec<(GraphIri, SubjectIri)> = graph_subject_page
@@ -381,8 +392,7 @@ impl Verifier {
                 })
                 .cloned()
                 .collect();
-            let new_page_set: HashSet<(String, String)> =
-                HashSet::from_iter(graph_subject_page_new_only.clone());
+            // Filter new quads.
             let shape_quads = shape_quads
                 .into_iter()
                 .filter(|q| {
@@ -391,23 +401,9 @@ impl Verifier {
                     else {
                         return false;
                     };
-
-                    // Check if the (g,s) is in the gs-query result.
-                    let key = (g.as_str().to_string(), s.as_str().to_string());
-                    new_page_set.contains(&key)
+                    !orm_subscription.has_graph_subject(g.as_str(), s.as_str())
                 })
                 .collect::<Vec<_>>();
-
-            // if let Some(limit_offset) = limit_offset {
-            //     log_debug!(
-            //         "[query_items_ordered]\n(Offset, Limit:) ({}, {})\nreturned {} items\nthereof new: {}\nnew in total {}",
-            //         limit_offset.1,
-            //         limit_offset.0,
-            //         returned_gs_items,
-            //         graph_subject_page_new_only.len(),
-            //         ordered_gs_results.len() + graph_subject_page_new_only.len()
-            //     );
-            // }
 
             // Add gs results to existing results.
             ordered_gs_results.extend(graph_subject_page_new_only);

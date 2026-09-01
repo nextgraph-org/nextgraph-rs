@@ -34,11 +34,25 @@ use crate::orm::graph::types::{
 
 pub type GraphSubjectKey = (String, String);
 
-pub fn group_by_graph_and_subject<'a>(
-    quads: &'a [Quad],
-) -> HashMap<GraphSubjectKey, Vec<&'a Quad>> {
+/// The graph IRI a quad belongs to, or `None` for quads outside a named graph.
+pub fn graph_iri_of_quad(quad: &Quad) -> &str {
+    match &quad.graph_name {
+        GraphName::NamedNode(n) => n.as_str(),
+        _ => unreachable!(),
+    }
+}
+
+/// The subject IRI of a quad, or `None` for blank-node subjects.
+pub fn subject_iri_of_quad(quad: &Quad) -> &str {
+    match &quad.subject {
+        Subject::NamedNode(n) => n.as_str(),
+        _ => unreachable!(),
+    }
+}
+
+pub fn group_by_graph_and_subject(quads: &[Quad]) -> HashMap<GraphSubjectKey, Vec<Quad>> {
     // Collect all in quads in a hashmap of (graph_iri, subject_iri) => Quad[]
-    let mut quads_by_key: HashMap<GraphSubjectKey, Vec<&Quad>> = HashMap::new();
+    let mut quads_by_key: HashMap<GraphSubjectKey, Vec<Quad>> = HashMap::new();
 
     for quad in quads {
         // Get graph string
@@ -56,7 +70,7 @@ pub fn group_by_graph_and_subject<'a>(
         quads_by_key
             .entry((graph, subj))
             .or_insert_with(Vec::new)
-            .push(quad);
+            .push(quad.clone());
     }
 
     return quads_by_key;
@@ -213,8 +227,10 @@ pub struct AssessmentResult {
     pub heuristic_used: HeuristicUsed,
     pub counts: ValidityCounts,
     pub satisfies: bool, // whether this selection satisfies min/max cardinality
-    pub children_to_fetch: Vec<Arc<RwLock<TrackedOrmObject>>>,
-    pub children_to_reevaluate: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    /// Children detached from the subscription, which a reference may revive.
+    pub children_untracked: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    /// Children whose validity has not been settled yet.
+    pub children_pending: Vec<Arc<RwLock<TrackedOrmObject>>>,
 }
 
 fn bucket_counts(children: &[Arc<RwLock<TrackedOrmObject>>]) -> ValidityCounts {
@@ -297,18 +313,19 @@ pub fn assess_and_rank_children(
         let within_max = max_cardinality == -1 || valid_total <= max_cardinality;
         let satisfies = within_min && within_max;
 
-        // Extract children that need fetching (Untracked) or re-evaluation (Pending)
-        let mut children_to_fetch = Vec::new();
-        let mut children_to_reevaluate = Vec::new();
+        // Split out the children that are not settled yet. Untracked means the child was
+        // detached from the subscription.
+        let mut children_untracked = Vec::new();
+        let mut children_pending = Vec::new();
 
         for child in ranked.iter() {
             let child_guard = child.read().unwrap();
             match child_guard.valid {
                 TrackedOrmObjectValidity::Untracked => {
-                    children_to_fetch.push(child.clone());
+                    children_untracked.push(child.clone());
                 }
                 TrackedOrmObjectValidity::Pending => {
-                    children_to_reevaluate.push(child.clone());
+                    children_pending.push(child.clone());
                 }
                 _ => {}
             }
@@ -319,8 +336,8 @@ pub fn assess_and_rank_children(
             heuristic_used: which,
             counts,
             satisfies,
-            children_to_fetch,
-            children_to_reevaluate,
+            children_untracked,
+            children_pending,
         }
     };
 
@@ -328,19 +345,13 @@ pub fn assess_and_rank_children(
     // Return early if a bucket satisfies OR has potential (pending/untracked children)
     if !same_graph.is_empty() {
         let res = make_res(same_graph, HeuristicUsed::SameGraph);
-        if res.satisfies
-            || !res.children_to_fetch.is_empty()
-            || !res.children_to_reevaluate.is_empty()
-        {
+        if res.satisfies || !res.children_untracked.is_empty() || !res.children_pending.is_empty() {
             return res;
         }
     }
     if !subject_prefix.is_empty() {
         let res = make_res(subject_prefix, HeuristicUsed::SubjectPrefix);
-        if res.satisfies
-            || !res.children_to_fetch.is_empty()
-            || !res.children_to_reevaluate.is_empty()
-        {
+        if res.satisfies || !res.children_untracked.is_empty() || !res.children_pending.is_empty() {
             return res;
         }
     }
@@ -447,6 +458,7 @@ mod tests {
             subject_iri: subject.to_string(),
             graph_iri: graph.to_string(),
             shape: Arc::downgrade(&shape),
+            is_complete: false,
         }))
     }
 
@@ -504,7 +516,7 @@ mod tests {
         // same-graph bucket chosen first; has pending child so should be considered
         assert_eq!(res.heuristic_used, HeuristicUsed::SameGraph);
         assert_eq!(res.counts.pending, 1);
-        assert_eq!(res.children_to_reevaluate.len(), 1);
+        assert_eq!(res.children_pending.len(), 1);
     }
 
     #[test]
@@ -648,7 +660,7 @@ mod tests {
             .map(|c| c.read().unwrap().subject_iri.clone())
             .collect();
         assert_eq!(order, vec!["v", "p", "u", "i"]);
-        assert_eq!(res.children_to_fetch.len(), 1); // untracked child
-        assert_eq!(res.children_to_reevaluate.len(), 1); // pending child
+        assert_eq!(res.children_untracked.len(), 1); // untracked child
+        assert_eq!(res.children_pending.len(), 1); // pending child
     }
 }

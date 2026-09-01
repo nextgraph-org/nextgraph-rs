@@ -9,42 +9,50 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_oxigraph::oxrdf::Quad;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::orm::graph::types::*;
 use ng_net::orm::*;
 
-/// Add/remove quads to `subject_changes` for a single (graph,subject) and shape.
+/// The predicate schemas of a shape, by predicate IRI.
+pub(crate) type PredicateIndex<'a> = HashMap<&'a str, Vec<&'a Arc<OrmSchemaPredicate>>>;
+
+pub(crate) fn index_predicates(shape: &OrmSchemaShape) -> PredicateIndex<'_> {
+    let mut index: PredicateIndex = HashMap::new();
+    for predicate_schema in shape.predicates.iter() {
+        index
+            .entry(predicate_schema.iri.as_str())
+            .or_insert_with(Vec::new)
+            .push(predicate_schema);
+    }
+    index
+}
+
+/// Add quads to `orm_object_changes` for a single (graph,subject) and shape.
 /// Assumes all quads have the same subject and graph in a call.
-/// Returns tracked predicates and subjects they link to (for later linking).
-///
-/// TODO: Iteration could be more efficient.
-/// Also, the parent function already filtered out all quads not belonging to the shape.
-pub fn add_quads_for_subject(
-    shape: Arc<OrmSchemaShape>,
+/// Quads whose predicate the shape does not constrain are skipped.
+fn add_quads_for_subject(
+    shape: &Arc<OrmSchemaShape>,
+    predicates: &PredicateIndex<'_>,
     graph_iri: &str,
     subject_iri: &str,
-    quads_added: &[&Quad],
+    quads_added: &[Quad],
     orm_subscription: &mut OrmSubscription,
     orm_object_changes: &mut TrackedOrmObjectChange,
 ) {
     // Ensure the parent tracked orm object exists for this (graph, subject, shape)
     let parent_arc =
-        orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, &shape);
+        orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, shape);
 
-    // Process added quads.
-    // For each quad, check if it matches the shape.
-    // In parallel, we record the values added and removed (tracked_changes)
+    // Process added quads, recording the values added on the change as we go.
     for quad in quads_added {
+        let Some(predicate_schemas) = predicates.get(quad.predicate.as_str()) else {
+            // The shape does not constrain this predicate.
+            continue;
+        };
         let obj_term = oxrdf_term_to_orm_basic_type(&quad.object);
-        // log_debug!("  - processing quad {quad}");
-        for predicate_schema in &shape.predicates {
-            if predicate_schema.iri != quad.predicate.as_str() {
-                // Triple does not match predicate.
-                continue;
-            }
-
+        for predicate_schema in predicate_schemas.iter().copied() {
             // Predicate schema constraint matches this quad.
             // Get or create the tracked predicate on the parent.
             let mut tracked_orm_object = parent_arc.write().unwrap();
@@ -95,25 +103,30 @@ pub fn add_quads_for_subject(
     }
 }
 
-pub fn remove_quads_for_subject(
-    shape: Arc<OrmSchemaShape>,
+/// Remove quads from `orm_object_changes` for a single (graph,subject) and shape.
+fn remove_quads_for_subject(
+    shape: &Arc<OrmSchemaShape>,
     graph_iri: &str,
     subject_iri: &str,
-    quads_removed: &[&Quad],
+    quads_removed: &[Quad],
     orm_subscription: &mut OrmSubscription,
     orm_object_changes: &mut TrackedOrmObjectChange,
 ) {
-    // Process removed quads.
+    // Nothing to remove from if this shape never tracked the subject.
+    let Some(tracked_orm_object) =
+        orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, &shape.iri)
+    else {
+        return;
+    };
+
     for quad in quads_removed {
         let pred_iri = quad.predicate.as_str();
 
-        // Only adjust if we had tracked state.
-        let tracked_predicate_opt = orm_subscription
-            .get_tracked_orm_object(graph_iri, subject_iri, &shape.iri)
-            .and_then(|ts| {
-                let guard = ts.read().ok()?;
-                guard.tracked_predicates.get(pred_iri).cloned()
-            });
+        // Only adjust if we had tracked state for it.
+        let tracked_predicate_opt = tracked_orm_object
+            .read()
+            .ok()
+            .and_then(|guard| guard.tracked_predicates.get(pred_iri).cloned());
         let Some(tracked_predicate_rc) = tracked_predicate_opt else {
             continue;
         };
@@ -167,54 +180,36 @@ fn should_add_to_literals(
         .any(|dt| dt.literals.is_some())
 }
 
-/// Filters grouped quads for a specific (graph,subject) and shape and applies them (add+remove) to the tracked object and change.
+/// Filters quads for a specific (graph,subject) and shape and applies them (add+remove) to the tracked object and change.
+/// The same quad must not be applied more than once.
 pub fn apply_quads_for_subject(
     shape: &Arc<OrmSchemaShape>,
     graph_iri: &str,
     subject_iri: &str,
-    added_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
-    removed_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
+    quads_added: &[Quad],
+    quads_removed: &[Quad],
     orm_subscription: &mut OrmSubscription,
     change: &mut TrackedOrmObjectChange,
 ) {
-    let key = (graph_iri.to_string(), subject_iri.to_string());
-    let added_vec_raw = added_by_graph_and_subject
-        .get(&key)
-        .cloned()
-        .unwrap_or_default();
-    let removed_vec_raw = removed_by_graph_and_subject
-        .get(&key)
-        .cloned()
-        .unwrap_or_default();
-
-    // Filter quads for shape's predicates
-    let allowed: HashSet<&str> = shape.predicates.iter().map(|p| p.iri.as_str()).collect();
-    let quads_added_for_gs: Vec<&Quad> = added_vec_raw
-        .iter()
-        .copied()
-        .filter(|q| allowed.contains(q.predicate.as_str()))
-        .collect();
-    let quads_removed_for_gs: Vec<&Quad> = removed_vec_raw
-        .iter()
-        .copied()
-        .filter(|q| allowed.contains(q.predicate.as_str()))
-        .collect();
+    // HashMap for quick lookup of whether quads are relevant.
+    let predicates = index_predicates(shape);
 
     // Apply adds first, then removes
     add_quads_for_subject(
-        shape.clone(),
+        shape,
+        &predicates,
         graph_iri,
         subject_iri,
-        &quads_added_for_gs,
+        quads_added,
         orm_subscription,
         change,
     );
 
     remove_quads_for_subject(
-        shape.clone(),
+        shape,
         graph_iri,
         subject_iri,
-        &quads_removed_for_gs,
+        quads_removed,
         orm_subscription,
         change,
     );

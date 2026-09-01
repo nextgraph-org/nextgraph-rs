@@ -20,8 +20,17 @@ use crate::orm::graph::utils::{escape_sparql_string, is_iri};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
-use ng_oxigraph::oxrdf::{Quad, Term};
+use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, SubjectRef, Term};
 use ng_repo::errors::NgError;
+
+/// Outcome of a shape fetch.
+pub struct ShapeFetch {
+    /// Every quad the traversal collected.
+    pub quads: Vec<Quad>,
+    /// The subjects the traversal loaded in full, keyed by the shape they were queried for.
+    /// Their complete state (for that shape) is contained in `quads`.
+    pub loaded: HashMap<ShapeIri, HashSet<SubjectIri>>,
+}
 
 impl Verifier {
     /// Query all quads for a shape and its nested shapes using a breadth-first queue.
@@ -31,14 +40,15 @@ impl Verifier {
     /// - root_shape: IRI of the root shape to start from.
     /// - filter_subjects: Optional list of subject IRIs to restrict the root query. If None, the root query is unfiltered to discover all matching root subjects.
     ///
-    /// Returns all quads collected across the root shape and all reachable nested shapes.
+    /// Returns all quads collected across the root shape and all reachable nested shapes,
+    /// together with the subjects the traversal loaded in full.
     pub fn query_quads_for_shape(
         &self,
         nuris: &Vec<String>,
         schema: &OrmSchema,
         root_shape: &ShapeIri,
         filter_subjects: Option<&Vec<String>>,
-    ) -> Result<Vec<Quad>, NgError> {
+    ) -> Result<ShapeFetch, NgError> {
         // Determine graph filters based on nuri.
         let filter_graphs: Option<&Vec<String>> = if nuris.is_empty() {
             None
@@ -241,7 +251,51 @@ impl Verifier {
         //     total_time
         // );
 
-        Ok(all_quads)
+        Ok(ShapeFetch {
+            quads: all_quads,
+            loaded: processed,
+        })
+    }
+
+    /// Get every quad the store holds for the given (graph, subject) pairs.
+    pub fn query_quads_for_graph_subjects(
+        &self,
+        graph_subjects: &[(GraphIri, SubjectIri)],
+    ) -> Result<Vec<Quad>, NgError> {
+        if graph_subjects.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // A subject-bound scan of the named graph. It resolves the graph through the same CRDT
+        // machinery a `GRAPH <g> { <s> ?p ?o }` pattern would, without a query to parse and plan.
+        let store = self.graph_dataset.as_ref().unwrap();
+        let mut quads: Vec<Quad> = Vec::new();
+
+        for (graph_iri, subject_iri) in graph_subjects.iter() {
+            let graph =
+                NamedNode::new(graph_iri).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+            let subject =
+                NamedNode::new(subject_iri).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+
+            for found in store.quads_for_pattern(
+                Some(SubjectRef::NamedNode(subject.as_ref())),
+                None,
+                None,
+                Some(GraphNameRef::NamedNode(graph.as_ref())),
+            ) {
+                let found = found.map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+                quads.push(Quad {
+                    subject: found.subject,
+                    predicate: found.predicate,
+                    object: found.object,
+                    // The scan is answered from the commit graphs the CRDT materializes; name
+                    // the quads after the graph they were asked for.
+                    graph_name: GraphName::NamedNode(graph.clone()),
+                });
+            }
+        }
+
+        Ok(quads)
     }
 
     /// Expects the select to return 4 variables only: ?s, ?p, ?o, ?g
@@ -255,6 +309,7 @@ impl Verifier {
 
         let parsed = Query::parse(&query, nuri.as_deref())
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+
         let results = oxistore
             .query(parsed, nuri)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
