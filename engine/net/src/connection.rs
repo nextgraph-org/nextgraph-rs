@@ -298,9 +298,10 @@ impl NoiseFSM {
             FSMstate::Local0 => {
                 ClientPeerId::new_from(
                     &self.remote_peer().ok_or(ProtocolError::ActorError)?,
-                    &Some(self.user.unwrap()),
+                    &Some(self.user.ok_or(ProtocolError::ActorError)?),
                 )
-                // the unwrap and Some is on purpose. to enforce that we do have a user
+                // the Some is on purpose, to enforce that we do have a user.
+                // it was an unwrap, which panicked here instead of refusing
             }
             _ => {
                 ClientPeerId::new_from(&self.remote_peer().ok_or(ProtocolError::ActorError)?, &None)
@@ -406,7 +407,12 @@ impl NoiseFSM {
             noise_xk(),
             false,
             &[],
-            Some(sensitive_from_privkey(self.local.take().unwrap().to_dh())),
+            Some(sensitive_from_privkey(
+                self.local
+                    .take()
+                    .ok_or(ProtocolError::InvalidState)?
+                    .to_dh(),
+            )),
             None,
             None,
             None,
@@ -434,7 +440,10 @@ impl NoiseFSM {
 
     #[allow(dead_code)]
     fn process_server_noise3(&mut self, noise: &Noise) -> Result<(), ProtocolError> {
-        let handshake = self.noise_handshake_state.as_mut().unwrap();
+        let handshake = self
+            .noise_handshake_state
+            .as_mut()
+            .ok_or(ProtocolError::InvalidState)?;
 
         let _ = handshake
             .read_message_vec(noise.data())
@@ -443,7 +452,9 @@ impl NoiseFSM {
         if !handshake.completed() {
             return Err(ProtocolError::NoiseHandshakeFailed);
         }
-        let peer_id = handshake.get_rs().unwrap();
+        let peer_id = handshake
+            .get_rs()
+            .ok_or(ProtocolError::NoiseHandshakeFailed)?;
         self.remote = Some(PubKey::X25519PubKey(peer_id));
 
         let ciphers = handshake.get_ciphers();
@@ -469,14 +480,12 @@ impl NoiseFSM {
         }
         if msg_opt.is_some() {
             #[cfg(debug_assertions)]
-            if msg_opt.as_ref().unwrap().is_block() {
-                log_debug!("RECEIVED BLOCK");
-            } else {
-                log_debug!(
-                    "RECEIVED: {:?} in state {:?}",
-                    msg_opt.as_ref().unwrap(),
-                    self.state
-                );
+            if let Some(received) = msg_opt.as_ref() {
+                if received.is_block() {
+                    log_debug!("RECEIVED BLOCK");
+                } else {
+                    log_debug!("RECEIVED: {:?} in state {:?}", received, self.state);
+                }
             }
         }
         match self.state {
@@ -501,7 +510,7 @@ impl NoiseFSM {
             FSMstate::Start => {
                 if !self.dir.is_server() && msg_opt.is_none() {
                     // CLIENT START
-                    match self.config.as_ref().unwrap() {
+                    match self.config.as_ref().ok_or(ProtocolError::InvalidState)? {
                         StartConfig::Probe => {
                             // PROBE REQUEST
                             let request = ProtocolMessage::Probe(MAGIC_NG_REQUEST);
@@ -522,10 +531,13 @@ impl NoiseFSM {
                                     true,
                                     &[],
                                     Some(sensitive_from_privkey(
-                                        self.local.take().unwrap().to_dh(),
+                                        self.local
+                                            .take()
+                                            .ok_or(ProtocolError::InvalidState)?
+                                            .to_dh(),
                                     )),
                                     None,
-                                    Some(*self.remote.unwrap().slice()),
+                                    Some(*self.remote.ok_or(ProtocolError::InvalidState)?.slice()),
                                     None,
                                 );
 
@@ -626,7 +638,10 @@ impl NoiseFSM {
                 if let Some(msg) = msg_opt.as_ref() {
                     if !self.dir.is_server() {
                         if let ProtocolMessage::Noise(noise) = msg {
-                            let handshake = self.noise_handshake_state.as_mut().unwrap();
+                            let handshake = self
+                                .noise_handshake_state
+                                .as_mut()
+                                .ok_or(ProtocolError::InvalidState)?;
 
                             let mut payload = handshake
                                 .read_message_vec(noise.data())
@@ -644,7 +659,7 @@ impl NoiseFSM {
                             let ciphers = handshake.get_ciphers();
 
                             let mut next_step = StepReply::NONE;
-                            match self.config.as_ref().unwrap() {
+                            match self.config.as_ref().ok_or(ProtocolError::InvalidState)? {
                                 StartConfig::Client(_client_config) => {
                                     let noise3 =
                                         ClientHello::Noise3(Noise::V0(NoiseV0 { data: payload }));
@@ -729,7 +744,7 @@ impl NoiseFSM {
                             self.process_server_noise3(noise)?;
 
                             let mut nonce_buf = [0u8; 32];
-                            getrandom::fill(&mut nonce_buf).unwrap();
+                            getrandom::fill(&mut nonce_buf).map_err(|_| ProtocolError::IoError)?;
 
                             self.nonce_for_hello = nonce_buf.to_vec();
 
@@ -758,7 +773,7 @@ impl NoiseFSM {
                                 .attach_and_authorize_app(
                                     remote_bind_address,
                                     local_bind_address,
-                                    *self.remote.unwrap().slice(),
+                                    *self.remote.ok_or(ProtocolError::InvalidState)?.slice(),
                                     &app_hello.user,
                                     &app_hello.info,
                                 )
@@ -774,8 +789,8 @@ impl NoiseFSM {
                             if result.is_err() {
                                 return Err(result);
                             }
-                            if app_hello.user.is_some() {
-                                self.set_user_id(app_hello.user.unwrap());
+                            if let Some(user) = app_hello.user {
+                                self.set_user_id(user);
                             }
 
                             log_debug!("AUTHENTICATION SUCCESSFUL ! waiting for APP requests on the server side");
@@ -790,7 +805,7 @@ impl NoiseFSM {
             FSMstate::Noise3 => {
                 // CLIENT after Noise3, sending StartProtocol
                 if msg_opt.is_none() && !self.dir.is_server() {
-                    match self.config.as_ref().unwrap() {
+                    match self.config.as_ref().ok_or(ProtocolError::InvalidState)? {
                         StartConfig::Client(_) => {
                             return Err(ProtocolError::InvalidState);
                         }
@@ -838,7 +853,9 @@ impl NoiseFSM {
                             }
                             StartProtocol::Ext(_ext_req) => {
                                 self.state = FSMstate::Closing;
-                                return Ok(StepReply::Responder(msg_opt.unwrap()));
+                                return Ok(StepReply::Responder(
+                                    msg_opt.ok_or(ProtocolError::InvalidState)?,
+                                ));
                             }
                             // StartProtocol::Core(core_config) => {
                             //     todo!();
@@ -865,7 +882,9 @@ impl NoiseFSM {
                                     return Err(result);
                                 } else {
                                     self.state = FSMstate::Closing;
-                                    return Ok(StepReply::Responder(msg_opt.unwrap()));
+                                    return Ok(StepReply::Responder(
+                                        msg_opt.ok_or(ProtocolError::InvalidState)?,
+                                    ));
                                 }
                             }
                             _ => return Err(ProtocolError::InvalidState),
@@ -896,7 +915,7 @@ impl NoiseFSM {
                     if !self.dir.is_server() {
                         if let ProtocolMessage::ServerHello(hello) = msg {
                             if let StartConfig::Client(client_config) =
-                                self.config.as_ref().unwrap()
+                                self.config.as_ref().ok_or(ProtocolError::InvalidState)?
                             {
                                 let ClientInfo::V0(info) = &client_config.info;
                                 let user_pub = client_config.user_priv.to_pub();
@@ -953,7 +972,7 @@ impl NoiseFSM {
                                     .attach_and_authorize_peer_id(
                                         remote_bind_address,
                                         local_bind_address,
-                                        *self.remote.unwrap().slice(),
+                                        *self.remote.ok_or(ProtocolError::InvalidState)?.slice(),
                                         Some(client_auth.content_v0()),
                                         self,
                                     )
@@ -982,7 +1001,7 @@ impl NoiseFSM {
                     if !self.dir.is_server() {
                         if let ProtocolMessage::AuthResult(auth_res) = msg {
                             if let StartConfig::Client(_client_config) =
-                                self.config.as_ref().unwrap()
+                                self.config.as_ref().ok_or(ProtocolError::InvalidState)?
                             {
                                 if auth_res.result() != 0 {
                                     return Err(ProtocolError::AccessDenied);
