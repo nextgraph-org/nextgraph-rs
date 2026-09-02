@@ -400,7 +400,10 @@ mod dalek_upgrade_compat {
         let (priv_key, pub_key) = ed_keypair_from_priv_bytes(SEED);
         let dh_priv = from_ed_privkey_to_dh_privkey(&priv_key);
         let dh_pub = dh_pubkey_from_ed_pubkey_slice(pub_key.slice());
-        assert_eq!(sign(&dh_priv, &pub_key, b"x").unwrap_err(), NgError::InvalidKey);
+        assert_eq!(
+            sign(&dh_priv, &pub_key, b"x").unwrap_err(),
+            NgError::InvalidKey
+        );
         assert_eq!(
             verify(b"x", Sig::Ed25519Sig([[0; 32], [0; 32]]), dh_pub).unwrap_err(),
             NgError::InvalidKey
