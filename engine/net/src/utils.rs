@@ -391,9 +391,9 @@ impl Dual25519Keys {
         // replacement for `ExpandedSecretKey` reduces the scalar modulo the
         // group order and would change the derived key; ng-repo keeps the
         // explicit SHA-512 expansion and has golden vectors pinning it.
-        let bits = sensitive_from_privkey(from_ed_privkey_to_dh_privkey(
-            &PrivKey::Ed25519PrivKey(seed),
-        ));
+        let bits = sensitive_from_privkey(from_ed_privkey_to_dh_privkey(&PrivKey::Ed25519PrivKey(
+            seed,
+        )));
 
         let x25519_public = noise_rust_crypto::X25519::pubkey(&bits);
 
