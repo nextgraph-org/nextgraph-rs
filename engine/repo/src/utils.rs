@@ -407,3 +407,40 @@ mod dalek_upgrade_compat {
         );
     }
 }
+
+#[cfg(test)]
+mod crypto_box_upgrade_compat {
+    //! Finding F2. `crypto_box` moves from 0.8 to 0.9, which is what finally
+    //! removes `curve25519-dalek` 3.2.0 from the tree, by way of
+    //! `x25519-dalek` 2.x. Sealed boxes protect stored data here, the wallet
+    //! session and the repo write capability, so the upgrade must be able to
+    //! open what the old version wrote. This vector was produced on the 0.8
+    //! tree and is opened below with the 0.9 API.
+
+    #[test]
+    fn opens_a_sealed_box_written_by_crypto_box_0_8() {
+        const SEALED: &str = "c307f767f18cf31155d370912381981091dc811c25975a519930c4cfb5564b0f7ee508f62fcc84b44ccc5633abd731655e2e57dd4c9707ba86eb04b14322bb552ff07f96619af46b564fea84";
+        let ciphertext: Vec<u8> = (0..SEALED.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&SEALED[i..i + 2], 16).expect("hex"))
+            .collect();
+
+        let secret = crypto_box::SecretKey::from([7u8; 32]);
+        let plaintext = secret
+            .unseal(&ciphertext)
+            .expect("0.9 must open what 0.8 sealed, or stored data becomes unreadable");
+        assert_eq!(&plaintext, b"localfirst sealed box vector");
+    }
+
+    /// And a round trip on the new version, so the pair is exercised both ways.
+    #[test]
+    fn seals_and_unseals() {
+        let secret = crypto_box::SecretKey::from([9u8; 32]);
+        let mut rng = crypto_box::aead::OsRng {};
+        let sealed = secret
+            .public_key()
+            .seal(&mut rng, b"round trip")
+            .expect("seal");
+        assert_eq!(&secret.unseal(&sealed).expect("unseal"), b"round trip");
+    }
+}
