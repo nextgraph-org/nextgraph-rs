@@ -367,6 +367,15 @@ impl NoiseFSM {
                 .await
                 .map_err(|_e| ProtocolError::IoError)?;
             return Ok(());
+        } else if self.noise_cipher_state_dec.is_some() {
+            // Finding F4. Both cipher states are installed together when the
+            // handshake completes, and `step` already refuses an inbound frame
+            // that is not encrypted once the decryption state exists. Deciding
+            // the outbound path on the encryption state alone was fail open:
+            // if it were ever absent while the connection is otherwise past
+            // the handshake, the frame would reach the wire in clear. Refuse
+            // to send instead, so the two directions agree.
+            return Err(ProtocolError::MustBeEncrypted);
         } else {
             self.sender
                 .send(ConnectionCommand::Msg(msg))
@@ -1617,6 +1626,53 @@ mod test {
 
     #[async_std::test]
     pub async fn test_connection() {}
+
+    /// Finding F4. Once the handshake has completed, nothing may reach the
+    /// wire in clear. The outbound path used to decide on the encryption
+    /// cipher state alone, which fails open whenever that state is missing
+    /// while the connection is otherwise past the handshake. Before the fix
+    /// this test saw a plaintext frame on the channel.
+    #[async_std::test]
+    pub async fn test_no_plaintext_frame_after_handshake() {
+        use super::{ConnectionCommand, ConnectionDir, NoiseFSM};
+        use crate::types::{ProtocolMessage, TransportProtocol};
+        use async_std::sync::Mutex;
+        use futures::channel::mpsc;
+        use ng_repo::errors::ProtocolError;
+        use noise_protocol::CipherState;
+        use std::collections::HashMap;
+        use std::sync::Arc;
+
+        let (sender, mut receiver) = mpsc::unbounded::<ConnectionCommand>();
+        let mut fsm = NoiseFSM::new(
+            None,
+            TransportProtocol::WS,
+            ConnectionDir::Client,
+            Arc::new(Mutex::new(HashMap::new())),
+            sender,
+            None,
+            None,
+        );
+
+        // A frame before the handshake is legitimately in clear.
+        fsm.send(ProtocolMessage::Probe([0u8; 2]))
+            .await
+            .expect("plaintext is allowed before the handshake");
+        assert!(receiver.try_next().is_ok(), "the probe should be sent");
+
+        // The decryption state exists, so this connection is past the
+        // handshake and inbound plaintext is already refused.
+        fsm.noise_cipher_state_dec = Some(CipherState::new(&[0u8; 32], 0));
+        let err = fsm
+            .send(ProtocolMessage::Noise(Noise::V0(NoiseV0 { data: vec![] })))
+            .await
+            .expect_err("a frame after the handshake must not be sent in clear");
+        assert_eq!(err, ProtocolError::MustBeEncrypted);
+        assert!(
+            receiver.try_next().is_err(),
+            "nothing may reach the wire when encryption is unavailable"
+        );
+    }
 
     #[async_std::test]
     pub async fn test_typeid() {
