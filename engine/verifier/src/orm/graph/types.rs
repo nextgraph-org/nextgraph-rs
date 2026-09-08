@@ -192,7 +192,7 @@ pub struct OrmSubscriptionOrderInfo {
 pub struct OrmSubscription {
     pub shape_type: OrmShapeType,
     pub subscription_id: u64,
-    pub graph_scope: Vec<String>,
+    pub graph_scope: QueryScope,
     pub subject_scope: Vec<String>,
     pub config: OrmConfig,
 
@@ -207,11 +207,14 @@ pub struct OrmSubscription {
     /// Nested objects refer to subject IRIs (the object in a quad). There might be multiple across graphs
     /// This tracks all references, to know if new tracked orm objects needs to be created and which
     /// tracked orm objects this affects.
+    /// The predicate IRI records which parent predicate links the subject, so that
+    /// children are only attached to the predicate that actually references them
+    /// (multiple predicates of one shape may target the same child shape).
     pub tracked_nested_subjects: HashMap<
         SubjectIri, // The subject being tracked
         HashMap<
-            ShapeIri,                           // The shape being tracked.
-            Vec<Arc<RwLock<TrackedOrmObject>>>, // The parents tracking them.
+            ShapeIri,                                      // The shape being tracked.
+            Vec<(PredIri, Arc<RwLock<TrackedOrmObject>>)>, // The linking predicates with their parents.
         >,
     >,
 
@@ -223,48 +226,67 @@ pub struct OrmSubscription {
 pub type ShapeIri = String;
 pub type SubjectIri = String;
 pub type GraphIri = String;
+pub type PredIri = String;
 
 /// Which graphs a query looked into, and therefore which graphs its result can speak for.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum LoadedScope {
+pub enum QueryScope {
     /// The query was unrestricted and therefore looked into every graph.
     All,
     /// The query only looked into these graphs.
     Graphs(HashSet<GraphIri>),
+    /// No query to be made.
+    None,
 }
 
-impl LoadedScope {
-    pub(crate) fn from_query_scope(query_scope: &[String]) -> Self {
+impl<I, T> From<I> for QueryScope
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<str>,
+{
+    fn from(query_scope: I) -> Self {
+        let query_scope: Vec<String> = query_scope
+            .into_iter()
+            .map(|iri| iri.as_ref().to_owned())
+            .collect();
+
         if query_scope.is_empty() {
-            LoadedScope::All
+            QueryScope::None
+        } else if query_scope.iter().any(|iri| iri == "did:ng:i") {
+            QueryScope::All
         } else {
-            LoadedScope::Graphs(query_scope.iter().cloned().collect())
+            QueryScope::Graphs(query_scope.iter().cloned().collect())
         }
     }
+}
 
+impl QueryScope {
     /// Whether a query under this scope has already looked for `graph`. The empty graph is the
     /// placeholder for "graph not known yet"; only an unrestricted query can resolve it, so a
     /// scoped load never counts as having covered it.
     pub(crate) fn covers(&self, graph: &str) -> bool {
         match self {
-            LoadedScope::All => true,
-            LoadedScope::Graphs(graphs) => !graph.is_empty() && graphs.contains(graph),
+            QueryScope::All => true,
+            QueryScope::Graphs(graphs) => !graph.is_empty() && graphs.contains(graph),
+            QueryScope::None => false,
         }
     }
 
-    pub(crate) fn widen_with(&mut self, other: &LoadedScope) {
+    pub(crate) fn widen_with(&mut self, other: &QueryScope) {
         match (&mut *self, other) {
-            (LoadedScope::All, _) => {}
-            (_, LoadedScope::All) => *self = LoadedScope::All,
-            (LoadedScope::Graphs(mine), LoadedScope::Graphs(theirs)) => {
+            (QueryScope::All, _) => {}
+            (_, QueryScope::All) => *self = QueryScope::All,
+            (QueryScope::Graphs(mine), QueryScope::Graphs(theirs)) => {
                 mine.extend(theirs.iter().cloned())
             }
+            (_, QueryScope::None) => {}
+            (QueryScope::None, other) => *self = other.clone(),
         }
     }
 }
 
 /// The subjects a run has already queried, per shape, with the scope each query ran under.
-pub(crate) type LoadedSubjects = HashMap<ShapeIri, HashMap<SubjectIri, LoadedScope>>;
+pub(crate) type LoadedSubjects = HashMap<ShapeIri, HashMap<SubjectIri, QueryScope>>;
 
 /// Structure to store changes in. By shape iri > graph iri > subject iri > OrmTrackedSubjectChange
 pub type OrmChanges =
@@ -280,7 +302,7 @@ impl OrmSubscription {
     pub fn new(
         mut shape_type: OrmShapeType,
         subscription_id: u64,
-        graph_scope: Vec<String>,
+        graph_scope: &[String],
         subject_scope: Vec<String>,
         sender: Sender<AppResponse>,
         config: OrmConfig,
@@ -325,7 +347,7 @@ impl OrmSubscription {
             schema_predicate_iris,
             shape_type,
             subscription_id,
-            graph_scope,
+            graph_scope: QueryScope::from(graph_scope),
             subject_scope,
             sender,
             tracked_orm_objects: HashMap::new(),
@@ -653,7 +675,7 @@ impl OrmSubscription {
         &self,
         shape_iri: &str,
         subject_iri: &str,
-        scope: &LoadedScope,
+        scope: &QueryScope,
     ) {
         for tormo in self.get_tracked_objects_any_graph(subject_iri, shape_iri) {
             let mut tormo = tormo.write().unwrap();
@@ -667,7 +689,7 @@ impl OrmSubscription {
     pub(crate) fn mark_fetched_complete(
         &self,
         loaded: &HashMap<ShapeIri, HashSet<SubjectIri>>,
-        scope: &LoadedScope,
+        scope: &QueryScope,
     ) {
         for (shape_iri, subjects) in loaded.iter() {
             for subject_iri in subjects.iter() {
@@ -696,6 +718,20 @@ impl OrmSubscription {
                 obj.write().unwrap().is_complete = true;
             }
         }
+    }
+
+    /// Helper to get all tracked orm objects (across all shapes) for a given (graph IRI, subject IRI).
+    /// Returns cloned Arcs.
+    pub fn get_tracked_orm_objects_for_graph_subject(
+        &self,
+        graph_iri: &str,
+        subject_iri: &str,
+    ) -> Vec<Arc<RwLock<TrackedOrmObject>>> {
+        self.tracked_orm_objects
+            .get(graph_iri)
+            .and_then(|subjects| subjects.get(subject_iri))
+            .map(|shapes| shapes.values().cloned().collect())
+            .unwrap_or_default()
     }
 
     /// Helper to get a specific tracked object (any graph) by subject IRI and shape IRI.

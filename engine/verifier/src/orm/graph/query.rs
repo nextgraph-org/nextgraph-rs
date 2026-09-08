@@ -35,7 +35,7 @@ pub struct ShapeFetch {
 impl Verifier {
     /// Query all quads for a shape and its nested shapes using a breadth-first queue.
     ///
-    /// - nuri: Optional graph IRI. If Some and not equal to "did:ng:i", queries are limited to that graph via FILTER(?g IN (<nuri>)).
+    /// - scope: The graphs to include for the query.
     /// - schema: The ORM schema map.
     /// - root_shape: IRI of the root shape to start from.
     /// - filter_subjects: Optional list of subject IRIs to restrict the root query. If None, the root query is unfiltered to discover all matching root subjects.
@@ -44,19 +44,18 @@ impl Verifier {
     /// together with the subjects the traversal loaded in full.
     pub fn query_quads_for_shape(
         &self,
-        nuris: &Vec<String>,
+        scope: &QueryScope,
         schema: &OrmSchema,
         root_shape: &ShapeIri,
         filter_subjects: Option<&Vec<String>>,
     ) -> Result<ShapeFetch, NgError> {
         // Determine graph filters based on nuri.
-        let filter_graphs: Option<&Vec<String>> = if nuris.is_empty() {
-            None
-        } else if nuris[0] == "did:ng:i" {
-            None
-        } else {
-            Some(nuris)
-        };
+        if *scope == QueryScope::None {
+            return Ok(ShapeFetch {
+                loaded: HashMap::new(),
+                quads: vec![],
+            });
+        }
 
         // Helper to get a shape by IRI
         let get_shape = |iri: &str| -> Result<std::sync::Arc<OrmSchemaShape>, NgError> {
@@ -166,7 +165,7 @@ impl Verifier {
             let sparql = schema_shape_to_sparql(
                 shape_ref,
                 subjects_vec_opt.as_ref(),
-                filter_graphs,
+                &scope,
                 None,
                 None,
                 None,
@@ -407,15 +406,6 @@ impl Verifier {
         orm_subscription: &OrmSubscription,
         limit_offset: Option<(usize, usize)>,
     ) -> Result<Vec<(GraphIri, SubjectIri)>, NgError> {
-        let nuris = &orm_subscription.graph_scope;
-        let graph_scope: Option<&Vec<String>> = if nuris.is_empty() {
-            None
-        } else if nuris[0] == "did:ng:i" {
-            None
-        } else {
-            Some(nuris)
-        };
-
         // Parse order by config object to link to actual predicate schema objects?
         let sparql_query = schema_shape_to_sparql(
             orm_subscription
@@ -424,7 +414,7 @@ impl Verifier {
                 .get(&orm_subscription.shape_type.shape)
                 .unwrap(),
             Some(&orm_subscription.subject_scope),
-            graph_scope,
+            &orm_subscription.graph_scope,
             orm_subscription.config.where_.as_ref(),
             orm_subscription.config.order_by.as_ref(),
             limit_offset,
@@ -455,7 +445,7 @@ impl Verifier {
 pub fn schema_shape_to_sparql(
     shape: &OrmSchemaShape,
     filter_subjects: Option<&Vec<String>>, // subject IRIs to include
-    filter_graphs: Option<&Vec<String>>,   // graph IRIs to include
+    scope: &QueryScope,                    // graph IRIs to include
     where_config: Option<&WhereConfig>,
     order_by_config: Option<&OrderByConfig>,
     limit_offset: Option<(usize, usize)>,
@@ -581,11 +571,12 @@ pub fn schema_shape_to_sparql(
         }
     }
 
-    // Graph filter
-    if let Some(graphs) = filter_graphs {
-        if !graphs.is_empty() {
-            where_lines.push(values_line("g", graphs));
+    // Graph scope filter
+    match scope {
+        QueryScope::Graphs(graphs) => {
+            where_lines.push(values_line("g", &graphs.iter().cloned().collect()));
         }
+        _ => {}
     }
 
     where_lines.push("  GRAPH ?g {".to_string());

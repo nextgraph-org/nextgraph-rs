@@ -225,7 +225,7 @@ impl ProcessRun {
     fn record_loaded(
         &mut self,
         loaded: &HashMap<ShapeIri, HashSet<SubjectIri>>,
-        scope: &LoadedScope,
+        scope: &QueryScope,
     ) {
         for (shape_iri, subjects) in loaded.iter() {
             let per_shape = self
@@ -351,8 +351,9 @@ impl Verifier {
         {
             if let Some(tracking_tormos) = tracking_subject.get(&child_shape_iri) {
                 // Clone parent arcs to avoid borrowing orm_subscription during mutation
-                let parents: Vec<Arc<RwLock<TrackedOrmObject>>> = tracking_tormos.clone();
-                for parent_arc in parents.iter() {
+                let parents: Vec<(PredIri, Arc<RwLock<TrackedOrmObject>>)> =
+                    tracking_tormos.clone();
+                for (linking_pred_iri, parent_arc) in parents.iter() {
                     // Snapshot parent identifiers and shape
                     let (parent_graph_iri, parent_subject_iri, parent_shape_weak) = {
                         let parent_r = parent_arc.read().unwrap();
@@ -372,8 +373,13 @@ impl Verifier {
                         &parent_subject_iri,
                     );
 
-                    // For each predicate on the parent shape that targets the child's shape
+                    // Only link under the predicate that actually references this child.
+                    // (Other predicates of the parent shape may target the same child shape
+                    // but not reference this subject.)
                     for pred_schema in parent_shape_weak.upgrade().unwrap().predicates.iter() {
+                        if pred_schema.iri != *linking_pred_iri {
+                            continue;
+                        }
                         let targets_child_shape = pred_schema.dataTypes.iter().any(|dt| {
                             if let Some(ref pred_child_shape_iri) = dt.shape {
                                 *pred_child_shape_iri == child_shape_iri
@@ -562,7 +568,8 @@ impl Verifier {
 
         for pred_change in change.predicates.values_mut() {
             let pred_schema = pred_change.tracked_predicate.read().unwrap().schema.clone();
-            // Only consider predicates whose dataTypes include shapes.
+            let pred_iri = pred_schema.upgrade().unwrap().iri.clone();
+            // Only consider predicates whose dataTypes include shapes
             let target_shape_iris: Vec<String> = pred_schema
                 .upgrade()
                 .unwrap()
@@ -585,18 +592,20 @@ impl Verifier {
                         .entry(child_subject.clone())
                         .or_insert_with(HashMap::new);
 
-                    // For this shape, get or insert the Vec of parent_arcs.
+                    // For this shape, get or insert the Vec of (linking predicate, parent_arc)
                     let parents_vec = nested_entry
                         .entry(target_shape_iri.clone())
                         .or_insert_with(Vec::new);
 
-                    // Add parent_arc if not already present.
-                    let already = parents_vec.iter().any(|p| {
+                    // Add (pred_iri, parent_arc) if not already present
+                    let already = parents_vec.iter().any(|(p_iri, p)| {
                         let pr = p.read().unwrap();
-                        pr.subject_iri == parent_subject && pr.graph_iri == parent_graph
+                        *p_iri == pred_iri
+                            && pr.subject_iri == parent_subject
+                            && pr.graph_iri == parent_graph
                     });
                     if !already {
-                        parents_vec.push(parent_arc.clone());
+                        parents_vec.push((pred_iri.clone(), parent_arc.clone()));
                     }
 
                     // Collect candidate graphs where this child might live in a deterministic order:
@@ -743,12 +752,11 @@ impl Verifier {
             }
 
             if !to_load.is_empty() {
-                let query_scope = if to_load.iter().any(|(graph_iri, _)| graph_iri.is_empty()) {
-                    vec![]
+                let scope = if to_load.iter().any(|(graph_iri, _)| graph_iri.is_empty()) {
+                    &QueryScope::All
                 } else {
-                    orm_subscription.graph_scope.clone()
+                    &orm_subscription.graph_scope
                 };
-                let scope = LoadedScope::from_query_scope(&query_scope);
 
                 let mut subjects: Vec<SubjectIri> = to_load
                     .iter()
@@ -758,7 +766,7 @@ impl Verifier {
                 subjects.dedup();
 
                 let fetched = self.query_quads_for_shape(
-                    &query_scope,
+                    &scope,
                     &orm_subscription.shape_type.schema,
                     &shape_iri,
                     Some(&subjects),
@@ -1088,7 +1096,9 @@ impl Verifier {
                 {
                     log_err!("Something went wrong during validation: Too many cycles: All change objects: {is_validated}, {:?}, {subject_iri}, {shape_iri}, {graph_iri}", validity);
                 }
-                panic!("Something went wrong during validation: Too many cycles");
+                return Err(NgError::OrmError(
+                    format!("[process_changes_for_subscription] Something went wrong during validation: Too many cycles. Please file a bug report.")
+                ));
             }
         }
 
@@ -1145,42 +1155,62 @@ impl Verifier {
         for (shape_iri, mut subjects) in stale_by_shape.into_iter() {
             subjects.sort();
             subjects.dedup();
-            let fetched = self.query_quads_for_shape(
-                &orm_subscription.graph_scope,
-                &orm_subscription.shape_type.schema,
+            self.restate_shape_fetch(
+                orm_subscription,
+                &mut changes_overlay,
                 &shape_iri,
-                Some(&subjects),
+                &subjects,
             )?;
-
-            let mut shapes_by_subject: HashMap<&SubjectIri, Vec<&ShapeIri>> = HashMap::new();
-            for (loaded_shape_iri, loaded_subjects) in fetched.loaded.iter() {
-                for loaded_subject in loaded_subjects.iter() {
-                    shapes_by_subject
-                        .entry(loaded_subject)
-                        .or_insert_with(Vec::new)
-                        .push(loaded_shape_iri);
-                }
-            }
-
-            let quads_by_gs = group_by_graph_and_subject(&fetched.quads);
-            for ((graph_iri, subject_iri), quads) in quads_by_gs.iter() {
-                let Some(shape_iris) = shapes_by_subject.get(subject_iri) else {
-                    continue;
-                };
-                for loaded_shape_iri in shape_iris.iter() {
-                    Self::restate_change(
-                        orm_subscription,
-                        &mut changes_overlay,
-                        loaded_shape_iri,
-                        graph_iri,
-                        subject_iri,
-                        quads,
-                    );
-                }
-            }
         }
 
         Ok(changes_overlay)
+    }
+
+    /// Read `subjects` back from the store under `shape_iri` and restate what the fetch
+    /// loaded into `overlay`.
+    /// This includes the nested objects too.
+    pub(crate) fn restate_shape_fetch(
+        &self,
+        orm_subscription: &OrmSubscription,
+        overlay: &mut OrmChanges,
+        shape_iri: &ShapeIri,
+        subjects: &Vec<SubjectIri>,
+    ) -> Result<(), NgError> {
+        let fetched = self.query_quads_for_shape(
+            &orm_subscription.graph_scope,
+            &orm_subscription.shape_type.schema,
+            shape_iri,
+            Some(subjects),
+        )?;
+
+        let mut shapes_by_subject: HashMap<&SubjectIri, Vec<&ShapeIri>> = HashMap::new();
+        for (loaded_shape_iri, loaded_subjects) in fetched.loaded.iter() {
+            for loaded_subject in loaded_subjects.iter() {
+                shapes_by_subject
+                    .entry(loaded_subject)
+                    .or_insert_with(Vec::new)
+                    .push(loaded_shape_iri);
+            }
+        }
+
+        let quads_by_gs = group_by_graph_and_subject(&fetched.quads);
+        for ((graph_iri, subject_iri), quads) in quads_by_gs.iter() {
+            let Some(shape_iris) = shapes_by_subject.get(subject_iri) else {
+                continue;
+            };
+            for loaded_shape_iri in shape_iris.iter() {
+                Self::restate_change(
+                    orm_subscription,
+                    overlay,
+                    loaded_shape_iri,
+                    graph_iri,
+                    subject_iri,
+                    quads,
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// Put quads into an OrmChanges object without modifying tormos.

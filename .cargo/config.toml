@@ -3,3 +3,6 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 
 [env]
 CXXFLAGS = { value = "-include cstdint", force = true }
+
+# 16MiB
+RUST_MIN_STACK = "16777216"
