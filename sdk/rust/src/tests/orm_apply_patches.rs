@@ -4461,6 +4461,7 @@ fn create_revert_test_schema() -> OrmShapeType {
 /// The writable document has a person `ex:writablePerson` with no address or contact.
 async fn setup_revert_test(
     session_id: u64,
+    extra_graph_nuris: &[String],
 ) -> (
     String,
     String,
@@ -4504,7 +4505,11 @@ async fn setup_revert_test(
     .await;
 
     let (receiver, cancel_fn, subscription_id, _initial) = create_orm_connection(
-        vec![read_only_doc_nuri.clone(), writable_doc_nuri.clone()],
+        vec![read_only_doc_nuri.clone(), writable_doc_nuri.clone()]
+            .iter()
+            .chain(extra_graph_nuris)
+            .cloned()
+            .collect(),
         vec![],
         create_revert_test_schema(),
         session_id,
@@ -4588,7 +4593,7 @@ async fn assert_readonly_doc_unchanged(session_id: u64, doc_nuri: &String) {
 async fn test_revert_permissions_create_root_object(session_id: u64) {
     log_info!("\n\n=== TEST: Revert root object creation (missing permissions) ===\n");
     let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let root = root_path(
         &read_only_nuri,
@@ -4671,7 +4676,7 @@ async fn test_revert_permissions_create_root_object(session_id: u64) {
 async fn test_revert_permissions_remove_root_object(session_id: u64) {
     log_info!("\n\n=== TEST: Revert root object removal (missing permissions) ===\n");
     let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let read_only_person_root = root_path(
         &read_only_nuri,
@@ -4727,7 +4732,7 @@ async fn test_revert_permissions_remove_root_object(session_id: u64) {
 async fn test_revert_permissions_literals_root(session_id: u64) {
     log_info!("\n\n=== TEST: Revert literal modifications (missing permissions) ===\n");
     let (doc_nuri, _doc2_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let read_only_person_root =
         root_path(&doc_nuri, "did:ng:z:readOnlyPerson", "did:ng:z:PersonShape");
@@ -4821,7 +4826,7 @@ async fn test_revert_permissions_literals_nested(session_id: u64) {
         "\n\n=== TEST: Revert literal modifications in nested object (missing permissions) ===\n"
     );
     let (doc_nuri, _doc2_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let read_only_person_root =
         root_path(&doc_nuri, "did:ng:z:readOnlyPerson", "did:ng:z:PersonShape");
@@ -4913,7 +4918,7 @@ async fn test_revert_permissions_literals_nested(session_id: u64) {
 async fn test_revert_permissions_create_nested_single(session_id: u64) {
     log_info!("\n\n=== TEST: Revert nested single object creation (missing permissions) ===\n");
     let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let read_only_person_root = root_path(
         &read_only_nuri,
@@ -4965,7 +4970,7 @@ async fn test_revert_permissions_create_nested_single(session_id: u64) {
 async fn test_revert_permissions_create_nested_multi(session_id: u64) {
     log_info!("\n\n=== TEST: Revert nested multi object creation (missing permissions) ===\n");
     let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let read_only_person_root = root_path(
         &read_only_nuri,
@@ -5025,7 +5030,7 @@ async fn test_revert_permissions_create_nested_multi(session_id: u64) {
 async fn test_revert_permissions_remove_linked_child(session_id: u64) {
     log_info!("\n\n=== TEST: Revert linked child removal (missing permissions) ===\n");
     let (read_only_doc_nuri, _writable_doc_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let read_only_person_root = root_path(
         &read_only_doc_nuri,
@@ -5071,7 +5076,7 @@ async fn test_revert_permissions_remove_linked_child(session_id: u64) {
 async fn test_revert_permissions_cross_graph_nested(session_id: u64) {
     log_info!("\n\n=== TEST: Revert cross-graph nested creation (missing permissions) ===\n");
     let (read_only_doc_nuri, writable_doc_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![]).await;
 
     let writable_root = root_path(
         &writable_doc_nuri,
@@ -5125,8 +5130,29 @@ async fn test_revert_permissions_cross_graph_nested(session_id: u64) {
 /// and all of its patches are reverted.
 async fn test_revert_invalid_graph_nuri(session_id: u64) {
     log_info!("\n\n=== TEST: Revert patches for invalid graph nuri ===\n");
+    let writable_nuri2 = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                ex:writablePerson2 a ex:Person ;
+                    ex:name "Wright2" ;
+                    ex:friend <did:ng:z:Freddy> ;
+                    ex:address ex:writableAddress2 ;
+                    ex:contacts ex:writableContact2 .
+                ex:writableAddress2 a ex:Address ;
+                    ex:street "Main St 2" ;
+                    ex:phone "+98765", "+56789" .
+                ex:writableContact2 a ex:Address ;
+                    ex:street "Contact St 15" .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
     let (read_only_nuri, writable_nuri, mut receiver, _cancel_fn, subscription_id) =
-        setup_revert_test(session_id).await;
+        setup_revert_test(session_id, &vec![writable_nuri2.clone()]).await;
 
     let invalid_root = root_path(
         "urn:test:invalidGraph", // Not a NURI.
@@ -5136,6 +5162,11 @@ async fn test_revert_invalid_graph_nuri(session_id: u64) {
     let writable_root = root_path(
         &writable_nuri,
         "did:ng:z:writablePerson",
+        "did:ng:z:PersonShape",
+    );
+    let writable_root2 = root_path(
+        &writable_nuri2,
+        "did:ng:z:writablePerson2",
         "did:ng:z:PersonShape",
     );
 
@@ -5178,6 +5209,21 @@ async fn test_revert_invalid_graph_nuri(session_id: u64) {
             value: Some(json!("Walter")),
             ..Default::default()
         },
+        // Remove another single-value object.
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{writable_root2}/address"),
+            ..Default::default()
+        },
+        // Remove another multi-value object.
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!(
+                "{writable_root2}/contacts/{}",
+                composite_key(&writable_nuri2, "did:ng:z:writableContact2")
+            ),
+            ..Default::default()
+        },
     ];
 
     let update_result = orm_update(subscription_id, diff, session_id).await;
@@ -5189,21 +5235,47 @@ async fn test_revert_invalid_graph_nuri(session_id: u64) {
     );
 
     let received = await_graph_patches(&mut receiver).await;
-    let expected = json!([
+    let mut expected = json!([
         // The newly created object is not tracked, so it is removed entirely.
         {
             "op": "remove",
             "valType": "set",
             "path": invalid_root,
         },
-        // The tracked object's previous value is restored.
+        // A tracked object's previous literal is restored.
         {
             "op": "add",
             "path": format!("{writable_root}/name"),
             "value": "Wright",
         },
+        // Previous single-value object is restored.
+        {
+            "op": "add",
+            "path": format!("{writable_root2}/address"),
+            "value": {
+                "@id": "did:ng:z:writableAddress2",
+                "@graph": writable_nuri2,
+                "type": "did:ng:z:Address",
+                "street": "Main St 2",
+                "phone": ["+56789", "+98765"],
+            },
+        },
+        // Previous multi-value object is restored
+        {
+            "op": "add",
+            "path": format!("{writable_root2}/contacts/{}", composite_key(&writable_nuri2, "did:ng:z:writableContact2")),
+            "valType": "set",
+            "value": {
+                "@id": "did:ng:z:writableContact2",
+                "@graph": writable_nuri2,
+                "type": "did:ng:z:Address",
+                "street": "Contact St 15",
+                "phone": [],
+            },
+        },
+
     ]);
-    assert_json_eq(&expected, &json!(received));
+    assert_orm_json_eq(&mut expected, &mut json!(received));
 
     // Nothing was applied to either document.
     assert_readonly_doc_unchanged(session_id, &read_only_nuri).await;

@@ -675,7 +675,8 @@ impl Verifier {
             .await
     }
 
-    /// Inverts literal patches and sends the result to the frontend,
+    /// Inverts patches and sends the result to the frontend.
+    /// Add/remove patches of root objects are not handled.
     /// `premade_fix_patches` are sent along as-is (in the same message).
     async fn revert_patches(
         &self,
@@ -686,6 +687,10 @@ impl Verifier {
         if failed_patches.is_empty() && premade_fix_patches.is_empty() {
             return Ok(());
         }
+        let orm_subscription = self
+            .orm_subscriptions
+            .get(&subscription_id)
+            .ok_or(format!("ORM Subscription {subscription_id} not found"))?;
 
         let mut fix_patches: Vec<OrmPatch> = premade_fix_patches;
 
@@ -699,92 +704,151 @@ impl Verifier {
             };
 
             if pred_schema.is_multi() {
-                // Multi-valued: simply invert the operation.
-                if failed_patch.op == OrmPatchOp::add {
-                    fix_patches.push(OrmPatch {
-                        op: OrmPatchOp::remove,
-                        valType: Some(OrmPatchType::set),
-                        path: failed_patch.path,
-                        value: failed_patch.value,
-                        ..Default::default()
-                    });
-                } else {
-                    // failed_patch.op == OrmPatchOp::remove
-
-                    if failed_patch.value.is_some() {
-                        fix_patches.push(OrmPatch {
-                            op: OrmPatchOp::add,
-                            valType: Some(OrmPatchType::set),
-                            path: failed_patch.path,
-                            value: failed_patch.value,
-                            ..Default::default()
-                        });
-                    } else {
-                        // All values from set were deleted and we need to fetch them.
-                        let quad_pattern_iter =
-                            self.graph_dataset.as_ref().unwrap().quads_for_pattern(
-                                Some((&NamedNode::new(&target.subject).unwrap()).into()),
-                                Some((&NamedNode::new(&pred_schema.iri).unwrap()).into()),
-                                None,
-                                Some((&NamedNode::new(&target.graph).unwrap()).into()),
-                            );
-                        let current_object_vals: Vec<serde_json::Value> = quad_pattern_iter
-                            .into_iter()
-                            .flat_map(|r| r.ok())
-                            .map(|q| json!(oxrdf_term_to_orm_basic_type(&q.object)))
-                            .collect();
-
-                        fix_patches.push(OrmPatch {
-                            op: OrmPatchOp::add,
-                            valType: Some(OrmPatchType::set),
-                            path: failed_patch.path.clone(),
-                            value: Some(json!(current_object_vals)),
-                            ..Default::default()
-                        });
-                    }
-                }
-            } else {
-                // Single-valued: need to fetch current value.
-
-                let mut quad_pattern_iter = self.graph_dataset.as_ref().unwrap().quads_for_pattern(
-                    Some((&NamedNode::new(&target.subject).unwrap()).into()),
-                    Some((&NamedNode::new(&pred_schema.iri).unwrap()).into()),
-                    None,
-                    Some((&NamedNode::new(&target.graph).unwrap()).into()),
-                );
-                // Get the first (and should be only) value.
-                let current_value = quad_pattern_iter
-                    .next()
-                    .and_then(|r| r.ok())
-                    .map(|q| json!(oxrdf_term_to_orm_basic_type(&q.object)));
-
-                if failed_patch.op == OrmPatchOp::add {
-                    // An add (overwrite) failed - restore the previous value.
-                    if let Some(prev_val) = current_value {
-                        fix_patches.push(OrmPatch {
-                            op: OrmPatchOp::add,
-                            path: failed_patch.path,
-                            value: Some(prev_val),
-                            ..Default::default()
-                        });
-                    } else {
-                        // No previous value existed, so remove the failed add.
+                if pred_schema.is_object() {
+                    if failed_patch.op == OrmPatchOp::add {
                         fix_patches.push(OrmPatch {
                             op: OrmPatchOp::remove,
                             path: failed_patch.path,
+                            valType: Some(OrmPatchType::set),
+                            ..Default::default()
+                        });
+                    } else if failed_patch.op == OrmPatchOp::remove {
+                        if let Some(restored_object) =
+                            self.materialize_from_path(orm_subscription, &failed_patch.path)
+                        {
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                path: failed_patch.path,
+                                valType: Some(OrmPatchType::set),
+                                value: Some(restored_object),
+                                ..Default::default()
+                            });
+                        } else {
+                            continue;
+                        };
+                    } else {
+                        // move does not come from frontend.
+                    }
+                } else {
+                    // Literal
+
+                    // Multi-valued: simply invert the operation.
+                    if failed_patch.op == OrmPatchOp::add {
+                        fix_patches.push(OrmPatch {
+                            op: OrmPatchOp::remove,
+                            valType: Some(OrmPatchType::set),
+                            path: failed_patch.path,
                             value: failed_patch.value,
                             ..Default::default()
                         });
+                    } else {
+                        // failed_patch.op == OrmPatchOp::remove
+
+                        if failed_patch.value.is_some() {
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                valType: Some(OrmPatchType::set),
+                                path: failed_patch.path,
+                                value: failed_patch.value,
+                                ..Default::default()
+                            });
+                        } else {
+                            // All values from set were deleted and we need to fetch them.
+                            let quad_pattern_iter =
+                                self.graph_dataset.as_ref().unwrap().quads_for_pattern(
+                                    Some((&NamedNode::new(&target.subject).unwrap()).into()),
+                                    Some((&NamedNode::new(&pred_schema.iri).unwrap()).into()),
+                                    None,
+                                    Some((&NamedNode::new(&target.graph).unwrap()).into()),
+                                );
+                            let current_object_vals: Vec<serde_json::Value> = quad_pattern_iter
+                                .into_iter()
+                                .flat_map(|r| r.ok())
+                                .map(|q| json!(oxrdf_term_to_orm_basic_type(&q.object)))
+                                .collect();
+
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                valType: Some(OrmPatchType::set),
+                                path: failed_patch.path.clone(),
+                                value: Some(json!(current_object_vals)),
+                                ..Default::default()
+                            });
+                        }
+                    }
+                }
+            } else {
+                // single-value schema
+
+                if !pred_schema.is_object() {
+                    // Single-valued literal: need to fetch current value.
+
+                    let mut quad_pattern_iter =
+                        self.graph_dataset.as_ref().unwrap().quads_for_pattern(
+                            Some((&NamedNode::new(&target.subject).unwrap()).into()),
+                            Some((&NamedNode::new(&pred_schema.iri).unwrap()).into()),
+                            None,
+                            Some((&NamedNode::new(&target.graph).unwrap()).into()),
+                        );
+                    // Get the first (and should be only) value.
+                    let current_value = quad_pattern_iter
+                        .next()
+                        .and_then(|r| r.ok())
+                        .map(|q| json!(oxrdf_term_to_orm_basic_type(&q.object)));
+
+                    if failed_patch.op == OrmPatchOp::add {
+                        // An add (overwrite) failed - restore the previous value.
+                        if let Some(prev_val) = current_value {
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                path: failed_patch.path,
+                                value: Some(prev_val),
+                                ..Default::default()
+                            });
+                        } else {
+                            // No previous value existed, so remove the failed add.
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::remove,
+                                path: failed_patch.path,
+                                value: failed_patch.value,
+                                ..Default::default()
+                            });
+                        }
+                    } else {
+                        // Remove failed.
+                        if let Some(curr_val) = current_value {
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                path: failed_patch.path,
+                                value: Some(curr_val),
+                                ..Default::default()
+                            });
+                        }
                     }
                 } else {
-                    // Remove failed.
-                    if let Some(curr_val) = current_value {
+                    // Single-object schema: re-materialize tormo.
+
+                    if failed_patch.op == OrmPatchOp::add {
                         fix_patches.push(OrmPatch {
-                            op: OrmPatchOp::add,
+                            op: OrmPatchOp::remove,
                             path: failed_patch.path,
-                            value: Some(curr_val),
                             ..Default::default()
                         });
+                    } else if failed_patch.op == OrmPatchOp::remove {
+                        if let Some(restored_object) =
+                            self.materialize_from_path(orm_subscription, &failed_patch.path)
+                        {
+                            fix_patches.push(OrmPatch {
+                                op: OrmPatchOp::add,
+                                path: failed_patch.path,
+                                value: Some(restored_object),
+                                ..Default::default()
+                            });
+                        } else {
+                            continue;
+                        };
+                    } else {
+                        // Moves don't come from frontend.
                     }
                 }
             }
@@ -792,24 +856,85 @@ impl Verifier {
 
         // Send the fix patches to the frontend
         if !fix_patches.is_empty() {
-            if let Some(orm_subscription) = self.orm_subscriptions.get(&subscription_id) {
-                let _ = orm_subscription
-                    .sender
-                    .clone()
-                    .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(fix_patches)))
-                    .await;
-            }
+            let _ = orm_subscription
+                .sender
+                .clone()
+                .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(fix_patches)))
+                .await;
         }
 
         Ok(())
     }
+
+    /// Take the path of a patch and materialize the tormo that it points to.
+    /// This is used for restoring removed objects in a revert process.
+    fn materialize_from_path(
+        &self,
+        orm_subscription: &OrmSubscription,
+        path: &str,
+    ) -> Option<serde_json::Value> {
+        let staged_children = HashMap::new();
+
+        let path_target = resolve_path(path, orm_subscription, &staged_children)?; // Resolve path.
+
+        let pred_schema = path_target.pred_schema?;
+        if !pred_schema.is_object() {
+            return None;
+        }
+
+        let tormo = if let Some((graph_iri, subject_iri)) = path_target.child_target {
+            // Path points to object with composite key.
+
+            // Find the first valid tormo under a shape type of the predicate schema.
+            pred_schema.dataTypes.iter().find_map(|data_type| {
+                let shape_iri = data_type.shape.as_ref()?;
+                if let Some(tormo) =
+                    orm_subscription.get_tracked_orm_object(&graph_iri, &subject_iri, &shape_iri)
+                {
+                    if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
+                        Some(tormo)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })?
+        } else {
+            // Path points to parent of single-value object.
+            let parent_tormo = orm_subscription.get_tracked_orm_object(
+                &path_target.graph,
+                &path_target.subject,
+                &path_target.object_shape.iri,
+            )?;
+            let child_tormo = parent_tormo
+                .read()
+                .ok()?
+                .tracked_predicates
+                .get(&pred_schema.iri)?
+                .read()
+                .ok()?
+                .tracked_children
+                .first()?
+                .upgrade()?;
+            child_tormo
+        };
+
+        self.materialize_tormo_from_store(orm_subscription, &tormo)
+    }
 }
 
 struct PathTarget {
+    /// Graph NURI of the object that path points to.
     graph: String,
-    subject: String,                              // IRI string without angle brackets
-    pred_schema: Option<Arc<OrmSchemaPredicate>>, // Empty for root object deletion
-    child_iri: Option<String>, // IRI of object referenced directly (for link ops)
+    /// Subject IRI of the object the path points to.
+    subject: String,
+    /// The predicate schema that is targeted by the readable predicate name e.g. `0/name`. Empty for root object deletion.
+    pred_schema: Option<Arc<OrmSchemaPredicate>>,
+    /// IRI of object referenced directly (if the last part of the path is a graph-subject key).
+    child_target: Option<(GraphIri, SubjectIri)>,
+    /// The shape of the object that is being pointed at (for composite key path targets, it's the parent and the child is in `child_target`).
+    object_shape: Arc<OrmSchemaShape>,
 }
 
 // ------------------------- Schema Selection Helper ----------------------
@@ -882,8 +1007,9 @@ fn resolve_path(
         return Some(PathTarget {
             graph: current_graph,
             subject: current_subject,
-            child_iri: None,
+            child_target: None,
             pred_schema: None,
+            object_shape: current_schema,
         });
     }
 
@@ -911,7 +1037,8 @@ fn resolve_path(
                 graph: current_graph,
                 subject: current_subject,
                 pred_schema: Some(pred_schema.clone()),
-                child_iri: None,
+                child_target: None,
+                object_shape: current_schema,
             });
         }
         // object predicate
@@ -921,7 +1048,8 @@ fn resolve_path(
                     graph: current_graph,
                     subject: current_subject,
                     pred_schema: Some(pred_schema.clone()),
-                    child_iri: None,
+                    child_target: None,
+                    object_shape: current_schema,
                 });
             }
             let composite = segs[idx];
@@ -945,12 +1073,13 @@ fn resolve_path(
             idx += 1;
             if idx == segs.len() {
                 // link to child object itself
-                let child_iri = Some(child_subj_decoded);
+                let child_target = Some((child_graph, child_subj_decoded));
                 return Some(PathTarget {
                     graph: parent_graph,
                     subject: parent_subject,
                     pred_schema: Some(pred_schema.clone()),
-                    child_iri,
+                    child_target,
+                    object_shape: current_schema,
                 });
             } else {
                 // continue traversal inside child
@@ -965,7 +1094,8 @@ fn resolve_path(
                     graph: current_graph.clone(),
                     subject: current_subject.clone(),
                     pred_schema: Some(pred_schema.clone()),
-                    child_iri: None,
+                    child_target: None,
+                    object_shape: current_schema,
                 });
             }
 
@@ -1228,8 +1358,8 @@ fn create_sparql_update_query_for_patches(
         match p.op {
             OrmPatchOp::remove => {
                 if pred_schema.is_object() {
-                    if let Some(child) = target.child_iri.as_ref() {
-                        builder.remove_link(graph, subj, pred, child);
+                    if let Some((_child_graph, child_subject)) = target.child_target.as_ref() {
+                        builder.remove_link(graph, subj, pred, child_subject);
                     } else if p.value.is_none() {
                         builder.remove_all_values(graph, subj, pred);
                     }
@@ -1249,8 +1379,8 @@ fn create_sparql_update_query_for_patches(
             }
             OrmPatchOp::add => {
                 if pred_schema.is_object() {
-                    if let Some(child) = target.child_iri.as_ref() {
-                        let decoded_child = decode_json_pointer(child);
+                    if let Some((_child_graph, child_subject)) = target.child_target.as_ref() {
+                        let decoded_child = decode_json_pointer(child_subject);
                         if pred_schema.is_multi() {
                             builder.add_link(graph, subj, pred, &decoded_child);
                         } else {

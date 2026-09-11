@@ -24,6 +24,7 @@ use wabi_tree::OSBTreeMap;
 pub struct TrackedOrmObject {
     /// The known predicates (only those relevant to the shape).
     /// If there are no triples with a predicate, they are discarded
+    /// The HashMap key is the predicate schema IRI.
     pub tracked_predicates: HashMap<String, Arc<RwLock<TrackedOrmPredicate>>>,
     /// If this is a nested subject, this records the parents
     /// and if they are currently tracking this subject.
