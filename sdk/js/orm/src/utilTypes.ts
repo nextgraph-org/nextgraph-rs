@@ -181,6 +181,13 @@ export type RdfOrmConfig<
     maxActivePages?: PS extends undefined ? never : number;
 
     /**
+     * Callback that is called when the ORM subscription fails to load or when errors occur
+     * during operation. Errors do not necessarily impact the functioning of the subscription
+     * but can cause a revert of made changes.
+     */
+    onError?: (error: Error) => void;
+
+    /**
      * If false, no query is made. Useful in frontend components where not all data is available yet.
      * @default true
      */

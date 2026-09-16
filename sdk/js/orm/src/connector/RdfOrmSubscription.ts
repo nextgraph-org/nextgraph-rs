@@ -171,18 +171,20 @@ export class RdfOrmSubscription<
         this.refCount = 1;
         this.closeOrmSubscription = () => {};
         this.identifier = identifier;
-        this.onErrorCallback = (e) =>
-            console.error(
-                "[RdfOrmSubscription]",
-                "\nname:",
-                e.name,
-                "\nmessage:",
-                e.message,
-                "\ncause:",
-                e.cause,
-                "\nstack:",
-                e.stack
-            );
+        this.onErrorCallback =
+            options.onError ??
+            ((e: Error) =>
+                console.error(
+                    "[RdfOrmSubscription]",
+                    "\nname:",
+                    e.name,
+                    "\nmessage:",
+                    e.message,
+                    "\ncause:",
+                    e.cause,
+                    "\nstack:",
+                    e.stack
+                ));
 
         if (options.orderBy === undefined) {
             this.mode = "unordered";
@@ -240,7 +242,6 @@ export class RdfOrmSubscription<
                     this.onBackendMessage
                 );
             } catch (e) {
-                // console.error(e);
                 this.onErrorCallback(
                     new Error(
                         "Error occurred while establishing subscription. You should start anew.",
@@ -348,18 +349,26 @@ export class RdfOrmSubscription<
         shapeType: ShapeType<T>,
         conf: CONF
     ): RdfOrmSubscriptionFor<ST, CONF, T> => {
-        const { graphs, subjects, maxActivePages, orderBy, pageSize, where } =
-            conf;
+        const {
+            graphs,
+            subjects,
+            maxActivePages,
+            orderBy,
+            pageSize,
+            where,
+            onError,
+        } = conf;
         const normalizedScope = normalizeScope({ graphs, subjects });
         const scopeKey = canonicalScope(normalizedScope);
         // If we have pagination active, we can't pool subscriptions because
         // otherwise calling the next page on one would effect the other.
-        const optionsKey = pageSize
-            ? Math.random().toString()
-            : JSON.stringify({
-                  orderBy,
-                  where,
-              });
+        const optionsKey =
+            pageSize || onError
+                ? Math.random().toString()
+                : JSON.stringify({
+                      orderBy,
+                      where,
+                  });
 
         // Unique identifier for a given shape type, scope, and options.
         const identifier = `${shapeType.shape}|${scopeKey}|${optionsKey}`;
@@ -380,6 +389,7 @@ export class RdfOrmSubscription<
                     orderBy,
                     pageSize,
                     where,
+                    onError,
                 },
                 identifier
             );
