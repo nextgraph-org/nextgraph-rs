@@ -174,5 +174,6 @@ export const expenseShapesSchema = {
         readablePredicate: "description",
       },
     ],
+    isClosed: true,
   },
 } as const satisfies Schema;

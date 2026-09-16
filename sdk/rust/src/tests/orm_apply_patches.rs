@@ -157,6 +157,7 @@ async fn test_patch_add_single_literal(session_id: u64) {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -259,6 +260,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -381,6 +383,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -517,6 +520,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -617,6 +621,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -727,6 +732,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -773,6 +779,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -916,6 +923,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     schema.insert(
         "http://example-test_patch_multilevel_nested.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-test_patch_multilevel_nested.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -965,6 +973,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     schema.insert(
         "http://example-test_patch_multilevel_nested.org/CompanyShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-test_patch_multilevel_nested.org/CompanyShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1027,6 +1036,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     schema.insert(
         "http://example-test_patch_multilevel_nested.org/AddressShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-test_patch_multilevel_nested.org/AddressShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1182,6 +1192,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1365,6 +1376,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1411,6 +1423,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1561,6 +1574,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1607,6 +1621,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1758,6 +1773,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1804,6 +1820,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1958,6 +1975,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2075,6 +2093,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2110,6 +2129,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2203,6 +2223,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2237,6 +2258,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2360,6 +2382,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2441,6 +2464,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2656,6 +2680,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2749,6 +2774,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2872,6 +2898,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2967,6 +2994,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3001,6 +3029,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3085,6 +3114,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3119,6 +3149,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3199,6 +3230,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3315,6 +3347,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3428,6 +3461,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3542,6 +3576,7 @@ INSERT DATA {
     schema.insert(
         "http://example-non-root-multi.org/Person".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-non-root-multi.org/Person".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3588,6 +3623,7 @@ INSERT DATA {
     schema.insert(
         "http://example-non-root-multi.org/Company".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-non-root-multi.org/Company".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3622,6 +3658,7 @@ INSERT DATA {
     schema.insert(
         "http://example-non-root-multi.org/Office".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-non-root-multi.org/Office".to_string(),
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -4412,6 +4449,7 @@ fn create_revert_test_schema() -> OrmShapeType {
     schema.insert(
         "did:ng:z:PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:PersonShape".to_string(),
             predicates: vec![
                 type_pred("did:ng:z:Person"),
@@ -4441,6 +4479,7 @@ fn create_revert_test_schema() -> OrmShapeType {
     schema.insert(
         "did:ng:z:AddressShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:AddressShape".to_string(),
             predicates: vec![
                 type_pred("did:ng:z:Address"),
@@ -4691,7 +4730,7 @@ async fn test_revert_permissions_remove_root_object(session_id: u64) {
 
     let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
     // The store was untouched, so the whole object is re-added in full.
-    let expected = json!([
+    let mut expected = json!([
         {
             "op": "add",
             "valType": "set",
@@ -4722,7 +4761,7 @@ async fn test_revert_permissions_remove_root_object(session_id: u64) {
         },
     ]);
 
-    assert_json_eq(&expected, &json!(received));
+    assert_orm_json_eq(&mut expected, &mut json!(received));
 
     assert_readonly_doc_unchanged(session_id, &read_only_nuri).await;
     log_info!("✓ Test passed: Revert root object removal");

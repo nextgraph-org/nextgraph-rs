@@ -9,7 +9,11 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import ShexJTraverser from "@ldo/traverser-shexj";
-import type { Predicate, DataType, Shape } from "../../types.ts";
+import type {
+    Predicate,
+    DataType as OrmDataType,
+    Shape as OrmShape,
+} from "../../types.ts";
 
 const rdfDataTypeToBasic = (dataType: string) => {
     switch (dataType) {
@@ -68,13 +72,13 @@ const rdfDataTypeToBasic = (dataType: string) => {
 
 export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
     {
-        Schema: { return: Shape[] };
-        ShapeDecl: { return: Shape };
-        Shape: { return: Shape };
-        EachOf: { return: Shape };
+        Schema: { return: OrmShape[] };
+        ShapeDecl: { return: OrmShape };
+        Shape: { return: OrmShape };
+        EachOf: { return: OrmShape };
         TripleConstraint: { return: Predicate };
-        NodeConstraint: { return: DataType | DataType[] };
-        ShapeOr: { return: DataType[] };
+        NodeConstraint: { return: OrmDataType | OrmDataType[] };
+        ShapeOr: { return: OrmDataType[] };
         ShapeAnd: { return: never };
         ShapeNot: { return: never };
         ShapeExternal: { return: never };
@@ -92,32 +96,31 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
     ShapeDecl: {
         transformer: async (shapeDecl, getTransformedChildren) => {
             const schema = await getTransformedChildren();
-            const shape = schema.shapeExpr as Shape;
+            const shape = schema.shapeExpr as OrmShape;
 
-            return { ...shape, iri: shapeDecl.id } as Shape;
+            return { ...shape, iri: shapeDecl.id } as OrmShape;
         },
     },
 
     Shape: {
-        transformer: async (_shape, getTransformedChildren) => {
-            // TODO: We don't handles those
-            _shape.closed;
-
+        transformer: async (shexShape, getTransformedChildren) => {
             const transformedChildren = await getTransformedChildren();
             const expr = transformedChildren.expression;
-            // EachOf returns a Shape ({ iri, predicates }), but a single
+            // EachOf returns an OrmShape ({ iri, predicates }), but a single
             // TripleConstraint returns a bare Predicate. Normalize both.
-            const compactShape: Shape =
-                expr && "predicates" in (expr as Shape)
-                    ? (expr as Shape)
+            const compactShape: OrmShape =
+                expr && "predicates" in (expr as OrmShape)
+                    ? (expr as OrmShape)
                     : { iri: "", predicates: [expr as Predicate] };
 
-            for (const extra of _shape.extra || []) {
+            for (const extra of shexShape.extra || []) {
                 const extraPredicate = compactShape.predicates.find(
                     (p) => p.iri === extra
                 );
                 if (extraPredicate) extraPredicate.extra = true;
             }
+
+            compactShape.isClosed = shexShape.closed;
 
             return compactShape;
         },
@@ -168,9 +171,9 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 };
             } else if (
                 transformedChildren.valueExpr &&
-                (transformedChildren.valueExpr as Shape).predicates
+                (transformedChildren.valueExpr as OrmShape).predicates
             ) {
-                const resolvedShape = transformedChildren.valueExpr as Shape;
+                const resolvedShape = transformedChildren.valueExpr as OrmShape;
                 if (resolvedShape.iri) {
                     // Named shape reference: Use the IRI string.
                     return {
@@ -202,7 +205,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             } else {
                 // Single DataType from NodeConstraint.
                 const nodeConstraint =
-                    transformedChildren.valueExpr as DataType;
+                    transformedChildren.valueExpr as OrmDataType;
 
                 return {
                     dataTypes: [nodeConstraint],
@@ -288,7 +291,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                     return {
                         valType: "string" as const,
                     };
-                }) as DataType[];
+                }) as OrmDataType[];
 
                 return dataTypes;
             }
@@ -325,7 +328,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                     return [{ valType: "shape" as const, shape: expr }];
                 }
                 return [expr];
-            }) as DataType[];
+            }) as OrmDataType[];
         },
     },
 

@@ -11,6 +11,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
     house_schema.insert(
         "http://example.org/HouseShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/HouseShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -63,6 +64,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
     house_schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -115,6 +117,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
     house_schema.insert(
         "http://example.org/CatShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/CatShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -166,6 +169,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
     house_schema.insert(
         "http://example.org/ToyShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/ToyShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {

@@ -9,6 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_oxigraph::oxrdf::Quad;
+use std::cmp::max;
 use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
@@ -23,7 +24,7 @@ use wabi_tree::OSBTreeMap;
 #[derive(Clone, Debug)]
 pub struct TrackedOrmObject {
     /// The known predicates (only those relevant to the shape).
-    /// If there are no triples with a predicate, they are discarded
+    /// If there are no triples with a predicate, they are discarded.
     /// The HashMap key is the predicate schema IRI.
     pub tracked_predicates: HashMap<String, Arc<RwLock<TrackedOrmPredicate>>>,
     /// If this is a nested subject, this records the parents
@@ -43,6 +44,8 @@ pub struct TrackedOrmObject {
     /// (graph, subject). Set once a query has loaded the (shape,graph,subject).
     /// Once complete, incoming diffs do not require a fetch for validation.
     pub is_complete: bool,
+    /// In case of closed shapes: The count of quads that do not match any predicate in the schema.
+    pub excess_quads: u64,
 }
 
 impl TrackedOrmPredicate {
@@ -135,7 +138,7 @@ pub struct TrackedOrmPredicateChanges {
 }
 
 impl TrackedOrmPredicateChanges {
-    pub fn tracked_predicate(&self) -> RwLockReadGuard<TrackedOrmPredicate> {
+    pub fn tracked_predicate(&self) -> RwLockReadGuard<'_, TrackedOrmPredicate> {
         return self.tracked_predicate.read().unwrap();
     }
     pub fn first_tormo_for_subj(
@@ -222,6 +225,8 @@ pub struct OrmSubscription {
     /// Every predicate IRI any shape of the schema mentions. A quad whose predicate is not in
     /// here cannot affect this subscription.
     schema_predicate_iris: HashSet<String>,
+
+    indexed_predicates: HashMap<ShapeIri, HashMap<String, Arc<OrmSchemaPredicate>>>,
 }
 
 pub type ShapeIri = String;
@@ -337,12 +342,8 @@ impl OrmSubscription {
             None
         };
 
-        let schema_predicate_iris = shape_type
-            .schema
-            .values()
-            .flat_map(|shape| shape.predicates.iter())
-            .map(|predicate| predicate.iri.clone())
-            .collect();
+        let (schema_predicate_iris, indexed_predicates) =
+            OrmSubscription::index_shapes(&shape_type);
 
         Ok(Self {
             schema_predicate_iris,
@@ -355,7 +356,42 @@ impl OrmSubscription {
             tracked_nested_subjects: HashMap::new(),
             ordering_info,
             config,
+            indexed_predicates,
         })
+    }
+
+    fn index_shapes(
+        shape_type: &OrmShapeType,
+    ) -> (
+        HashSet<String>,
+        HashMap<ShapeIri, HashMap<PredIri, Arc<OrmSchemaPredicate>>>,
+    ) {
+        let schema_predicate_iris = shape_type
+            .schema
+            .values()
+            .flat_map(|shape| shape.predicates.iter())
+            .map(|predicate| predicate.iri.clone())
+            .collect();
+
+        let mut indexed_predicates = HashMap::new();
+        for shape in shape_type.schema.values().into_iter() {
+            let mut index: HashMap<String, Arc<OrmSchemaPredicate>> = HashMap::new();
+
+            for predicate_schema in shape.predicates.iter() {
+                index.insert(
+                    predicate_schema.iri.to_string(),
+                    Arc::clone(predicate_schema),
+                );
+            }
+            indexed_predicates.insert(shape.iri.clone(), index);
+        }
+        return (schema_predicate_iris, indexed_predicates);
+    }
+    pub fn indexed_predicates(
+        &self,
+        shape_iri: &str,
+    ) -> &HashMap<PredIri, Arc<OrmSchemaPredicate>> {
+        self.indexed_predicates.get(shape_iri).unwrap()
     }
 
     /// Modifies the schema so that the restrictions from the where config are added.
@@ -408,13 +444,18 @@ impl OrmSubscription {
                 .map(Vec::as_slice)
                 .unwrap_or(std::slice::from_ref(where_val));
 
-            // Remove original predicate data types
+            // For each where property...
             Self::mutate_target_predicate(
                 schema,
                 target_shape_iri,
                 readable_pred,
                 move |target_pred_schema| {
+                    // Remove the original data types (to be replaced by more specific).
                     target_pred_schema.dataTypes.drain(..);
+
+                    // We force a min cardinality of 1 so that no values are not interpreted as match.
+                    target_pred_schema.minCardinality = max(1, target_pred_schema.minCardinality);
+
                     // We _always_ allow extra for literals when filtering because we assume that
                     //  additional values might be present too which we don't want to ignore.
                     if !target_pred_schema.is_object() {
@@ -465,7 +506,7 @@ impl OrmSubscription {
                         let pred_allows_iri_local = pred_allows_iri;
                         let pred_allows_string_local = pred_allows_string;
                         // Allow that str_or_iri is added as iri _and_ string,
-                        // since we can't tell for sure by the value
+                        // since we can't tell for sure by the value.
                         Self::mutate_target_predicate(
                             schema,
                             target_shape_iri,
@@ -779,6 +820,7 @@ impl OrmSubscription {
                     graph_iri: graph_iri.to_string(),
                     shape: Arc::downgrade(shape),
                     is_complete: false,
+                    excess_quads: 0,
                 }))
             })
             .clone()
@@ -1033,5 +1075,6 @@ fn clone_shape(shape: &OrmSchemaShape) -> OrmSchemaShape {
             .iter()
             .map(|p| Arc::new(OrmSchemaPredicate::clone(p)))
             .collect(),
+        is_closed: shape.is_closed,
     }
 }

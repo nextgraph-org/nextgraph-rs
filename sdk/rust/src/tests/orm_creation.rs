@@ -14,8 +14,8 @@ use crate::local_broker::{
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
     add_graph_fields, assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact,
-    await_graph_patches, create_doc_with_data, create_orm_connection_with_conf, find_key_for_obj,
-    rewrite_expected_paths_with_graph,
+    await_graph_patches, create_doc_with_data, create_orm_connection,
+    create_orm_connection_with_conf, find_key_for_obj, rewrite_expected_paths_with_graph,
 };
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
@@ -41,21 +41,21 @@ async fn test_create_sparql_from_schema() {
     let doc_nuri_root = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:obj1> a ex:TestObject ;
-        ex:stringValue "hello world" ;
-        ex:numValue 42 ;
-        ex:boolValue true ;
-        ex:arrayValue 1,2,3 ;
-        ex:objectValue <urn:test:idObj> ;
-        ex:anotherObject <urn:test:idA>, <urn:test:idB> ;
-        ex:numOrStr "either" ;
-        ex:lit1Or2 "lit1" ;
-        ex:unrelated "some value" ;
-        ex:anotherUnrelated 4242 .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:obj1> a ex:TestObject ;
+                    ex:stringValue "hello world" ;
+                    ex:numValue 42 ;
+                    ex:boolValue true ;
+                    ex:arrayValue 1,2,3 ;
+                    ex:objectValue <urn:test:idObj> ;
+                    ex:anotherObject <urn:test:idA>, <urn:test:idB> ;
+                    ex:numOrStr "either" ;
+                    ex:lit1Or2 "lit1" ;
+                    ex:unrelated "some value" ;
+                    ex:anotherUnrelated 4242 .
+            }
+        "#
         .to_string(),
     )
     .await;
@@ -63,11 +63,11 @@ INSERT DATA {
     let _doc_nuri_nested1 = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:idObj> ex:nestedString "nested" ; ex:nestedNum 7 ; ex:nestedArray 5,6 .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:idObj> ex:nestedString "nested" ; ex:nestedNum 7 ; ex:nestedArray 5,6 .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -75,12 +75,12 @@ INSERT DATA {
     let _doc_nuri_nested2 = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:idA> ex:prop1 "one" ; ex:prop2 1 .
-    <urn:test:idB> ex:prop1 "two" ; ex:prop2 2 .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:idA> ex:prop1 "one" ; ex:prop2 1 .
+                <urn:test:idB> ex:prop1 "two" ; ex:prop2 2 .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -256,6 +256,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/TestObject".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestObject".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -308,12 +309,12 @@ async fn test_orm_query_cyclic_schema() {
 
     // Insert cyclic data (two people who know each other)
     let insert_sparql = r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:p1> a ex:Person ; ex:name "Alice" ; ex:knows <urn:p2> .
-    <urn:p2> a ex:Person ; ex:name "Bob" ; ex:knows <urn:p1> .
-}
-"#
+        PREFIX ex: <http://example.org/>
+        INSERT DATA {
+            <urn:p1> a ex:Person ; ex:name "Alice" ; ex:knows <urn:p2> .
+            <urn:p2> a ex:Person ; ex:name "Bob" ; ex:knows <urn:p1> .
+        }
+        "#
     .to_string();
     doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
         .await
@@ -324,6 +325,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Person".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Person".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -387,21 +389,21 @@ async fn test_orm_query_deep_cyclic_shapes() {
 
     // Insert data forming a cycle: Organization -> Department -> Project -> Organization
     let insert_sparql = r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:org1> a ex:Organization ;
-        ex:orgName "Acme Corp" ;
-        ex:hasDepartment <urn:dept1> .
-    
-    <urn:dept1> a ex:Department ;
-        ex:deptName "Engineering" ;
-        ex:hasProject <urn:proj1> .
-    
-    <urn:proj1> a ex:Project ;
-        ex:projectName "Product X" ;
-        ex:ownedBy <urn:org2> .
-}
-"#
+        PREFIX ex: <http://example.org/>
+        INSERT DATA {
+            <urn:org1> a ex:Organization ;
+                ex:orgName "Acme Corp" ;
+                ex:hasDepartment <urn:dept1> .
+            
+            <urn:dept1> a ex:Department ;
+                ex:deptName "Engineering" ;
+                ex:hasProject <urn:proj1> .
+            
+            <urn:proj1> a ex:Project ;
+                ex:projectName "Product X" ;
+                ex:ownedBy <urn:org2> .
+        }
+        "#
     .to_string();
     doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
         .await
@@ -413,6 +415,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Organization".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Organization".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -460,6 +463,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Department".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Department".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -507,6 +511,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Project".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Project".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -696,6 +701,10 @@ async fn test_orm_creation() {
     log_info!("=== Starting test test_filter_shape_nested_3 ===");
     test_filter_shape_nested_3(session_id).await;
     log_info!("=== Test test_filter_shape_nested_3 ran successfully ===\n\n");
+
+    log_info!("=== Starting test test_closed_shape_1 ===");
+    test_closed_shape(session_id).await;
+    log_info!("=== Test test_closed_shape_1 ran successfully ===\n\n");
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -993,6 +1002,7 @@ fn test_basic_schema_shape_to_sparql_generation() {
     });
 
     let shape = OrmSchemaShape {
+        is_closed: false,
         iri: "http://example.org/Root".to_string(),
         predicates: vec![required_lit_pred, optional_pred, shape_pred],
     };
@@ -1049,6 +1059,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1086,6 +1097,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/CatShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/CatShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -1187,6 +1199,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1224,6 +1237,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/CatShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/CatShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -1359,6 +1373,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/TestShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1509,6 +1524,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/OptionShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/OptionShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/opt".to_string(),
@@ -1615,6 +1631,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/OptionShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/OptionShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1745,6 +1762,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/MultiTypeShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/MultiTypeShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/strOrNum".to_string(),
@@ -1892,6 +1910,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/RootShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/RootShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1940,6 +1959,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/NestedShapeWithExtra".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/NestedShapeWithExtra".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1975,6 +1995,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/NestedShapeWithoutExtra".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/NestedShapeWithoutExtra".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2117,6 +2138,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2275,6 +2297,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/AliceShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/AliceShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2319,6 +2342,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/BobShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/BobShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2354,6 +2378,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/ClaireShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/ClaireShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2486,6 +2511,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2523,6 +2549,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/CatShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/CatShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -2674,6 +2701,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2808,6 +2836,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2972,6 +3001,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3160,6 +3190,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3382,6 +3413,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3549,6 +3581,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:MatchShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:MatchShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3631,6 +3664,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:MatchShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:MatchShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3713,6 +3747,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:MatchShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:MatchShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3802,6 +3837,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:MatchShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:MatchShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3883,6 +3919,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:MatchShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:MatchShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -3970,6 +4007,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:RootShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:RootShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -4005,6 +4043,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:ChildShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:ChildShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "did:ng:z:val".to_string(),
@@ -4095,6 +4134,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:RootShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:RootShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -4143,6 +4183,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:z:ChildShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:ChildShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "did:ng:z:val".to_string(),
@@ -4240,6 +4281,7 @@ async fn test_filter_shape_nested_3(session_id: u64) {
     schema.insert(
         "did:ng:z:RootShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:RootShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -4275,6 +4317,7 @@ async fn test_filter_shape_nested_3(session_id: u64) {
     schema.insert(
         "did:ng:z:ChildShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:ChildShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -4310,6 +4353,7 @@ async fn test_filter_shape_nested_3(session_id: u64) {
     schema.insert(
         "did:ng:z:ChildChildShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:ChildChildShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "did:ng:z:val".to_string(),
@@ -4376,6 +4420,195 @@ async fn test_filter_shape_nested_3(session_id: u64) {
     assert_orm_json_eq(&mut expected, &mut initial);
 }
 
+/// Tests that two different predicates with same child shape don't interfere.
+async fn test_closed_shape(session_id: u64) {
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:rootObject> a ex:RootObject ;
+                                    ex:child1 ex:childObject1 ;
+                                    ex:child2 ex:childObject2 .
+                <did:ng:z:childObject1> a ex:ChildObject1 .
+                <did:ng:z:childObject2> a ex:ChildObject2 .
+
+                # Root with excess value but valid children.
+                <did:ng:z:rootObjectExcess> a ex:RootObject ;
+                                    ex:child1 ex:childObject1 ;
+                                    ex:child2 ex:childObject2 ;
+                                    ex:unrelated "unrelated value" .
+
+                # Children with excess values.
+                <did:ng:z:childObject1Excess> a ex:ChildObject1 ;
+                                        ex:unrelated "an unrelated value" .
+                <did:ng:z:childObject2Excess> a ex:ChildObject2 ;
+                                        ex:unrelated "an unrelated value" .
+
+                # Root with excess child 1.
+                <did:ng:z:rootObjectWithExcessChild1> a ex:RootObject ;
+                                    ex:child1 ex:childObject1Excess ;
+                                    ex:child2 ex:childObject2 .
+
+                # Root with excess child 2.
+                <did:ng:z:rootObjectWithExcessChild2> a ex:RootObject ;
+                                    ex:child1 ex:childObject1 ;
+                                    ex:child2 ex:childObject2Excess .
+
+
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = create_root_obj_two_children_schema();
+    let root_shape = Arc::get_mut(
+        schema
+            .get_mut("did:ng:z:RootObjectShape")
+            .expect("RootObjectShape is in schema"),
+    )
+    .expect("RootObjectShape is uniquely owned for mutation");
+    root_shape.is_closed = true;
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootObjectShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:rootObject": {
+                "@id": "did:ng:z:rootObject",
+                "@type": "did:ng:z:RootObject",
+                "child1": {
+                    "@type": "did:ng:z:ChildObject1",
+                    "@id": "did:ng:z:childObject1"
+                },
+                "child2": {
+                    "did:ng:z:childObject2": {
+                        "@type": "did:ng:z:ChildObject2",
+                        "@id": "did:ng:z:childObject2"
+                    }
+                }
+            },
+            "did:ng:z:rootObjectWithExcessChild1": {
+                "@id": "did:ng:z:rootObjectWithExcessChild1",
+                "@type": "did:ng:z:RootObject",
+                "child1": {
+                    "@type": "did:ng:z:ChildObject1",
+                    "@id": "did:ng:z:childObject1Excess"
+                },
+                "child2": {
+                    "did:ng:z:childObject2": {
+                        "@type": "did:ng:z:ChildObject2",
+                        "@id": "did:ng:z:childObject2"
+                    }
+                }
+            },
+            "did:ng:z:rootObjectWithExcessChild2": {
+                "@id": "did:ng:z:rootObjectWithExcessChild2",
+                "@type": "did:ng:z:RootObject",
+                "child1": {
+                    "@type": "did:ng:z:ChildObject1",
+                    "@id": "did:ng:z:childObject1"
+                },
+                "child2": {
+                    "did:ng:z:childObject2Excess": {
+                        "@type": "did:ng:z:ChildObject2",
+                        "@id": "did:ng:z:childObject2Excess"
+                    }
+                }
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+
+    //
+    // Test with closed child shape.
+    //
+
+    let mut schema = create_root_obj_two_children_schema();
+    let child1_shape = Arc::get_mut(
+        schema
+            .get_mut("did:ng:z:ChildObject1Shape")
+            .expect("ChildObject1Shape is in schema"),
+    )
+    .expect("ChildObject1Shape is uniquely owned for mutation");
+    child1_shape.is_closed = true;
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:RootObjectShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, mut initial) = create_orm_connection(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+    )
+    .await;
+
+    let mut expected = json!({
+            "did:ng:z:rootObject": {
+                "@id": "did:ng:z:rootObject",
+                "@type": "did:ng:z:RootObject",
+                "child1": {
+                    "@type": "did:ng:z:ChildObject1",
+                    "@id": "did:ng:z:childObject1"
+                },
+                "child2": {
+                    "did:ng:z:childObject2": {
+                        "@type": "did:ng:z:ChildObject2",
+                        "@id": "did:ng:z:childObject2"
+                    }
+                }
+            },
+            "did:ng:z:rootObjectExcess": {
+                "@id": "did:ng:z:rootObjectExcess",
+                "@type": "did:ng:z:RootObject",
+                "child1": {
+                    "@type": "did:ng:z:ChildObject1",
+                    "@id": "did:ng:z:childObject1"
+                },
+                "child2": {
+                    "did:ng:z:childObject2": {
+                        "@type": "did:ng:z:ChildObject2",
+                        "@id": "did:ng:z:childObject2"
+                    }
+                }
+            },
+            "did:ng:z:rootObjectWithExcessChild2": {
+                "@id": "did:ng:z:rootObjectWithExcessChild2",
+                "@type": "did:ng:z:RootObject",
+                "child1": {
+                    "@type": "did:ng:z:ChildObject1",
+                    "@id": "did:ng:z:childObject1"
+                },
+                "child2": {
+                    "did:ng:z:childObject2Excess": {
+                        "@type": "did:ng:z:ChildObject2",
+                        "@id": "did:ng:z:childObject2Excess"
+                    }
+                }
+            },
+    });
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_orm_json_eq(&mut expected, &mut initial);
+}
+
 //
 // Helpers
 //
@@ -4388,6 +4621,7 @@ fn create_big_schema() -> OrmSchema {
     schema.insert(
         "http://example.org/TestObject".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestObject".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -4528,6 +4762,7 @@ fn create_big_schema() -> OrmSchema {
     schema.insert(
         "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -4562,6 +4797,7 @@ fn create_big_schema() -> OrmSchema {
     schema.insert(
         "http://example.org/TestObject||http://example.org/objectValue".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestObject||http://example.org/objectValue".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -4607,6 +4843,106 @@ fn create_big_schema() -> OrmSchema {
     return schema;
 }
 
+/// Create a schema with one root object and two child child objects (cardinalities {1,1} and {0,n}).
+/// ex:RootObjectShape
+/// - @type: [ex:RootObject]
+/// - child1:  @ChildObject1Shape
+/// - child2: @ChildObject2Shape *
+/// ex:ChildObject1Shape
+/// - @type: ex:ChildObject1
+/// ex:ChildObject2Shape
+/// - @type: ex:ChildObject2
+fn create_root_obj_two_children_schema() -> OrmSchema {
+    // Define the ORM schema
+    let mut schema: OrmSchema = HashMap::new();
+
+    // Base shape
+    schema.insert(
+        "did:ng:z:RootObjectShape".to_string(),
+        Arc::new(OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:RootObjectShape".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:RootObject".to_string())]),
+                        shape: None,
+                    }],
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "@type".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildObject1Shape".to_string()),
+                    }],
+                    iri: "did:ng:z:child1".to_string(),
+                    readablePredicate: "child1".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:ChildObject2Shape".to_string()),
+                    }],
+                    iri: "did:ng:z:child2".to_string(),
+                    readablePredicate: "child2".to_string(),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    extra: None,
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "did:ng:z:ChildObject1Shape".to_string(),
+        Arc::new(OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:ChildObject1Shape".to_string(),
+            predicates: vec![Arc::new(OrmSchemaPredicate {
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::iri,
+                    literals: Some(vec![BasicType::Str("did:ng:z:ChildObject1".to_string())]),
+                    shape: None,
+                }],
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                readablePredicate: "@type".to_string(),
+                maxCardinality: 1,
+                minCardinality: 1,
+                extra: None,
+            })],
+        }),
+    );
+    schema.insert(
+        "did:ng:z:ChildObject2Shape".to_string(),
+        Arc::new(OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:ChildObject2Shape".to_string(),
+            predicates: vec![Arc::new(OrmSchemaPredicate {
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::iri,
+                    literals: Some(vec![BasicType::Str("did:ng:z:ChildObject2".to_string())]),
+                    shape: None,
+                }],
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                readablePredicate: "@type".to_string(),
+                maxCardinality: 1,
+                minCardinality: 1,
+                extra: None,
+            })],
+        }),
+    );
+
+    return schema;
+}
 pub fn create_contact_schema() -> Value {
     let schema_str = include_str!("big_contact_schema.json");
     serde_json::from_str(schema_str).unwrap()

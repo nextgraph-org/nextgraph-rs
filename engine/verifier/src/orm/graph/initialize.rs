@@ -148,11 +148,10 @@ impl Verifier {
             &orm_subscription.shape_type.shape,
             Some(&orm_subscription.subject_scope),
         )?;
-        let shape_quads = &fetched.quads;
 
         self.process_changes_for_subscription(
             orm_subscription,
-            shape_quads,
+            &fetched.quads,
             &[],
             &mut changes,
             true,
@@ -350,7 +349,7 @@ impl Verifier {
             let returned_gs_items = graph_subject_page.len();
 
             // Query quads for this shape.
-            let shape_quads = if orm_subscription.graph_scope == QueryScope::None {
+            let quads = if orm_subscription.graph_scope == QueryScope::None {
                 vec![]
             } else {
                 // Query scoped to items from ordered_page.
@@ -374,7 +373,7 @@ impl Verifier {
                 .cloned()
                 .collect();
             // Filter new quads.
-            let shape_quads = shape_quads
+            let quads = quads
                 .into_iter()
                 .filter(|q| {
                     let (GraphName::NamedNode(g), Subject::NamedNode(s)) =
@@ -392,7 +391,7 @@ impl Verifier {
             // Add new quads to tracker and validate
             self.process_changes_for_subscription(
                 orm_subscription,
-                &shape_quads,
+                &quads,
                 &[],
                 &mut changes,
                 true,

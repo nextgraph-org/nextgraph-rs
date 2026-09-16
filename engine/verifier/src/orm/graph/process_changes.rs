@@ -19,9 +19,7 @@ use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
-use crate::orm::graph::add_remove_quads::{
-    apply_quads_for_subject, index_predicates, oxrdf_term_to_orm_basic_type,
-};
+use crate::orm::graph::add_remove_quads::{apply_quads_for_subject, oxrdf_term_to_orm_basic_type};
 use crate::orm::graph::shape_validation::NeedEvalSelf;
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::*;
@@ -75,7 +73,7 @@ struct ProcessRun {
     /// their entire state and no further query can add to it.
     introduced_by_diff: HashSet<GraphSubjectKey>,
     /// Quads still to be applied, per (graph, subject, shape).
-    pending: HashMap<GraphSubjectKey, HashMap<ShapeIri, PendingQuads>>,
+    are_quads_taken: HashSet<(GraphIri, SubjectIri, ShapeIri)>,
     /// LIFO stack of what still has to be validated (nested objects first).
     stack: Vec<(Arc<OrmSchemaShape>, Vec<(GraphIri, SubjectIri)>)>,
 }
@@ -97,10 +95,17 @@ impl ProcessRun {
             .chain(removed.keys().cloned())
             .collect();
 
+        // If an object is not being tracked as root object, we consider it to be new and it needs fetching.
         let introduced_by_diff = modified_gs
             .iter()
             .filter(|(graph_iri, subject_iri)| {
-                !orm_subscription.has_graph_subject(graph_iri, subject_iri)
+                orm_subscription
+                    .get_tracked_orm_object(
+                        graph_iri,
+                        subject_iri,
+                        &orm_subscription.shape_type.shape,
+                    )
+                    .is_none()
             })
             .cloned()
             .collect();
@@ -114,7 +119,7 @@ impl ProcessRun {
             removed_graphs,
             loaded: HashMap::new(),
             introduced_by_diff,
-            pending: HashMap::new(),
+            are_quads_taken: HashSet::new(),
             stack,
         }
     }
@@ -200,33 +205,25 @@ impl ProcessRun {
         init
     }
 
-    /// Get quads for a (shape, graph, subject). Either from the initial diff or from
-    /// the pending object which received quads from a subsequent query that loaded missing data.
+    /// Get add/remove quads for a (shape, graph, subject) if `take_pending` wasn't called before.
+    /// Otherwise empty.
     fn take_pending(&mut self, gs: &GraphSubjectKey, shape_iri: &str) -> PendingQuads {
-        let pending_per_shape = self.pending.entry(gs.clone()).or_insert_with(HashMap::new);
+        let is_new =
+            self.are_quads_taken
+                .insert((gs.0.clone(), gs.1.clone(), shape_iri.to_string()));
 
-        match pending_per_shape.get_mut(shape_iri) {
-            Some(pending_quads) => {
-                // Not the first visit, there might have been an extra query with data to validate.
-                std::mem::take(pending_quads)
+        if is_new {
+            PendingQuads {
+                added: self.added.get(gs).cloned().unwrap_or_default(),
+                removed: self.removed.get(gs).cloned().unwrap_or_default(),
             }
-            None => {
-                // First visit: Take the quads we have from the diff.
-                pending_per_shape.insert(shape_iri.to_string(), PendingQuads::default());
-                PendingQuads {
-                    added: self.added.get(gs).cloned().unwrap_or_default(),
-                    removed: self.removed.get(gs).cloned().unwrap_or_default(),
-                }
-            }
+        } else {
+            PendingQuads::default()
         }
     }
 
     /// Update which (graph, subject, shape) are loaded.
-    fn record_loaded(
-        &mut self,
-        loaded: &HashMap<ShapeIri, HashSet<SubjectIri>>,
-        scope: &QueryScope,
-    ) {
+    fn mark_loaded(&mut self, loaded: &HashMap<ShapeIri, HashSet<SubjectIri>>, scope: &QueryScope) {
         for (shape_iri, subjects) in loaded.iter() {
             let per_shape = self
                 .loaded
@@ -261,33 +258,22 @@ impl ProcessRun {
                 present.insert(gs.clone(), existing);
             }
             if present.get_mut(&gs).unwrap().insert(quad.clone()) {
-                self.push_added(&gs, quad);
+                self.added
+                    .entry(gs.clone())
+                    .or_insert_with(Vec::new)
+                    .push(quad);
+
+                let graphs = self
+                    .added_graphs
+                    .entry(gs.1.clone())
+                    .or_insert_with(Vec::new);
+                if let Err(position) = graphs.binary_search(&gs.0) {
+                    graphs.insert(position, gs.0.clone());
+                }
             }
             touched.insert(gs);
         }
         touched
-    }
-
-    /// Append a quad to a (graph, subject): hand it to every shape that has already been here,
-    /// and keep the graphs-by-subject index in step.
-    /// Callers must have checked that the quad is not there yet.
-    fn push_added(&mut self, gs: &GraphSubjectKey, quad: Quad) {
-        if let Some(pending_per_shape) = self.pending.get_mut(gs) {
-            for pending_quads in pending_per_shape.values_mut() {
-                pending_quads.added.push(quad.clone());
-            }
-        }
-        self.added
-            .entry(gs.clone())
-            .or_insert_with(Vec::new)
-            .push(quad);
-        let graphs = self
-            .added_graphs
-            .entry(gs.1.clone())
-            .or_insert_with(Vec::new);
-        if let Err(position) = graphs.binary_search(&gs.0) {
-            graphs.insert(position, gs.0.clone());
-        }
     }
 
     /// Whether a query in this run already looked for this subject in this graph.
@@ -712,7 +698,6 @@ impl Verifier {
         orm_changes: &mut OrmChanges,
         run: &mut ProcessRun,
         child_objects_to_eval: HashMap<ShapeIri, Vec<(GraphIri, SubjectIri)>>,
-        data_already_fetched: bool,
     ) -> Result<(), NgError> {
         // Deduplicate.
         let groups: Vec<(ShapeIri, Vec<(GraphIri, SubjectIri)>)> = child_objects_to_eval
@@ -738,16 +723,12 @@ impl Verifier {
             let mut to_queue: Vec<(GraphIri, SubjectIri)> = Vec::new();
             for (graph_iri, subject_iri) in objects_to_eval {
                 if run.needs_loading(orm_subscription, &shape_iri, &graph_iri, &subject_iri) {
-                    if !data_already_fetched {
-                        to_load.push((graph_iri, subject_iri));
-                    } else {
-                        // During the initial load everything is fetched up front, so an object
-                        // that is still missing simply does not exist yet.
-                    }
+                    to_load.push((graph_iri, subject_iri));
                 } else if !graph_iri.is_empty() {
+                    to_queue.push((graph_iri, subject_iri));
+                } else {
                     // An empty graph is the placeholder for "graph not known yet"; only a load
                     // resolves it into a real one, so it must not become a tracked object.
-                    to_queue.push((graph_iri, subject_iri));
                 }
             }
 
@@ -771,7 +752,7 @@ impl Verifier {
                     &shape_iri,
                     Some(&subjects),
                 )?;
-                run.record_loaded(&fetched.loaded, &scope);
+                run.mark_loaded(&fetched.loaded, &scope);
                 let touched = run.merge_loaded_quads(fetched.quads);
 
                 // Reset is_validated for tormos that we fetched new data about.
@@ -909,7 +890,7 @@ impl Verifier {
                     // Capture child arc for later linking
                     let child_arc = change.tracked_orm_object.clone();
 
-                    // Apply the quads of this (graph, subject) that this shape has not seen yet.
+                    // Apply the quads of this (graph, subject) that this tormo has not seen yet.
                     let gs_key = (graph_iri.clone(), subject_iri.clone());
                     let pending = run.take_pending(&gs_key, &shape.iri);
                     if !pending.is_empty() {
@@ -1045,7 +1026,6 @@ impl Verifier {
                 orm_changes,
                 &mut run,
                 parent_objects_to_eval,
-                data_already_fetched,
             )?;
             // Same shape, scheduled second.
             self.queue_groups(
@@ -1053,7 +1033,6 @@ impl Verifier {
                 orm_changes,
                 &mut run,
                 self_objects_to_eval,
-                data_already_fetched,
             )?;
             // Children, scheduled first.
             self.queue_groups(
@@ -1061,7 +1040,6 @@ impl Verifier {
                 orm_changes,
                 &mut run,
                 child_objects_to_eval,
-                data_already_fetched,
             )?;
 
             for (graph_iri, subject_iri) in graph_subject_to_validate {
@@ -1234,36 +1212,34 @@ impl Verifier {
             return;
         };
 
-        let predicates = index_predicates(shape);
+        let predicates = orm_subscription.indexed_predicates(&shape.iri);
 
         let mut changes_by_predicate: HashMap<String, TrackedOrmPredicateChanges> = HashMap::new();
-        {
-            let tormo = tormo_arc.read().unwrap();
-            for quad in quads {
-                let Some(predicate_schemas) = predicates.get(quad.predicate.as_str()) else {
-                    continue;
-                };
-                let value = oxrdf_term_to_orm_basic_type(&quad.object);
-                for predicate_schema in predicate_schemas.iter().copied() {
-                    // The tracked predicate carries the links to the nested children, which
-                    // materialization walks; without it the value would be unusable anyway.
-                    let Some(tracked_predicate) =
-                        tormo.tracked_predicates.get(&predicate_schema.iri)
-                    else {
-                        continue;
-                    };
-                    changes_by_predicate
-                        .entry(predicate_schema.iri.clone())
-                        .or_insert_with(|| TrackedOrmPredicateChanges {
-                            tracked_predicate: tracked_predicate.clone(),
-                            values_added: Vec::new(),
-                            values_removed: Vec::new(),
-                        })
-                        .values_added
-                        .push(value.clone());
-                }
-            }
+
+        let tormo = tormo_arc.read().unwrap();
+        for quad in quads {
+            let Some(predicate_schema) = predicates.get(quad.predicate.as_str()) else {
+                continue;
+            };
+            let value = oxrdf_term_to_orm_basic_type(&quad.object);
+
+            // The tracked predicate carries the links to the nested children, which
+            // materialization walks; without it the value would be unusable anyway.
+            let Some(tracked_predicate) = tormo.tracked_predicates.get(&predicate_schema.iri)
+            else {
+                continue;
+            };
+            changes_by_predicate
+                .entry(predicate_schema.iri.clone())
+                .or_insert_with(|| TrackedOrmPredicateChanges {
+                    tracked_predicate: tracked_predicate.clone(),
+                    values_added: Vec::new(),
+                    values_removed: Vec::new(),
+                })
+                .values_added
+                .push(value.clone());
         }
+        drop(tormo);
 
         changes_overlay
             .entry(shape_iri.to_string())
