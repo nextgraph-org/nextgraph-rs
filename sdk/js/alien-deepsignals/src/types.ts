@@ -257,74 +257,40 @@ export interface DeepSignalSet_<T>
  * It is decorated with utility functions for sets, see {@link DeepSignalSetProps}
  * and a `__raw__` prop to get the underlying non-reactive object.
  */
-export type DeepSignal<T> = T extends Function
+export type DeepSignal<T> = T extends string | number | boolean
     ? T
-    : T extends string | number | boolean
+    : T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
       ? T
-      : T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
-        ? T
-        : T extends Array<infer I>
-          ? DeepSignal<I>[]
+      : T extends Array<infer I>
+        ? DeepSignal<I>[]
+        : T extends ReadonlyArray<infer I>
+          ? ReadonlyArray<DeepSignal<I>>
           : T extends Set<infer S>
             ? DeepSignalSet<S>
             : T extends object
               ? DeepSignalObject<T>
-              : T;
+              : T extends Function
+                ? T
+                : T;
 
 export type DeepSignalObject<T extends object> = {
     [K in keyof T]: DeepSignal<T[K]>;
 }; // DeepSignalObjectProps<T>;
 
-export type UnwrapDeepSignal<T> = T extends DeepSignal<infer S> ? S : T;
+export type UnwrapDeepSignal<T> =
+    T extends DeepSignalObject<infer S>
+        ? S
+        : T extends DeepSignalSet<infer S>
+          ? Set<S>
+          : T extends Array<DeepSignalObject<infer S>>
+            ? S[]
+            : T extends ReadonlyArray<infer S>
+              ? UnwrapDeepSignal<S>[]
+              : T;
+
+export type FlatDeepSignal<T> = DeepSignal<UnwrapDeepSignal<T>>;
 
 /** Union allowing a plain value or a writable signal wrapping that value. */
 export type MaybeSignal<T = any> = T | ReturnType<typeof alienSignal>;
 /** Union allowing value, writable signal, computed signal or plain getter function. */
 export type MaybeSignalOrComputed<T = any> = MaybeSignal<T> | (() => T);
-
-/**
- * An array that does not allow modifications.
- * You can modify it's values but adding, moving, or removing elements is not allowed.
- *
- * You can generate a ReadOnlyArray using {@link readOnlyArray}.
- */
-export type ReadOnlyArray<T> = Omit<Array<T>, ModifyingArrayFns> & {
-    /** Gets the length of the array. This is a number one higher than the highest index in the array. */
-    length: number;
-};
-
-type ModifyingArrayFns = Exclude<keyof Array<any>, NonModifyingArrayKeys>;
-
-type NonModifyingArrayKeys =
-    | "at"
-    | "concat"
-    | "entries"
-    | "findIndex"
-    | "findLast"
-    | "findLastIndex"
-    | "flat"
-    | "indexOf"
-    | "join"
-    | "keys"
-    | "lastIndexOf"
-    | "reduceRight"
-    | "toLocaleString"
-    | "toReversed"
-    | "toSorted"
-    | "toLocaleString"
-    | "values"
-    | "with"
-    | "toString"
-    | "toSpliced"
-    | "filter"
-    | "map"
-    | "flatMap"
-    | "every"
-    | "forEach"
-    | "find"
-    | "some"
-    | "reduce"
-    | "includes"
-    | "copyWithin"
-    | typeof Symbol.iterator
-    | number;

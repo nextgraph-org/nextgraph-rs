@@ -11,7 +11,7 @@ Note that there are two variants of the SDK:
 
 The SDK is reactive. Modifications to your received "plain old TypeScript objects" are **instantly synced with the database and other devices**.\
 Vice versa, when the data is modified on a different device, that is reflected in your TS object and your frontend rerenders the data.\
-We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but you can use the SDK without a frontend framework as well.
+We offer frontend framework support for **React, Vue, SolidJS, and Svelte (5 and 4)** but you can use the SDK without a frontend framework as well.
 
 ## Reference documentation
 
@@ -192,7 +192,7 @@ There are multiple ways to create a subscription and get the data (you will see 
 ### Frontend Framework Integration: `useShape()`
 
 The SDK offers `useShape(ShapeType, config)` hooks that let you load and interact with data inside of components.
-Implementations are available for [Svelte 5](#svelteuseshape), [Svelte 4](#svelte4useshape), [Vue](#vueuseshape), and [React](#reactuseshape).
+Implementations are available for [Svelte 5](#svelteuseshape), [Svelte 4](#svelte4useshape), [Vue](#vueuseshape), [SolidJs](#solidjsuseshape), and [React](#reactuseshape).
 
 The hooks create a 2-way binding between the engine and the frontend.
 You can modify the data returned by the hook like any other object. Changes are immediately
@@ -287,7 +287,7 @@ const contactsSubscription = RdfOrmSubscription.getOrCreate(ContactShape, {
 });
 await contactsSubscription.readyPromise;
 
-const contacts: DeepSignal<ReadOnlyArray<Contact>> =
+const contacts: DeepSignal<ReadonlyArray<Contact>> =
     contactsSubscription.signalObject;
 
 console.log(
@@ -547,7 +547,7 @@ The utilities that DeepSignal objects include are:
 
 ### Signal Objects in Frontend Frameworks
 
-Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use [`useDeepSignal(signalObject)`](../alien-deepsignals/#frontend-hooks) from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the delay when creating new subscriptions.
+Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use [`useDeepSignal(signalObject)`](../alien-deepsignals/#frontend-hooks) from the package `@ng-org/alien-deepsignals/svelte|vue|react|solid-js`. This can be useful to keep a connection open over the lifetime of a component and to avoid the delay when creating new subscriptions.
 
 ---
 

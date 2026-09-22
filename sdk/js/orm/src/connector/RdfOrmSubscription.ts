@@ -28,7 +28,6 @@ import type {
     DeepSignal,
     DeepPatch,
     DeepSignalOptions,
-    ReadOnlyArray,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 import { OrderByConfig, RdfOrmConfig, SubscriptionData } from "../utilTypes.ts";
@@ -111,7 +110,7 @@ export class RdfOrmSubscription<
     private readonly signalObject_: undefined extends CONF["orderBy"]
         ? DeepSignalSet<T>
         : DeepSignal<T[]>;
-    private readonlyItemsArray?: ReadOnlyArray<T>;
+    private readonlyItemsArray?: ReadonlyArray<T>;
 
     /** Listeners that get notified when root objects are added, updated, or removed. */
     private changeListeners: Set<OrmChangeListener<T>> = new Set();

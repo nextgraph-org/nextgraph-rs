@@ -1,6 +1,6 @@
 import { RAW_KEY } from "./deepSignal.ts";
 import { nonMutatingArrayFnKeys } from "./iteratorHelpers.ts";
-import { DeepSignal, ReadOnlyArray } from "./types.ts";
+import { DeepSignal } from "./types.ts";
 
 const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
     construct() {
@@ -42,6 +42,6 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
  * NOTE: It does not prevent modifications to its children.
  *
  */
-export function readOnlyArray<T>(array: DeepSignal<T[]>): ReadOnlyArray<T> {
+export function readOnlyArray<T>(array: DeepSignal<T[]>): ReadonlyArray<T> {
     return new Proxy(array, readonlyArrayProxy);
 }

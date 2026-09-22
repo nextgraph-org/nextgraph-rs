@@ -120,7 +120,7 @@ export function useDiscrete<
 
     let ret = $state({}) as UseDiscreteResult<any, DocIdOrPromise>;
 
-    const init = (docId: string) => {
+    const init = (docId: string, registerCleanup = onDestroy) => {
         if (isDestroyed) return;
         const subscription = DiscreteOrmSubscription.getOrCreate(docId);
         ret.subscription = subscription as any;
@@ -130,9 +130,9 @@ export function useDiscrete<
                 subscription?.close();
                 return;
             }
-            const doc = useDeepSignal(
-                subscription!.signalObject!
-            ) as DeepSignal<T>;
+            const doc = useDeepSignal(subscription!.signalObject!, {
+                registerCleanup: registerCleanup,
+            });
             // Set different prototype to prevent svelte from proxying.
             setRawPrototype(doc);
             ret.doc = doc;
@@ -145,7 +145,16 @@ export function useDiscrete<
     } else if (documentIdOrPromise === undefined) {
         // There is nothing to initialize.
     } else {
-        documentIdOrPromise.then(init);
+        // If we call useDeepSignal async, it won't be called inside
+        // component initialization and svelte's onDestroy callback throws
+        let onDest: undefined | (() => void) = undefined;
+        let registerOnDestroy = (cb: () => void) => {
+            onDest = cb;
+        };
+        documentIdOrPromise.then((docId) => init(docId, registerOnDestroy));
+        onDestroy(() => {
+            onDest?.();
+        });
     }
 
     onDestroy(() => {
