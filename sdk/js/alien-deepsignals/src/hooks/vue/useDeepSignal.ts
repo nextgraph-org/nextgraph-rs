@@ -8,9 +8,15 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { type MaybeRefOrGetter, toValue, customRef } from "vue";
+import {
+    type MaybeRefOrGetter,
+    toValue,
+    customRef,
+    onBeforeUnmount,
+} from "vue";
 
 import { DeepSignal, deepSignal, DeepSignalOptions } from "../../index.ts";
+import { removeSubscriberFactory } from "../../deepSignal.ts";
 
 /**
  * Create or use an existing (child) deepSignal object in your component.
@@ -18,15 +24,17 @@ import { DeepSignal, deepSignal, DeepSignalOptions } from "../../index.ts";
  * If modifications of the object are made from somewhere else, the component
  * is rerendered as well.
  *
- * @param object The object that should become reactive (can be a ref or getter)
+ * @param object The object that should become reactive (can be a ref or getter).
  * @param options Options passed to {@link deepSignal}.
  * @returns The deepSignal object of the object param.
  *
  */
 export function useDeepSignal<T extends object>(
     object: MaybeRefOrGetter<T>,
-    options?: DeepSignalOptions
-): DeepSignal<T> {
+    options?: DeepSignalOptions & {
+        /** @internal */ registerCleanup(fn: () => any): void;
+    }
+) {
     const deepProxy = deepSignal(toValue(object), {
         ...options,
         subscriberFactories: (options?.subscriberFactories ?? new Set()).union(
@@ -34,11 +42,11 @@ export function useDeepSignal<T extends object>(
         ),
     });
 
-    // onBeforeUnmount(() => {
-    //     // TODO: Tell signal that subscriber can be removed?
-    // });
+    (options?.registerCleanup ?? onBeforeUnmount)(() => {
+        removeSubscriberFactory(deepProxy, subscriberFactory);
+    });
 
-    return deepProxy as DeepSignal<T>;
+    return deepProxy;
 }
 
 /** Calls Vue's customRef for notifications of value changes. */
