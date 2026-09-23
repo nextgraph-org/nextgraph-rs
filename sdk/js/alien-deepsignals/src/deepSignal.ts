@@ -17,7 +17,6 @@ import {
     DeepSignal,
     DeepSignalOptions,
     ExternalSubscriberFactory,
-    FlatDeepSignal,
     ProxyMeta,
     RootState,
     SetMeta,
@@ -1324,7 +1323,7 @@ export function isDeepSignal(
 export function deepSignal<T extends object>(
     input: T,
     options?: DeepSignalOptions
-): FlatDeepSignal<T> {
+): DeepSignal<T> {
     // Is the input already a signal?
     if (isDeepSignal(input)) {
         // Add possibly new external subscribers to existing ones.
@@ -1338,7 +1337,7 @@ export function deepSignal<T extends object>(
             meta?.options.replaceProxiesInBranchOnChange ||
             options?.replaceProxiesInBranchOnChange;
 
-        return input as FlatDeepSignal<T>;
+        return input as DeepSignal<T>;
     }
 
     if (!shouldProxy(input))
@@ -1371,7 +1370,7 @@ export function deepSignal<T extends object>(
         undefined,
         true
     );
-    return proxy as FlatDeepSignal<T>;
+    return proxy as DeepSignal<T>;
 }
 
 /**
