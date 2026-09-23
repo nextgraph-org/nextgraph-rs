@@ -26,6 +26,7 @@ use ng_net::orm::{
 
 use ng_repo::log::*;
 use ng_verifier::orm::graph::query::schema_shape_to_sparql;
+use ng_verifier::orm::graph::types::QueryScope;
 // use ng_verifier::orm::query::shape_type_to_sparql_select; // replaced by query_quads_for_shape_type
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -999,7 +1000,7 @@ fn test_basic_schema_shape_to_sparql_generation() {
     let q = schema_shape_to_sparql(
         &shape,
         Some(&vec!["urn:s1".to_string()]),
-        Some(&vec!["urn:g1".to_string()]),
+        &QueryScope::from(vec!["urn:g1"]),
         None,
         None,
         None,

@@ -34,7 +34,7 @@ use crate::orm::graph::types::{
 
 pub type GraphSubjectKey = (String, String);
 
-/// The graph IRI a quad belongs to, or `None` for quads outside a named graph.
+/// The graph IRI a quad belongs to.
 pub fn graph_iri_of_quad(quad: &Quad) -> &str {
     match &quad.graph_name {
         GraphName::NamedNode(n) => n.as_str(),
@@ -42,12 +42,25 @@ pub fn graph_iri_of_quad(quad: &Quad) -> &str {
     }
 }
 
-/// The subject IRI of a quad, or `None` for blank-node subjects.
+/// The subject IRI of a quad.
 pub fn subject_iri_of_quad(quad: &Quad) -> &str {
     match &quad.subject {
         Subject::NamedNode(n) => n.as_str(),
         _ => unreachable!(),
     }
+}
+
+/// (graph, subject) tuple of a quad.
+pub fn quad_graph_subject(quad: &Quad) -> (&str, &str) {
+    let graph = match &quad.graph_name {
+        GraphName::NamedNode(g) => g.as_str(),
+        _ => unreachable!(),
+    };
+    let subject = match &quad.subject {
+        Subject::NamedNode(s) => s.as_str(),
+        _ => unreachable!(),
+    };
+    (graph, subject)
 }
 
 pub fn group_by_graph_and_subject(quads: &[Quad]) -> HashMap<GraphSubjectKey, Vec<Quad>> {
@@ -120,6 +133,7 @@ pub fn basic_type_to_json(val: &BasicType) -> serde_json::Value {
         BasicType::Str(s) => json!(s),
     }
 }
+
 pub fn is_uri_escaped(iri: &str) -> bool {
     let re = Regex::new(r"^[^<>\{\}\|^`\\\x00-\x20]*$").unwrap();
     re.is_match(iri)

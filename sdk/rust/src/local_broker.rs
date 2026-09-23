@@ -43,7 +43,7 @@ use ng_net::types::*;
 use ng_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use ng_net::{actor::*, actors::admin::*};
 
-use ng_verifier::orm::graph::types::ShapeIri;
+use ng_verifier::orm::graph::types::{QueryScope, ShapeIri};
 use ng_verifier::types::*;
 use ng_verifier::verifier::Verifier;
 
@@ -2853,6 +2853,19 @@ pub async fn get_broker() -> Result<async_std::sync::RwLockWriteGuard<'static, L
     return Ok(broker);
 }
 
+#[doc(hidden)]
+pub async fn test_remove_repo_write_cap(session_id: u64, repo_nuri: String) -> Result<(), NgError> {
+    let mut broker = get_broker().await?;
+    let session_idx = broker.get_local_session_id_for_mut(session_id)?;
+    let session = broker.opened_sessions_list[session_idx]
+        .as_mut()
+        .ok_or(NgError::SessionNotFound)?;
+    let nuri = NuriV0::new_from(&repo_nuri)?;
+    session
+        .verifier
+        .test_remove_repo_write_cap(nuri.target.repo_id())
+}
+
 pub async fn upload_done(
     upload_id: u32,
     session_id: u64,
@@ -2921,7 +2934,10 @@ pub async fn orm_update(
 ) -> Result<(), NgError> {
     let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
-    app_request(request).await?;
+    let res = app_request(request).await?;
+    if let AppResponse::V0(AppResponseV0::Error(err)) = res {
+        return Err(NgError::VerifierError(VerifierError::OtherError(err)));
+    }
     Ok(())
 }
 
@@ -2976,13 +2992,13 @@ pub async fn doc_query_quads_for_shape_type(
 ) -> Result<Vec<Quad>, NgError> {
     let broker = get_broker().await?;
     let session = broker.get_session(session_id)?;
-    let nuris = match nuri {
-        Some(nuri) => vec![nuri],
-        _ => vec![],
+    let scope = match nuri {
+        Some(nuri) => QueryScope::from(vec![nuri]),
+        _ => QueryScope::All,
     };
     session
         .verifier
-        .query_quads_for_shape(&nuris, schema, shape, filter_subjects)
+        .query_quads_for_shape(&scope, schema, shape, filter_subjects)
         .map(|fetched| fetched.quads)
 }
 

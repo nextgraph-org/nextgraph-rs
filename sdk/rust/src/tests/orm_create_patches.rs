@@ -1989,7 +1989,7 @@ async fn test_ordered_with_nested_children(session_id: u64) {
     )
     .await;
 
-    let expected = json!([
+    let mut expected = json!([
         {
             "@id": "urn:test:orderedHouseA",
             "type": "http://example.org/House",

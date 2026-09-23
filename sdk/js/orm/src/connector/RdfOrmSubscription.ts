@@ -140,6 +140,8 @@ export class RdfOrmSubscription<
     private isPatchMicrotaskScheduled: boolean = false;
     /** Configuration for signal object. */
     private signalSettings;
+    /** Called when errors occur. */
+    private onErrorCallback: (error: Error) => void;
 
     // FinalizationRegistry to clean up subscriptions when signal objects are GC'd.
     private static cleanupSignalRegistry =
@@ -169,6 +171,18 @@ export class RdfOrmSubscription<
         this.refCount = 1;
         this.closeOrmSubscription = () => {};
         this.identifier = identifier;
+        this.onErrorCallback = (e) =>
+            console.error(
+                "[RdfOrmSubscription]",
+                "\nname:",
+                e.name,
+                "\nmessage:",
+                e.message,
+                "\ncause:",
+                e.cause,
+                "\nstack:",
+                e.stack
+            );
 
         if (options.orderBy === undefined) {
             this.mode = "unordered";
@@ -226,7 +240,20 @@ export class RdfOrmSubscription<
                     this.onBackendMessage
                 );
             } catch (e) {
-                console.error(e);
+                // console.error(e);
+                this.onErrorCallback(
+                    new Error(
+                        "Error occurred while establishing subscription. You should start anew.",
+                        { cause: e }
+                    )
+                );
+                // Creating a subscription failed. Using this object will never work.
+                // Therefore, remove it from the cache.
+                RdfOrmSubscription.idToEntry.delete(identifier);
+                this.stopSignalListening();
+                RdfOrmSubscription.cleanupSignalRegistry?.unregister(
+                    this.signalObject_
+                );
             }
         });
     }
@@ -431,11 +458,20 @@ export class RdfOrmSubscription<
 
                 if (this.pendingPatches.length > 0 && !this.inTransaction_) {
                     const { ng, session } = await ngSession;
+
                     ng.graph_orm_update(
                         this.subscriptionId!,
                         this.pendingPatches,
                         session.session_id
-                    );
+                    ).catch((e) => {
+                        // Notify error listener.
+                        this.onErrorCallback(
+                            new Error(
+                                "Error while synchronizing changes with the engine.",
+                                { cause: e }
+                            )
+                        );
+                    });
                     this.pendingPatches = [];
                 }
             });
@@ -542,14 +578,12 @@ export class RdfOrmSubscription<
         );
 
         // Process links to new objects.
-        this.changeListeners.forEach((cl) =>
-            Object.apply(cl, [
-                {
-                    adds: addedRoots,
-                    removes: removedRoots,
-                    updates: [...updatedRootObjects],
-                },
-            ])
+        this.changeListeners.forEach((listenerCallback) =>
+            listenerCallback({
+                adds: addedRoots,
+                removes: removedRoots,
+                updates: [...updatedRootObjects],
+            })
         );
 
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
@@ -663,11 +697,21 @@ export class RdfOrmSubscription<
             // Nothing to send to the engine.
         } else {
             // Send patches to engine.
-            await ng.graph_orm_update(
-                this.subscriptionId!,
-                this.pendingPatches!,
-                session.session_id
-            );
+            await ng
+                .graph_orm_update(
+                    this.subscriptionId!,
+                    this.pendingPatches!,
+                    session.session_id
+                )
+                .catch((e) => {
+                    // Notify error listener.
+                    this.onErrorCallback(
+                        new Error(
+                            "Error while synchronizing changes with the engine.",
+                            { cause: e }
+                        )
+                    );
+                });
         }
 
         this.pendingPatches = [];

@@ -15,11 +15,9 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
 use ng_oxigraph::oxrdf::GraphName;
 use ng_oxigraph::oxrdf::Subject;
-use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -54,20 +52,16 @@ impl Verifier {
         let orm_subscription = match OrmSubscription::new(
             shape_type,
             self.orm_subscription_counter,
-            graph_scope
+            &graph_scope
                 .iter()
                 .map(|nuri| nuri_to_string(nuri))
-                .collect(),
+                .collect::<Vec<_>>(),
             subject_scope,
             tx.clone(),
             config,
         ) {
             Ok(r) => r,
             Err(error) => {
-                log_err!(
-                    "Error occurred while creating orm subscription: {:?}",
-                    error
-                );
                 return Err(error);
             }
         };
@@ -76,10 +70,6 @@ impl Verifier {
             .create_orm_objects_and_insert_subscription(orm_subscription, &mut tx)
             .await
         {
-            log_err!(
-                "Error occurred while creating orm subscription: {:?}",
-                error
-            );
             return Err(error);
         };
 
@@ -152,17 +142,13 @@ impl Verifier {
         let mut changes: OrmChanges = HashMap::new();
 
         // Query quads for this shape.
-        let fetched = if orm_subscription.graph_scope.is_empty() {
-            None
-        } else {
-            Some(self.query_quads_for_shape(
-                &orm_subscription.graph_scope,
-                &orm_subscription.shape_type.schema,
-                &orm_subscription.shape_type.shape,
-                Some(&orm_subscription.subject_scope),
-            )?)
-        };
-        let shape_quads = fetched.as_ref().map(|f| f.quads.as_slice()).unwrap_or(&[]);
+        let fetched = self.query_quads_for_shape(
+            &orm_subscription.graph_scope,
+            &orm_subscription.shape_type.schema,
+            &orm_subscription.shape_type.shape,
+            Some(&orm_subscription.subject_scope),
+        )?;
+        let shape_quads = &fetched.quads;
 
         self.process_changes_for_subscription(
             orm_subscription,
@@ -172,14 +158,9 @@ impl Verifier {
             true,
         )?;
 
-        // Everything the query returned is on record as holding all the store has for it, so
-        // updates never have to trigger full re-queries.
-        if let Some(fetched) = fetched.as_ref() {
-            orm_subscription.mark_fetched_complete(
-                &fetched.loaded,
-                &LoadedScope::from_query_scope(&orm_subscription.graph_scope),
-            );
-        }
+        // Everything the query returned is on record as holding all the store has for it,
+        // so we mark as complete and updates never have to trigger full re-queries.
+        orm_subscription.mark_fetched_complete(&fetched.loaded, &orm_subscription.graph_scope);
 
         // === Materialization ===
         let mut materialized_objects: serde_json::Value;
@@ -235,7 +216,7 @@ impl Verifier {
                     NgError::OrmError(format!("Subscription {subscription_id} not found"))
                 })?;
 
-        if orm_subscription.ordering_info.is_none() {
+        if orm_subscription.config.page_size == 0 {
             self.orm_subscriptions
                 .insert(subscription_id, orm_subscription);
             return Err(NgError::OrmError(format!(
@@ -369,12 +350,12 @@ impl Verifier {
             let returned_gs_items = graph_subject_page.len();
 
             // Query quads for this shape.
-            let shape_quads = if orm_subscription.graph_scope.is_empty() {
+            let shape_quads = if orm_subscription.graph_scope == QueryScope::None {
                 vec![]
             } else {
                 // Query scoped to items from ordered_page.
                 self.query_quads_for_shape(
-                    &graph_subject_page.iter().map(|(g, _s)| g.clone()).collect(),
+                    &QueryScope::from(graph_subject_page.iter().map(|(g, _s)| g.clone())),
                     &orm_subscription.shape_type.schema,
                     &orm_subscription.shape_type.shape,
                     Some(&graph_subject_page.iter().map(|(_g, s)| s.clone()).collect()),

@@ -16,7 +16,6 @@ use std::sync::RwLock;
 use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
-use ng_oxigraph::oxrdf::graph;
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
@@ -118,12 +117,12 @@ impl Verifier {
             // If we have an ordered page, it might be that new quads arrived whose value is within the window bounds.
             // In that case we have to add the graph+subject to the tormo and query the related quads.
             let inserts = if gs_to_fetch.len() > 0 {
-                let graphs = gs_to_fetch
-                    .iter()
-                    .map(|gs_key| gs_key.0.clone())
-                    .collect::<HashSet<_>>()
-                    .into_iter()
-                    .collect();
+                let graphs = QueryScope::from(
+                    &gs_to_fetch
+                        .iter()
+                        .map(|gs_key| gs_key.0.clone())
+                        .collect::<Vec<String>>(),
+                );
                 let subjects = gs_to_fetch
                     .iter()
                     .map(|gs_key| gs_key.1.clone())
@@ -237,22 +236,26 @@ impl Verifier {
     ) -> bool {
         // TODO: Also check page
 
-        // For each scope in graph...
-        for scope in orm_subscription.graph_scope.iter() {
-            let scope_nuri = NuriV0::new_from(scope).unwrap_or_else(|_| NuriV0::new_empty());
-            if scope_nuri.target == NuriTargetV0::UserSite
-                || scope_nuri
-                    .overlay
-                    .as_ref()
-                    .map_or(false, |ol| overlaylink == ol)
-                || scope_nuri.target == NuriTargetV0::Repo(repo_id)
-                // Listens to all (entire user site).
-                || scope == "did:ng:i"
-            {
-                return true;
+        match &orm_subscription.graph_scope {
+            QueryScope::All => true,
+            QueryScope::None => false,
+            QueryScope::Graphs(graphs) => {
+                for graph in graphs {
+                    let scope_nuri =
+                        NuriV0::new_from(&graph).unwrap_or_else(|_| NuriV0::new_empty());
+                    if scope_nuri
+                        .overlay
+                        .as_ref()
+                        .map_or(false, |ol| overlaylink == ol)
+                        || scope_nuri.target == NuriTargetV0::Repo(repo_id)
+                    {
+                        return true;
+                    }
+                }
+                // Nothing matched.
+                false
             }
         }
-        return false;
     }
 }
 
@@ -299,7 +302,7 @@ fn path_segment_to_parent(
 /// The function recurses from child to parents down to a root tracked orm object.
 /// If multiple parents exist, it adds separate patches for each.
 /// Does not create paths to invalid parents.
-fn get_paths_for_tormo(
+pub(crate) fn get_paths_for_tormo(
     tormo: &TrackedOrmObject,
     ordered_tormos: Option<(
         &OrderByConfig,
@@ -722,7 +725,7 @@ fn root_patches_for_ordered(
             return false;
         }
 
-        at_end || at_end
+        at_start || at_end
     };
 
     // Create JSON patches from change_ops and update ordering.tormos.
@@ -914,7 +917,6 @@ fn filter_quads_for_scope_and_page_bounds<'a>(
         // Relevant subjects consist of all tormos plus the explicit subject scope.
         let subjects_in_scope: HashSet<String> =
             subscription.subject_scope.iter().cloned().collect();
-        let graphs_in_scope: HashSet<String> = subscription.graph_scope.iter().cloned().collect();
 
         let page_window_bounds = subscription.get_page_window_bounds();
 
@@ -933,8 +935,7 @@ fn filter_quads_for_scope_and_page_bounds<'a>(
             }
 
             // Are we tracking this scope explicitly?
-            let is_in_graph_scope =
-                graphs_in_scope.is_empty() || graphs_in_scope.contains(&graph_subject.0);
+            let is_in_graph_scope = subscription.graph_scope.covers(&graph_subject.0);
             let is_in_subject_scope =
                 subjects_in_scope.is_empty() || subjects_in_scope.contains(&graph_subject.1);
             if !is_in_subject_scope && !is_in_graph_scope {
