@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { BaseType, ShapeType } from "@ng-org/shex-orm";
+import { BaseType } from "@ng-org/shex-orm";
 import { RdfOrmConfig } from "./utilTypes.ts";
 
 /**

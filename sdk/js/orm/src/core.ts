@@ -16,6 +16,12 @@ import { removeObject } from "./connector/removeObject.ts";
 import { getObjects } from "./connector/getObjects.ts";
 
 export * from "./types.ts";
+export type {
+    OrderByConfig,
+    RdfOrmConfig,
+    SubscriptionData,
+    WhereConfig,
+} from "./utilTypes.ts";
 
 export type {
     DeepSignal,

@@ -13,6 +13,7 @@ import {
     ComputedRef,
     MaybeRefOrGetter,
     onBeforeUnmount,
+    onUnmounted,
     Ref,
     shallowRef,
     toValue,
@@ -135,17 +136,26 @@ T> {
     const subscriptionRef: Ref<DiscreteOrmSubscription<T> | undefined> =
         shallowRef(undefined);
 
-    watchEffect(() => {
-        ormSubscription.value?.readyPromise.then(() => {
-            docRef.value = useDeepSignal(
-                ormSubscription.value!.signalObject as any
-            );
-            isLoadingRef.value = false;
-            promiseRef.value = ormSubscription.value!.readyPromise as Promise<
-                DeepSignal<T>
-            >;
-            subscriptionRef.value = ormSubscription as any;
-        });
+    // If we call useDeepSignal async, it won't be called inside
+    // component initialization, so we pass a bound version.
+    let onClean: undefined | (() => void) = undefined;
+    let registerCleanup = (cb: () => void) => {
+        onClean = cb;
+    };
+    onUnmounted(() => {
+        onClean?.();
+    });
+
+    ormSubscription.value?.readyPromise.then(() => {
+        docRef.value = useDeepSignal(
+            ormSubscription.value!.signalObject as any,
+            { registerCleanup }
+        );
+        isLoadingRef.value = false;
+        promiseRef.value = ormSubscription.value!.readyPromise as Promise<
+            DeepSignal<T>
+        >;
+        subscriptionRef.value = ormSubscription as any;
     });
 
     onBeforeUnmount(() => {

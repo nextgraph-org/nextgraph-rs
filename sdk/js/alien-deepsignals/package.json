@@ -36,6 +36,10 @@
       "./vue": {
         "types": "./dist/hooks/vue/index.d.ts",
         "default": "./dist/hooks/vue/index.js"
+      },
+      "./solid-js": {
+        "types": "./dist/hooks/solid-js/index.d.ts",
+        "default": "./dist/hooks/solid-js/index.js"
       }
     }
   },
@@ -61,6 +65,9 @@
     },
     "./vue": {
       "default": "./src/hooks/vue/index.ts"
+    },
+    "./solid-js": {
+      "default": "./src/hooks/solid-js/index.ts"
     }
   },
   "dependencies": {
@@ -69,7 +76,8 @@
   "peerDependencies": {
     "react": "^19.0.0 || ^18.0.0",
     "svelte": "^5.0.0 || ^4.0.0",
-    "vue": "^3.0.0"
+    "vue": "^3.0.0",
+    "solid-js": "^1.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -79,6 +87,9 @@
       "optional": true
     },
     "vue": {
+      "optional": true
+    },
+    "solid-js": {
       "optional": true
     }
   },
@@ -95,7 +106,8 @@
     "react": "^19.0.0",
     "svelte": "^5.1.9",
     "typescript": "^5.4.3",
-    "vue": "^3.5.11"
+    "vue": "^3.5.11",
+    "solid-js": "^1.9.15"
   },
   "repository": {
     "type": "git",

@@ -32,12 +32,12 @@ const selectedSortBy = ref<keyof typeof sortByLabels>("dateOfPurchase");
 const selectedCategoryId = ref("");
 const selectedPageSize = ref<undefined | 5 | 10 | 15>(undefined);
 
-const { data: categories } = computed(() => useShape(
+const { data: categories } = useShape(
     ExpenseCategoryShapeType,
     {
         graphs: privateNuri.value ? [privateNuri.value] : ["did:ng:i"],
     }
-)).value;
+);
 
 const categoryOptions = computed(() => Array.from(categories.value ?? []));
 const expenseListKey = computed(

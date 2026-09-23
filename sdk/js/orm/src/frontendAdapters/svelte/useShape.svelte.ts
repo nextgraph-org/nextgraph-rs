@@ -185,7 +185,7 @@ type UseShapeResult_<
      * The requested data. While still loading, data is undefined.
      *
      * Depending on your orderBy config, this will either be a {@link DeepSignalSet}
-     * or a [`DeepSignal<ReadOnlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
+     * or a [`DeepSignal<ReadonlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
      *
      * Once loaded, this object is the value returned by {@link RdfOrmSubscription.signalObject}.
      */

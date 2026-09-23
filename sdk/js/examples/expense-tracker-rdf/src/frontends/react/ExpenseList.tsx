@@ -18,11 +18,11 @@ import type {
 import { session } from "../../utils/ngSession";
 import { ExpenseCard } from "./ExpenseCard";
 
-  const orderByConfigs = {
+const orderByConfigs = {
     dateOfPurchase: { dateOfPurchase: "desc" },
     amount: { amount: "desc" },
     totalPrice: { totalPrice: "desc" },
-  } as const;
+} as const;
 
 export function ExpenseList({
     paymentStatusFilter,
@@ -38,32 +38,40 @@ export function ExpenseList({
     sortBy?: "dateOfPurchase" | "amount" | "totalPrice";
 }) {
     const privateNuri = session && `did:ng:${session?.private_store_id}`;
-    const { data: expenses, nextPage, previousPage } = useShape(
-        ExpenseShapeType,
-        {
-            graphs: privateNuri ? [privateNuri] : [],
-            orderBy: orderByConfigs[sortBy  || "dateOfPurchase"],
-            ...(pageSize
-                ? {
-                      pageSize,
-                      maxActivePages: 1,
-                  }
+    const {
+        data: expenses,
+        nextPage,
+        previousPage,
+    } = useShape(ExpenseShapeType, {
+        graphs: privateNuri ? [privateNuri] : [],
+        orderBy: orderByConfigs[sortBy || "dateOfPurchase"],
+        ...(pageSize
+            ? {
+                  pageSize,
+                  maxActivePages: 1,
+              }
+            : {}),
+        where: {
+            ...(paymentStatusFilter
+                ? { paymentStatus: paymentStatusFilter }
                 : {}),
-            where: {
-                ...(paymentStatusFilter ? { paymentStatus: paymentStatusFilter } : {}),
-                ...(categoryFilter ? { expenseCategory: categoryFilter } : {}),
-            },
-        }
-    );
+            ...(categoryFilter ? { expenseCategory: categoryFilter } : {}),
+        },
+    });
 
     return (
         <>
             <div className="cards-stack">
-                {!expenses || !availableCategories && <p className="muted">Loading...</p>}
+                {!expenses ||
+                    (!availableCategories && (
+                        <p className="muted">Loading...</p>
+                    ))}
                 {expenses && expenses.length === 0 && (
                     <p className="muted">No items found</p>
                 )}
-                {expenses && expenses.length > 0 &&
+                {expenses &&
+                    expenses.length > 0 &&
+                    availableCategories &&
                     expenses.map((expense) => (
                         <ExpenseCard
                             key={expense["@id"]}

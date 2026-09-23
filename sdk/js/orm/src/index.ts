@@ -25,9 +25,13 @@ import {
     useShape as vueUseShape,
     useDiscrete as vueUseDiscrete,
 } from "./frontendAdapters/vue/index.ts";
+import {
+    useShape as solidJsUseShape,
+    useDiscrete as solidJsUseDiscrete,
+} from "./frontendAdapters/solid-js/index.ts";
 
 export * from "./core.ts";
-export type * from "./types.ts";
+
 export type {
     OrderByConfig,
     RdfOrmConfig,
@@ -45,4 +49,6 @@ export {
     reactUseDiscrete,
     vueUseShape,
     vueUseDiscrete,
+    solidJsUseShape,
+    solidJsUseDiscrete,
 };

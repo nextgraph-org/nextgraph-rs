@@ -32,6 +32,9 @@
     },
     "./vue": {
       "default": "./src/frontendAdapters/vue/index.ts"
+    },
+    "./solid-js": {
+      "default": "./src/frontendAdapters/solid-js/index.ts"
     }
   },
   "publishConfig": {
@@ -62,13 +65,18 @@
       "./vue": {
         "types": "./dist/frontendAdapters/vue/index.d.ts",
         "default": "./dist/frontendAdapters/vue/index.js"
+      },
+      "solid-js": {
+        "types": "./dist/frontendAdapters/solid-js/index.d.ts",
+        "default": "./dist/frontendAdapters/solid-js/index.js"
       }
     }
   },
   "peerDependencies": {
     "react": "^19.0.0 || ^18.0.0",
     "svelte": "^5.0.0 || ^4.0.0",
-    "vue": "^3.0.0"
+    "vue": "^3.0.0",
+    "solid-js": "^1.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -78,6 +86,9 @@
       "optional": true
     },
     "vue": {
+      "optional": true
+    },
+    "solid-js": {
       "optional": true
     }
   },
@@ -94,7 +105,8 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "svelte": "^5.39.12",
-    "vue": "^3.5.19"
+    "vue": "^3.5.19",
+    "solid-js": "^1.9.15"
   },
   "files": [
     "dist"

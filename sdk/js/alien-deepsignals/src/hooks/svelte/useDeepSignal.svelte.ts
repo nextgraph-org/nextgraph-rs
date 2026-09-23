@@ -9,7 +9,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { createSubscriber } from "svelte/reactivity";
-import { DeepSignalOptions, deepSignal, DeepSignal } from "../../index.ts";
+import { DeepSignalOptions, deepSignal } from "../../index.ts";
+import { removeSubscriberFactory } from "../../deepSignal.ts";
+import { onDestroy as svelteOnDestroy } from "svelte";
 
 /**
  * Create a rune from a deepSignal object (creates one if it is just a regular object).
@@ -24,7 +26,9 @@ import { DeepSignalOptions, deepSignal, DeepSignal } from "../../index.ts";
  */
 export function useDeepSignal<T extends object>(
     object: T,
-    options?: DeepSignalOptions
+    options?: DeepSignalOptions & {
+        /** @internal */ registerCleanup(fn: () => any): void;
+    }
 ) {
     const ret = deepSignal(object, {
         ...options,
@@ -33,11 +37,12 @@ export function useDeepSignal<T extends object>(
         ),
     });
 
-    // onDestroy(() => {
-    //     // TODO: Tell signal that subscriber can be removed?
-    // });
+    // Remove subscriber factory on component unmount.
+    (options?.registerCleanup ?? svelteOnDestroy)(() => {
+        removeSubscriberFactory(ret, subscriberFactory);
+    });
 
-    return ret as T extends DeepSignal<any> ? T : DeepSignal<T>;
+    return ret;
 }
 
 /**
