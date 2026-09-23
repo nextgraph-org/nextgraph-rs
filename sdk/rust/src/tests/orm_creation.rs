@@ -1022,9 +1022,9 @@ fn test_basic_schema_shape_to_sparql_generation() {
     assert!(q.contains("\"A\""));
     assert!(q.contains("\"B\""));
 
-    // Subject and graph filters
-    assert!(q.contains("FILTER(?s IN (<urn:s1>))"));
-    assert!(q.contains("FILTER(?g IN (<urn:g1>))"));
+    // Subject and graph bindings
+    assert!(q.contains("VALUES ?s { <urn:s1> }"));
+    assert!(q.contains("VALUES ?g { <urn:g1> }"));
 }
 
 async fn test_orm_optional_nested_pending(session_id: u64) {

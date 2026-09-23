@@ -22,7 +22,7 @@ use std::time::Duration;
 use crate::local_broker::{
     doc_create, doc_sparql_select, doc_sparql_update, orm_start_discrete, orm_start_graph,
 };
-
+#[cfg(test)]
 #[doc(hidden)]
 pub mod orm_creation;
 
@@ -33,6 +33,8 @@ pub mod orm_create_patches;
 pub mod orm_discrete_patches;
 #[doc(hidden)]
 pub mod sparql_regressions;
+#[doc(hidden)]
+pub mod test_schemas;
 
 #[doc(hidden)]
 pub mod create_or_open_wallet;
@@ -207,10 +209,10 @@ where
     F: FnMut(AppResponseV0) -> Option<T>,
 {
     loop {
-        let res = timeout(Duration::from_secs(10), receiver.next()).await;
+        let res = timeout(Duration::from_secs(5), receiver.next()).await;
         let opt = match res {
             Ok(o) => o,
-            Err(_) => panic!("Timed out waiting for AppResponseV0 (1 second)"),
+            Err(_) => panic!("Timed out waiting for AppResponseV0 (5 second)"),
         };
         match opt {
             Some(app_response) => {

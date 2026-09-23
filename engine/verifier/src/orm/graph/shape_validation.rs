@@ -20,7 +20,7 @@ impl Verifier {
     /// Check the validity of a subject and update affecting tracked orm objects' validity.
     /// Assumes all quads to have same subject and graph.
     /// Returns a triple of
-    /// - children to evaluate (each with a bool indicating if the child needs to be fetched).
+    /// - children to evaluate
     /// - parents to evaluate (after children and self)
     /// - if the orm object needs to be re-evaluated (and perhaps fetched) after evaluation of children.
     pub fn update_subject_validity(
@@ -28,7 +28,7 @@ impl Verifier {
         shape: &OrmSchemaShape,
         orm_subscription: &mut OrmSubscription,
     ) -> (
-        Vec<(Arc<RwLock<TrackedOrmObject>>, bool)>,
+        Vec<Arc<RwLock<TrackedOrmObject>>>,
         Vec<Arc<RwLock<TrackedOrmObject>>>,
         NeedEvalSelf,
     ) {
@@ -41,8 +41,8 @@ impl Verifier {
         //     tracked_orm_object.shape.upgrade().unwrap().iri
         // );
 
-        // Keep track of objects that need to be validated against a shape to fetch and validate.
-        let mut children_to_eval: Vec<(Arc<RwLock<TrackedOrmObject>>, bool)> = vec![];
+        // Keep track of objects that need to be validated (and perhaps fetched).
+        let mut children_to_eval: Vec<Arc<RwLock<TrackedOrmObject>>> = vec![];
         let mut needs_self_reevaluation: NeedEvalSelf = NeedEvalSelf::NoReevaluate;
 
         // Check 1) Check if this object is untracked and we need to remove children and ourselves.
@@ -84,7 +84,7 @@ impl Verifier {
                 tp_guard.tracked_children.retain(|w| w.upgrade().is_some());
                 for child_w in &tp_guard.tracked_children {
                     if let Some(child_arc) = child_w.upgrade() {
-                        children_to_eval.push((child_arc.clone(), false));
+                        children_to_eval.push(child_arc.clone());
                     }
                 }
             }
@@ -253,25 +253,25 @@ impl Verifier {
                     }
 
                     // Check if we have children that need fetching or re-evaluation
-                    if !assessed.children_to_fetch.is_empty()
-                        || !assessed.children_to_reevaluate.is_empty()
+                    if !assessed.children_untracked.is_empty()
+                        || !assessed.children_pending.is_empty()
                     {
                         set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
                         needs_self_reevaluation = NeedEvalSelf::Reevaluate;
 
-                        // Schedule children for fetching
-                        for child in assessed.children_to_fetch {
-                            children_to_eval.push((child, true));
+                        // Schedule the detached children; a reference may revive them.
+                        for child in assessed.children_untracked {
+                            children_to_eval.push(child);
                         }
 
                         // Schedule children for re-evaluation
-                        for child in assessed.children_to_reevaluate {
+                        for child in assessed.children_pending {
                             // log_info!(
                             //     "  - adding subject {} with graph {} to child evaluation",
                             //     child.read().unwrap().subject_iri,
                             //     child.read().unwrap().graph_iri,
                             // );
-                            children_to_eval.push((child, false));
+                            children_to_eval.push(child);
                         }
                         continue;
                     }
@@ -356,16 +356,10 @@ impl Verifier {
                 tp_guard.tracked_children.retain(|w| w.upgrade().is_some());
                 for child_w in &tp_guard.tracked_children {
                     if let Some(child_arc) = child_w.upgrade() {
-                        children_to_eval.push((child_arc.clone(), false));
+                        children_to_eval.push(child_arc.clone());
                     }
                 }
             }
-        } else if new_validity == TrackedOrmObjectValidity::Valid
-            && previous_validity != TrackedOrmObjectValidity::Valid
-        {
-            // If this subject became valid, we need to refetch this subject.
-            // If the data has already been fetched, the parent function will prevent the refetch.
-            needs_self_reevaluation = NeedEvalSelf::FetchAndReevaluate;
         }
 
         // If validity changed, parents need to be re-evaluated.
@@ -391,6 +385,5 @@ impl Verifier {
 #[derive(Debug, PartialEq)]
 pub enum NeedEvalSelf {
     Reevaluate,
-    FetchAndReevaluate,
     NoReevaluate,
 }
