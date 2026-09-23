@@ -456,6 +456,7 @@ mod tests {
         Arc::new(OrmSchemaShape {
             iri: iri.to_string(),
             predicates: vec![],
+            is_closed: false,
         })
     }
 
@@ -473,6 +474,7 @@ mod tests {
             graph_iri: graph.to_string(),
             shape: Arc::downgrade(&shape),
             is_complete: false,
+            excess_quads: 0,
         }))
     }
 

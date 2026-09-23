@@ -40,6 +40,7 @@ We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but
         - [Filtering](#filtering)
         - [The RdfOrmSubscription Class](#the-rdformsubscription-class)
         - ["Disappearing" Objects](#disappearing-objects)
+        - [Reverts on Invalid Modifications](#reverts-on-invalid-modifications)
     - [Discrete (JSON-based) ORM](#discrete-json-based-orm)
         - [Creating an Automerge or YJS Document](#creating-an-automerge-or-yjs-document)
         - [The DiscreteOrmSubscription Class](#the-discreteormsubscription-class)
@@ -171,7 +172,7 @@ In order to work with typed data, you need to define a SHEX schema. The schema d
 
 You create those schemas with the help of `@ng-org/shex-orm`, as documented [here](https://docs.nextgraph.org/en/reference/shex-orm/).
 
-When you followed the steps there, you will have generated so-called `ShapeType`s, one for each schema. `ShapeTypes` contain the typescript type definitions as well as the schemas. Whenever you call a method to retrieve ORM data, you pass it the `ShapeType`. The details are described below.
+When you followed the steps there, you will have generated so-called `ShapeType`s, one for each schema. ShapeTypes contain the TypeScript type definitions as well as the schemas. Whenever you call a method to retrieve ORM data, you pass it the `ShapeType`. The details are described below.
 
 ### Using and Modifying RDF ORM Objects
 
@@ -236,7 +237,7 @@ In the RDF ORM, the `@id` is the RDF subject IRI. You are allowed (but not encou
 
 The RDF ORM lets you retrieve data across different documents using the `graphs` parameter in the config, as you can see in the example above.
 
-If you want to query across all datasets, use the following Nuri: `"did:ng:i"` or simply use `""`.
+If you want to query across all datasets, use the following Nuri: `"did:ng:i"` or simply use `""`. Note that this might have **performance impacts** if your shape is not restrictive and you don't specify a subject scope.
 
 When you specify one or more subject IRIs in the config, only those subject will be considered for your request (those will be queried across all graphs specified).
 Because not all objects with the specified subject IRIs might match the shape you provided, some returned objects might be missing from the subject IRIs of your request.
@@ -453,6 +454,19 @@ dogs.delete(aDog);
 It might happen that an object is modified in a way that makes it invalid for the ShapeType it was loaded in.
 Apart from external modifications, this can happen when the schema specified cardinality constraints that are not expressible in TypeScript, e.g. less than 10 and greater than 5.
 When that happens, the object disappears, i.e. is removed from the loaded data. The underlying triples are not gone though.
+
+### Reverts on Invalid Modifications
+
+In case that you make modifications that are invalid, those will be reverted. This can happen in the following cases:
+
+- Causing full revert of a change (transaction or modifications in the same task):
+    - You add an object with an invalid graph NURI.
+    - The modification failed in the SPARQL query.
+- Causing revert of failed modifications only:
+    - You add or remove data to which you do not have write access.
+    - The assignments to a property has the wrong type. For example you try to assign a string to a property that accepts IRIs only.
+
+In those cases, the error callback that you can pass when creating a subscription is called.
 
 ## Discrete (JSON-based) ORM
 

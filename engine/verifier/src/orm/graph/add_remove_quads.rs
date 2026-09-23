@@ -9,32 +9,16 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use ng_oxigraph::oxrdf::Quad;
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::orm::graph::types::*;
 use ng_net::orm::*;
-
-/// The predicate schemas of a shape, by predicate IRI.
-pub(crate) type PredicateIndex<'a> = HashMap<&'a str, Vec<&'a Arc<OrmSchemaPredicate>>>;
-
-pub(crate) fn index_predicates(shape: &OrmSchemaShape) -> PredicateIndex<'_> {
-    let mut index: PredicateIndex = HashMap::new();
-    for predicate_schema in shape.predicates.iter() {
-        index
-            .entry(predicate_schema.iri.as_str())
-            .or_insert_with(Vec::new)
-            .push(predicate_schema);
-    }
-    index
-}
 
 /// Add quads to `orm_object_changes` for a single (graph,subject) and shape.
 /// Assumes all quads have the same subject and graph in a call.
 /// Quads whose predicate the shape does not constrain are skipped.
 fn add_quads_for_subject(
     shape: &Arc<OrmSchemaShape>,
-    predicates: &PredicateIndex<'_>,
     graph_iri: &str,
     subject_iri: &str,
     quads_added: &[Quad],
@@ -45,57 +29,57 @@ fn add_quads_for_subject(
     let parent_arc =
         orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, shape);
 
+    let mut tormo = parent_arc.write().unwrap();
+
+    let shape_predicates = orm_subscription.indexed_predicates(&shape.iri);
+
     // Process added quads, recording the values added on the change as we go.
     for quad in quads_added {
-        let Some(predicate_schemas) = predicates.get(quad.predicate.as_str()) else {
+        let Some(predicate_schema) = shape_predicates.get(quad.predicate.as_str()) else {
             // The shape does not constrain this predicate.
+            // If we have a closed shape, we need to track the excess quad count though (those make it invalid).
+            if shape.is_closed {
+                tormo.excess_quads += 1;
+            }
             continue;
         };
         let obj_term = oxrdf_term_to_orm_basic_type(&quad.object);
-        for predicate_schema in predicate_schemas.iter().copied() {
-            // Predicate schema constraint matches this quad.
-            // Get or create the tracked predicate on the parent.
-            let mut tracked_orm_object = parent_arc.write().unwrap();
-            // log_debug!("lock acquired on tracked_orm_object");
-            // Add get tracked predicate.
-            let tracked_predicate_lock = tracked_orm_object
-                .tracked_predicates
+
+        // Add get tracked predicate.
+        let tracked_predicate_lock = tormo
+            .tracked_predicates
+            .entry(predicate_schema.iri.clone())
+            .or_insert_with(|| {
+                Arc::new(RwLock::new(TrackedOrmPredicate {
+                    current_cardinality: 0,
+                    schema: Arc::downgrade(predicate_schema),
+                    tracked_children: Vec::new(),
+                    current_literals: None,
+                }))
+            })
+            .clone();
+        {
+            let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
+            tracked_predicate.current_cardinality += 1;
+
+            // Keep track of the added values here.
+            let pred_changes: &mut TrackedOrmPredicateChanges = orm_object_changes
+                .predicates
                 .entry(predicate_schema.iri.clone())
-                .or_insert_with(|| {
-                    Arc::new(RwLock::new(TrackedOrmPredicate {
-                        current_cardinality: 0,
-                        schema: Arc::downgrade(predicate_schema),
-                        tracked_children: Vec::new(),
-                        current_literals: None,
-                    }))
-                })
-                .clone();
-            {
-                let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
-                tracked_predicate.current_cardinality += 1;
+                .or_insert_with(|| TrackedOrmPredicateChanges {
+                    tracked_predicate: tracked_predicate_lock.clone(),
+                    values_added: Vec::new(),
+                    values_removed: Vec::new(),
+                });
 
-                // Keep track of the added values here.
-                let pred_changes: &mut TrackedOrmPredicateChanges = orm_object_changes
-                    .predicates
-                    .entry(predicate_schema.iri.clone())
-                    .or_insert_with(|| TrackedOrmPredicateChanges {
-                        tracked_predicate: tracked_predicate_lock.clone(),
-                        values_added: Vec::new(),
-                        values_removed: Vec::new(),
-                    });
+            pred_changes.values_added.push(obj_term.clone());
 
-                pred_changes.values_added.push(obj_term.clone());
-
-                // Add to literals if the value needs to be tracked for ordering or literal restrictions.
-                if should_add_to_literals(
-                    orm_subscription.config.order_by.as_ref(),
-                    predicate_schema,
-                ) {
-                    match &mut tracked_predicate.current_literals {
-                        Some(lits) => lits.push(obj_term.clone()),
-                        None => {
-                            tracked_predicate.current_literals = Some(vec![obj_term.clone()]);
-                        }
+            // Add to literals if the value needs to be tracked for ordering or literal restrictions.
+            if should_add_to_literals(orm_subscription.config.order_by.as_ref(), predicate_schema) {
+                match &mut tracked_predicate.current_literals {
+                    Some(lits) => lits.push(obj_term.clone()),
+                    None => {
+                        tracked_predicate.current_literals = Some(vec![obj_term.clone()]);
                     }
                 }
             }
@@ -113,21 +97,27 @@ fn remove_quads_for_subject(
     orm_object_changes: &mut TrackedOrmObjectChange,
 ) {
     // Nothing to remove from if this shape never tracked the subject.
-    let Some(tracked_orm_object) =
+    let Some(tormo_arc) =
         orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, &shape.iri)
     else {
         return;
     };
+    let Ok(mut tormo) = tormo_arc.write() else {
+        return;
+    };
+
+    let shape_predicates = orm_subscription.indexed_predicates(&shape.iri);
 
     for quad in quads_removed {
         let pred_iri = quad.predicate.as_str();
 
         // Only adjust if we had tracked state for it.
-        let tracked_predicate_opt = tracked_orm_object
-            .read()
-            .ok()
-            .and_then(|guard| guard.tracked_predicates.get(pred_iri).cloned());
+        let tracked_predicate_opt = tormo.tracked_predicates.get(pred_iri).cloned();
         let Some(tracked_predicate_rc) = tracked_predicate_opt else {
+            // If the shape is closed and this predicate is not in the shape, we reduce its excess_quad count.
+            if shape.is_closed && shape_predicates.get(pred_iri).is_none() {
+                tormo.excess_quads -= 1;
+            }
             continue;
         };
         let mut tracked_predicate = tracked_predicate_rc.write().unwrap();
@@ -191,13 +181,9 @@ pub fn apply_quads_for_subject(
     orm_subscription: &mut OrmSubscription,
     change: &mut TrackedOrmObjectChange,
 ) {
-    // HashMap for quick lookup of whether quads are relevant.
-    let predicates = index_predicates(shape);
-
     // Apply adds first, then removes
     add_quads_for_subject(
         shape,
-        &predicates,
         graph_iri,
         subject_iri,
         quads_added,

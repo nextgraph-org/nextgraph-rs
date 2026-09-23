@@ -37,6 +37,11 @@ export interface Shape {
     iri: string;
     /** The predicates (properties) of the shape. */
     predicates: Predicate[];
+    /**
+     * If true, only the predicates mentioned in the shape may appear in the object.
+     * In case of additional quads, an object is invalid.
+     */
+    isClosed?: boolean | undefined;
 }
 
 /** An allowed data type or literal. */

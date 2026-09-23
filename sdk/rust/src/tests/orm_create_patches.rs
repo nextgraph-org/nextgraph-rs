@@ -432,6 +432,7 @@ async fn test_cross_graph_child_in_separate_graph(session_id: u64) {
     schema.insert(
         "http://example.org/ProjectShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/ProjectShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -470,6 +471,7 @@ async fn test_cross_graph_child_in_separate_graph(session_id: u64) {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -597,6 +599,7 @@ async fn test_patch_add_array(session_id: u64) {
     schema.insert(
         "http://example.org/TestShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -753,6 +756,7 @@ async fn test_patch_remove_array(session_id: u64) {
     schema.insert(
         "http://example.org/TestShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -882,6 +886,7 @@ async fn _test_patch_add_nested_1(session_id: u64) {
     schema.insert(
         "http://example.org/RootShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/RootShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -924,6 +929,7 @@ async fn _test_patch_add_nested_1(session_id: u64) {
     schema.insert(
         "http://example.org/SingleNestShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/SingleNestShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/singleNestStr".to_string(),
@@ -944,6 +950,7 @@ async fn _test_patch_add_nested_1(session_id: u64) {
     schema.insert(
         "http://example.org/MultiNestShape1".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/MultiNestShape1".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/multiNest1Str".to_string(),
@@ -964,6 +971,7 @@ async fn _test_patch_add_nested_1(session_id: u64) {
     schema.insert(
         "http://example.org/MultiNestShape2".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/MultiNestShape2".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/multiNest2Str".to_string(),
@@ -1392,6 +1400,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:x:contact:class#SocialContact".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:x:contact:class#SocialContact".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1450,6 +1459,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:x:contact:class#SocialContact||did:ng:x:contact#name".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#name".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "did:ng:x:core#value".to_string(),
@@ -1472,6 +1482,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "did:ng:x:core#valueDateTime".to_string(),
@@ -1613,6 +1624,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/ProjectShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/ProjectShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1651,6 +1663,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1798,6 +1811,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1927,6 +1941,7 @@ async fn test_ordered_with_nested_children(session_id: u64) {
     schema.insert(
         "http://example.org/HouseShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/HouseShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2057,6 +2072,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2483,6 +2499,7 @@ async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2696,6 +2713,7 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2958,6 +2976,7 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {

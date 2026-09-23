@@ -77,7 +77,14 @@ pub type OrmSchema = HashMap<String, Arc<OrmSchemaShape>>;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaShape {
     pub iri: String,
+    #[serde(rename = "isClosed", default = "false_")]
+    pub is_closed: bool,
     pub predicates: Vec<Arc<OrmSchemaPredicate>>,
+}
+
+/// Helper fn that returns false.
+fn false_() -> bool {
+    false
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
