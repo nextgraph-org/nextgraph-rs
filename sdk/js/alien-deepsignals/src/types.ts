@@ -259,23 +259,23 @@ export interface DeepSignalSet_<T>
  */
 export type DeepSignal<T> = T extends string | number | boolean
     ? T
-    : T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
+    : T extends Function
       ? T
-      : T extends Array<infer I>
-        ? DeepSignal<I>[]
-        : T extends ReadonlyArray<infer I>
-          ? ReadonlyArray<DeepSignal<I>>
-          : T extends Set<infer S>
-            ? DeepSignalSet<S>
-            : T extends object
-              ? DeepSignalObject<T>
-              : T extends Function
-                ? T
+      : T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
+        ? T
+        : T extends Array<infer I>
+          ? DeepSignal<I>[]
+          : T extends ReadonlyArray<infer I>
+            ? ReadonlyArray<DeepSignal<I>>
+            : T extends Set<infer S>
+              ? DeepSignalSet<S>
+              : T extends object
+                ? DeepSignalObject<T>
                 : T;
 
 export type DeepSignalObject<T extends object> = {
     [K in keyof T]: DeepSignal<T[K]>;
-}; // DeepSignalObjectProps<T>;
+}; // & DeepSignalObjectProps<T>;
 
 export type UnwrapDeepSignal<T> =
     T extends DeepSignalObject<infer S>
@@ -287,8 +287,6 @@ export type UnwrapDeepSignal<T> =
             : T extends ReadonlyArray<infer S>
               ? UnwrapDeepSignal<S>[]
               : T;
-
-export type FlatDeepSignal<T> = DeepSignal<UnwrapDeepSignal<T>>;
 
 /** Union allowing a plain value or a writable signal wrapping that value. */
 export type MaybeSignal<T = any> = T | ReturnType<typeof alienSignal>;
