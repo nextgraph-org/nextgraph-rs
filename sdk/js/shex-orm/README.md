@@ -71,7 +71,8 @@ ex:ExpenseShape {
 }
 
 # `EXTRA a` means that the property `a` may have other values in addition to `ex.Address`
-ex:AddressShape EXTRA a {
+# `CLOSED` means that no other predicates may be present for a given address. Be careful, see performance notes below.
+ex:AddressShape CLOSED EXTRA a {
   a [ ex:Address ] ;
   ex:name xsd:string ;
 }
@@ -81,16 +82,19 @@ See [what output was generated below](#generated-output).
 
 **SHEX Quick Reference**
 
-| Syntax                             | Meaning                              | TypeScript Type            |
-| ---------------------------------- | ------------------------------------ | -------------------------- |
-| `prop xsd:string`                  | Required, exactly one                | `string`                   |
-| `prop xsd:boolean ?`               | Optional, zero or one                | `boolean \| undefined`     |
-| `prop xsd:float *`                 | Zero or more                         | `Set<number>`              |
-| `prop xsd:string +`                | One or more                          | `Set<string>` (non-empty)  |
-| `prop IRI`                         | Reference to another object          | `string` (IRI)             |
-| `@ex:PersonShape`                  | nested object                        | `Person`                   |
-| `prop xsd:string OR xsd:float`     | multiple types allowed               | `string \| number`         |
-| `@ex:AudioAsset OR @ex:VideoAsset` | multiple nested object types allowed | `AudioAsset \| VideoAsset` |
+| Syntax                                   | Meaning                                                                                        | TypeScript Type                                                  |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| value `xsd:string`                       | Required, exactly one                                                                          | `string`                                                         |
+| value `xsd:boolean ?`                    | Optional, zero or one                                                                          | `boolean \| undefined`                                           |
+| value `xsd:float *`                      | Zero or more                                                                                   | `Set<number>`                                                    |
+| value `xsd:string +`                     | One or more                                                                                    | `Set<string>` (non-empty)                                        |
+| value `IRI`                              | Reference to another object                                                                    | `string` (IRI)                                                   |
+| value `xsd:string OR xsd:float`          | multiple types allowed                                                                         | `string \| number`                                               |
+| value `@ex:PersonShape`                  | nested object                                                                                  | `Person`                                                         |
+| value `@ex:AudioAsset OR @ex:VideoAsset` | multiple nested object types allowed                                                           | `AudioAsset \| VideoAsset`                                       |
+| shape attribute `EXTRA <predicate name>` | for literal types: multiple values allowed                                                     | e.g. `Set<string \| "some literal">` instead of `"some literal"` |
+| shape attribute `EXTRA <predicate name>` | for object types: invalid child objects will be ignored instead of the parent becoming invalid |                                                                  |
+| shape attribute `CLOSED`                 | Additional quads (not matching any predicate) make an object become invalid                    |                                                                  |
 
 You will then pass the shape type of a shape definition to the ng sdk:
 
@@ -145,6 +149,16 @@ ex:ExpenseShape EXTRA ex:address {
   ex:address @ex:AddressShape ;
 }
 ```
+
+## Performant Queries and Writing Efficient Schemas
+
+In the background, the ORM converts shape types and the scope of a request into SPARQL queries.
+For performant queries, there are few things you can keep in mind:
+
+- Pass a graph and potentially subject **scope** when creating an ORM subscription: If you know in which graph or which subjects your data is, this narrow the query a lot.
+- Use mandatory predicates (e.g. `rdfs:name xsd:string ;`): When you specify a mandatory predicate, the SPARQL engine will ignore all objects without it.
+- Specify types or other mandatory predicates (e.g. `a [ ex:HomeAddress ] ;`). This will narrow the search space even more. Especially if your literals are rare.
+- Use `CLOSED` shapes **only if you have a narrow graph or subject scope**: To track excess quads for objects with closed shapes, the SPARQL query will fetch _all_ quads within the graph and subject scope. If you don't scope your request, this might cause a query to return all data in your store. Child objects with a closed shape are less affected because their SPARQL queries are always scoped (to the subject they are referenced with). Don't use closed shapes unless you are careful and have a good reason.
 
 ---
 

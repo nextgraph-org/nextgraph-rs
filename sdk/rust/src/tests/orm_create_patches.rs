@@ -8,31 +8,62 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{self, doc_sparql_update};
+use crate::local_broker::{doc_sparql_update, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
+use crate::tests::test_schemas::create_house_schema;
 use crate::tests::{
     add_graph_fields, assert_json_eq, assert_orm_json_eq, assert_orm_json_eq_exact,
     augment_expected_with_graph_fields, await_graph_patches, await_graph_patches_empty_if_timeout,
-    create_doc_with_data, create_orm_connection, create_orm_connection_with_conf,
-    extract_graph_from_actual_paths, rewrite_expected_paths_with_graph,
+    composite_key, create_doc_with_data, create_orm_connection, create_orm_connection_with_conf,
+    extract_graph_from_actual_paths, rewrite_expected_paths_with_graph, root_path,
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0};
 use ng_net::orm::{
-    BasicType, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
-    OrmShapeType,
+    BasicType, OrmPatch, OrmPatchOp, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape,
+    OrmSchemaValType, OrmShapeType,
 };
-use std::time::Duration;
+use std::hint;
+use std::time::{Duration, Instant};
 
 use ng_repo::log::*;
 use serde_json::json;
 use std::collections::HashMap;
 
+// #![feature(test)]
+// extern crate test;
+// use test::Bencher
+// #[bench]
+// async fn test_orm_patch_creation(b: &mut Bencher) {
+// #[async_std::test]
+async fn _bench_orm_patch_creation() {
+    let (_wallet, session_id) = create_or_open_wallet().await;
+
+    bench_test_add_remove_move_in_plain_sorted(session_id).await;
+    // bench_test_add_remove_move_in_plain_sorted(session_id, &mut b).await;
+
+    bench_nested(session_id).await;
+
+    bench_apply_patches(session_id).await;
+
+    bench_initialization(session_id).await;
+
+    // Do this so the actually printed lines are written to stdio.
+    print!("dividing by zero");
+    let m = 1 / 0;
+}
+
 #[async_std::test]
 async fn test_orm_patch_creation() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
+
+    test_nested_inserted_before_root(session_id).await;
+
+    test_invalid_root_becomes_valid(session_id).await;
+
+    test_invalid_child_becomes_valid(session_id).await;
 
     test_patch_nested_house_inhabitants(session_id).await;
 
@@ -48,11 +79,320 @@ async fn test_orm_patch_creation() {
 
     test_add_root_in_separate_graph(session_id).await;
 
+    test_ordered_with_nested_children(session_id).await;
+
     test_add_remove_move_in_plain_sorted(session_id).await;
 
     test_add_remove_move_in_pagination(session_id).await;
 
     test_add_remove_move_in_pagination_grow_mode(session_id).await;
+}
+
+/// An object that fails validation is not reported to the client. When a later update makes it
+/// valid, the patch sends the whole object
+async fn test_invalid_root_becomes_valid(session_id: u64) {
+    log_info!("\n\n=== TEST: an object assembled over updates is materialized in full ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                ex:placeholder ex:bar 0 .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let shape_type = OrmShapeType {
+        schema: create_house_schema(),
+        shape: "http://example.org/HouseShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // Add house with no inhabitants (invalid).
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:assembledHouse>
+                    a ex:House ;
+                    ex:rootColor "blue" .
+            }
+            "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("INSERT of the incomplete house failed");
+
+    let patches = await_graph_patches_empty_if_timeout(&mut receiver).await;
+    assert!(
+        patches.is_empty(),
+        "a house without inhabitants is invalid and must not be reported, got: {:?}",
+        patches
+    );
+
+    // Add inhabitant to house -> house turns valid.
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:assembledPerson>
+                    a ex:Person ;
+                    ex:name "Grace" .
+
+                <urn:test:assembledHouse>
+                    ex:inhabitants <urn:test:assembledPerson> .
+            }
+            "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("INSERT of the inhabitant failed");
+
+    let patches = await_graph_patches(&mut receiver).await;
+
+    // `type` and `rootColor` arrived while the house was invalid, so they are part of this
+    // patch: the client has never been told about them.
+    let mut expected = json!([
+        {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+                "@id": "urn:test:assembledHouse",
+                "type": "http://example.org/House",
+                "rootColor": "blue",
+                "inhabitants": {
+                    "urn:test:assembledPerson": {
+                        "@id": "urn:test:assembledPerson",
+                        "type": "http://example.org/Person",
+                        "name": "Grace"
+                    }
+                }
+            }
+        }
+    ]);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+    add_graph_fields(&mut expected, &doc_nuri);
+
+    let mut actual = json!(patches);
+    assert_orm_json_eq(&mut expected, &mut actual);
+
+    log_info!("Test passed: object assembled over updates materialized in full");
+}
+
+/// When a reference to a valid child is added, the child materializes.
+async fn test_invalid_child_becomes_valid(session_id: u64) {
+    log_info!("\n\n=== TEST: an unreferenced child is materialized when linked ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                ex:placeholder ex:bar 0 .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let shape_type = OrmShapeType {
+        schema: create_house_schema(),
+        shape: "http://example.org/HouseShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // 1) A valid house with one inhabitant.
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:childValidHouse>
+                    a ex:House ;
+                    ex:inhabitants <urn:test:childValidAnna> .
+
+                <urn:test:childValidAnna>
+                    a ex:Person ;
+                    ex:name "Anna" .
+            }
+            "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("INSERT of the house failed");
+
+    let patches = await_graph_patches(&mut receiver).await;
+    assert!(
+        !patches.is_empty(),
+        "the house is valid and should have been reported"
+    );
+
+    // 2) and 3) Bob is assembled over two updates while nothing references him.
+    for statement in [
+        "<urn:test:childValidBob> a ex:Person .",
+        r#"<urn:test:childValidBob> ex:name "Bob" ."#,
+    ] {
+        doc_sparql_update(
+            session_id,
+            format!("PREFIX ex: <http://example.org/>\nINSERT DATA {{ {statement} }}"),
+            Some(doc_nuri.clone()),
+        )
+        .await
+        .expect("INSERT of the unreferenced person failed");
+
+        let patches = await_graph_patches_empty_if_timeout(&mut receiver).await;
+        assert!(
+            patches.is_empty(),
+            "a person nobody references is not a result, got: {:?}",
+            patches
+        );
+    }
+
+    // 4) The house takes him in.
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:childValidHouse> ex:inhabitants <urn:test:childValidBob> .
+            }
+            "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("INSERT of the reference failed");
+
+    let patches = await_graph_patches(&mut receiver).await;
+
+    let mut expected = json!([
+        {
+            "op": "add",
+            "path": "/urn:test:childValidHouse/inhabitants",
+            "valType": "set",
+            "value": {
+                "@id": "urn:test:childValidBob",
+                "type": "http://example.org/Person",
+                "name": "Bob"
+            }
+        }
+    ]);
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    let mut actual = json!(patches);
+    assert_orm_json_eq(&mut expected, &mut actual);
+
+    log_info!("Test passed: unreferenced child materialized when linked");
+}
+
+/// Test nested objects inserted before the root that links them (in another graph) materializes.
+async fn test_nested_inserted_before_root(session_id: u64) {
+    log_info!("\n\n=== TEST: nested objects inserted before the root that links them ===\n");
+    let doc_nuri: String = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:nestedFirstPerson>
+                    a ex:Person ;
+                    ex:name "Nina" ;
+                    ex:hasCat <urn:test:nestedFirstCat> .
+
+                <urn:test:nestedFirstCat>
+                    a ex:Cat ;
+                    ex:catName "Smokey" ;
+                    ex:hasToy <urn:test:nestedFirstToy> .
+
+                <urn:test:nestedFirstToy>
+                    a ex:Toy ;
+                    ex:toyName "Feather" .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let shape_type = OrmShapeType {
+        schema: create_house_schema(),
+        shape: "http://example.org/HouseShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    // Insert root linking the person inserted above.
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:nestedFirstHouse>
+                    a ex:House ;
+                    ex:rootColor "green" ;
+                    ex:inhabitants <urn:test:nestedFirstPerson> .
+            }
+            "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("INSERT of root failed");
+
+    let patches = await_graph_patches(&mut receiver).await;
+
+    // Object must come in full.
+    let mut expected = json!([
+        {
+            "op": "add",
+            "path": "/",
+            "valType": "set",
+            "value": {
+                "@id": "urn:test:nestedFirstHouse",
+                "type": "http://example.org/House",
+                "rootColor": "green",
+                "inhabitants": {
+                    "urn:test:nestedFirstPerson": {
+                        "@id": "urn:test:nestedFirstPerson",
+                        "type": "http://example.org/Person",
+                        "name": "Nina",
+                        "cat": {
+                            "@id": "urn:test:nestedFirstCat",
+                            "type": "http://example.org/Cat",
+                            "name": "Smokey",
+                            "toy": {
+                                "urn:test:nestedFirstToy": {
+                                    "@id": "urn:test:nestedFirstToy",
+                                    "type": "http://example.org/Toy",
+                                    "name": "Feather"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]);
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    let mut actual = json!(patches);
+    assert_orm_json_eq(&mut expected, &mut actual);
+
+    log_info!("Test passed: nested objects inserted before the root");
 }
 
 /// Test that when a root object references a child object that lives in a different graph,
@@ -62,13 +402,13 @@ async fn test_cross_graph_child_in_separate_graph(session_id: u64) {
     let child_doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:personX>
-        a ex:Person ;
-        ex:name "Xavier" .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:personX>
+                    a ex:Person ;
+                    ex:name "Xavier" .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -77,12 +417,12 @@ INSERT DATA {
     let parent_doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:project1>
-        a ex:Project .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:project1>
+                    a ex:Project .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -92,6 +432,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/ProjectShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/ProjectShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -130,6 +471,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -177,11 +519,11 @@ INSERT DATA {
     doc_sparql_update(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:project1> ex:members <urn:test:personX> .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:project1> ex:members <urn:test:personX> .
+            }
+            "#
         .to_string(),
         Some(parent_doc_nuri.clone()),
     )
@@ -236,18 +578,18 @@ async fn test_patch_add_array(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:numArrayObj1> a ex:TestObject ;
-        ex:arr 1, 2, 3 .
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:numArrayObj1> a ex:TestObject ;
+                    ex:arr 1, 2, 3 .
 
-    <urn:test:numArrayObj2> a ex:TestObject .
+                <urn:test:numArrayObj2> a ex:TestObject .
 
-    <urn:test:numArrayObj3> a ex:TestObject ;
-        ex:unrelated ex:TestObject ;
-        ex:arr 1, 2 .
-}
-"#
+                <urn:test:numArrayObj3> a ex:TestObject ;
+                    ex:unrelated ex:TestObject ;
+                    ex:arr 1, 2 .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -257,6 +599,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/TestShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -304,22 +647,22 @@ INSERT DATA {
     doc_sparql_update(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:numArrayObj1>
-        ex:arr 4 .
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:numArrayObj1>
+                    ex:arr 4 .
 
-    <urn:test:numArrayObj2>
-        ex:arr 1, 2 .
+                <urn:test:numArrayObj2>
+                    ex:arr 1, 2 .
 
-    <urn:test:numArrayObj3>
-        ex:arr 3 .
+                <urn:test:numArrayObj3>
+                    ex:arr 3 .
 
-    <urn:test:numArrayObj4>
-        a ex:TestObject ;
-        ex:arr 0 .
-}
-"#
+                <urn:test:numArrayObj4>
+                    a ex:TestObject ;
+                    ex:arr 0 .
+            }
+            "#
         .to_string(),
         Some(doc_nuri.clone()),
     )
@@ -392,18 +735,18 @@ async fn test_patch_remove_array(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:numArrayObj1> a ex:TestObject ;
-        ex:arr 1, 2, 3 .
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:numArrayObj1> a ex:TestObject ;
+                    ex:arr 1, 2, 3 .
 
-    <urn:test:numArrayObj2> a ex:TestObject .
+                <urn:test:numArrayObj2> a ex:TestObject .
 
-    <urn:test:numArrayObj3> a ex:TestObject ;
-        ex:unrelated ex:TestObject ;
-        ex:arr 1, 2 .
-}
-"#
+                <urn:test:numArrayObj3> a ex:TestObject ;
+                    ex:unrelated ex:TestObject ;
+                    ex:arr 1, 2 .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -413,6 +756,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/TestShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/TestShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -460,12 +804,12 @@ INSERT DATA {
     doc_sparql_update(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-DELETE DATA {
-    <urn:test:numArrayObj1>
-        ex:arr 1 .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            DELETE DATA {
+                <urn:test:numArrayObj1>
+                    ex:arr 1 .
+            }
+            "#
         .to_string(),
         Some(doc_nuri.clone()),
     )
@@ -517,22 +861,22 @@ async fn _test_patch_add_nested_1(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:oj1> 
-        ex:multiNest <urn:test:multiNested1>, <urn:test:multiNested2> ;
-        ex:singleNest <urn:test:nested3> .
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:oj1> 
+                    ex:multiNest <urn:test:multiNested1>, <urn:test:multiNested2> ;
+                    ex:singleNest <urn:test:nested3> .
 
-    <urn:test:multiNested1>
-        ex:multiNest1Str "a multi 1 string" .
+                <urn:test:multiNested1>
+                    ex:multiNest1Str "a multi 1 string" .
 
-    <urn:test:multiNested2>
-        ex:multiNest2Str "a multi 2 string" .
+                <urn:test:multiNested2>
+                    ex:multiNest2Str "a multi 2 string" .
 
-    <urn:test:nested3>
-        ex:singleNestStr "a single nest string" .
-}
-"#
+                <urn:test:nested3>
+                    ex:singleNestStr "a single nest string" .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -542,6 +886,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/RootShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/RootShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -584,6 +929,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/SingleNestShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/SingleNestShape".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/singleNestStr".to_string(),
@@ -604,6 +950,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/MultiNestShape1".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/MultiNestShape1".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/multiNest1Str".to_string(),
@@ -624,6 +971,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/MultiNestShape2".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/MultiNestShape2".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "http://example.org/multiNest2Str".to_string(),
@@ -780,207 +1128,14 @@ INSERT DATA {
     )
     .await;
 
-    // Define the ORM schema
-    let mut schema = HashMap::new();
-
-    // House shape
-    schema.insert(
-        "http://example.org/HouseShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/HouseShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/House".to_string(),
-                        )]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/rootColor".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 0,
-                    readablePredicate: "rootColor".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/inhabitants".to_string(),
-                    extra: Some(false),
-                    maxCardinality: -1,
-                    minCardinality: 1,
-                    readablePredicate: "inhabitants".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/PersonShape".to_string()),
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-
-    // Person shape
-    schema.insert(
-        "http://example.org/PersonShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/PersonShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/name".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "name".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/hasCat".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 0,
-                    readablePredicate: "cat".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/CatShape".to_string()),
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-
-    // Cat shape
-    schema.insert(
-        "http://example.org/CatShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/CatShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/catName".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 0,
-                    readablePredicate: "name".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                // New nested layer: Cat -> Toy
-                OrmSchemaPredicate {
-                    iri: "http://example.org/hasToy".to_string(),
-                    extra: Some(false),
-                    maxCardinality: -1,
-                    minCardinality: 0,
-                    readablePredicate: "toy".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/ToyShape".to_string()),
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-
-    // Toy shape
-    schema.insert(
-        "http://example.org/ToyShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/ToyShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("http://example.org/Toy".to_string())]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/toyName".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "name".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
+    let house_schema = create_house_schema();
 
     let shape_type = OrmShapeType {
-        schema,
+        schema: house_schema,
         shape: "http://example.org/HouseShape".to_string(),
     };
 
-    let (mut receiver, cancel_fn, subscription_id, initial) =
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
         create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
 
     log_info!(
@@ -1245,6 +1400,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:x:contact:class#SocialContact".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:x:contact:class#SocialContact".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1303,6 +1459,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:x:contact:class#SocialContact||did:ng:x:contact#name".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#name".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "did:ng:x:core#value".to_string(),
@@ -1325,6 +1482,7 @@ INSERT DATA {
     schema.insert(
         "did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt".to_string(),
             predicates: vec![OrmSchemaPredicate {
                 iri: "did:ng:x:core#valueDateTime".to_string(),
@@ -1466,6 +1624,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/ProjectShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/ProjectShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1504,6 +1663,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1567,14 +1727,14 @@ INSERT DATA {
         session_id,
         format!(
             r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {{
-    GRAPH <{}> {{ <urn:test:project1> ex:members <urn:test:personX0> . }}
-}} ;
-DELETE DATA {{
-    GRAPH <{}> {{ <urn:test:project2> ex:members <urn:test:personX0> . }}
-}}
-"#,
+                PREFIX ex: <http://example.org/>
+                INSERT DATA {{
+                    GRAPH <{}> {{ <urn:test:project1> ex:members <urn:test:personX0> . }}
+                }} ;
+                DELETE DATA {{
+                    GRAPH <{}> {{ <urn:test:project2> ex:members <urn:test:personX0> . }}
+                }}
+                "#,
             parent_doc_nuri, unrelated_doc_nuri
         ),
         Some(parent_doc_nuri.clone()),
@@ -1651,6 +1811,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1743,6 +1904,140 @@ INSERT DATA {
     assert_orm_json_eq(&mut expected, &mut actual);
 }
 
+/// An ordered subscription over a shape with nested objects.
+async fn test_ordered_with_nested_children(session_id: u64) {
+    log_info!("\n\n=== TEST: an ordered page carries its nested objects ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:orderedHouseB>
+                    a ex:House ;
+                    ex:rootColor "blue" ;
+                    ex:inhabitants <urn:test:orderedBob> .
+
+                <urn:test:orderedBob>
+                    a ex:Person ;
+                    ex:name "Bob" .
+
+                <urn:test:orderedHouseA>
+                    a ex:House ;
+                    ex:rootColor "amber" ;
+                    ex:inhabitants <urn:test:orderedAda> .
+
+                <urn:test:orderedAda>
+                    a ex:Person ;
+                    ex:name "Ada" .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    // Use regular house schema but with `rootColor` made mandatory (for ordering).
+    let mut schema = create_house_schema();
+    schema.insert(
+        "http://example.org/HouseShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "http://example.org/HouseShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/House".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/rootColor".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "rootColor".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/inhabitants".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 1,
+                    readablePredicate: "inhabitants".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/PersonShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/HouseShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type,
+        session_id,
+        json!({"orderBy": [{"rootColor": "asc"}]}),
+    )
+    .await;
+
+    let mut expected = json!([
+        {
+            "@id": "urn:test:orderedHouseA",
+            "type": "http://example.org/House",
+            "rootColor": "amber",
+            "inhabitants": {
+                "urn:test:orderedAda": {
+                    "@id": "urn:test:orderedAda",
+                    "type": "http://example.org/Person",
+                    "name": "Ada"
+                }
+            }
+        },
+        {
+            "@id": "urn:test:orderedHouseB",
+            "type": "http://example.org/House",
+            "rootColor": "blue",
+            "inhabitants": {
+                "urn:test:orderedBob": {
+                    "@id": "urn:test:orderedBob",
+                    "type": "http://example.org/Person",
+                    "name": "Bob"
+                }
+            }
+        }
+    ]);
+    add_graph_fields(&mut expected, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
+
+    assert_json_eq(&expected, &initial);
+
+    log_info!("Test passed: ordered page carries its nested objects");
+}
+
 async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
@@ -1777,6 +2072,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -1941,6 +2237,444 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
 }
 
+/// Applying frontend patches: root literal, nested literal, and a nested object add/remove.
+async fn bench_apply_patches(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:benchHouse>
+                    a ex:House ;
+                    ex:rootColor "start" ;
+                    ex:inhabitants <urn:test:benchPerson> .
+
+                <urn:test:benchPerson>
+                    a ex:Person ;
+                    ex:name "start" ;
+                    ex:hasCat <urn:test:benchCat> .
+
+                <urn:test:benchCat>
+                    a ex:Cat ;
+                    ex:catName "start" .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    let shape_type = OrmShapeType {
+        schema: create_house_schema(),
+        shape: "http://example.org/HouseShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    let house = root_path(
+        &doc_nuri,
+        "urn:test:benchHouse",
+        "http://example.org/HouseShape",
+    );
+    let person = format!(
+        "{}/inhabitants/{}",
+        house,
+        composite_key(&doc_nuri, "urn:test:benchPerson")
+    );
+
+    let iters = 1000;
+    let now = Instant::now();
+
+    for i in 0..iters {
+        let diff = vec![
+            OrmPatch {
+                op: OrmPatchOp::add,
+                path: format!("{}/rootColor", house),
+                value: Some(json!(format!("color_{}", i))),
+                ..Default::default()
+            },
+            OrmPatch {
+                op: OrmPatchOp::add,
+                path: format!("{}/cat/name", person),
+                value: Some(json!(format!("cat_{}", i))),
+                ..Default::default()
+            },
+        ];
+
+        orm_update(subscription_id, diff, session_id)
+            .await
+            .expect("orm_update failed");
+    }
+
+    println!(
+        "[bench_apply_patches] Elapsed time for {} iters, 2 patches each: {:?}",
+        iters,
+        now.elapsed()
+    );
+}
+
+/// Subscribing to a document: the initial query plus building every tracked object.
+async fn bench_initialization(session_id: u64) {
+    let objects_per_insert = 25;
+    let inserts = 8;
+    let roots = objects_per_insert * inserts;
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        "PREFIX ex: <http://example.org/> INSERT DATA { ex:placeholder ex:bar 0 . }".to_string(),
+    )
+    .await;
+
+    for batch in 0..inserts {
+        let mut body = String::from("PREFIX ex: <http://example.org/>\nINSERT DATA {\n");
+        for offset in 0..objects_per_insert {
+            let i = batch * objects_per_insert + offset;
+            body.push_str(&format!(
+                r#"
+                    <urn:test:initHouse{i}> a ex:House ; ex:rootColor "color_{i}" ; ex:inhabitants <urn:test:initPerson{i}> .
+                    <urn:test:initPerson{i}> a ex:Person ; ex:name "name_{i}" ; ex:hasCat <urn:test:initCat{i}> .
+                    <urn:test:initCat{i}> a ex:Cat ; ex:catName "cat_{i}" ; ex:hasToy <urn:test:initToy{i}> .
+                    <urn:test:initToy{i}> a ex:Toy ; ex:toyName "toy_{i}" .
+                "#,
+                i = i
+            ));
+        }
+        body.push_str("}\n");
+        doc_sparql_update(session_id, body, Some(doc_nuri.clone()))
+            .await
+            .expect("INSERT for initialization benchmark failed");
+    }
+
+    let iters = 20;
+    let now = Instant::now();
+
+    for _ in 0..iters {
+        let shape_type = OrmShapeType {
+            schema: create_house_schema(),
+            shape: "http://example.org/HouseShape".to_string(),
+        };
+        let (_receiver, cancel_fn, _subscription_id, initial) =
+            create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+        hint::black_box(&initial);
+        cancel_fn();
+    }
+
+    println!(
+        "[bench_initialization] Elapsed time for {} subscriptions over {} root objects \
+         ({} tracked objects each): {:?}",
+        iters,
+        roots,
+        roots * 4,
+        now.elapsed()
+    );
+}
+
+async fn bench_nested(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                ex:foo ex:bar 0 .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let house_schema = create_house_schema();
+
+    let shape_type = OrmShapeType {
+        schema: house_schema,
+        shape: "http://example.org/HouseShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    let now = Instant::now();
+    let mut chunk_start = Instant::now();
+    let mut update_total = Duration::ZERO;
+    let mut patch_total = Duration::ZERO;
+
+    let iters = 1000;
+    for i in 0..iters {
+        let sparql_query = format!(
+            r#"
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {{
+                <urn:test:house{}> 
+                    a ex:House ;
+                    ex:rootColor "color_{}" ;
+                    ex:inhabitants <urn:test:person{}> .
+
+                <urn:test:person{}>
+                    a ex:Person ;
+                    ex:name "name_{}" ;
+                    ex:hasCat <urn:test:cat{}> .
+
+                <urn:test:cat{}>
+                    a ex:Cat ;
+                    ex:catName "cat_{}" ;
+                    ex:hasToy <urn:test:toy1_{}> ;
+                    ex:hasToy <urn:test:toy2_{}> .
+
+                <urn:test:toy1_{}>
+                    a ex:Toy ;
+                    ex:toyName "toy1_{}" .
+
+                <urn:test:toy2_{}>
+                    a ex:Toy ;
+                    ex:toyName "toy2_{}" .
+            }}
+            "#,
+            i, i, i, i, i, i, i, i, i, i, i, i, i, i
+        );
+        // INSERT: Add a new person with a cat, modify house color, modify existing person's name, add cat to Bob
+        let update_start = Instant::now();
+        doc_sparql_update(session_id, sparql_query, Some(doc_nuri.clone()))
+            .await
+            .expect("INSERT SPARQL update failed");
+        update_total += update_start.elapsed();
+
+        let patch_start = Instant::now();
+        let received_patches = await_graph_patches(&mut receiver).await;
+        patch_total += patch_start.elapsed();
+
+        hint::black_box(received_patches);
+
+        // Print the trend, so a super-linear slowdown is visible while it happens.
+        if (i + 1) % 10 == 0 {
+            println!(
+                "[bench_nested] iters {:>3}-{:<3}: {:?} (total {:?})",
+                i - 8,
+                i + 1,
+                chunk_start.elapsed(),
+                now.elapsed()
+            );
+            chunk_start = Instant::now();
+        }
+    }
+
+    println!(
+        "[bench_nested] Elapsed time for {} iters, 5 (partly nested) objects each: {:?} (sparql update: {:?}, waiting for patches: {:?})",
+        iters,
+        now.elapsed(),
+        update_total,
+        patch_total
+    );
+}
+
+async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:sortObj2> a ex:SortObject ;
+                                    ex:sortBy 2 ;
+                                    ex:sortBy2 2 .
+                <did:ng:z:sortObj1AndThen23> a ex:SortObject ;
+                                    ex:sortBy 1 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj4> a ex:SortObject ;
+                                    ex:sortBy 4 ;
+                                    ex:sortBy2 4 .
+                <did:ng:z:sortObj3> a ex:SortObject ;
+                                    ex:sortBy 3 ;
+                                    ex:sortBy2 3 .
+                <did:ng:z:sortObj51> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 1 .
+                <did:ng:z:sortObj52> a ex:SortObject ;
+                                    ex:sortBy 5 ;
+                                    ex:sortBy2 2 .
+            }
+    "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:SortShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:SortShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:sortBy2".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "sortBy2".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:SortShape".to_string(),
+    };
+
+    // Sort by two predicates.
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type.clone(),
+        session_id,
+        json!({"orderBy": [{"sortBy": "desc"}, {"sortBy2": "asc"}]}),
+    )
+    .await;
+    use std::time::Instant;
+    let now = Instant::now();
+
+    let mut bench_index = 7;
+    for _i in 0..200 {
+        doc_sparql_update(
+            session_id,
+            format!(
+                r#"
+                    PREFIX ex: <did:ng:z:>
+                    INSERT DATA {{
+                        GRAPH <{}> {{
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+                            ex:sortObj{} a ex:SortObject ;
+                                        ex:sortBy {} ;
+                                        ex:sortBy2 1.5 .
+
+                        }}
+                    }}
+                    "#,
+                doc_nuri,
+                bench_index,
+                bench_index,
+                bench_index + 1,
+                bench_index + 1,
+                bench_index + 2,
+                bench_index + 2,
+                bench_index + 3,
+                bench_index + 3,
+                bench_index + 4,
+                bench_index + 4,
+                bench_index + 5,
+                bench_index + 5,
+                bench_index + 6,
+                bench_index + 6,
+                bench_index + 7,
+                bench_index + 7,
+                bench_index + 8,
+                bench_index + 8,
+                bench_index + 9,
+                bench_index + 9,
+                bench_index + 10,
+                bench_index + 10,
+                bench_index + 11,
+                bench_index + 11,
+                bench_index + 12,
+                bench_index + 12,
+                bench_index + 13,
+                bench_index + 13,
+                bench_index + 14,
+                bench_index + 14,
+                bench_index + 15,
+                bench_index + 15,
+            ),
+            Some(doc_nuri.clone()),
+        )
+        .await
+        .expect("SPARQL update failed");
+        //
+        let received_patches = await_graph_patches(&mut receiver).await;
+
+        hint::black_box(received_patches);
+        bench_index += 4;
+    }
+
+    println!(
+        "[bench_plain] Elapsed time for 200 iters, 16 entries each: {:?}",
+        now.elapsed()
+    );
+}
+
 async fn test_add_remove_move_in_pagination(session_id: u64) {
     // Things to test:
     // Object in window get's invalid
@@ -1979,6 +2713,7 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
@@ -2241,6 +2976,7 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
     schema.insert(
         "did:ng:z:SortShape".to_string(),
         OrmSchemaShape {
+            is_closed: false,
             iri: "did:ng:z:SortShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {

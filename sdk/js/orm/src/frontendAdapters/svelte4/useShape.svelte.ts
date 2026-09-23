@@ -189,7 +189,7 @@ type UseShapeResult_<
     /**
      * The requested data, once loaded.
      * Depending on your orderBy config, this will either be a {@link DeepSignalSet}
-     * or a [`DeepSignal<ReadOnlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
+     * or a [`DeepSignal<ReadonlyArray>`]({@link DeepSignal}) (you can modify its properties and sub-objects though).
      *
      * This object is the value returned by {@link RdfOrmSubscription.signalObject}.
      */

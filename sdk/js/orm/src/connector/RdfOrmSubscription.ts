@@ -28,7 +28,6 @@ import type {
     DeepSignal,
     DeepPatch,
     DeepSignalOptions,
-    ReadOnlyArray,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 import { OrderByConfig, RdfOrmConfig, SubscriptionData } from "../utilTypes.ts";
@@ -111,7 +110,7 @@ export class RdfOrmSubscription<
     private readonly signalObject_: undefined extends CONF["orderBy"]
         ? DeepSignalSet<T>
         : DeepSignal<T[]>;
-    private readonlyItemsArray?: ReadOnlyArray<T>;
+    private readonlyItemsArray?: ReadonlyArray<T>;
 
     /** Listeners that get notified when root objects are added, updated, or removed. */
     private changeListeners: Set<OrmChangeListener<T>> = new Set();
@@ -140,6 +139,8 @@ export class RdfOrmSubscription<
     private isPatchMicrotaskScheduled: boolean = false;
     /** Configuration for signal object. */
     private signalSettings;
+    /** Called when errors occur. */
+    private onErrorCallback: (error: Error) => void;
 
     // FinalizationRegistry to clean up subscriptions when signal objects are GC'd.
     private static cleanupSignalRegistry =
@@ -169,6 +170,20 @@ export class RdfOrmSubscription<
         this.refCount = 1;
         this.closeOrmSubscription = () => {};
         this.identifier = identifier;
+        this.onErrorCallback =
+            options.onError ??
+            ((e: Error) =>
+                console.error(
+                    "[RdfOrmSubscription]",
+                    "\nname:",
+                    e.name,
+                    "\nmessage:",
+                    e.message,
+                    "\ncause:",
+                    e.cause,
+                    "\nstack:",
+                    e.stack
+                ));
 
         if (options.orderBy === undefined) {
             this.mode = "unordered";
@@ -226,7 +241,19 @@ export class RdfOrmSubscription<
                     this.onBackendMessage
                 );
             } catch (e) {
-                console.error(e);
+                this.onErrorCallback(
+                    new Error(
+                        "Error occurred while establishing subscription. You should start anew.",
+                        { cause: e }
+                    )
+                );
+                // Creating a subscription failed. Using this object will never work.
+                // Therefore, remove it from the cache.
+                RdfOrmSubscription.idToEntry.delete(identifier);
+                this.stopSignalListening();
+                RdfOrmSubscription.cleanupSignalRegistry?.unregister(
+                    this.signalObject_
+                );
             }
         });
     }
@@ -321,18 +348,26 @@ export class RdfOrmSubscription<
         shapeType: ShapeType<T>,
         conf: CONF
     ): RdfOrmSubscriptionFor<ST, CONF, T> => {
-        const { graphs, subjects, maxActivePages, orderBy, pageSize, where } =
-            conf;
+        const {
+            graphs,
+            subjects,
+            maxActivePages,
+            orderBy,
+            pageSize,
+            where,
+            onError,
+        } = conf;
         const normalizedScope = normalizeScope({ graphs, subjects });
         const scopeKey = canonicalScope(normalizedScope);
         // If we have pagination active, we can't pool subscriptions because
         // otherwise calling the next page on one would effect the other.
-        const optionsKey = pageSize
-            ? Math.random().toString()
-            : JSON.stringify({
-                  orderBy,
-                  where,
-              });
+        const optionsKey =
+            pageSize || onError
+                ? Math.random().toString()
+                : JSON.stringify({
+                      orderBy,
+                      where,
+                  });
 
         // Unique identifier for a given shape type, scope, and options.
         const identifier = `${shapeType.shape}|${scopeKey}|${optionsKey}`;
@@ -353,6 +388,7 @@ export class RdfOrmSubscription<
                     orderBy,
                     pageSize,
                     where,
+                    onError,
                 },
                 identifier
             );
@@ -431,11 +467,20 @@ export class RdfOrmSubscription<
 
                 if (this.pendingPatches.length > 0 && !this.inTransaction_) {
                     const { ng, session } = await ngSession;
+
                     ng.graph_orm_update(
                         this.subscriptionId!,
                         this.pendingPatches,
                         session.session_id
-                    );
+                    ).catch((e) => {
+                        // Notify error listener.
+                        this.onErrorCallback(
+                            new Error(
+                                "Error while synchronizing changes with the engine.",
+                                { cause: e }
+                            )
+                        );
+                    });
                     this.pendingPatches = [];
                 }
             });
@@ -542,14 +587,12 @@ export class RdfOrmSubscription<
         );
 
         // Process links to new objects.
-        this.changeListeners.forEach((cl) =>
-            Object.apply(cl, [
-                {
-                    adds: addedRoots,
-                    removes: removedRoots,
-                    updates: [...updatedRootObjects],
-                },
-            ])
+        this.changeListeners.forEach((listenerCallback) =>
+            listenerCallback({
+                adds: addedRoots,
+                removes: removedRoots,
+                updates: [...updatedRootObjects],
+            })
         );
 
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
@@ -663,11 +706,21 @@ export class RdfOrmSubscription<
             // Nothing to send to the engine.
         } else {
             // Send patches to engine.
-            await ng.graph_orm_update(
-                this.subscriptionId!,
-                this.pendingPatches!,
-                session.session_id
-            );
+            await ng
+                .graph_orm_update(
+                    this.subscriptionId!,
+                    this.pendingPatches!,
+                    session.session_id
+                )
+                .catch((e) => {
+                    // Notify error listener.
+                    this.onErrorCallback(
+                        new Error(
+                            "Error while synchronizing changes with the engine.",
+                            { cause: e }
+                        )
+                    );
+                });
         }
 
         this.pendingPatches = [];

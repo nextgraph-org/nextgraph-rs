@@ -15,11 +15,9 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
 use ng_oxigraph::oxrdf::GraphName;
 use ng_oxigraph::oxrdf::Subject;
-use ng_repo::log::*;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -54,20 +52,16 @@ impl Verifier {
         let orm_subscription = match OrmSubscription::new(
             shape_type,
             self.orm_subscription_counter,
-            graph_scope
+            &graph_scope
                 .iter()
                 .map(|nuri| nuri_to_string(nuri))
-                .collect(),
+                .collect::<Vec<_>>(),
             subject_scope,
             tx.clone(),
             config,
         ) {
             Ok(r) => r,
             Err(error) => {
-                log_err!(
-                    "Error occurred while creating orm subscription: {:?}",
-                    error
-                );
                 return Err(error);
             }
         };
@@ -76,10 +70,6 @@ impl Verifier {
             .create_orm_objects_and_insert_subscription(orm_subscription, &mut tx)
             .await
         {
-            log_err!(
-                "Error occurred while creating orm subscription: {:?}",
-                error
-            );
             return Err(error);
         };
 
@@ -151,25 +141,25 @@ impl Verifier {
         // Changes to tormos which we use for materialization.
         let mut changes: OrmChanges = HashMap::new();
 
-        // Query quads for this shape
-        let shape_quads = if orm_subscription.graph_scope.is_empty() {
-            vec![]
-        } else {
-            self.query_quads_for_shape(
-                &orm_subscription.graph_scope,
-                &orm_subscription.shape_type.schema,
-                &orm_subscription.shape_type.shape,
-                Some(&orm_subscription.subject_scope),
-            )?
-        };
+        // Query quads for this shape.
+        let fetched = self.query_quads_for_shape(
+            &orm_subscription.graph_scope,
+            &orm_subscription.shape_type.schema,
+            &orm_subscription.shape_type.shape,
+            Some(&orm_subscription.subject_scope),
+        )?;
 
         self.process_changes_for_subscription(
             orm_subscription,
-            &shape_quads,
+            &fetched.quads,
             &[],
             &mut changes,
             true,
         )?;
+
+        // Everything the query returned is on record as holding all the store has for it,
+        // so we mark as complete and updates never have to trigger full re-queries.
+        orm_subscription.mark_fetched_complete(&fetched.loaded, &orm_subscription.graph_scope);
 
         // === Materialization ===
         let mut materialized_objects: serde_json::Value;
@@ -225,7 +215,7 @@ impl Verifier {
                     NgError::OrmError(format!("Subscription {subscription_id} not found"))
                 })?;
 
-        if orm_subscription.ordering_info.is_none() {
+        if orm_subscription.config.page_size == 0 {
             self.orm_subscriptions
                 .insert(subscription_id, orm_subscription);
             return Err(NgError::OrmError(format!(
@@ -359,16 +349,17 @@ impl Verifier {
             let returned_gs_items = graph_subject_page.len();
 
             // Query quads for this shape.
-            let shape_quads = if orm_subscription.graph_scope.is_empty() {
+            let quads = if orm_subscription.graph_scope == QueryScope::None {
                 vec![]
             } else {
                 // Query scoped to items from ordered_page.
                 self.query_quads_for_shape(
-                    &graph_subject_page.iter().map(|(g, _s)| g.clone()).collect(),
+                    &QueryScope::from(graph_subject_page.iter().map(|(g, _s)| g.clone())),
                     &orm_subscription.shape_type.schema,
                     &orm_subscription.shape_type.shape,
                     Some(&graph_subject_page.iter().map(|(_g, s)| s.clone()).collect()),
                 )?
+                .quads
             };
 
             let graph_subject_page_new_only: Vec<(GraphIri, SubjectIri)> = graph_subject_page
@@ -381,9 +372,8 @@ impl Verifier {
                 })
                 .cloned()
                 .collect();
-            let new_page_set: HashSet<(String, String)> =
-                HashSet::from_iter(graph_subject_page_new_only.clone());
-            let shape_quads = shape_quads
+            // Filter new quads.
+            let quads = quads
                 .into_iter()
                 .filter(|q| {
                     let (GraphName::NamedNode(g), Subject::NamedNode(s)) =
@@ -391,23 +381,9 @@ impl Verifier {
                     else {
                         return false;
                     };
-
-                    // Check if the (g,s) is in the gs-query result.
-                    let key = (g.as_str().to_string(), s.as_str().to_string());
-                    new_page_set.contains(&key)
+                    !orm_subscription.has_graph_subject(g.as_str(), s.as_str())
                 })
                 .collect::<Vec<_>>();
-
-            // if let Some(limit_offset) = limit_offset {
-            //     log_debug!(
-            //         "[query_items_ordered]\n(Offset, Limit:) ({}, {})\nreturned {} items\nthereof new: {}\nnew in total {}",
-            //         limit_offset.1,
-            //         limit_offset.0,
-            //         returned_gs_items,
-            //         graph_subject_page_new_only.len(),
-            //         ordered_gs_results.len() + graph_subject_page_new_only.len()
-            //     );
-            // }
 
             // Add gs results to existing results.
             ordered_gs_results.extend(graph_subject_page_new_only);
@@ -415,7 +391,7 @@ impl Verifier {
             // Add new quads to tracker and validate
             self.process_changes_for_subscription(
                 orm_subscription,
-                &shape_quads,
+                &quads,
                 &[],
                 &mut changes,
                 true,

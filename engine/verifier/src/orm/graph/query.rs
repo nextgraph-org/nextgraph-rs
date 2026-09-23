@@ -20,33 +20,44 @@ use crate::orm::graph::utils::{escape_sparql_string, is_iri};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
-use ng_oxigraph::oxrdf::{Quad, Term};
+use ng_oxigraph::oxrdf::{GraphNameRef, NamedNode, Quad, SubjectRef, Term};
 use ng_repo::errors::NgError;
+
+/// Outcome of a shape fetch.
+pub struct ShapeFetch {
+    /// Every quad the traversal collected.
+    pub quads: Vec<Quad>,
+    /// The subjects the traversal loaded in full, keyed by the shape they were queried for.
+    /// Their complete state (for that shape) is contained in `quads`.
+    pub loaded: HashMap<ShapeIri, HashSet<SubjectIri>>,
+}
 
 impl Verifier {
     /// Query all quads for a shape and its nested shapes using a breadth-first queue.
     ///
-    /// - nuri: Optional graph IRI. If Some and not equal to "did:ng:i", queries are limited to that graph via FILTER(?g IN (<nuri>)).
+    /// - scope: The graphs to include for the query.
     /// - schema: The ORM schema map.
     /// - root_shape: IRI of the root shape to start from.
     /// - filter_subjects: Optional list of subject IRIs to restrict the root query. If None, the root query is unfiltered to discover all matching root subjects.
     ///
-    /// Returns all quads collected across the root shape and all reachable nested shapes.
+    /// Returns all quads collected across the root shape and all reachable nested shapes,
+    /// together with the subjects the traversal loaded in full.
+    ///
+    /// Note: If the shape is closed, this will query **all quads** within the scope and filter_subject (if any).
+    /// So it is advisable to provide a narrow scope or filter_subjects.
     pub fn query_quads_for_shape(
         &self,
-        nuris: &Vec<String>,
+        scope: &QueryScope,
         schema: &OrmSchema,
         root_shape: &ShapeIri,
         filter_subjects: Option<&Vec<String>>,
-    ) -> Result<Vec<Quad>, NgError> {
-        // Determine graph filters based on nuri.
-        let filter_graphs: Option<&Vec<String>> = if nuris.is_empty() {
-            None
-        } else if nuris[0] == "did:ng:i" {
-            None
-        } else {
-            Some(nuris)
-        };
+    ) -> Result<ShapeFetch, NgError> {
+        if *scope == QueryScope::None {
+            return Ok(ShapeFetch {
+                loaded: HashMap::new(),
+                quads: vec![],
+            });
+        }
 
         // Helper to get a shape by IRI
         let get_shape = |iri: &str| -> Result<std::sync::Arc<OrmSchemaShape>, NgError> {
@@ -73,7 +84,7 @@ impl Verifier {
         }
 
         // Results accumulator
-        let mut all_quads: Vec<Quad> = Vec::new();
+        let mut all_quads: HashSet<Quad> = HashSet::new();
 
         // Helper to build predicate -> nested shapes mapping for a shape
         fn build_nested_shapes_map(shape: &OrmSchemaShape) -> HashMap<String, Vec<ShapeIri>> {
@@ -156,30 +167,14 @@ impl Verifier {
             let sparql = schema_shape_to_sparql(
                 shape_ref,
                 subjects_vec_opt.as_ref(),
-                filter_graphs,
+                &scope,
                 None,
                 None,
                 None,
                 false,
             );
 
-            // log_debug!(
-            //     "BFS query #{} for shape {}: {} subjects",
-            //     query_count + 1,
-            //     current_shape_iri,
-            //     subjects_vec_opt.as_ref().map(|v| v.len()).unwrap_or(0)
-            // );
-            // let query_start = Instant::now();
-
             let quads = self.query_sparql_select(sparql, None)?;
-            // query_count += 1;
-
-            // log_debug!(
-            //     "Query #{} returned {} quads in {:?}",
-            //     query_count,
-            //     quads.len(),
-            //     query_start.elapsed()
-            // );
 
             // Build nested shapes mapping once for this shape
             let pred_to_nested = build_nested_shapes_map(shape_ref);
@@ -233,15 +228,43 @@ impl Verifier {
             all_quads.extend(quads);
         }
 
-        // let total_time = start_time.elapsed();
-        // log_info!(
-        //     "BFS query completed: {} queries executed, {} total quads, {:?} elapsed",
-        //     query_count,
-        //     all_quads.len(),
-        //     total_time
-        // );
+        Ok(ShapeFetch {
+            quads: all_quads.into_iter().collect(),
+            loaded: processed,
+        })
+    }
 
-        Ok(all_quads)
+    /// Get every quad the store holds for the given (graph, subject) pairs.
+    /// Uses `store.quads_for_pattern` for fast query.
+    pub fn query_quads_for_graph_subjects(
+        &self,
+        graph_subjects: &[(GraphIri, SubjectIri)],
+    ) -> Result<Vec<Quad>, NgError> {
+        if graph_subjects.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let store = self.graph_dataset.as_ref().unwrap();
+        let mut quads: Vec<Quad> = Vec::new();
+
+        for (graph_iri, subject_iri) in graph_subjects.iter() {
+            let graph =
+                NamedNode::new(graph_iri).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+            let subject =
+                NamedNode::new(subject_iri).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+
+            for found in store.quads_for_pattern(
+                Some(SubjectRef::NamedNode(subject.as_ref())),
+                None,
+                None,
+                Some(GraphNameRef::NamedNode(graph.as_ref())),
+            ) {
+                let found = found.map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+                quads.push(found);
+            }
+        }
+
+        Ok(quads)
     }
 
     /// Expects the select to return 4 variables only: ?s, ?p, ?o, ?g
@@ -255,6 +278,7 @@ impl Verifier {
 
         let parsed = Query::parse(&query, nuri.as_deref())
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+
         let results = oxistore
             .query(parsed, nuri)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
@@ -352,15 +376,6 @@ impl Verifier {
         orm_subscription: &OrmSubscription,
         limit_offset: Option<(usize, usize)>,
     ) -> Result<Vec<(GraphIri, SubjectIri)>, NgError> {
-        let nuris = &orm_subscription.graph_scope;
-        let graph_scope: Option<&Vec<String>> = if nuris.is_empty() {
-            None
-        } else if nuris[0] == "did:ng:i" {
-            None
-        } else {
-            Some(nuris)
-        };
-
         // Parse order by config object to link to actual predicate schema objects?
         let sparql_query = schema_shape_to_sparql(
             orm_subscription
@@ -369,7 +384,7 @@ impl Verifier {
                 .get(&orm_subscription.shape_type.shape)
                 .unwrap(),
             Some(&orm_subscription.subject_scope),
-            graph_scope,
+            &orm_subscription.graph_scope,
             orm_subscription.config.where_.as_ref(),
             orm_subscription.config.order_by.as_ref(),
             limit_offset,
@@ -399,14 +414,17 @@ impl Verifier {
 ///   - If a where config is provided, greater than and less than restrictions are added too.
 pub fn schema_shape_to_sparql(
     shape: &OrmSchemaShape,
-    filter_subjects: Option<&Vec<String>>, // subject IRIs to include
-    filter_graphs: Option<&Vec<String>>,   // graph IRIs to include
-    where_config: Option<&WhereConfig>,
+    // subject IRIs to include
+    filter_subjects: Option<&Vec<String>>,
+    // graphs to include
+    scope: &QueryScope,
+    _where_config: Option<&WhereConfig>,
     order_by_config: Option<&OrderByConfig>,
     limit_offset: Option<(usize, usize)>,
+    // Query quads or only (g,s) pairs?
     subject_and_graph_only: bool,
 ) -> String {
-    // Variable counter for internal object vars (avoid clashing with ?s ?p ?o ?g)
+    // Variable counter for internal object vars (avoid clashing with ?s ?p ?o ?g).
     let mut var_counter: i32 = 0;
     let mut next_var = || {
         let v = format!("v{}", var_counter);
@@ -414,16 +432,23 @@ pub fn schema_shape_to_sparql(
         v
     };
 
-    // Build GRAPH block body: generic triple + explicit required predicates
+    // Build GRAPH block body: generic triple + explicit required predicates.
     let mut graph_lines: Vec<String> = vec!["  ?s ?p ?o .".to_string()];
+
     let mut post_graph_filters: Vec<String> = vec![];
 
-    for pred in &shape.predicates {
-        let obj_var = next_var();
-        if pred.minCardinality >= 1 {
+    // Add constraints for mandatory predicates and literals.
+    // If the shape is closed though, we need to track the existence/count of all quads.
+    if !shape.is_closed {
+        for pred in &shape.predicates {
+            // Only add constraint for mandatory predicates.
+            if pred.minCardinality == 0 {
+                continue;
+            }
+            let obj_var = next_var();
             graph_lines.push(format!("  ?s <{}> ?{} .", pred.iri, obj_var));
 
-            // Aggregate enumerated literal constraints across dataTypes
+            // Aggregate enumerated literal constraints across dataTypes.
             let mut allowed_literals: Vec<String> = vec![];
             for dt in &pred.dataTypes {
                 if let Some(lits) = &dt.literals {
@@ -463,7 +488,8 @@ pub fn schema_shape_to_sparql(
                     }
                 }
             }
-            // Add possible literal constraints (like type).
+            // Add possible literal constraints (like rdfs:type).
+            // At least one must match (we can't "AND" this because we need to track incomplete results too).
             if !allowed_literals.is_empty() {
                 post_graph_filters.push(format!(
                     "  FILTER(?{} IN ({}))",
@@ -472,70 +498,39 @@ pub fn schema_shape_to_sparql(
                 ));
             }
         }
-
-        // If where config has less than or greater than restrictions...
-        if let Some(where_config) = where_config {
-            if let Some(where_value) = where_config.get(&pred.readablePredicate) {
-                if let Some(where_obj) = where_value.as_object() {
-                    if let Some(less_than) = where_obj.get("|lt") {
-                        if let Some(lt_str) = less_than.as_str() {
-                            post_graph_filters.push(format!(
-                                "   FILTER(?{} < \"{}\")",
-                                obj_var,
-                                escape_sparql_string(lt_str)
-                            ));
-                        } else if less_than.is_number() {
-                            post_graph_filters
-                                .push(format!("   FILTER(?{} < {})", obj_var, less_than));
-                        }
-                    }
-                    if let Some(greater_than) = where_obj.get("|gt") {
-                        if let Some(gt_str) = greater_than.as_str() {
-                            post_graph_filters.push(format!(
-                                "   FILTER(?{} > \"{}\")",
-                                obj_var,
-                                escape_sparql_string(gt_str)
-                            ));
-                        } else if greater_than.is_number() {
-                            post_graph_filters
-                                .push(format!("   FILTER(?{} > {})", obj_var, greater_than));
-                        }
-                    }
-                }
-            }
-        }
     }
 
-    // Assemble WHERE body with GRAPH block
-    let mut where_lines: Vec<String> = vec![
-        "  GRAPH ?g {".to_string(),
-        graph_lines.join("\n"),
-        "  }".to_string(),
-    ];
+    // Assemble WHERE body.
+    let mut where_lines: Vec<String> = vec![];
+
+    // Build a `VALUES ?var { <iri> ... }` line.
+    let values_line = |var: &str, iris: &Vec<String>| -> String {
+        let list = iris
+            .iter()
+            .map(|iri| format!("<{}>", iri))
+            .collect::<Vec<_>>()
+            .join(" ");
+        format!("  VALUES ?{} {{ {} }}", var, list)
+    };
 
     // Subject filter
     if let Some(subjects) = filter_subjects {
         if !subjects.is_empty() {
-            let in_list = subjects
-                .iter()
-                .map(|s| format!("<{}>", s))
-                .collect::<Vec<_>>()
-                .join(", ");
-            where_lines.push(format!("  FILTER(?s IN ({}))", in_list));
+            where_lines.push(values_line("s", subjects));
         }
     }
 
-    // Graph filter
-    if let Some(graphs) = filter_graphs {
-        if !graphs.is_empty() {
-            let in_list = graphs
-                .iter()
-                .map(|g| format!("<{}>", g))
-                .collect::<Vec<_>>()
-                .join(", ");
-            where_lines.push(format!("  FILTER(?g IN ({}))", in_list));
+    // Graph scope filter
+    match scope {
+        QueryScope::Graphs(graphs) => {
+            where_lines.push(values_line("g", &graphs.iter().cloned().collect()));
         }
+        _ => {}
     }
+
+    where_lines.push("  GRAPH ?g {".to_string());
+    where_lines.push(graph_lines.join("\n"));
+    where_lines.push("  }".to_string());
 
     // Filters that depend on internal object vars should come after GRAPH block
     where_lines.extend(post_graph_filters);
@@ -574,6 +569,7 @@ pub fn schema_shape_to_sparql(
         );
     }
 
+    // Pagination
     let pagination_str = if let Some((limit, offset)) = limit_offset {
         &format!("LIMIT {} OFFSET {}", limit, offset)
     } else {

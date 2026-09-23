@@ -2032,10 +2032,11 @@ pub async fn graph_orm_update(
     let mut request = AppRequest::new_orm_update(subscription_id, diff);
     request.set_session_id(session_id);
 
-    let response = nextgraph::local_broker::app_request(request)
-        .await
-        .map_err(|e: NgError| e.to_string())?;
-    Ok(())
+    match nextgraph::local_broker::app_request(request).await {
+        Err(e) => Err(e.to_string()),
+        Ok(AppResponse::V0(AppResponseV0::Error(err))) => Err(err),
+        _ => Ok(()),
+    }
 }
 
 /// **Not to be used by frontend directly.**

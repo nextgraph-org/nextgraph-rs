@@ -1347,6 +1347,16 @@ impl Verifier {
         .await
     }
 
+    #[doc(hidden)]
+    pub fn test_remove_repo_write_cap(&mut self, repo_id: &RepoId) -> Result<(), NgError> {
+        let repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
+        repo.write_cap = None;
+        for branch in repo.branches.values_mut() {
+            branch.topic_priv_key = None;
+        }
+        Ok(())
+    }
+
     pub(crate) async fn put_blocks(&self, blocks: Vec<Block>, repo: &Repo) -> Result<(), NgError> {
         let overlay = repo.store.overlay_for_read_on_client_protocol();
 

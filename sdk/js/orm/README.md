@@ -11,7 +11,7 @@ Note that there are two variants of the SDK:
 
 The SDK is reactive. Modifications to your received "plain old TypeScript objects" are **instantly synced with the database and other devices**.\
 Vice versa, when the data is modified on a different device, that is reflected in your TS object and your frontend rerenders the data.\
-We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but you can use the SDK without a frontend framework as well.
+We offer frontend framework support for **React, Vue, SolidJS, and Svelte (5 and 4)** but you can use the SDK without a frontend framework as well.
 
 ## Reference documentation
 
@@ -40,6 +40,7 @@ We offer frontend framework support for **React, Vue, and Svelte (5 and 4)** but
         - [Filtering](#filtering)
         - [The RdfOrmSubscription Class](#the-rdformsubscription-class)
         - ["Disappearing" Objects](#disappearing-objects)
+        - [Reverts on Invalid Modifications](#reverts-on-invalid-modifications)
     - [Discrete (JSON-based) ORM](#discrete-json-based-orm)
         - [Creating an Automerge or YJS Document](#creating-an-automerge-or-yjs-document)
         - [The DiscreteOrmSubscription Class](#the-discreteormsubscription-class)
@@ -171,7 +172,7 @@ In order to work with typed data, you need to define a SHEX schema. The schema d
 
 You create those schemas with the help of `@ng-org/shex-orm`, as documented [here](https://docs.nextgraph.org/en/reference/shex-orm/).
 
-When you followed the steps there, you will have generated so-called `ShapeType`s, one for each schema. `ShapeTypes` contain the typescript type definitions as well as the schemas. Whenever you call a method to retrieve ORM data, you pass it the `ShapeType`. The details are described below.
+When you followed the steps there, you will have generated so-called `ShapeType`s, one for each schema. ShapeTypes contain the TypeScript type definitions as well as the schemas. Whenever you call a method to retrieve ORM data, you pass it the `ShapeType`. The details are described below.
 
 ### Using and Modifying RDF ORM Objects
 
@@ -191,7 +192,7 @@ There are multiple ways to create a subscription and get the data (you will see 
 ### Frontend Framework Integration: `useShape()`
 
 The SDK offers `useShape(ShapeType, config)` hooks that let you load and interact with data inside of components.
-Implementations are available for [Svelte 5](#svelteuseshape), [Svelte 4](#svelte4useshape), [Vue](#vueuseshape), and [React](#reactuseshape).
+Implementations are available for [Svelte 5](#svelteuseshape), [Svelte 4](#svelte4useshape), [Vue](#vueuseshape), [SolidJs](#solidjsuseshape), and [React](#reactuseshape).
 
 The hooks create a 2-way binding between the engine and the frontend.
 You can modify the data returned by the hook like any other object. Changes are immediately
@@ -236,7 +237,7 @@ In the RDF ORM, the `@id` is the RDF subject IRI. You are allowed (but not encou
 
 The RDF ORM lets you retrieve data across different documents using the `graphs` parameter in the config, as you can see in the example above.
 
-If you want to query across all datasets, use the following Nuri: `"did:ng:i"` or simply use `""`.
+If you want to query across all datasets, use the following Nuri: `"did:ng:i"` or simply use `""`. Note that this might have **performance impacts** if your shape is not restrictive and you don't specify a subject scope.
 
 When you specify one or more subject IRIs in the config, only those subject will be considered for your request (those will be queried across all graphs specified).
 Because not all objects with the specified subject IRIs might match the shape you provided, some returned objects might be missing from the subject IRIs of your request.
@@ -286,7 +287,7 @@ const contactsSubscription = RdfOrmSubscription.getOrCreate(ContactShape, {
 });
 await contactsSubscription.readyPromise;
 
-const contacts: DeepSignal<ReadOnlyArray<Contact>> =
+const contacts: DeepSignal<ReadonlyArray<Contact>> =
     contactsSubscription.signalObject;
 
 console.log(
@@ -454,6 +455,19 @@ It might happen that an object is modified in a way that makes it invalid for th
 Apart from external modifications, this can happen when the schema specified cardinality constraints that are not expressible in TypeScript, e.g. less than 10 and greater than 5.
 When that happens, the object disappears, i.e. is removed from the loaded data. The underlying triples are not gone though.
 
+### Reverts on Invalid Modifications
+
+In case that you make modifications that are invalid, those will be reverted. This can happen in the following cases:
+
+- Causing full revert of a change (transaction or modifications in the same task):
+    - You add an object with an invalid graph NURI.
+    - The modification failed in the SPARQL query.
+- Causing revert of failed modifications only:
+    - You add or remove data to which you do not have write access.
+    - The assignments to a property has the wrong type. For example you try to assign a string to a property that accepts IRIs only.
+
+In those cases, the error callback that you can pass when creating a subscription is called.
+
 ## Discrete (JSON-based) ORM
 
 ### Creating an Automerge or YJS Document
@@ -533,7 +547,7 @@ The utilities that DeepSignal objects include are:
 
 ### Signal Objects in Frontend Frameworks
 
-Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use [`useDeepSignal(signalObject)`](../alien-deepsignals/#frontend-hooks) from the package `@ng-org/alien-deepsignals/svelte|vue|react`. This can be useful to keep a connection open over the lifetime of a component and to avoid the delay when creating new subscriptions.
+Note that you can use the reactive signal object of an orm subscription (e.g. `myOrmSubscription.signalObject`) in components too. For that, you need to use [`useDeepSignal(signalObject)`](../alien-deepsignals/#frontend-hooks) from the package `@ng-org/alien-deepsignals/svelte|vue|react|solid-js`. This can be useful to keep a connection open over the lifetime of a component and to avoid the delay when creating new subscriptions.
 
 ---
 

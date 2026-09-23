@@ -26,7 +26,10 @@ version = "0.1.2"
 edition = "2021"
 rust-version = "1.88.0"
 license = "MIT/Apache-2.0"
-authors = ["Niko PLP <niko@nextgraph.org>", "Laurin Weger <mail@laurinweger.de>"]
+authors = [
+  "Niko PLP <niko@nextgraph.org>",
+  "Laurin Weger <mail@laurinweger.de>",
+]
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 homepage = "https://nextgraph.org"
 keywords = [
@@ -73,6 +76,9 @@ debug = "full"
 
 [profile.dev]
 opt-level = 2
+
+[profile.test.package.nextgraph]
+opt-level = 0
 
 [patch.crates-io]
 # tauri = { git = "https://github.com/simonhyll/tauri.git",  branch="fix/ipc-mixup"}

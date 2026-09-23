@@ -16,7 +16,6 @@ use std::sync::RwLock;
 use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
-use ng_oxigraph::oxrdf::graph;
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
@@ -106,15 +105,24 @@ impl Verifier {
             let (inserts, removes, gs_to_fetch) =
                 filter_quads_for_scope_and_page_bounds(&orm_subscription, inserts, removes);
 
+            // If none of the quads has a predicate that is used in the schema, we can skip.
+            if !orm_subscription.touches_schema(&inserts)
+                && !orm_subscription.touches_schema(&removes)
+            {
+                self.orm_subscriptions
+                    .insert(subscription_id, orm_subscription);
+                continue;
+            }
+
             // If we have an ordered page, it might be that new quads arrived whose value is within the window bounds.
             // In that case we have to add the graph+subject to the tormo and query the related quads.
             let inserts = if gs_to_fetch.len() > 0 {
-                let graphs = gs_to_fetch
-                    .iter()
-                    .map(|gs_key| gs_key.0.clone())
-                    .collect::<HashSet<_>>()
-                    .into_iter()
-                    .collect();
+                let graphs = QueryScope::from(
+                    &gs_to_fetch
+                        .iter()
+                        .map(|gs_key| gs_key.0.clone())
+                        .collect::<Vec<String>>(),
+                );
                 let subjects = gs_to_fetch
                     .iter()
                     .map(|gs_key| gs_key.1.clone())
@@ -128,6 +136,7 @@ impl Verifier {
                         &orm_subscription.shape_type.shape,
                         Some(&subjects),
                     )
+                    .map(|fetched| fetched.quads)
                     .unwrap_or_else(|e| {
                         log_err!(
                             "Error occurred when processing changes for subscription {origin_subscription_id} while querying new items from quads in window: {:?}",
@@ -157,14 +166,24 @@ impl Verifier {
                 &mut orm_changes,
                 false,
             );
-            if let Err(error) = res {
-                log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
-            }
+            // For materialization, objects that just became visible and whose diff did not include all data
+            // were re-queried and the changes available here.
+            let materialization_overlay = match res {
+                Ok(overlay) => overlay,
+                Err(error) => {
+                    log_err!("Error occurred when processing changes for subscription {origin_subscription_id}: {:?}", error);
+                    HashMap::new()
+                }
+            };
 
             // If order_by (and possibly pagination) is active: Updates the orm_subscription ordering metadata
             // and create order-related patches in that process.
             let root_order_patches = if orm_subscription.config.order_by.is_some() {
-                root_patches_for_ordered(&mut orm_subscription, &orm_changes)
+                root_patches_for_ordered(
+                    &mut orm_subscription,
+                    &orm_changes,
+                    &materialization_overlay,
+                )
             } else {
                 Vec::new()
             };
@@ -172,7 +191,11 @@ impl Verifier {
             // Create & send patches if the subscription's session is different to the origin's session.
             if origin_subscription_id != subscription_id {
                 let root_unordered_patches = if orm_subscription.config.order_by.is_none() {
-                    root_patches_for_non_ordered(&orm_subscription, &orm_changes)
+                    root_patches_for_non_ordered(
+                        &orm_subscription,
+                        &orm_changes,
+                        &materialization_overlay,
+                    )
                 } else {
                     Vec::new()
                 };
@@ -213,22 +236,26 @@ impl Verifier {
     ) -> bool {
         // TODO: Also check page
 
-        // For each scope in graph...
-        for scope in orm_subscription.graph_scope.iter() {
-            let scope_nuri = NuriV0::new_from(scope).unwrap_or_else(|_| NuriV0::new_empty());
-            if scope_nuri.target == NuriTargetV0::UserSite
-                || scope_nuri
-                    .overlay
-                    .as_ref()
-                    .map_or(false, |ol| overlaylink == ol)
-                || scope_nuri.target == NuriTargetV0::Repo(repo_id)
-                // Listens to all (entire user site).
-                || scope == "did:ng:i"
-            {
-                return true;
+        match &orm_subscription.graph_scope {
+            QueryScope::All => true,
+            QueryScope::None => false,
+            QueryScope::Graphs(graphs) => {
+                for graph in graphs {
+                    let scope_nuri =
+                        NuriV0::new_from(&graph).unwrap_or_else(|_| NuriV0::new_empty());
+                    if scope_nuri
+                        .overlay
+                        .as_ref()
+                        .map_or(false, |ol| overlaylink == ol)
+                        || scope_nuri.target == NuriTargetV0::Repo(repo_id)
+                    {
+                        return true;
+                    }
+                }
+                // Nothing matched.
+                false
             }
         }
-        return false;
     }
 }
 
@@ -275,7 +302,7 @@ fn path_segment_to_parent(
 /// The function recurses from child to parents down to a root tracked orm object.
 /// If multiple parents exist, it adds separate patches for each.
 /// Does not create paths to invalid parents.
-fn get_paths_for_tormo(
+pub(crate) fn get_paths_for_tormo(
     tormo: &TrackedOrmObject,
     ordered_tormos: Option<(
         &OrderByConfig,
@@ -577,6 +604,7 @@ fn materialize_orm_object_from_tormo(tormo: &TrackedOrmObject, all_changes: &Orm
 fn root_patches_for_ordered(
     orm_subscription: &mut OrmSubscription,
     orm_changes: &OrmChanges,
+    materialization_overlay: &OrmChanges,
 ) -> Vec<PrelimOrmPatch> {
     let Some(order_by_conf) = orm_subscription.config.order_by.as_ref() else {
         return Vec::new();
@@ -697,7 +725,7 @@ fn root_patches_for_ordered(
             return false;
         }
 
-        at_end || at_end
+        at_start || at_end
     };
 
     // Create JSON patches from change_ops and update ordering.tormos.
@@ -716,6 +744,7 @@ fn root_patches_for_ordered(
                     ordering.tormos.remove(&new_key);
                     out_of_bounds_tormos.push((graph_iri.clone(), subject_iri.clone()));
                 } else {
+                    // Get change object (first check overlay, then regular changes).
                     let change = orm_changes
                         .get(&root_shape_iri)
                         .unwrap()
@@ -723,7 +752,14 @@ fn root_patches_for_ordered(
                         .unwrap()
                         .get(subject_iri)
                         .unwrap();
-                    let materialized = materialize_orm_object(change, false, orm_changes);
+                    let (value_change, all_changes) = materialization_overlay
+                        .get(&root_shape_iri)
+                        .and_then(|graph_changes| graph_changes.get(graph_iri))
+                        .and_then(|subject_changes| subject_changes.get(subject_iri))
+                        .map(|overlay_change| (overlay_change, materialization_overlay))
+                        .unwrap_or((&change, orm_changes));
+
+                    let materialized = materialize_orm_object(value_change, false, all_changes);
 
                     patches.push(PrelimOrmPatch {
                         op: OrmPatchOp::add,
@@ -802,6 +838,7 @@ fn root_patches_for_ordered(
 fn root_patches_for_non_ordered(
     orm_subscription: &OrmSubscription,
     orm_changes: &OrmChanges,
+    materialization_overlay: &OrmChanges,
 ) -> Vec<OrmPatch> {
     let mut patches: Vec<OrmPatch> = Vec::new();
     let root_shape_iri = &orm_subscription.shape_type.shape;
@@ -809,8 +846,8 @@ fn root_patches_for_non_ordered(
     // Collect the patch changes to be done.
     let graph_changes = orm_changes.get(root_shape_iri);
     if let Some(graph_changes) = graph_changes {
-        for (_graph_iri, subject_changes) in graph_changes.iter() {
-            for (_subject_iri, change) in subject_changes {
+        for (graph_iri, subject_changes) in graph_changes.iter() {
+            for (subject_iri, change) in subject_changes {
                 let tracked_orm_object_arc = &change.tracked_orm_object;
 
                 let arc2 = Arc::clone(&tracked_orm_object_arc);
@@ -834,7 +871,15 @@ fn root_patches_for_non_ordered(
                 if change.prev_valid != TrackedOrmObjectValidity::Valid
                     && tormo.valid == TrackedOrmObjectValidity::Valid
                 {
-                    let materialized_root = materialize_orm_object(change, true, orm_changes);
+                    // Get change object (first check overlay, then regular changes).
+                    let (value_change, all_changes) = materialization_overlay
+                        .get(root_shape_iri)
+                        .and_then(|graph_changes| graph_changes.get(graph_iri))
+                        .and_then(|subject_changes| subject_changes.get(subject_iri))
+                        .map(|change| (change, materialization_overlay))
+                        .unwrap_or((&change, orm_changes));
+
+                    let materialized_root = materialize_orm_object(value_change, true, all_changes);
 
                     patches.push(OrmPatch {
                         op: OrmPatchOp::add,
@@ -872,7 +917,6 @@ fn filter_quads_for_scope_and_page_bounds<'a>(
         // Relevant subjects consist of all tormos plus the explicit subject scope.
         let subjects_in_scope: HashSet<String> =
             subscription.subject_scope.iter().cloned().collect();
-        let graphs_in_scope: HashSet<String> = subscription.graph_scope.iter().cloned().collect();
 
         let page_window_bounds = subscription.get_page_window_bounds();
 
@@ -891,8 +935,7 @@ fn filter_quads_for_scope_and_page_bounds<'a>(
             }
 
             // Are we tracking this scope explicitly?
-            let is_in_graph_scope =
-                graphs_in_scope.is_empty() || graphs_in_scope.contains(&graph_subject.0);
+            let is_in_graph_scope = subscription.graph_scope.covers(&graph_subject.0);
             let is_in_subject_scope =
                 subjects_in_scope.is_empty() || subjects_in_scope.contains(&graph_subject.1);
             if !is_in_subject_scope && !is_in_graph_scope {

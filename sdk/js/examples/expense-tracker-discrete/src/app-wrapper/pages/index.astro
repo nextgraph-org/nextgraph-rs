@@ -7,6 +7,7 @@ import VueRoot from "../components/VueRoot.vue";
 import ReactRoot from "../components/ReactRoot";
 import SvelteRoot from "../components/SvelteRoot.svelte";
 import Svelte4Root from "../components/Svelte4Root.svelte";
+import SolidJsRoot from "../components/SolidJsRoot"
 
 ---
 
@@ -59,5 +60,12 @@ import Svelte4Root from "../components/Svelte4Root.svelte";
                 <Svelte4Root client:only="svelte4" />
             </Highlight>
         </div>
+
+        <div class="framework-card">
+            <Highlight solidjs>
+                <SolidJsRoot client:only="solid-js" />
+            </Highlight>
+        </div>
+
     </div>
 </Layout>

@@ -38,7 +38,7 @@ export interface UseDeepSignalResult<T> extends Readable<T> {
  * If modifications of the object are made from somewhere else, the component
  * is rerendered as well.
  *
- * @param object The object that should become reactive
+ * @param object The object that should become reactive.
  * @param options Options passed to {@link deepSignal}.
  * @returns A store for using the deepSignal object in svelte.
  */

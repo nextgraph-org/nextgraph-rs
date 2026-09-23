@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{doc_create, doc_sparql_select, orm_update};
+use crate::local_broker::{doc_create, doc_sparql_select, orm_update, test_remove_repo_write_cap};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
     assert_has_triples, assert_json_eq, assert_orm_json_eq, augment_expected_with_graph_fields,
@@ -18,6 +18,7 @@ use crate::tests::{
 };
 use async_std::future::timeout;
 use async_std::stream::StreamExt;
+use futures::channel::mpsc::UnboundedReceiver;
 use ng_net::app_protocol::{AppResponse, AppResponseV0};
 use ng_net::orm::{
     BasicType, OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate,
@@ -121,6 +122,18 @@ async fn test_orm_apply_patches() {
 
     // Test 25: Remove root object
     test_remove_root_object(session_id).await;
+
+    // Tests 26: Revert patches through missing permissions
+    test_revert_permissions_create_root_object(session_id).await;
+    test_revert_permissions_remove_root_object(session_id).await;
+    test_revert_permissions_literals_root(session_id).await;
+    test_revert_permissions_create_nested_single(session_id).await;
+    test_revert_permissions_create_nested_multi(session_id).await;
+    test_revert_permissions_remove_linked_child(session_id).await;
+    test_revert_permissions_cross_graph_nested(session_id).await;
+
+    // Test 27: Revert patches for an unparsable graph nuri
+    test_revert_invalid_graph_nuri(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -130,11 +143,11 @@ async fn test_patch_add_single_literal(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:person1> a ex:Person .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:person1> a ex:Person .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -144,6 +157,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -246,6 +260,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -368,6 +383,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -504,6 +520,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -604,6 +621,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -714,6 +732,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -760,6 +779,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -903,6 +923,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     schema.insert(
         "http://example-test_patch_multilevel_nested.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-test_patch_multilevel_nested.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -952,6 +973,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     schema.insert(
         "http://example-test_patch_multilevel_nested.org/CompanyShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-test_patch_multilevel_nested.org/CompanyShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1014,6 +1036,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
     schema.insert(
         "http://example-test_patch_multilevel_nested.org/AddressShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-test_patch_multilevel_nested.org/AddressShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1025,8 +1048,7 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
                         literals: Some(vec![BasicType::Str(
-                            "http://example-test_patch_multilevel_nested.org/AddressShape"
-                                .to_string(),
+                            "http://example-test_patch_multilevel_nested.org/Address".to_string(),
                         )]),
                         shape: None,
                     }],
@@ -1170,6 +1192,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1225,7 +1248,7 @@ INSERT DATA {
     // Apply ORM patch: Create a new object
     let root = root_path(
         &doc_nuri,
-        "urn:test:person8",
+        "urn:test:readOnlyPerson2",
         "http://example.org/PersonShape",
     );
     let diff = vec![
@@ -1298,7 +1321,7 @@ INSERT DATA {
     .expect("SPARQL query failed");
 
     let has_name = quads.iter().any(|q| {
-        q.subject.to_string() == "<urn:test:person8>"
+        q.subject.to_string() == "<urn:test:readOnlyPerson2>"
             && q.predicate.as_str() == "http://example.org/name"
             && q.object.to_string().contains("Alice")
             && quad_has_graph(q, &doc_nuri)
@@ -1353,6 +1376,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1399,6 +1423,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1549,6 +1574,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1595,6 +1621,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1746,6 +1773,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1792,6 +1820,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -1946,6 +1975,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2028,7 +2058,7 @@ INSERT DATA {
         let mut expected = json!([
             {
                 "op": "remove",
-                "value": {},
+                "valType": "set",
                 "path": root,
             },
         ]);
@@ -2063,6 +2093,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2098,6 +2129,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2191,6 +2223,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2225,6 +2258,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2348,6 +2382,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2429,6 +2464,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2644,6 +2680,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2737,6 +2774,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2860,6 +2898,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2955,6 +2994,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -2989,6 +3029,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3073,6 +3114,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3107,6 +3149,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
     schema.insert(
         "http://example.org/Address".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/Address".to_string(),
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -3187,6 +3230,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3241,9 +3285,12 @@ INSERT DATA {
         ..Default::default()
     }];
 
-    orm_update(subscription_id, invalid_diff, session_id)
-        .await
-        .expect("orm_update");
+    // The invalid patch is reverted, which is reported as an error.
+    let update_result = orm_update(subscription_id, invalid_diff, session_id).await;
+    assert!(
+        update_result.is_err(),
+        "Expected error for reverted invalid patch"
+    );
 
     // Wait for revert patch from the receiver.
     // For single-valued predicates with an existing value, the revert should be
@@ -3300,6 +3347,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3355,9 +3403,12 @@ INSERT DATA {
         ..Default::default()
     }];
 
-    orm_update(subscription_id, mixed_diff, session_id)
-        .await
-        .expect("orm_update should not fail");
+    // The invalid patch is reverted, which is reported as an error.
+    let update_result = orm_update(subscription_id, mixed_diff, session_id).await;
+    assert!(
+        update_result.is_err(),
+        "Expected error for reverted invalid patch"
+    );
 
     // Wait for revert patch for the invalid value only
     let revert_received = timeout(Duration::from_secs(1), async {
@@ -3410,6 +3461,7 @@ INSERT DATA {
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example.org/PersonShape".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3524,6 +3576,7 @@ INSERT DATA {
     schema.insert(
         "http://example-non-root-multi.org/Person".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-non-root-multi.org/Person".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3570,6 +3623,7 @@ INSERT DATA {
     schema.insert(
         "http://example-non-root-multi.org/Company".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-non-root-multi.org/Company".to_string(),
             predicates: vec![
                 Arc::new(OrmSchemaPredicate {
@@ -3604,6 +3658,7 @@ INSERT DATA {
     schema.insert(
         "http://example-non-root-multi.org/Office".to_string(),
         Arc::new(OrmSchemaShape {
+            is_closed: false,
             iri: "http://example-non-root-multi.org/Office".to_string(),
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -4334,4 +4389,941 @@ async fn test_remove_root_object(session_id: u64) {
     assert!(quads.len() == 3);
 
     log_info!("✓ Test passed: Removing root object");
+}
+
+// ================== Revert-on-missing-permissions tests ==================
+//
+// These tests verify the revert patches sent to the frontend when parts of an
+// update are rejected because the user has no write permission on the target
+// graph (see `send_revert_quads` in the verifier).
+
+/// Schema shared by the revert tests: a person with literal predicates and
+/// nested single-valued (address) and multi-valued (contacts) AddressShape objects.
+fn create_revert_test_schema() -> OrmShapeType {
+    fn pred(
+        iri: &str,
+        readable: &str,
+        min: i32,
+        max: i32,
+        data_type: OrmSchemaDataType,
+    ) -> Arc<OrmSchemaPredicate> {
+        Arc::new(OrmSchemaPredicate {
+            iri: iri.to_string(),
+            extra: Some(false),
+            readablePredicate: readable.to_string(),
+            minCardinality: min,
+            maxCardinality: max,
+            dataTypes: vec![data_type],
+        })
+    }
+    fn type_pred(class_iri: &str) -> Arc<OrmSchemaPredicate> {
+        pred(
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "type",
+            1,
+            1,
+            OrmSchemaDataType {
+                valType: OrmSchemaValType::iri,
+                literals: Some(vec![BasicType::Str(class_iri.to_string())]),
+                shape: None,
+            },
+        )
+    }
+    let string_type = OrmSchemaDataType {
+        valType: OrmSchemaValType::string,
+        literals: None,
+        shape: None,
+    };
+    let iri_type = OrmSchemaDataType {
+        valType: OrmSchemaValType::iri,
+        literals: None,
+        shape: None,
+    };
+    let address_shape_type = OrmSchemaDataType {
+        valType: OrmSchemaValType::shape,
+        literals: None,
+        shape: Some("did:ng:z:AddressShape".to_string()),
+    };
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:PersonShape".to_string(),
+        Arc::new(OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:PersonShape".to_string(),
+            predicates: vec![
+                type_pred("did:ng:z:Person"),
+                pred("did:ng:z:name", "name", 0, 1, string_type.clone()),
+                pred("did:ng:z:friend", "friend", 0, -1, iri_type),
+                pred(
+                    "did:ng:z:address",
+                    "address",
+                    0,
+                    1,
+                    address_shape_type.clone(),
+                ),
+                pred(
+                    "did:ng:z:secondAddress",
+                    "secondAddress",
+                    0,
+                    1,
+                    address_shape_type.clone(),
+                ),
+                // NOTE: contacts deliberately shares AddressShape with the single-valued
+                // address predicate. This is a regression test for link_to_tracking_parents:
+                // children must only be linked under the predicate that references them.
+                pred("did:ng:z:contacts", "contacts", 0, -1, address_shape_type),
+            ],
+        }),
+    );
+    schema.insert(
+        "did:ng:z:AddressShape".to_string(),
+        Arc::new(OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:AddressShape".to_string(),
+            predicates: vec![
+                type_pred("did:ng:z:Address"),
+                pred("did:ng:z:street", "street", 0, 1, string_type.clone()),
+                pred("did:ng:z:phone", "phone", 0, -1, string_type.clone()),
+            ],
+        }),
+    );
+
+    OrmShapeType {
+        shape: "did:ng:z:PersonShape".to_string(),
+        schema,
+    }
+}
+
+/// Creates a subscription over a read-only and a writable document.
+/// The read-only document has a nested address `did:ng:z:readOnlyAddress` and contact `did:ng:z:readOnlyContact`.
+/// The writable document has a person `ex:writablePerson` with no address or contact.
+async fn setup_revert_test(
+    session_id: u64,
+    extra_graph_nuris: &[String],
+) -> (
+    String,
+    String,
+    UnboundedReceiver<AppResponse>,
+    Box<dyn FnOnce() + Send + Sync>,
+    u64,
+) {
+    let read_only_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                ex:readOnlyPerson a ex:Person ;
+                    ex:name "Reed" ;
+                    ex:friend <did:ng:z:Fritz> ;
+                    ex:address ex:readOnlyAddress ;
+                    ex:contacts ex:readOnlyContact .
+                ex:readOnlyAddress a ex:Address ;
+                    ex:street "Main St 1" ;
+                    ex:phone "+12345", "+54321" .
+                ex:readOnlyContact a ex:Address ;
+                    ex:street "Contact St 9" .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    // A second document that stays writable (for the cross-graph scenario).
+    let writable_doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                ex:writablePerson a ex:Person ;
+                    ex:name "Wright" .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    let (receiver, cancel_fn, subscription_id, _initial) = create_orm_connection(
+        vec![read_only_doc_nuri.clone(), writable_doc_nuri.clone()]
+            .iter()
+            .chain(extra_graph_nuris)
+            .cloned()
+            .collect(),
+        vec![],
+        create_revert_test_schema(),
+        session_id,
+    )
+    .await;
+
+    test_remove_repo_write_cap(session_id, read_only_doc_nuri.clone())
+        .await
+        .expect("failed to remove repo write capability");
+
+    (
+        read_only_doc_nuri,
+        writable_doc_nuri,
+        receiver,
+        cancel_fn,
+        subscription_id,
+    )
+}
+
+/// Applies the patches, expects the permission error, and returns the received revert patches.
+async fn orm_update_expect_revert(
+    subscription_id: u64,
+    diff: Vec<OrmPatch>,
+    session_id: u64,
+    receiver: &mut UnboundedReceiver<AppResponse>,
+) -> Vec<OrmPatch> {
+    let update_result = orm_update(subscription_id, diff, session_id).await;
+    assert!(update_result.is_err(), "Expected permission error");
+    let error = update_result.unwrap_err().to_string();
+    assert!(
+        error.contains("permission") || error.contains("reverted"),
+        "Expected permission-related revert error, got: {error}"
+    );
+    await_graph_patches(receiver).await
+}
+
+/// Asserts that the read-only document still holds exactly its initial triples.
+async fn assert_readonly_doc_unchanged(session_id: u64, doc_nuri: &String) {
+    let expected: Vec<(&str, &str, &str)> = vec![
+        (
+            "did:ng:z:readOnlyPerson",
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "did:ng:z:Person",
+        ),
+        ("did:ng:z:readOnlyPerson", "did:ng:z:name", "Reed"),
+        (
+            "did:ng:z:readOnlyPerson",
+            "did:ng:z:friend",
+            "did:ng:z:Fritz",
+        ),
+        (
+            "did:ng:z:readOnlyPerson",
+            "did:ng:z:address",
+            "did:ng:z:readOnlyAddress",
+        ),
+        (
+            "did:ng:z:readOnlyPerson",
+            "did:ng:z:contacts",
+            "did:ng:z:readOnlyContact",
+        ),
+        ("did:ng:z:readOnlyAddress", "did:ng:z:street", "Main St 1"),
+        (
+            "did:ng:z:readOnlyContact",
+            "did:ng:z:street",
+            "Contact St 9",
+        ),
+        ("did:ng:z:readOnlyAddress", "did:ng:z:phone", "+12345"),
+        ("did:ng:z:readOnlyAddress", "did:ng:z:phone", "+54321"),
+    ];
+    let quads = assert_has_triples(session_id, expected, doc_nuri).await;
+    // 5 readOnlyPerson + 2 readOnlyAddress + 4 readOnlyContact triples and nothing else.
+    assert_eq!(
+        quads.len(),
+        11,
+        "Read-only graph must be unchanged, got:\n{}",
+        quads_to_string(&quads)
+    );
+}
+
+/// A new root object created on a read-only graph is removed entirely.
+async fn test_revert_permissions_create_root_object(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert root object creation (missing permissions) ===\n");
+    let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let root = root_path(
+        &read_only_nuri,
+        "did:ng:z:readOnlyPerson2",
+        "did:ng:z:PersonShape",
+    );
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: root.clone(),
+            value: Some(json!({})),
+            ..Default::default()
+        },
+        OrmPatch {
+            // This does nothing as it does not represent a triple.
+            // A subject is created when inserting data.
+            op: OrmPatchOp::add,
+            path: format!("{}/@graph", root),
+            value: Some(json!(read_only_nuri)),
+            ..Default::default()
+        },
+        OrmPatch {
+            // This does nothing as it does not represent a triple.
+            // A subject is created when inserting data.
+            op: OrmPatchOp::add,
+            path: format!("{}/@id", root),
+            value: Some(json!("did:ng:z:readOnlyPerson2")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/type", root),
+            value: Some(json!("did:ng:z:Person")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/name", root),
+            value: Some(json!("Alice")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/friend", root),
+            value: Some(json!([])),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/friend", root),
+            valType: Some(OrmPatchType::set),
+            value: Some(json!(["did:ng:z:Bob"])),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/friend", root),
+            valType: Some(OrmPatchType::set),
+            value: Some(json!(["did:ng:z:Craig"])),
+            ..Default::default()
+        },
+    ];
+
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    // The newly created object is not tracked, so a single root-level remove is expected.
+    let expected = json!([
+        {
+            "op": "remove",
+            "valType": "set",
+            "path": root,
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    assert_readonly_doc_unchanged(session_id, &read_only_nuri).await;
+    log_info!("✓ Test passed: Revert root object creation");
+}
+
+/// A new root object created on a read-only graph is removed entirely.
+async fn test_revert_permissions_remove_root_object(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert root object removal (missing permissions) ===\n");
+    let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let read_only_person_root = root_path(
+        &read_only_nuri,
+        "did:ng:z:readOnlyPerson",
+        "did:ng:z:PersonShape",
+    );
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: read_only_person_root.clone(),
+        ..Default::default()
+    }];
+
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    // The store was untouched, so the whole object is re-added in full.
+    let mut expected = json!([
+        {
+            "op": "add",
+            "valType": "set",
+            "path": read_only_person_root,
+            "value": {
+                "@id": "did:ng:z:readOnlyPerson",
+                "@graph": read_only_nuri,
+                "type": "did:ng:z:Person",
+                "name": "Reed",
+                "friend": ["did:ng:z:Fritz"],
+                "address": {
+                    "@id": "did:ng:z:readOnlyAddress",
+                    "@graph": read_only_nuri,
+                    "type": "did:ng:z:Address",
+                    "street": "Main St 1",
+                    "phone": ["+12345", "+54321"],
+                },
+                "contacts": {
+                    composite_key(&read_only_nuri, "did:ng:z:readOnlyContact"): {
+                        "@id": "did:ng:z:readOnlyContact",
+                        "@graph": read_only_nuri,
+                        "type": "did:ng:z:Address",
+                        "street": "Contact St 9",
+                        "phone": [],
+                    },
+                },
+            },
+        },
+    ]);
+
+    assert_orm_json_eq(&mut expected, &mut json!(received));
+
+    assert_readonly_doc_unchanged(session_id, &read_only_nuri).await;
+    log_info!("✓ Test passed: Revert root object removal");
+}
+
+/// Literal modifications on a read-only root object are rolled back.
+async fn test_revert_permissions_literals_root(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert literal modifications (missing permissions) ===\n");
+    let (doc_nuri, _doc2_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let read_only_person_root =
+        root_path(&doc_nuri, "did:ng:z:readOnlyPerson", "did:ng:z:PersonShape");
+
+    // ---
+    // Overwrite a single-valued literal -> the previous value must be restored.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{read_only_person_root}/name"),
+        value: Some(json!("Inga")),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "add",
+            "path": format!("{read_only_person_root}/name"),
+            "value": "Reed",
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    // ---
+    // Remove a single-valued literal -> the removed value must be added back.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{read_only_person_root}/name"),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "add",
+            "path": format!("{read_only_person_root}/name"),
+            "value": "Reed",
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    // ---
+    // Add a value to a multi-valued literal -> the added value must be removed again.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{read_only_person_root}/friend"),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!(["did:ng:z:Bob"])),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "remove",
+            "valType": "set",
+            "path": format!("{read_only_person_root}/friend"),
+            "value": ["did:ng:z:Bob"],
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    // ---
+    // Remove a value from a multi-valued literal -> the removed value must be added back.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{read_only_person_root}/friend"),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!(["did:ng:z:Fritz"])),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "add",
+            "valType": "set",
+            "path": format!("{read_only_person_root}/friend"),
+            "value": ["did:ng:z:Fritz"],
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    assert_readonly_doc_unchanged(session_id, &doc_nuri).await;
+    log_info!("✓ Test passed: Revert literal modifications");
+}
+
+/// Literal modifications on a read-only nested object are rolled back.
+async fn test_revert_permissions_literals_nested(session_id: u64) {
+    log_info!(
+        "\n\n=== TEST: Revert literal modifications in nested object (missing permissions) ===\n"
+    );
+    let (doc_nuri, _doc2_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let read_only_person_root =
+        root_path(&doc_nuri, "did:ng:z:readOnlyPerson", "did:ng:z:PersonShape");
+
+    // ---
+    // Overwrite a single-valued literal -> the previous value must be restored.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{read_only_person_root}/address/street"),
+        value: Some(json!("New St 42")),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "add",
+            "path": format!("{read_only_person_root}/address/street"),
+            "value": "Main St 1",
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    // ---
+    // Remove a single-valued literal -> the removed value must be added back.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{read_only_person_root}/address/street"),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "add",
+            "path": format!("{read_only_person_root}/address/street"),
+            "value": "Contact St 9",
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    // ---
+    // Add a value to a multi-valued literal -> the added value must be removed again.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{read_only_person_root}/address/phone"),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!(["+00000"])),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "remove",
+            "valType": "set",
+            "path": format!("{read_only_person_root}/address/phone"),
+            "value": ["+00000"],
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    // ---
+    // Remove a value from a multi-valued literal -> the removed value must be added back.
+
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!("{read_only_person_root}/address/phone"),
+        valType: Some(OrmPatchType::set),
+        value: Some(json!(["+12345"])),
+        ..Default::default()
+    }];
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "add",
+            "valType": "set",
+            "path": format!("{read_only_person_root}/address/street"),
+            "value": ["+12345"],
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    assert_readonly_doc_unchanged(session_id, &doc_nuri).await;
+    log_info!("✓ Revert literal modifications in nested object");
+}
+
+/// An new nested single-valued object on a read-only graph is removed again.
+async fn test_revert_permissions_create_nested_single(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert nested single object creation (missing permissions) ===\n");
+    let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let read_only_person_root = root_path(
+        &read_only_nuri,
+        "did:ng:z:readOnlyPerson",
+        "did:ng:z:PersonShape",
+    );
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{read_only_person_root}/secondAddress/@id"),
+            value: Some(json!("did:ng:z:unwritableSecondAddress")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{read_only_person_root}/secondAddress/@graph"),
+            value: Some(json!(read_only_nuri)),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{read_only_person_root}/secondAddress/type"),
+            value: Some(json!("did:ng:z:Address")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{read_only_person_root}/secondAddress/street"),
+            value: Some(json!("Unwritable St 2")),
+            ..Default::default()
+        },
+    ];
+
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "remove",
+            "path": format!("{read_only_person_root}/secondAddress"),
+        },
+
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    assert_readonly_doc_unchanged(session_id, &read_only_nuri).await;
+    log_info!("✓ Test passed: Revert nested single object creation");
+}
+
+/// A nested multi-valued object on a read-only graph is removed again.
+async fn test_revert_permissions_create_nested_multi(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert nested multi object creation (missing permissions) ===\n");
+    let (read_only_nuri, _writable_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let read_only_person_root = root_path(
+        &read_only_nuri,
+        "did:ng:z:readOnlyPerson",
+        "did:ng:z:PersonShape",
+    );
+    let child = composite_key(&read_only_nuri, "did:ng:z:contact8");
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/contacts/{}", read_only_person_root, child),
+            value: Some(json!({})),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/contacts/{}/@graph", read_only_person_root, child),
+            value: Some(json!(read_only_nuri)),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/contacts/{}/@id", read_only_person_root, child),
+            value: Some(json!("did:ng:z:contact8")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/contacts/{}/type", read_only_person_root, child),
+            value: Some(json!("did:ng:z:Address")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/contacts/{}/street", read_only_person_root, child),
+            value: Some(json!("Nowhere Rd 3")),
+            ..Default::default()
+        },
+    ];
+
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "remove",
+            "valType": "set",
+            "path": format!("{}/contacts", read_only_person_root),
+            "value": {"@id": "did:ng:z:contact8"},
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    assert_readonly_doc_unchanged(session_id, &read_only_nuri).await;
+    log_info!("✓ Test passed: Revert nested multi object creation");
+}
+
+/// A removed multi-valued child object on a read-only graph is added back.
+async fn test_revert_permissions_remove_linked_child(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert linked child removal (missing permissions) ===\n");
+    let (read_only_doc_nuri, _writable_doc_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let read_only_person_root = root_path(
+        &read_only_doc_nuri,
+        "did:ng:z:readOnlyPerson",
+        "did:ng:z:PersonShape",
+    );
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
+        path: format!(
+            "{}/contacts/{}",
+            read_only_person_root,
+            composite_key(&read_only_doc_nuri, "did:ng:z:readOnlyContact")
+        ),
+        ..Default::default()
+    }];
+
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "add",
+            "valType": "set",
+            "path": format!("{}/contacts", read_only_person_root),
+            "value": {
+                "@id": "did:ng:z:readOnlyContact",
+                "@graph": read_only_doc_nuri,
+                "type": "did:ng:z:Address",
+                "street": "Contact St 9",
+                "phone": [],
+            },
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    assert_readonly_doc_unchanged(session_id, &read_only_doc_nuri).await;
+    log_info!("✓ Test passed: Revert linked child removal");
+}
+
+/// A nested object created in the read-only graph but linked from a parent in the
+/// *writable* graph: the link is applied while the child's quads are reverted.
+/// The nested object must be removed from the parent. A possible re-add through the
+/// materialized read-only object happens only after process_changes has processed the quads
+/// that actually made it into the database.
+async fn test_revert_permissions_cross_graph_nested(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert cross-graph nested creation (missing permissions) ===\n");
+    let (read_only_doc_nuri, writable_doc_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![]).await;
+
+    let writable_root = root_path(
+        &writable_doc_nuri,
+        "did:ng:z:writablePerson",
+        "did:ng:z:PersonShape",
+    );
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/@id", writable_root),
+            value: Some(json!("did:ng:z:writableAddress2")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/@graph", writable_root),
+            value: Some(json!(read_only_doc_nuri)),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/type", writable_root),
+            value: Some(json!("did:ng:z:Address")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/street", writable_root),
+            value: Some(json!("Cross St 5")),
+            ..Default::default()
+        },
+    ];
+
+    let received = orm_update_expect_revert(subscription_id, diff, session_id, &mut receiver).await;
+    let expected = json!([
+        {
+            "op": "remove",
+            "path": format!("{}/address", writable_root),
+        },
+    ]);
+    assert_json_eq(&expected, &json!(received));
+
+    // A patch for adding the object or invalidating it completely is created only after
+    // process_changes has processed the quads that made it into the database.
+
+    assert_readonly_doc_unchanged(session_id, &read_only_doc_nuri).await;
+    log_info!("✓ Test passed: Revert cross-graph nested creation");
+}
+
+/// An update whose graph nuri cannot be parsed is not applied at all
+/// and all of its patches are reverted.
+async fn test_revert_invalid_graph_nuri(session_id: u64) {
+    log_info!("\n\n=== TEST: Revert patches for invalid graph nuri ===\n");
+    let writable_nuri2 = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                ex:writablePerson2 a ex:Person ;
+                    ex:name "Wright2" ;
+                    ex:friend <did:ng:z:Freddy> ;
+                    ex:address ex:writableAddress2 ;
+                    ex:contacts ex:writableContact2 .
+                ex:writableAddress2 a ex:Address ;
+                    ex:street "Main St 2" ;
+                    ex:phone "+98765", "+56789" .
+                ex:writableContact2 a ex:Address ;
+                    ex:street "Contact St 15" .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    let (read_only_nuri, writable_nuri, mut receiver, _cancel_fn, subscription_id) =
+        setup_revert_test(session_id, &vec![writable_nuri2.clone()]).await;
+
+    let invalid_root = root_path(
+        "urn:test:invalidGraph", // Not a NURI.
+        "did:ng:z:invalidPerson",
+        "did:ng:z:PersonShape",
+    );
+    let writable_root = root_path(
+        &writable_nuri,
+        "did:ng:z:writablePerson",
+        "did:ng:z:PersonShape",
+    );
+    let writable_root2 = root_path(
+        &writable_nuri2,
+        "did:ng:z:writablePerson2",
+        "did:ng:z:PersonShape",
+    );
+
+    let diff = vec![
+        // Create a new root object on a graph whose nuri cannot be parsed.
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: invalid_root.clone(),
+            value: Some(json!({})),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{invalid_root}/@id"),
+            value: Some(json!("did:ng:z:invalidPerson")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{invalid_root}/@graph"),
+            value: Some(json!("urn:test:invalidGraph")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{invalid_root}/type"),
+            value: Some(json!("did:ng:z:Person")),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{invalid_root}/name"),
+            value: Some(json!("Ivan")),
+            ..Default::default()
+        },
+        // Modify a tracked object in the same update.
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{writable_root}/name"),
+            value: Some(json!("Walter")),
+            ..Default::default()
+        },
+        // Remove another single-value object.
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!("{writable_root2}/address"),
+            ..Default::default()
+        },
+        // Remove another multi-value object.
+        OrmPatch {
+            op: OrmPatchOp::remove,
+            path: format!(
+                "{writable_root2}/contacts/{}",
+                composite_key(&writable_nuri2, "did:ng:z:writableContact2")
+            ),
+            ..Default::default()
+        },
+    ];
+
+    let update_result = orm_update(subscription_id, diff, session_id).await;
+    assert!(update_result.is_err(), "Expected invalid nuri error");
+    let error = update_result.unwrap_err().to_string();
+    assert!(
+        error.contains("Cannot parse graph nuri") && error.contains("reverted"),
+        "Expected invalid graph nuri revert error, got: {error}"
+    );
+
+    let received = await_graph_patches(&mut receiver).await;
+    let mut expected = json!([
+        // The newly created object is not tracked, so it is removed entirely.
+        {
+            "op": "remove",
+            "valType": "set",
+            "path": invalid_root,
+        },
+        // A tracked object's previous literal is restored.
+        {
+            "op": "add",
+            "path": format!("{writable_root}/name"),
+            "value": "Wright",
+        },
+        // Previous single-value object is restored.
+        {
+            "op": "add",
+            "path": format!("{writable_root2}/address"),
+            "value": {
+                "@id": "did:ng:z:writableAddress2",
+                "@graph": writable_nuri2,
+                "type": "did:ng:z:Address",
+                "street": "Main St 2",
+                "phone": ["+56789", "+98765"],
+            },
+        },
+        // Previous multi-value object is restored
+        {
+            "op": "add",
+            "path": format!("{writable_root2}/contacts/{}", composite_key(&writable_nuri2, "did:ng:z:writableContact2")),
+            "valType": "set",
+            "value": {
+                "@id": "did:ng:z:writableContact2",
+                "@graph": writable_nuri2,
+                "type": "did:ng:z:Address",
+                "street": "Contact St 15",
+                "phone": [],
+            },
+        },
+
+    ]);
+    assert_orm_json_eq(&mut expected, &mut json!(received));
+
+    // Nothing was applied to either document.
+    assert_readonly_doc_unchanged(session_id, &read_only_nuri).await;
+    assert_has_triples(
+        session_id,
+        vec![("did:ng:z:writablePerson", "did:ng:z:name", "Wright")],
+        &writable_nuri,
+    )
+    .await;
+
+    log_info!("✓ Test passed: Revert patches for invalid graph nuri");
 }

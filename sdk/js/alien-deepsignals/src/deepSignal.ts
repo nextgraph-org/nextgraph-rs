@@ -17,6 +17,7 @@ import {
     DeepSignal,
     DeepSignalOptions,
     ExternalSubscriberFactory,
+    FlatDeepSignal,
     ProxyMeta,
     RootState,
     SetMeta,
@@ -1323,7 +1324,7 @@ export function isDeepSignal(
 export function deepSignal<T extends object>(
     input: T,
     options?: DeepSignalOptions
-): DeepSignal<T> {
+): FlatDeepSignal<T> {
     // Is the input already a signal?
     if (isDeepSignal(input)) {
         // Add possibly new external subscribers to existing ones.
@@ -1337,7 +1338,7 @@ export function deepSignal<T extends object>(
             meta?.options.replaceProxiesInBranchOnChange ||
             options?.replaceProxiesInBranchOnChange;
 
-        return input as DeepSignal<T>;
+        return input as FlatDeepSignal<T>;
     }
 
     if (!shouldProxy(input))
@@ -1370,7 +1371,7 @@ export function deepSignal<T extends object>(
         undefined,
         true
     );
-    return proxy as DeepSignal<T>;
+    return proxy as FlatDeepSignal<T>;
 }
 
 /**
@@ -1465,4 +1466,29 @@ export function addWithId<T extends object | Set<any> | any[]>(
 /** Get the original, raw value of a deep signal. */
 export function getRaw<T extends object>(value: T | DeepSignal<T>) {
     return (value as any)?.[RAW_KEY] ?? value;
+}
+
+/**
+ * Remove a subscriber factory of a deep signal.
+ *
+ * @returns `true` if the factory was removed,
+ *          `false` if the factory did not exist on the signal or `rawOrSignal` was not a signal.
+ * @throws if `rawOrSignal` is not a signal or the underlying raw object.
+ */
+export function removeSubscriberFactory<T>(
+    rawOrSignal: object,
+    factory: ExternalSubscriberFactory<T>
+) {
+    const meta =
+        rawToMeta.get(rawOrSignal) ??
+        rawToMeta.get((rawOrSignal as any)[RAW_KEY]);
+
+    if (!meta) {
+        throw new Error(
+            "Cannot remove external subscriber factory of an object that is not a signal",
+            { cause: rawOrSignal }
+        );
+    }
+
+    return meta.options.subscriberFactories?.delete(factory) ?? false;
 }

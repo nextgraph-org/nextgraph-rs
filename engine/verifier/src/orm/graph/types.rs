@@ -8,6 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use ng_oxigraph::oxrdf::Quad;
+use std::cmp::max;
+use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;
@@ -21,7 +24,8 @@ use wabi_tree::OSBTreeMap;
 #[derive(Clone, Debug)]
 pub struct TrackedOrmObject {
     /// The known predicates (only those relevant to the shape).
-    /// If there are no triples with a predicate, they are discarded
+    /// If there are no triples with a predicate, they are discarded.
+    /// The HashMap key is the predicate schema IRI.
     pub tracked_predicates: HashMap<String, Arc<RwLock<TrackedOrmPredicate>>>,
     /// If this is a nested subject, this records the parents
     /// and if they are currently tracking this subject.
@@ -36,6 +40,12 @@ pub struct TrackedOrmObject {
     pub graph_iri: String,
     /// The shape for which the predicates are tracked.
     pub shape: Weak<OrmSchemaShape>,
+    /// Whether the tracked predicates hold every quad the store has for this
+    /// (graph, subject). Set once a query has loaded the (shape,graph,subject).
+    /// Once complete, incoming diffs do not require a fetch for validation.
+    pub is_complete: bool,
+    /// In case of closed shapes: The count of quads that do not match any predicate in the schema.
+    pub excess_quads: u64,
 }
 
 impl TrackedOrmPredicate {
@@ -114,7 +124,7 @@ pub struct TrackedOrmObjectChange {
     pub tracked_orm_object: Arc<RwLock<TrackedOrmObject>>,
     /// Predicates that were changed.
     pub predicates: HashMap<String, TrackedOrmPredicateChanges>,
-    /// If the validation has taken place
+    /// If the validation has taken place.
     pub is_validated: bool,
     /// The validity before the new validation.
     pub prev_valid: TrackedOrmObjectValidity,
@@ -128,7 +138,7 @@ pub struct TrackedOrmPredicateChanges {
 }
 
 impl TrackedOrmPredicateChanges {
-    pub fn tracked_predicate(&self) -> RwLockReadGuard<TrackedOrmPredicate> {
+    pub fn tracked_predicate(&self) -> RwLockReadGuard<'_, TrackedOrmPredicate> {
         return self.tracked_predicate.read().unwrap();
     }
     pub fn first_tormo_for_subj(
@@ -186,7 +196,7 @@ pub struct OrmSubscriptionOrderInfo {
 pub struct OrmSubscription {
     pub shape_type: OrmShapeType,
     pub subscription_id: u64,
-    pub graph_scope: Vec<String>,
+    pub graph_scope: QueryScope,
     pub subject_scope: Vec<String>,
     pub config: OrmConfig,
 
@@ -201,18 +211,88 @@ pub struct OrmSubscription {
     /// Nested objects refer to subject IRIs (the object in a quad). There might be multiple across graphs
     /// This tracks all references, to know if new tracked orm objects needs to be created and which
     /// tracked orm objects this affects.
+    /// The predicate IRI records which parent predicate links the subject, so that
+    /// children are only attached to the predicate that actually references them
+    /// (multiple predicates of one shape may target the same child shape).
     pub tracked_nested_subjects: HashMap<
         SubjectIri, // The subject being tracked
         HashMap<
-            ShapeIri,                           // The shape being tracked.
-            Vec<Arc<RwLock<TrackedOrmObject>>>, // The parents tracking them.
+            ShapeIri,                                      // The shape being tracked.
+            Vec<(PredIri, Arc<RwLock<TrackedOrmObject>>)>, // The linking predicates with their parents.
         >,
     >,
+
+    /// Every predicate IRI any shape of the schema mentions. A quad whose predicate is not in
+    /// here cannot affect this subscription.
+    schema_predicate_iris: HashSet<String>,
+
+    indexed_predicates: HashMap<ShapeIri, HashMap<String, Arc<OrmSchemaPredicate>>>,
 }
 
 pub type ShapeIri = String;
 pub type SubjectIri = String;
 pub type GraphIri = String;
+pub type PredIri = String;
+
+/// Which graphs a query looked into, and therefore which graphs its result can speak for.
+#[derive(Clone, Debug, PartialEq)]
+pub enum QueryScope {
+    /// The query was unrestricted and therefore looked into every graph.
+    All,
+    /// The query only looked into these graphs.
+    Graphs(HashSet<GraphIri>),
+    /// No query to be made.
+    None,
+}
+
+impl<I, T> From<I> for QueryScope
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<str>,
+{
+    fn from(query_scope: I) -> Self {
+        let query_scope: Vec<String> = query_scope
+            .into_iter()
+            .map(|iri| iri.as_ref().to_owned())
+            .collect();
+
+        if query_scope.is_empty() {
+            QueryScope::None
+        } else if query_scope.iter().any(|iri| iri == "did:ng:i") {
+            QueryScope::All
+        } else {
+            QueryScope::Graphs(query_scope.iter().cloned().collect())
+        }
+    }
+}
+
+impl QueryScope {
+    /// Whether a query under this scope has already looked for `graph`. The empty graph is the
+    /// placeholder for "graph not known yet"; only an unrestricted query can resolve it, so a
+    /// scoped load never counts as having covered it.
+    pub(crate) fn covers(&self, graph: &str) -> bool {
+        match self {
+            QueryScope::All => true,
+            QueryScope::Graphs(graphs) => !graph.is_empty() && graphs.contains(graph),
+            QueryScope::None => false,
+        }
+    }
+
+    pub(crate) fn widen_with(&mut self, other: &QueryScope) {
+        match (&mut *self, other) {
+            (QueryScope::All, _) => {}
+            (_, QueryScope::All) => *self = QueryScope::All,
+            (QueryScope::Graphs(mine), QueryScope::Graphs(theirs)) => {
+                mine.extend(theirs.iter().cloned())
+            }
+            (_, QueryScope::None) => {}
+            (QueryScope::None, other) => *self = other.clone(),
+        }
+    }
+}
+
+/// The subjects a run has already queried, per shape, with the scope each query ran under.
+pub(crate) type LoadedSubjects = HashMap<ShapeIri, HashMap<SubjectIri, QueryScope>>;
 
 /// Structure to store changes in. By shape iri > graph iri > subject iri > OrmTrackedSubjectChange
 pub type OrmChanges =
@@ -228,7 +308,7 @@ impl OrmSubscription {
     pub fn new(
         mut shape_type: OrmShapeType,
         subscription_id: u64,
-        graph_scope: Vec<String>,
+        graph_scope: &[String],
         subject_scope: Vec<String>,
         sender: Sender<AppResponse>,
         config: OrmConfig,
@@ -262,17 +342,56 @@ impl OrmSubscription {
             None
         };
 
+        let (schema_predicate_iris, indexed_predicates) =
+            OrmSubscription::index_shapes(&shape_type);
+
         Ok(Self {
+            schema_predicate_iris,
             shape_type,
             subscription_id,
-            graph_scope,
+            graph_scope: QueryScope::from(graph_scope),
             subject_scope,
             sender,
             tracked_orm_objects: HashMap::new(),
             tracked_nested_subjects: HashMap::new(),
             ordering_info,
             config,
+            indexed_predicates,
         })
+    }
+
+    fn index_shapes(
+        shape_type: &OrmShapeType,
+    ) -> (
+        HashSet<String>,
+        HashMap<ShapeIri, HashMap<PredIri, Arc<OrmSchemaPredicate>>>,
+    ) {
+        let schema_predicate_iris = shape_type
+            .schema
+            .values()
+            .flat_map(|shape| shape.predicates.iter())
+            .map(|predicate| predicate.iri.clone())
+            .collect();
+
+        let mut indexed_predicates = HashMap::new();
+        for shape in shape_type.schema.values().into_iter() {
+            let mut index: HashMap<String, Arc<OrmSchemaPredicate>> = HashMap::new();
+
+            for predicate_schema in shape.predicates.iter() {
+                index.insert(
+                    predicate_schema.iri.to_string(),
+                    Arc::clone(predicate_schema),
+                );
+            }
+            indexed_predicates.insert(shape.iri.clone(), index);
+        }
+        return (schema_predicate_iris, indexed_predicates);
+    }
+    pub fn indexed_predicates(
+        &self,
+        shape_iri: &str,
+    ) -> &HashMap<PredIri, Arc<OrmSchemaPredicate>> {
+        self.indexed_predicates.get(shape_iri).unwrap()
     }
 
     /// Modifies the schema so that the restrictions from the where config are added.
@@ -325,13 +444,18 @@ impl OrmSubscription {
                 .map(Vec::as_slice)
                 .unwrap_or(std::slice::from_ref(where_val));
 
-            // Remove original predicate data types
+            // For each where property...
             Self::mutate_target_predicate(
                 schema,
                 target_shape_iri,
                 readable_pred,
                 move |target_pred_schema| {
+                    // Remove the original data types (to be replaced by more specific).
                     target_pred_schema.dataTypes.drain(..);
+
+                    // We force a min cardinality of 1 so that no values are not interpreted as match.
+                    target_pred_schema.minCardinality = max(1, target_pred_schema.minCardinality);
+
                     // We _always_ allow extra for literals when filtering because we assume that
                     //  additional values might be present too which we don't want to ignore.
                     if !target_pred_schema.is_object() {
@@ -382,7 +506,7 @@ impl OrmSubscription {
                         let pred_allows_iri_local = pred_allows_iri;
                         let pred_allows_string_local = pred_allows_string;
                         // Allow that str_or_iri is added as iri _and_ string,
-                        // since we can't tell for sure by the value
+                        // since we can't tell for sure by the value.
                         Self::mutate_target_predicate(
                             schema,
                             target_shape_iri,
@@ -578,6 +702,80 @@ impl OrmSubscription {
             .cloned()
     }
 
+    /// Whether any of the provided quads could affect this subscription,
+    /// i.e. whether any of them has a predicate the schema includes.
+    pub fn touches_schema(&self, quads: &[Quad]) -> bool {
+        quads
+            .iter()
+            .any(|quad| self.schema_predicate_iris.contains(quad.predicate.as_str()))
+    }
+
+    /// Mark every shape's tracked object of this (graph, subject) as holding complete state.
+    /// Record that everything the store holds for this (shape, subject) is tracked, in every
+    /// graph the query that read it covered. From here on quad diffs alone keep it up to date.
+    pub(crate) fn mark_complete_for_shape(
+        &self,
+        shape_iri: &str,
+        subject_iri: &str,
+        scope: &QueryScope,
+    ) {
+        for tormo in self.get_tracked_objects_any_graph(subject_iri, shape_iri) {
+            let mut tormo = tormo.write().unwrap();
+            if scope.covers(&tormo.graph_iri) {
+                tormo.is_complete = true;
+            }
+        }
+    }
+
+    /// The same for everything one query loaded, all of it read under the same scope.
+    pub(crate) fn mark_fetched_complete(
+        &self,
+        loaded: &HashMap<ShapeIri, HashSet<SubjectIri>>,
+        scope: &QueryScope,
+    ) {
+        for (shape_iri, subjects) in loaded.iter() {
+            for subject_iri in subjects.iter() {
+                self.mark_complete_for_shape(shape_iri, subject_iri, scope);
+            }
+        }
+    }
+
+    /// The same for the loads of a whole run, where each subject carries the scope of the query
+    /// that reached it.
+    pub(crate) fn mark_loaded_complete(&self, loaded: &LoadedSubjects) {
+        for (shape_iri, subjects) in loaded.iter() {
+            for (subject_iri, scope) in subjects.iter() {
+                self.mark_complete_for_shape(shape_iri, subject_iri, scope);
+            }
+        }
+    }
+
+    pub fn mark_subject_complete(&self, graph_iri: &str, subject_iri: &str) {
+        if let Some(shapes) = self
+            .tracked_orm_objects
+            .get(graph_iri)
+            .and_then(|subjects| subjects.get(subject_iri))
+        {
+            for obj in shapes.values() {
+                obj.write().unwrap().is_complete = true;
+            }
+        }
+    }
+
+    /// Helper to get all tracked orm objects (across all shapes) for a given (graph IRI, subject IRI).
+    /// Returns cloned Arcs.
+    pub fn get_tracked_orm_objects_for_graph_subject(
+        &self,
+        graph_iri: &str,
+        subject_iri: &str,
+    ) -> Vec<Arc<RwLock<TrackedOrmObject>>> {
+        self.tracked_orm_objects
+            .get(graph_iri)
+            .and_then(|subjects| subjects.get(subject_iri))
+            .map(|shapes| shapes.values().cloned().collect())
+            .unwrap_or_default()
+    }
+
     /// Helper to get a specific tracked object (any graph) by subject IRI and shape IRI.
     pub fn get_tracked_objects_any_graph(
         &self,
@@ -621,6 +819,8 @@ impl OrmSubscription {
                     subject_iri: subject_iri.to_string(),
                     graph_iri: graph_iri.to_string(),
                     shape: Arc::downgrade(shape),
+                    is_complete: false,
+                    excess_quads: 0,
                 }))
             })
             .clone()
@@ -717,7 +917,7 @@ impl OrmSubscription {
 
     /// Returns true if there are no tracked ORM objects in this subscription.
     pub fn is_empty(&self) -> bool {
-        self.iter_all_objects().any(|_| true)
+        self.iter_all_objects().next().is_none()
     }
 
     /// Cleanup subjects marked for deletion and adjust parent/child relationships accordingly.
@@ -875,5 +1075,6 @@ fn clone_shape(shape: &OrmSchemaShape) -> OrmSchemaShape {
             .iter()
             .map(|p| Arc::new(OrmSchemaPredicate::clone(p)))
             .collect(),
+        is_closed: shape.is_closed,
     }
 }

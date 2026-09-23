@@ -11,11 +11,7 @@
 import type { BaseType } from "@ng-org/shex-orm";
 import { Scope } from "./types.ts";
 import { RdfOrmSubscription } from "./core.ts";
-import {
-    DeepSignal,
-    DeepSignalSet,
-    ReadOnlyArray,
-} from "@ng-org/alien-deepsignals";
+import { DeepSignal, DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 type ValueOf<T> = T[keyof T];
 
@@ -39,7 +35,7 @@ type ObjectProps<T extends BaseType> = ValueOf<{
         : never;
 }>;
 
-/** Used in {@link RdfOrmConfig}. */
+/** @internal Used in {@link RdfOrmConfig}. */
 export type WhereConfig<T extends BaseType> = {
     [P in LiteralProps<T>]?: T[P] extends Set<infer S> | undefined
         ? S | NonEmptyArray<Exclude<S, undefined>>
@@ -54,6 +50,7 @@ export type WhereConfig<T extends BaseType> = {
           : WhereConfig<T[P]>;
 };
 
+/** @internal */
 type SingleKeyObject<T extends Record<string, unknown>> = {
     [K in keyof T]: { [_ in K]: T[K] } & { [_ in Exclude<keyof T, K>]?: never };
 }[keyof T];
@@ -181,6 +178,13 @@ export type RdfOrmConfig<
     maxActivePages?: PS extends undefined ? never : number;
 
     /**
+     * Callback that is called when the ORM subscription fails to load or when errors occur
+     * during operation. Errors do not necessarily impact the functioning of the subscription
+     * but can cause a revert of made changes.
+     */
+    onError?: (error: Error) => void;
+
+    /**
      * If false, no query is made. Useful in frontend components where not all data is available yet.
      * @default true
      */
@@ -193,7 +197,7 @@ export type SubscriptionData<
     CONF extends RdfOrmConfig<any>,
 > = undefined extends CONF["orderBy"]
     ? DeepSignalSet<T>
-    : DeepSignal<ReadOnlyArray<T>>;
+    : DeepSignal<ReadonlyArray<T>>;
 
 /**
  * @internal
@@ -206,11 +210,23 @@ export type WithMaybePagination<
     T extends BaseType,
 > = undefined extends CONF["pageSize"]
     ? Omit<MAYBE_SHADOW, "nextPage" | "previousPage"> & {
+          /**
+           * Initializes loading of the next page.
+           * This will update the data but you will not be called back on it.
+           */
           nextPage?: () => void;
+          /**
+           * Initializes loading of the previous page.
+           * This will update the data but you will not be called back on it.
+           */
           previousPage?: () => void;
       } // No pagination functions.
     : undefined extends CONF["maxActivePages"] // Only forward pagination.
       ? Omit<MAYBE_SHADOW, "previousPage"> & {
+            /**
+             * Initializes loading of the previous page.
+             * This will update the data but you will not be called back on it.
+             */
             previousPage?: () => void;
         }
       : MAYBE_SHADOW; // Forward and backwards pagination.

@@ -24,7 +24,7 @@ ex:ExpenseShape {
     // rdfs:comment "The payment status of the expense" ;
 }
 
-ex:ExpenseCategoryShape EXTRA a {
+ex:ExpenseCategoryShape CLOSED EXTRA a {
   a [ ex:ExpenseCategory ] ;
   ex:categoryName xsd:string
     // rdfs:comment "Name of expense category" ;
