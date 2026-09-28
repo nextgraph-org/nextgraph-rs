@@ -95,8 +95,9 @@ import {
  *       <input
  *          placeholder="Expense title"
  *          value={props.expense.title}
- *          onchange={e => props.expense.title = e.target.value}
+ *          onchange={e => { props.expense.title = e.target.value }}
  *       />
+ *    );
  * }
  *
  * ```
