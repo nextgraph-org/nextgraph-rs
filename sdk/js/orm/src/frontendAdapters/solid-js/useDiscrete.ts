@@ -63,7 +63,7 @@ import {
  *        });
  *    };
  *    return (
- *       <div v-if="!doc">
+ *       <div>
  *          {!dis.doc.expenses &&
  *             <>Loading...</>
  *          }
@@ -102,8 +102,9 @@ import {
  *       <input
  *          placeholder="Expense title"
  *          value={expense.title}
- *          onchange={e => expense.title = e.target.value}
+ *          onchange={e => { expense.title = e.target.value }}
  *       />
+ *    );
  * }
  * ```
  */

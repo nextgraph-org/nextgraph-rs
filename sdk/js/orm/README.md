@@ -122,7 +122,7 @@ modifications coming from other devices update the ORM objects too and your fron
 
 Each triple consists of a _subject_ (about which you are describing something), a _predicate_ (the property of the relationship, e.g. the first name), and an _object_ (the value of that property or a reference). Triples belong to documents, also called _graphs_ in the context of RDF. Together with a graph, triples become _quads_. Subjects, predicates and graphs are all _IRIs_ (the generalization of URLs). There are many specifications for describing data, to aid application interoperability.
 
-A NextGraph-related IRI is called _NURI_: "NextGraph URI". Auto-generated subjects (the `@id`) and graphs are such NURIs. Every NextGraph document id is a graph NURI.
+A NextGraph-related IRI is called _NURI_: "NextGraph URI". Auto-generated subjects (the `@id`) and graphs are such NURIs. Every NextGraph document ID is a graph NURI.
 
 RDF's flexible and schema-less design aids in schema-evolution, interoperability, and data relationships.
 You are advised to take a moment to get yourself familiar with RDF if you are new to it.
@@ -132,7 +132,7 @@ To work with RDF in applications and bring structure to it, we need to define sc
 ### Creating an RDF Document
 
 First, you need a document to store and get your data.
-With the document id (NURI), you can then create ORM objects.
+With the document ID (NURI), you can then create ORM objects.
 
 ```ts
 // Create a new NextGraph document
@@ -172,7 +172,7 @@ In order to work with typed data, you need to define a SHEX schema. The schema d
 
 You create those schemas with the help of `@ng-org/shex-orm`, as documented [here](https://docs.nextgraph.org/en/reference/shex-orm/).
 
-When you followed the steps there, you will have generated so-called `ShapeType`s, one for each schema. ShapeTypes contain the TypeScript type definitions as well as the schemas. Whenever you call a method to retrieve ORM data, you pass it the `ShapeType`. The details are described below.
+When you followed the steps there, you will have generated so-called `ShapeType`s, one for each schema. `ShapeTypes` contain the TypeScript type definitions as well as the schemas. Whenever you call a method to retrieve ORM data, you pass it the `ShapeType`. The details are described below.
 
 ### Using and Modifying RDF ORM Objects
 
@@ -473,7 +473,7 @@ In those cases, the error callback that you can pass when creating a subscriptio
 ### Creating an Automerge or YJS Document
 
 First, you need a document to store and get your data.
-With the document id (NURI), you can then create ORM objects.
+With the document ID (NURI), you can then create ORM objects.
 
 ```ts
 // Create a new NextGraph document
@@ -522,7 +522,7 @@ Subscriptions are open until `.close()` is called on all references of this obje
 In root arrays and in arrays of root objects, each object in the array has a unique `@id` property. If you attach a new object, the `@id` will be auto-generated. You cannot choose the `@id` yourself.
 
 You can use the `@id` property as a unique value as the `key` attribute in your frontend framework, for rendering arrays.
-Note that when you add a new array, at first, a temporary id is set which is then replaced with a permanent one assigned by the engine asynchronously.
+Note that when you add a new array, at first, a temporary ID is set which is then replaced with a permanent one assigned by the engine asynchronously.
 Once assigned by the engine, the `@id` property is globally unique and stable. So it can also be useful to refer to objects in arrays of different locations (rather than by index).
 
 ## Transactions
