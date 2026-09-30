@@ -27,6 +27,8 @@ pnpm dev
 > In Chrome, there are new restrictions for a public website including an iframe to localhost. And that's what we do here in third party mode, when you are developing your app with vite on localhost.
 > The first time you will load the page, a popup will appear, asking you: "nextgraph.eu wants to look for and connect to any device on your local network". You should click on "Allow". If you get a gray screen, click on the recycle icon that is on the right side of the blue thin banner. Then you should be all good. If not, you have to go to `chrome://flags/#local-network-access-check` and select Disabled. This dev env issue has no impact on your production app deployed on your own domain, specially if you host your app with TLS.
 
+> In Firefox, the same is happening. Enter the `about:config` page of Firefox, then enter this setting `network.lna.blocking` and set it to `false`. [More details here](https://support.mozilla.org/en-US/kb/control-personal-device-local-network-permissions-firefox#w_advanced-configuration-aboutconfig)
+
 - Open the URL displayed in the console. You'll be redirected to NextGraph to authenticate with your wallet, then your app loads inside NextGraph's secure iframe.
 - You can open the app in a second tab to see how the data is propagated.
 - **Note:** If the data hasn't loaded yet, the set appears empty.
