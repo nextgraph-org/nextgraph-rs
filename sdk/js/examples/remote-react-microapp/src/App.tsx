@@ -22,7 +22,11 @@ function SwitchPage() {
 
 function App() {
   return (
-    <SyncedRouter>
+    <SyncedRouter
+      fallbackRouter={
+        import.meta.env.MODE === "standalone" ? "BrowserRouter" : null
+      }
+    >
       <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
         <div>
           <h1>React Application 2</h1>
