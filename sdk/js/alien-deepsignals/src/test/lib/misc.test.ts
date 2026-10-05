@@ -11,6 +11,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { deepSignal, getDeepSignalRootId } from "../../deepSignal.ts";
 import { watch } from "../../watch.ts";
+import { DeepSignalSet } from "../../types.ts";
 
 describe("watch advanced", () => {
     it("basic patch watcher fires on deep mutations", async () => {
@@ -136,6 +137,28 @@ describe("Set iteration variants", () => {
         await Promise.resolve();
         await Promise.resolve();
         stop();
+    });
+
+    it(".map signatures correct", () => {
+        const dss = deepSignal(new Set([1, 2, 3]));
+        const mapped = dss.map((v) => v + 1);
+        expect(mapped).toBeInstanceOf(Iterator);
+        expect([...mapped]).toEqual([2, 3, 4]);
+    });
+
+    it(".forEach callback has correct signature", () => {
+        const dss = deepSignal(new Set([1, 2, 3]));
+
+        const copy: [number, number, Set<number>][] = [];
+        dss.forEach((v1, v2, set) => {
+            copy.push([v1, v2, set]);
+        });
+
+        expect(copy).to.deep.equal([
+            [1, 1, dss],
+            [2, 2, dss],
+            [3, 3, dss],
+        ]);
     });
 
     it("iterator helpers exist on Set iterators and the root Set", () => {

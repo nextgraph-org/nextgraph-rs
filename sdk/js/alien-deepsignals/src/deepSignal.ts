@@ -1217,6 +1217,24 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 ]);
             };
         }
+        if (key === "forEach") {
+            return function forEach(
+                this: any,
+                callback: (value: any, value2: any, set: Set<any>) => void,
+                thisArg?: any
+            ) {
+                ensureIterableSignal(meta, target);
+                target.forEach((entry) => {
+                    const proxied = ensureChildProxy(
+                        entry,
+                        target,
+                        getSyntheticId(entry, target)!,
+                        true
+                    );
+                    callback.call(thisArg, proxied, proxied, receiver);
+                });
+            };
+        }
         if (typeof key === "string" && iteratorFnKeys.has(key)) {
             return function iteratorHelper(this: any, ...args: any[]) {
                 const iterator = createSetIterator(
@@ -1231,34 +1249,6 @@ const setHandlers: ProxyHandler<Set<any>> = {
                     );
                 }
                 return helper.apply(iterator, args);
-            };
-        }
-        if (key === "forEach") {
-            return function forEach(
-                this: any,
-                callback: (value: any, value2: any, set: Set<any>) => void,
-                thisArg?: any
-            ) {
-                ensureIterableSignal(meta, target);
-                let index = 0;
-                const expectsIteratorSignature = callback.length <= 2;
-                const iteratorCallback = callback as unknown as (
-                    value: any,
-                    index: number
-                ) => void;
-                target.forEach((entry) => {
-                    const proxied = ensureChildProxy(
-                        entry,
-                        target,
-                        getSyntheticId(entry, target)!,
-                        true
-                    );
-                    if (expectsIteratorSignature) {
-                        iteratorCallback.call(thisArg, proxied, index++);
-                    } else {
-                        callback.call(thisArg, proxied, proxied, receiver);
-                    }
-                });
             };
         }
         if (key === "has") {
