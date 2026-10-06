@@ -116,7 +116,7 @@ const EMPTY_OBJECT = {} as const;
  */
 
 export function useDiscrete<
-    T extends DiscreteRoot = DiscreteRoot,
+    T extends object | Array<any> = DiscreteRoot,
     DocId extends DocumentId = DocumentId,
 >(documentId: DocId): UseDiscreteResult<T, DocId> {
     const prevDocumentId = useRef<DocumentId>(undefined);
@@ -188,7 +188,7 @@ export function useDiscrete<
 }
 
 type UseDiscreteResult<
-    T extends DiscreteRoot,
+    T extends object | Array<any>,
     DocId extends string | undefined,
 > = {
     /**

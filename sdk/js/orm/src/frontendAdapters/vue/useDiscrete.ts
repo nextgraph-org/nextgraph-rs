@@ -11,13 +11,13 @@
 import {
     computed,
     ComputedRef,
+    effect,
     MaybeRefOrGetter,
     onBeforeUnmount,
     onUnmounted,
     Ref,
     shallowRef,
     toValue,
-    watchEffect,
 } from "vue";
 import { useDeepSignal } from "@ng-org/alien-deepsignals/vue";
 import { DiscreteOrmSubscription } from "../../connector/DiscreteOrmSubscription.ts";
@@ -146,7 +146,22 @@ T> {
         onClean?.();
     });
 
-    ormSubscription.value?.readyPromise.then(() => {
+    // Create promise that resolves once a subscription is present and its data loaded.
+    let resolveData: any;
+    let rejectData: any;
+    let dataPromise = new Promise((resolve, reject) => {
+        resolveData = resolve;
+        rejectData = reject;
+    });
+    effect(() => {
+        if (ormSubscription.value) {
+            ormSubscription.value.readyPromise
+                .then(resolveData)
+                .catch(rejectData);
+        }
+    });
+
+    dataPromise.then(() => {
         docRef.value = useDeepSignal(
             ormSubscription.value!.signalObject as any,
             { registerCleanup }
@@ -165,7 +180,7 @@ T> {
     return {
         doc: docRef,
         isLoading: isLoadingRef,
-        promise: promiseRef,
+        promise: dataPromise,
         subscription: subscriptionRef,
     } as UseDiscreteResult<any>;
 }
@@ -185,7 +200,7 @@ type UseDiscreteResult<T extends DiscreteRoot> = {
      * A promise that resolves once the data is loaded.
      * Note that if `conf` is `undefined`, this property is `undefined`.
      */
-    promise: ComputedRef<Promise<DeepSignal<T>> | undefined>;
+    promise: Promise<DeepSignal<T>>;
     /** The underlying {@link DiscreteOrmSubscription} through which the data is loaded. */
     subscription: ComputedRef<DiscreteOrmSubscription<T> | undefined>;
 };
