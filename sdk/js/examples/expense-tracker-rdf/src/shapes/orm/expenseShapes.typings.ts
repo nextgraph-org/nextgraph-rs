@@ -1,4 +1,4 @@
-export type IRI = string;
+import type { IRI, Nuri, Unpersisted, OrmSet } from "@ng-org/orm";
 
 /**
  * =============================================================================
@@ -13,7 +13,7 @@ export interface Expense {
   /**
    * The graph NURI.
    */
-  readonly "@graph": IRI;
+  readonly "@graph": Nuri;
   /**
    * The subject IRI.
    */
@@ -57,7 +57,13 @@ export interface Expense {
    *
    * Original IRI: did:ng:z:expenseCategory
    */
-  expenseCategory?: Set<IRI>;
+  get expenseCategory(): OrmSet<IRI>;
+  /**
+   * The use category of the product
+   *
+   * Original IRI: did:ng:z:expenseCategory
+   */
+  set expenseCategory(value: Set<IRI>);
   /**
    * True, if this is a recurring expense (e.g. bus pass)
    *
@@ -89,7 +95,7 @@ export interface ExpenseCategory {
   /**
    * The graph NURI.
    */
-  readonly "@graph": IRI;
+  readonly "@graph": Nuri;
   /**
    * The subject IRI.
    */

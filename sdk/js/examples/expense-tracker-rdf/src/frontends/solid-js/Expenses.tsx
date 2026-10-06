@@ -63,7 +63,6 @@ export function Expenses() {
         insertObject(ExpenseShapeType, {
             "@graph": `did:ng:${session.private_store_id}`,
             "@type": "did:ng:z:Expense",
-            "@id": "",
             amount: obj.amount ?? 1,
             recurrenceInterval: obj.recurrenceInterval ?? "",
             description: obj.description ?? undefined,

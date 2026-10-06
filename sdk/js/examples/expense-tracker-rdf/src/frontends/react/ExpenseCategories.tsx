@@ -16,7 +16,10 @@ import { ExpenseCategoryCard } from "./ExpenseCategoryCard";
 
 export function ExpenseCategories() {
     const privateNuri = session && `did:ng:${session?.private_store_id}`;
-    const {data: expenseCategories } = useShape(ExpenseCategoryShapeType, privateNuri);
+    const { data: expenseCategories } = useShape(
+        ExpenseCategoryShapeType,
+        privateNuri
+    );
 
     const createCategory = useCallback(async () => {
         const session = await sessionPromise;
@@ -24,7 +27,6 @@ export function ExpenseCategories() {
         expenseCategories?.add({
             "@graph": `did:ng:${session.private_store_id}`,
             "@type": new Set(["did:ng:z:ExpenseCategory"]),
-            "@id": "",
             categoryName: "New category",
             description: "",
         });
@@ -52,9 +54,7 @@ export function ExpenseCategories() {
                     </button>
                 </div>
             </header>
-            {!expenseCategories && (
-                <p className="muted">Loading...</p>
-            )}
+            {!expenseCategories && <p className="muted">Loading...</p>}
             {expenseCategories && expenseCategories.size === 0 && (
                 <p className="muted">No categories yet</p>
             )}

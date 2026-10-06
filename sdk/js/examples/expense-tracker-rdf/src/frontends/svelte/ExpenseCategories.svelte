@@ -26,7 +26,6 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
     insertObject(ExpenseCategoryShapeType, {
       "@graph": `did:ng:${session.private_store_id}`,
       "@type": new Set(["did:ng:z:ExpenseCategory"]),
-      "@id": "",
       categoryName: "New category",
       description: "",
     });
