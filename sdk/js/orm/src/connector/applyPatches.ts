@@ -10,10 +10,11 @@
 
 import {
     addWithId,
-    DeepSignalObject,
+    DeepSignal,
     DeepSignalSet,
 } from "@ng-org/alien-deepsignals";
 import { decodePathSegment } from "./utils.ts";
+import { BaseType } from "@ng-org/shex-orm";
 
 /** @ignore */
 export type Patch = {
@@ -96,7 +97,7 @@ export interface MovePatch {
  *
  */
 export function applyPatches(
-    currentState: DeepSignalObject<any>,
+    currentState: DeepSignal<any>,
     patches: Patch[],
     discrete: boolean = false
 ) {
@@ -118,7 +119,9 @@ export function applyPatches(
 
             // Handle Sets: if parentVal is a Set, seg should be a synthetic id.
             if (parentVal instanceof Set) {
-                const foundObj = (parentVal as DeepSignalSet<any>).getById(seg);
+                const foundObj = (parentVal as DeepSignalSet<BaseType>).getById(
+                    seg
+                );
                 if (foundObj) {
                     parentVal = foundObj;
                     continue;
@@ -205,7 +208,7 @@ export function applyPatches(
                     // Parent is a set, key must be a synthetic id to an object.
                     if (patch.value === undefined) {
                         const targetedObject = (
-                            parentVal as DeepSignalSet<any>
+                            parentVal as DeepSignalSet<BaseType>
                         ).getById(key);
                         parentVal.delete(targetedObject);
                     }

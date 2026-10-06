@@ -119,9 +119,36 @@ Every type has the following two readonly properties:
 
 In addition to that you will usually find the **`@type`** property: The RDF type IRI (from `rdfs:type`) is always converted to the property name `@type` by default. You are strongly encouraged to specify a type in your schema.
 
-Property names are derived of the last part of the predicate IRI. In case of name collisions the 2nd, 3rd, etc. last part is used added as well.
+Property names are derived from the last part of the predicate IRI. In case of name collisions the 2nd, 3rd, etc. last part is is joined with it.
 
-Predicates with a cardinality higher than 1 (i.e., `maxCardinality > 1` or `maxCardinality === -1` for unlimited) are represented as TypeScript `Set<T>` types. Note that SHEX allows you to specify cardinalities not representable in TypeScript, for example greater than 2 and less than 4. When you modify an object so that it does not fulfil those requirements anymore, it will disappear since it doesn't match the shape anymore.
+Predicates with a cardinality greater than 1 (i.e., `maxCardinality > 1` or `maxCardinality === -1` for unlimited) are represented as sets, more specifically`OrmSet<T>` types.
+
+Note that SHEX allows you to specify cardinalities not representable in TypeScript, for example greater than 2 and less than 4. When you modify an object so that it does not fulfil those requirements anymore, it will disappear since it doesn't match the shape anymore.
+
+The `OrmSet<T>` behaves like a regular set but with some additional features:
+
+- It exposes iterator helper methods like `.map()`, `.filter()`, or `.some()`
+- It exposes a method `.first()` which returns the element that was first added to the set. It can be helpful if you know that your set contains exactly one element.
+- In case it contains nested objects, you can use `.getBy()` to get an item by its `@graph` and `@id`.
+- All objects tracked in the ORM, which includes `OrmSet`, are reactive deepsignal objects - modifications are kept in sync with the engine and the frontend.
+
+While sets and child objects are reactive and provide additional functionality, you can assign regular, plain old TypeScript child objects or sets to them. They will be convert to tracked, persisted ORM objects.
+
+> If you want to create a typed object without directly adding it to the ORM, say of type `Expense`, you can utilize the generated `typings.ts` type definitions by wrapping them in the `Unpersisted<>` type:
+>
+> ```typescript
+> import type { Unpersisted } from "@ng-org/orm";
+> const newExpense: Unpersisted<Expense> = {
+>   name: "Bananas",
+>   amount: 10,
+>   // Set can be a regular non-OrmSet.
+>   categories: new Set([])
+>   // No `@id` or `@graph` prop required.
+>   ...
+> };
+> ```
+>
+> The `Unpersisted` type makes `@graph` and `@id` properties optional.
 
 Currently all RDF types are mapped to string, number, or boolean, including date which is mapped to an ISO 8601 date string.
 

@@ -141,11 +141,11 @@ function setOf(inner: dom.Type): dom.NamedTypeReference {
     } as any;
 }
 
-function recordOf(key: dom.Type, value: dom.Type): dom.NamedTypeReference {
+function ormSetOf(inner: dom.Type): dom.NamedTypeReference {
     return {
         kind: "name",
-        name: "Record",
-        typeArguments: [key, value],
+        name: "OrmSet",
+        typeArguments: [inner],
     } as any;
 }
 
@@ -197,7 +197,7 @@ function tagExtraPredicatesFromExpression(
 // Note: aliasing helpers previously used in earlier versions were removed.
 
 // Property name collision resolution using predicate IRI mapping
-const predicateIriByProp = new WeakMap<dom.PropertyDeclaration, string>();
+const predicateIriByProp = new WeakMap<dom.ObjectTypeMember, string>();
 
 // Note: collisions are handled by annotateReadablePredicates pre-pass.
 
@@ -208,23 +208,25 @@ const predicateIriByProp = new WeakMap<dom.PropertyDeclaration, string>();
 //  - if both are Set<A>, Set<B> -> Set<A|B>
 //  - preserve optional flag if any occurrence optional
 function dedupeCompactProperties(
-    props: dom.PropertyDeclaration[]
-): dom.PropertyDeclaration[] {
+    props: dom.ObjectTypeMember[]
+): dom.ObjectTypeMember[] {
     const isSetRef = (t: dom.Type): t is dom.NamedTypeReference =>
         (t as any).kind === "name" && (t as any).name === "Set";
     const getSetInner = (t: dom.Type): dom.Type =>
         isSetRef(t) ? (t as any).typeArguments[0] : t;
 
     // Group by composite key (name + predicate IRI)
-    const groups = new Map<string, dom.PropertyDeclaration[]>();
+    const groups = new Map<string, dom.ObjectTypeMember[]>();
     for (const p of props) {
+        if (!("name" in p)) continue;
+
         const pred = predicateIriByProp.get(p) || "";
         const key = `${p.name}\u0000${pred}`;
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(p);
     }
 
-    const merged: dom.PropertyDeclaration[] = [];
+    const merged: dom.ObjectTypeMember[] = [];
     for (const [, group] of groups) {
         if (group.length === 1) {
             merged.push(group[0]);
@@ -233,6 +235,9 @@ function dedupeCompactProperties(
         let acc = group[0];
         for (let i = 1; i < group.length; i++) {
             const next = group[i];
+            if (!("type" in acc)) continue;
+            if (!("type" in next)) continue;
+
             const accSet = isSetRef(acc.type);
             const nextSet = isSetRef(next.type);
             let mergedType: dom.Type;
@@ -291,7 +296,7 @@ function addIdAndGraphProperties(t: dom.Type): dom.Type {
                 ),
                 dom.create.property(
                     "@graph",
-                    dom.create.namedTypeReference("IRI"),
+                    dom.create.namedTypeReference("Nuri"),
                     dom.DeclarationFlags.Optional |
                         dom.DeclarationFlags.ReadOnly
                 )
@@ -318,6 +323,7 @@ function createProperty(
     annotations?: Annotation[]
 ): dom.PropertyDeclaration {
     const prop = dom.create.property(name, type, flags);
+
     if (predicateIri) predicateIriByProp.set(prop, predicateIri);
     const cmt = commentFromAnnotations(annotations) || "";
     prop.jsDocComment = cmt
@@ -326,13 +332,51 @@ function createProperty(
     return prop;
 }
 
+function unpersistedOf(type: dom.Type): dom.NamedTypeReference {
+    return {
+        kind: "name",
+        name: "Unpersisted",
+        typeArguments: [type],
+    };
+}
+
+function createAccessors(
+    name: string,
+    getterType: dom.Type,
+    setterType: dom.Type,
+    predicateIri?: string,
+    annotations?: Annotation[]
+): (dom.PropertyDeclaration | dom.MethodDeclaration)[] {
+    // NOTE: dts-dom does not support accessors (getters and setters).
+    // We define them as methods here and do a string replacement
+    // which un-quotes the methods,
+    // e.g. from `"get name(): void"` to `get name();`
+
+    const getter = dom.create.method(`get ${name}`, [], getterType);
+    const setter = dom.create.method(
+        `set ${name}`,
+        [dom.create.parameter("value", setterType, dom.ParameterFlags.None)],
+        "void"
+    );
+
+    const comment = commentFromAnnotations(annotations);
+    const documentation = comment
+        ? `${comment}\n\nOriginal IRI: ${predicateIri ?? ""}`.trim()
+        : `Original IRI: ${predicateIri ?? ""}`;
+
+    getter.jsDocComment = documentation;
+    setter.jsDocComment = documentation;
+
+    return [getter, setter];
+}
+
 export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
     {
         Schema: { return: dom.TopLevelDeclaration[] };
         ShapeDecl: { return: dom.InterfaceDeclaration };
         Shape: { return: dom.InterfaceDeclaration };
         EachOf: { return: dom.ObjectType | dom.InterfaceDeclaration };
-        TripleConstraint: { return: dom.PropertyDeclaration };
+        TripleConstraint: { return: dom.PropertyDeclaration | dom.ObjectType };
         NodeConstraint: { return: dom.Type };
         ShapeOr: { return: dom.UnionType };
         ShapeAnd: { return: dom.IntersectionType };
@@ -382,7 +426,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     if (!hasGraph) {
                         const graphProp = dom.create.property(
                             "@graph",
-                            dom.create.namedTypeReference("IRI"),
+                            dom.create.namedTypeReference("Nuri"),
                             dom.DeclarationFlags.ReadOnly
                         );
                         graphProp.jsDocComment = "The graph NURI.";
@@ -483,7 +527,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     if (graphSeen.size === 0) {
                         graphSeen.add(idx);
                         // normalize graph type to IRI and make readonly
-                        m.type = dom.create.namedTypeReference("IRI");
+                        m.type = dom.create.namedTypeReference("Nuri");
                         m.flags = dom.DeclarationFlags.ReadOnly;
                         return true;
                     }
@@ -510,7 +554,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 ? dom.create.interface(name)
                 : dom.create.objectType([]);
             setReturnPointer(objectType);
-            const inputProps: dom.PropertyDeclaration[] = [];
+            const inputProps: dom.ObjectTypeMember[] = [];
             transformedChildren.expressions.forEach((expr) => {
                 if (!expr || typeof expr === "string") return;
                 const kind = (expr as any).kind;
@@ -521,9 +565,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         expr as dom.ObjectType | dom.InterfaceDeclaration
                     ).members;
                     mlist.forEach((m) => {
-                        if ((m as any).kind === "property") {
-                            inputProps.push(m as dom.PropertyDeclaration);
-                        }
+                        inputProps.push(m as dom.PropertyDeclaration);
                     });
                 }
             });
@@ -648,6 +690,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         const ifaceName = (
                             valueType as dom.InterfaceDeclaration
                         ).name;
+
                         // Set of full object instances
                         finalType = setOf(
                             dom.create.namedTypeReference(ifaceName)
@@ -665,7 +708,15 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         finalType = setOf(valueForSet);
                     }
                 } else {
-                    finalType = setOf(valueType);
+                    const accessors = createAccessors(
+                        baseName,
+                        ormSetOf(valueType),
+                        setOf(valueType),
+                        tripleConstraint.predicate,
+                        tripleConstraint.annotations
+                    );
+
+                    return dom.create.objectType(accessors);
                 }
             } else {
                 // Singular
@@ -690,6 +741,35 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     finalType = valueType;
                 }
             }
+
+            const isChildObject =
+                objLike ||
+                (isUnion &&
+                    unionMembers.length > 0 &&
+                    unionMembers.every(isObjectLike));
+            // Different getters and setter for child objects (setter more permissive).
+            if (isChildObject) {
+                const childType =
+                    isPlural && (finalType as any).name === "Set"
+                        ? (finalType as any).typeArguments[0]
+                        : finalType;
+
+                const getterType = isPlural ? ormSetOf(childType) : childType;
+                const setterType = isPlural
+                    ? setOf(unionOf([childType, unpersistedOf(childType)]))
+                    : unionOf([childType, unpersistedOf(childType)]);
+
+                const accessors = createAccessors(
+                    baseName,
+                    getterType,
+                    setterType,
+                    tripleConstraint.predicate,
+                    tripleConstraint.annotations
+                );
+
+                return dom.create.objectType(accessors);
+            }
+
             return createProperty(
                 baseName,
                 finalType,

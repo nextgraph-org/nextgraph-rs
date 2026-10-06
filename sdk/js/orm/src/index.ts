@@ -32,13 +32,6 @@ import {
 
 export * from "./core.ts";
 
-export type {
-    OrderByConfig,
-    RdfOrmConfig,
-    SubscriptionData,
-    WhereConfig,
-} from "./utilTypes.ts";
-
 export {
     svelteUseShape,
     svelteUseDiscrete,

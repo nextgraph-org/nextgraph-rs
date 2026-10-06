@@ -119,3 +119,6 @@ export type DiscreteRoot = DiscreteRootArray | DiscreteRootObject;
  * YArray requires an array as root.
  */
 export type DiscreteCrdt = "YMap" | "YArray" | "Automerge";
+
+// re-exports
+export { BaseType, ShapeType, IRI, Nuri } from "@ng-org/shex-orm";

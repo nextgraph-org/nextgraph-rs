@@ -30,7 +30,12 @@ import type {
     DeepSignalOptions,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
-import { OrderByConfig, RdfOrmConfig, SubscriptionData } from "../utilTypes.ts";
+import {
+    OrderByConfig,
+    OrmSet,
+    RdfOrmConfig,
+    SubscriptionData,
+} from "../utilTypes.ts";
 import { escapePathSegment } from "./utils.ts";
 
 /**
@@ -108,7 +113,7 @@ export class RdfOrmSubscription<
             this.signalObject_) as SUBSCRIPTION_DATA;
     }
     private readonly signalObject_: undefined extends CONF["orderBy"]
-        ? DeepSignalSet<T>
+        ? OrmSet<T>
         : DeepSignal<T[]>;
     private readonlyItemsArray?: ReadonlyArray<T>;
 
@@ -510,7 +515,7 @@ export class RdfOrmSubscription<
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
             if (this.signalObject_ instanceof Set) {
                 for (const newItem of parseOrmInitialObject(initialData)) {
-                    (this.signalObject_ as DeepSignalSet<T>).add(newItem);
+                    this.signalObject_.add(newItem);
                 }
             } else {
                 for (const newItem of initialData) {
