@@ -89,7 +89,9 @@ impl SessionWalletStorageV0 {
         wallet_key: PrivKey,
         vec: &Vec<u8>,
     ) -> Result<SessionWalletStorageV0, NgWalletError> {
-        let session_ser = crypto_box::seal_open(&(*wallet_key.to_dh().slice()).into(), vec)
+        let secret: crypto_box::SecretKey = (*wallet_key.to_dh().slice()).into();
+        let session_ser = secret
+            .unseal(vec)
             .map_err(|_| NgWalletError::DecryptionError)?;
         let session: SessionWalletStorage =
             serde_bare::from_slice(&session_ser).map_err(|_| NgWalletError::SerializationError)?;
@@ -111,7 +113,9 @@ impl SessionWalletStorageV0 {
     pub fn enc_session(&self, wallet_id: &PubKey) -> Result<Vec<u8>, NgWalletError> {
         let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(self.clone())).unwrap();
         let mut rng = crypto_box::aead::OsRng {};
-        let cipher = crypto_box::seal(&mut rng, &wallet_id.to_dh_slice().into(), &sws_ser)
+        let recipient: crypto_box::PublicKey = wallet_id.to_dh_slice().into();
+        let cipher = recipient
+            .seal(&mut rng, &sws_ser)
             .map_err(|_| NgWalletError::EncryptionError)?;
         Ok(cipher)
     }

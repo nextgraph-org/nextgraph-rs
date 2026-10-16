@@ -12,7 +12,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use async_std::task;
-use ed25519_dalek::*;
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use futures::{channel::mpsc, Future};
 use lazy_static::lazy_static;
 use noise_protocol::U8Array;
@@ -25,6 +25,7 @@ use url::Url;
 #[allow(unused_imports)]
 use ng_repo::errors::*;
 use ng_repo::types::PubKey;
+use ng_repo::utils::from_ed_privkey_to_dh_privkey;
 use ng_repo::{log::*, types::PrivKey};
 
 use crate::types::*;
@@ -370,8 +371,8 @@ pub fn gen_dh_keys() -> (PrivKey, PubKey) {
 pub struct Dual25519Keys {
     pub x25519_priv: Sensitive<[u8; 32]>,
     pub x25519_public: [u8; 32],
-    pub ed25519_priv: SecretKey,
-    pub ed25519_pub: PublicKey,
+    pub ed25519_priv: SigningKey,
+    pub ed25519_pub: VerifyingKey,
 }
 
 impl Dual25519Keys {
@@ -379,17 +380,20 @@ impl Dual25519Keys {
         let mut random = Sensitive::<[u8; 32]>::new();
         getrandom::fill(&mut *random).expect("getrandom failed");
 
-        let ed25519_priv = SecretKey::from_bytes(&random.as_slice()).unwrap();
-        let exp: ExpandedSecretKey = (&ed25519_priv).into();
-        let mut exp_bytes = exp.to_bytes();
-        let ed25519_pub: PublicKey = (&ed25519_priv).into();
-        for byte in &mut exp_bytes[32..] {
-            *byte = 0;
-        }
-        let mut bits = Sensitive::<[u8; 32]>::from_slice(&exp_bytes[0..32]);
-        bits[0] &= 248;
-        bits[31] &= 127;
-        bits[31] |= 64;
+        let mut seed = [0u8; 32];
+        seed.copy_from_slice(random.as_slice());
+        let ed25519_priv = SigningKey::from_bytes(&seed);
+        let ed25519_pub = ed25519_priv.verifying_key();
+
+        // The Ed25519 to X25519 expansion now lives in one place, ng-repo's
+        // `from_ed_privkey_to_dh_privkey`, rather than being clamped by hand
+        // here as well. That matters for the 2.x upgrade, because the obvious
+        // replacement for `ExpandedSecretKey` reduces the scalar modulo the
+        // group order and would change the derived key; ng-repo keeps the
+        // explicit SHA-512 expansion and has golden vectors pinning it.
+        let bits = sensitive_from_privkey(from_ed_privkey_to_dh_privkey(&PrivKey::Ed25519PrivKey(
+            seed,
+        )));
 
         let x25519_public = noise_rust_crypto::X25519::pubkey(&bits);
 

@@ -10,10 +10,11 @@
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
 use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
-use ed25519_dalek::*;
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use futures::channel::mpsc;
 use rand::rngs::OsRng;
 use rand::RngCore;
+use sha2::{Digest as Sha2Digest, Sha512};
 use time::{OffsetDateTime, UtcOffset};
 use web_time::{Duration, SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
@@ -28,21 +29,25 @@ pub fn derive_key(context: &str, key_material: &[u8]) -> [u8; 32] {
 }
 
 pub fn ed_keypair_from_priv_bytes(secret_key: [u8; 32]) -> (PrivKey, PubKey) {
-    let sk = SecretKey::from_bytes(&secret_key).unwrap();
-    let pk: PublicKey = (&sk).into();
-    let pub_key = PubKey::Ed25519PubKey(pk.to_bytes());
+    let sk = SigningKey::from_bytes(&secret_key);
+    let pub_key = PubKey::Ed25519PubKey(sk.verifying_key().to_bytes());
     let priv_key = PrivKey::Ed25519PrivKey(secret_key);
     (priv_key, pub_key)
 }
 
 pub fn from_ed_privkey_to_dh_privkey(private: &PrivKey) -> PrivKey {
-    //SecretKey and ExpandedSecretKey are Zeroized at drop
     if let PrivKey::Ed25519PrivKey(slice) = private {
-        let ed25519_priv = SecretKey::from_bytes(slice).unwrap();
-        let exp: ExpandedSecretKey = (&ed25519_priv).into();
-        let mut exp_bytes = exp.to_bytes();
-        exp_bytes[32..].zeroize();
-        let mut bits = *slice_as_array!(&exp_bytes[0..32], [u8; 32]).unwrap();
+        // The X25519 private key is the first half of SHA-512 over the Ed25519
+        // seed, clamped. `ed25519_dalek::hazmat::ExpandedSecretKey` looks like
+        // the natural replacement for the 1.x expansion used here, but it is
+        // not: since 2.x it stores the scalar reduced modulo the group order,
+        // and those bytes are not the clamped bytes. Using it would silently
+        // change every device's X25519 key, so the expansion stays explicit.
+        let mut expanded = [0u8; 64];
+        expanded.copy_from_slice(Sha512::digest(slice).as_slice());
+        let mut bits = [0u8; 32];
+        bits.copy_from_slice(&expanded[0..32]);
+        expanded.zeroize();
         bits[0] &= 248;
         bits[31] &= 127;
         bits[31] |= 64;
@@ -85,10 +90,11 @@ pub fn decode_overlayid(id_string: &str) -> Result<OverlayId, NgError> {
 }
 
 pub fn ed_privkey_to_ed_pubkey(privkey: &PrivKey) -> PubKey {
-    // SecretKey is zeroized on drop (3 lines below) se we are safe
-    let sk = SecretKey::from_bytes(privkey.slice()).unwrap();
-    let pk: PublicKey = (&sk).into();
-    PubKey::Ed25519PubKey(pk.to_bytes())
+    let mut seed = [0u8; 32];
+    seed.copy_from_slice(privkey.slice());
+    let sk = SigningKey::from_bytes(&seed);
+    seed.zeroize();
+    PubKey::Ed25519PubKey(sk.verifying_key().to_bytes())
 }
 
 /// use with caution. it should be embedded in a zeroize struct in order to be safe
@@ -102,10 +108,9 @@ pub fn random_key() -> [u8; 32] {
 pub fn generate_null_ed_keypair() -> (PrivKey, PubKey) {
     // we don't use zeroize because... well, it is already a zeroized privkey ;)
     let master_key: [u8; 32] = [0; 32];
-    let sk = SecretKey::from_bytes(&master_key).unwrap();
-    let pk: PublicKey = (&sk).into();
+    let sk = SigningKey::from_bytes(&master_key);
     let priv_key = PrivKey::Ed25519PrivKey(sk.to_bytes());
-    let pub_key = PubKey::Ed25519PubKey(pk.to_bytes());
+    let pub_key = PubKey::Ed25519PubKey(sk.verifying_key().to_bytes());
     (priv_key, pub_key)
 }
 
@@ -126,19 +131,31 @@ pub fn dh_pubkey_array_from_ed_pubkey_slice(public: &[u8]) -> X25519PubKey {
     array
 }
 
-pub fn pubkey_privkey_to_keypair(pubkey: &PubKey, privkey: &PrivKey) -> Keypair {
+/// The signing key for a keypair, refusing a public key that does not belong
+/// to the private key.
+///
+/// Finding F1. The 1.x API let a `Keypair` be assembled from a secret and an
+/// unrelated public key, and signing with such a pair leaks the secret. That
+/// was reachable here, because the topic keypair reaching [`sign`] is
+/// decrypted from commit content without authentication, so a flipped
+/// ciphertext bit produced exactly the mismatched pair the attack needs. The
+/// 2.x API removes the shape by deriving the public key from the secret, and
+/// this function fails closed rather than signing under a different identity.
+/// Montgomery keys now return an error instead of panicking.
+fn signing_key_checked(pubkey: &PubKey, privkey: &PrivKey) -> Result<SigningKey, NgError> {
     match (privkey, pubkey) {
         (PrivKey::Ed25519PrivKey(sk), PubKey::Ed25519PubKey(pk)) => {
-            let secret = SecretKey::from_bytes(sk).unwrap();
-            let public = PublicKey::from_bytes(pk).unwrap();
-
-            Keypair { secret, public }
+            let signing = SigningKey::from_bytes(sk);
+            if signing.verifying_key().to_bytes() != *pk {
+                return Err(NgError::InvalidKey);
+            }
+            Ok(signing)
         }
-        (_, _) => panic!("cannot sign with Montgomery keys"),
+        (_, _) => Err(NgError::InvalidKey),
     }
 }
 
-pub fn keypair_from_ed(secret: SecretKey, public: PublicKey) -> (PrivKey, PubKey) {
+pub fn keypair_from_ed(secret: SigningKey, public: VerifyingKey) -> (PrivKey, PubKey) {
     let ed_priv_key = secret.to_bytes();
     let ed_pub_key = public.to_bytes();
     let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
@@ -151,8 +168,8 @@ pub fn sign(
     author_pubkey: &PubKey,
     content: &[u8],
 ) -> Result<Sig, NgError> {
-    let keypair = pubkey_privkey_to_keypair(author_pubkey, author_privkey);
-    let sig_bytes = keypair.sign(content).to_bytes();
+    let signing = signing_key_checked(author_pubkey, author_privkey)?;
+    let sig_bytes = signing.sign(content).to_bytes();
     // log_debug!(
     //     "XXXX SIGN {:?} {:?} {:?}",
     //     author_pubkey,
@@ -169,23 +186,30 @@ pub fn sign(
 pub fn verify(content: &[u8], sig: Sig, pub_key: PubKey) -> Result<(), NgError> {
     let pubkey = match pub_key {
         PubKey::Ed25519PubKey(pk) => pk,
-        _ => panic!("cannot verify with Montgomery keys"),
+        // Was a panic, which a peer could reach with a crafted key.
+        _ => return Err(NgError::InvalidKey),
     };
-    let pk = PublicKey::from_bytes(&pubkey)?;
-    let sig_bytes = match sig {
-        Sig::Ed25519Sig(ss) => [ss[0], ss[1]].concat(),
-    };
-    let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes)?;
+    let pk = VerifyingKey::from_bytes(&pubkey)?;
+    let mut sig_bytes = [0u8; 64];
+    match sig {
+        Sig::Ed25519Sig(ss) => {
+            sig_bytes[..32].copy_from_slice(&ss[0]);
+            sig_bytes[32..].copy_from_slice(&ss[1]);
+        }
+    }
+    let sig = Signature::from_bytes(&sig_bytes);
     Ok(pk.verify_strict(content, &sig)?)
 }
 
 pub fn generate_keypair() -> (PrivKey, PubKey) {
-    let mut csprng = OsRng {};
-    let keypair: Keypair = Keypair::generate(&mut csprng);
-    let ed_priv_key = keypair.secret.to_bytes();
-    let ed_pub_key = keypair.public.to_bytes();
-    let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);
-    let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
+    // Same construction as `SigningKey::generate`, which fills a 32 byte seed
+    // from the RNG. Written out so this crate keeps one RNG, `rand` 0.7, which
+    // `ng_threshold_crypto` still requires; see finding F7.
+    let mut seed = random_key();
+    let signing = SigningKey::from_bytes(&seed);
+    let priv_key = PrivKey::Ed25519PrivKey(seed);
+    let pub_key = PubKey::Ed25519PubKey(signing.verifying_key().to_bytes());
+    seed.zeroize();
     (priv_key, pub_key)
 }
 
@@ -292,5 +316,134 @@ mod test {
             })
             .collect();
         log_debug!("{:?}", res);
+    }
+}
+
+#[cfg(test)]
+mod dalek_upgrade_compat {
+    //! Golden vectors pinning the byte level behaviour of every key derivation
+    //! and signature in this module. They were captured on the `ed25519-dalek`
+    //! 1.0.1 tree and must keep passing after the 2.x and `curve25519-dalek`
+    //! 4.x upgrade, which is how findings F1 and F2 are shown to change no
+    //! stored or wire format. The X25519 case is the one that matters most: a
+    //! migration using `hazmat::ExpandedSecretKey` reduces the scalar modulo
+    //! the group order and would change every device's key, and this test
+    //! fails if anyone tries it.
+
+    use super::*;
+
+    const SEED: [u8; 32] = [
+        7, 200, 3, 91, 45, 210, 17, 88, 129, 240, 6, 61, 155, 22, 74, 199, 31, 8, 250, 143, 12, 65,
+        180, 99, 254, 37, 118, 5, 220, 71, 160, 33,
+    ];
+
+    const ED_PUB: &str = "77f8186435b89caad9a4b439af66a878f75d0682a4ad629018c1a3f6ae912712";
+    const DH_PRIV: &str = "6008c41b7e9f611935308890afbaeca0c5a47feb8030e9abd0d0a7c0b3483967";
+    const DH_PUB: &str = "4c66d3e675fc1356a8480d7410c9b890962d31ba74b4fec0c20e9fa1db52a97a";
+    const SIG: &str = "441e5d56cd8130c51335c125386ad885e5765d889ae8412a87b1e29e413b872db878fffee70ab5c4562016ba56b1583f922d1e1b5c04e7fb51cd246892e6de00";
+    const NULL_PUB: &str = "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29";
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    #[test]
+    fn key_derivation_is_unchanged() {
+        let (priv_key, pub_key) = ed_keypair_from_priv_bytes(SEED);
+        assert_eq!(hex(pub_key.slice()), ED_PUB, "ed25519 public key changed");
+        assert_eq!(
+            hex(ed_privkey_to_ed_pubkey(&priv_key).slice()),
+            ED_PUB,
+            "ed_privkey_to_ed_pubkey disagrees with ed_keypair_from_priv_bytes"
+        );
+        assert_eq!(
+            hex(from_ed_privkey_to_dh_privkey(&priv_key).slice()),
+            DH_PRIV,
+            "X25519 private key changed, so every device identity would change"
+        );
+        assert_eq!(
+            hex(&dh_pubkey_array_from_ed_pubkey_slice(pub_key.slice())),
+            DH_PUB,
+            "X25519 public key changed"
+        );
+        let (_, null_pub) = generate_null_ed_keypair();
+        assert_eq!(hex(null_pub.slice()), NULL_PUB, "null keypair changed");
+    }
+
+    #[test]
+    fn signatures_are_unchanged() {
+        let (priv_key, pub_key) = ed_keypair_from_priv_bytes(SEED);
+        let Sig::Ed25519Sig(ss) = sign(&priv_key, &pub_key, b"localfirst golden vector").unwrap();
+        assert_eq!(format!("{}{}", hex(&ss[0]), hex(&ss[1])), SIG);
+        verify(
+            b"localfirst golden vector",
+            Sig::Ed25519Sig(ss),
+            pub_key.clone(),
+        )
+        .expect("a signature this crate produced must verify");
+    }
+
+    /// Finding F1. Signing must refuse a public key that does not belong to
+    /// the private key, rather than producing a signature that leaks the
+    /// secret. Before the 2.x upgrade this call returned a signature.
+    #[test]
+    fn signing_refuses_a_mismatched_public_key() {
+        let (priv_key, _) = ed_keypair_from_priv_bytes(SEED);
+        let (_, other_pub) = ed_keypair_from_priv_bytes([9u8; 32]);
+        let err = sign(&priv_key, &other_pub, b"oracle").unwrap_err();
+        assert_eq!(err, NgError::InvalidKey);
+    }
+
+    /// Montgomery keys used to panic on both paths, which a peer could reach.
+    #[test]
+    fn montgomery_keys_error_rather_than_panic() {
+        let (priv_key, pub_key) = ed_keypair_from_priv_bytes(SEED);
+        let dh_priv = from_ed_privkey_to_dh_privkey(&priv_key);
+        let dh_pub = dh_pubkey_from_ed_pubkey_slice(pub_key.slice());
+        assert_eq!(
+            sign(&dh_priv, &pub_key, b"x").unwrap_err(),
+            NgError::InvalidKey
+        );
+        assert_eq!(
+            verify(b"x", Sig::Ed25519Sig([[0; 32], [0; 32]]), dh_pub).unwrap_err(),
+            NgError::InvalidKey
+        );
+    }
+}
+
+#[cfg(test)]
+mod crypto_box_upgrade_compat {
+    //! Finding F2. `crypto_box` moves from 0.8 to 0.9, which is what finally
+    //! removes `curve25519-dalek` 3.2.0 from the tree, by way of
+    //! `x25519-dalek` 2.x. Sealed boxes protect stored data here, the wallet
+    //! session and the repo write capability, so the upgrade must be able to
+    //! open what the old version wrote. This vector was produced on the 0.8
+    //! tree and is opened below with the 0.9 API.
+
+    #[test]
+    fn opens_a_sealed_box_written_by_crypto_box_0_8() {
+        const SEALED: &str = "c307f767f18cf31155d370912381981091dc811c25975a519930c4cfb5564b0f7ee508f62fcc84b44ccc5633abd731655e2e57dd4c9707ba86eb04b14322bb552ff07f96619af46b564fea84";
+        let ciphertext: Vec<u8> = (0..SEALED.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&SEALED[i..i + 2], 16).expect("hex"))
+            .collect();
+
+        let secret = crypto_box::SecretKey::from([7u8; 32]);
+        let plaintext = secret
+            .unseal(&ciphertext)
+            .expect("0.9 must open what 0.8 sealed, or stored data becomes unreadable");
+        assert_eq!(&plaintext, b"localfirst sealed box vector");
+    }
+
+    /// And a round trip on the new version, so the pair is exercised both ways.
+    #[test]
+    fn seals_and_unseals() {
+        let secret = crypto_box::SecretKey::from([9u8; 32]);
+        let mut rng = crypto_box::aead::OsRng {};
+        let sealed = secret
+            .public_key()
+            .seal(&mut rng, b"round trip")
+            .expect("seal");
+        assert_eq!(&secret.unseal(&sealed).expect("unseal"), b"round trip");
     }
 }
