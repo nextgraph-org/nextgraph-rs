@@ -638,7 +638,7 @@ export class RdfOrmSubscription<
             // Check if the parent has a @graph. `parent.parent` might have a graph if parent is a set.
             graphIri =
                 (rawParent as any)["@graph"] ??
-                (meta.parent?.parent?.raw as any)?.["graph"];
+                (meta.parent?.parent?.raw as any)?.["@graph"];
         } else {
             graphIri = rawObject["@graph"];
         }

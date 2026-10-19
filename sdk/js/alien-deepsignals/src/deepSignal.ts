@@ -17,6 +17,7 @@ import {
     DeepSignal,
     DeepSignalOptions,
     ExternalSubscriberFactory,
+    OnObjectAttachedFn,
     ProxyMeta,
     RootState,
     SetMeta,
@@ -411,29 +412,34 @@ function schedulePatch(
 /**
  * Recursively apply meta.options.onObjectAttached results to new objects, if applicable.
  * For sets, adds the synthetic ids (from prop generator, syntheticIdPropertyName or a new one).
+ * Assumes meta.parent is set.
  */
 function prepareObjectTree(
     meta: ProxyMeta,
-    rawValue: any,
-    basePath: (string | number | symbol)[] = [],
-    rawParent: any
+    basePath: (string | number | symbol)[] = []
 ) {
-    if (!rawValue || typeof rawValue !== "object") return rawValue;
+    if (!meta.raw || typeof meta.raw !== "object") return meta.raw;
 
     const idPropName = meta.options.syntheticIdPropertyName;
 
-    // Call onObjectAttached and process results.
-    const propGenRes =
-        (meta.options.onObjectAttached &&
-            meta.options.onObjectAttached({
-                path: basePath,
-                rawParent,
-                rawObject: rawValue,
-                meta,
-            })) ??
-        {};
+    const rawParent = meta.parent?.raw;
+    const rawValue = meta.raw;
 
+    let propGenRes: Partial<ReturnType<OnObjectAttachedFn>> = {};
     if (rawParent) {
+        // Call onObjectAttached and process results.
+        propGenRes =
+            (meta.options.onObjectAttached &&
+                meta.options.onObjectAttached({
+                    path: basePath,
+                    rawParent,
+                    rawObject: rawValue,
+                    meta,
+                })) ??
+            {};
+    }
+
+    if (rawParent && rawParent instanceof Set) {
         // Handle synthetic ids.
 
         const setInfo = ensureSetInfo(rawParent);
@@ -445,8 +451,8 @@ function prepareObjectTree(
             syntheticId = propGenRes.syntheticId;
         } else if (syntheticId === undefined) {
             // Otherwise, default to the syntheticIdPropertyName...
-            if (idPropName && rawValue[idPropName]) {
-                syntheticId = rawValue[idPropName];
+            if (idPropName && (rawValue as any)[idPropName]) {
+                syntheticId = (rawValue as any)[idPropName];
             } else {
                 // ...or a generated one.
                 syntheticId = `_s${++blankNodeCounter}`;
@@ -455,6 +461,7 @@ function prepareObjectTree(
 
         setInfo.objectToId.set(rawValue, syntheticId!);
         setInfo.idToObject.set(syntheticId!, rawValue);
+
         basePath = [...basePath, syntheticId!];
     }
 
@@ -466,10 +473,13 @@ function prepareObjectTree(
         rawValue.forEach((entry, idx) => {
             if (entry && typeof entry === "object") {
                 rawValue[idx] = prepareObjectTree(
-                    meta,
-                    entry,
-                    [...basePath, idx],
-                    rawValue
+                    {
+                        raw: entry,
+                        parent: meta,
+                        root: meta.root,
+                        options: meta.options,
+                    },
+                    [...basePath, idx]
                 );
             }
         });
@@ -480,9 +490,15 @@ function prepareObjectTree(
     if (rawValue instanceof Set) {
         for (const entry of rawValue) {
             if (entry && typeof entry === "object") {
-                let path = basePath;
-
-                const newVal = prepareObjectTree(meta, entry, path, rawValue);
+                const newVal = prepareObjectTree(
+                    {
+                        raw: entry,
+                        parent: meta,
+                        root: meta.root,
+                        options: meta.options,
+                    },
+                    basePath
+                );
                 if (newVal !== entry) {
                     rawValue.delete(entry);
                     rawValue.add(newVal);
@@ -501,13 +517,16 @@ function prepareObjectTree(
         const desc = Object.getOwnPropertyDescriptor(rawValue, childKey);
         if (desc && typeof desc.get === "function") return;
 
-        const child = rawValue[childKey];
+        const child = (rawValue as any)[childKey];
         if (child && typeof child === "object") {
-            rawValue[childKey] = prepareObjectTree(
-                meta,
-                child,
-                [...basePath, childKey],
-                rawValue
+            (rawValue as any)[childKey] = prepareObjectTree(
+                {
+                    raw: child,
+                    parent: meta,
+                    root: meta.root,
+                    options: meta.options,
+                },
+                [...basePath, childKey]
             );
         }
     });
@@ -608,7 +627,7 @@ function createProxy<T extends object>(
     };
 
     // Only prepare for new signal objects. If this is just creating a new proxy for an object already attached, do nothing.
-    if (isRoot) prepareObjectTree(meta, target, [], target);
+    if (isRoot) prepareObjectTree(meta, []);
 
     getOrCreateSignalMap(target);
     rawToMeta.set(target, meta);
@@ -1033,7 +1052,15 @@ const objectHandlers: ProxyHandler<any> = {
         const result = Reflect.set(target, key, rawValue, receiver);
 
         if (meta && path && typeof rawValue === "object") {
-            prepareObjectTree(meta, rawValue, path, target);
+            prepareObjectTree(
+                {
+                    raw: rawValue,
+                    parent: meta,
+                    root: meta.root,
+                    options: meta.options,
+                },
+                path
+            );
         }
 
         // Set signal value.
@@ -1205,7 +1232,15 @@ const setHandlers: ProxyHandler<Set<any>> = {
                     const valueIsDeepSignal = rawToMeta.has(rawValue);
 
                     // Case: Object in set
-                    prepareObjectTree(meta, rawValue, containerPath, target);
+                    prepareObjectTree(
+                        {
+                            raw: rawValue,
+                            parent: meta,
+                            root: meta.root,
+                            options: meta.options,
+                        },
+                        containerPath
+                    );
                     const synthetic = getSyntheticId(rawValue, target)!;
                     ensureChildProxy(rawValue, target, synthetic, true);
 

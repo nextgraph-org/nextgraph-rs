@@ -16,6 +16,57 @@ import { DeepPatch, DeepSignalOptions } from "../../types.ts";
 
 describe("deepSignal options", () => {
     describe("attaching in onObjectAttached callback", () => {
+        it.each(["initialization", "assignment"])(
+            "provides the immediate parent hierarchy during %s",
+            (mode) => {
+                const setEntry = { value: 1 };
+                const arrayEntry = { value: 2 };
+                const nested = {
+                    items: new Set([setEntry]),
+                    rows: [arrayEntry],
+                };
+                const tree = { nested };
+                const holder = { value: null as any };
+                const ancestors = new Map<object, object[]>();
+                const options: DeepSignalOptions = {
+                    onObjectAttached: ({ rawObject, meta }) => {
+                        expect(meta.raw).toBe(rawObject);
+                        const chain: object[] = [];
+                        for (
+                            let cursor = meta;
+                            cursor;
+                            cursor = cursor.parent!
+                        ) {
+                            chain.push(cursor.raw);
+                        }
+                        ancestors.set(rawObject, chain);
+                    },
+                };
+
+                if (mode === "initialization") {
+                    deepSignal(tree, options);
+                } else {
+                    deepSignal(holder, options).value = tree;
+                }
+
+                const tail = mode === "assignment" ? [holder] : [];
+                expect(ancestors.get(setEntry)).toEqual([
+                    setEntry,
+                    nested.items,
+                    nested,
+                    tree,
+                    ...tail,
+                ]);
+                expect(ancestors.get(arrayEntry)).toEqual([
+                    arrayEntry,
+                    nested.rows,
+                    nested,
+                    tree,
+                    ...tail,
+                ]);
+            }
+        );
+
         it("attach property to all nested objects", async () => {
             let counter = 100;
             const options: DeepSignalOptions = {
