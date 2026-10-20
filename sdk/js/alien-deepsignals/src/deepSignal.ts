@@ -146,7 +146,7 @@ const dateHandlers: ProxyHandler<Date> = {
                                 path,
                                 op: "remove",
                                 type: "set",
-                                value: snapshotLiteral(oldValue),
+                                value: new Date(oldValue),
                             },
                             {
                                 path,

@@ -190,7 +190,6 @@ describe("Date mutations", () => {
         await Promise.resolve();
 
         const patches = batches.flat();
-        console.log(patches);
         expect(patches).toHaveLength(2);
         expect(patches[0]).toMatchObject({
             op: "add",
