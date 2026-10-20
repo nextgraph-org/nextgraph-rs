@@ -879,7 +879,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             // Update meta.key for each item whose index shifted.
 
             // Update the keys of items whose index was shifted.
-            for (let i = start + items.length; i < target.length; i++) {
+            for (let i = start; i < target.length; i++) {
                 const rawItem = target[i];
                 const meta = rawToMeta.get(rawItem);
                 if (meta) {
