@@ -404,8 +404,6 @@ impl OrmSubscription {
             ))
         })?;
 
-        log_info!("Transforming where object: {:?}", where_obj);
-
         for (readable_pred, where_val) in where_obj {
             let source_pred_schema = source_shape
                 .predicates
@@ -460,13 +458,14 @@ impl OrmSubscription {
             for val in where_values {
                 match val {
                     serde_json::Value::Number(num) => {
+                        let numeric_type = find_first_numeric_type(&source_pred_schema.dataTypes);
                         Self::mutate_target_predicate(
                             schema,
                             target_shape_iri,
                             readable_pred,
                             move |target_pred_schema| {
                                 target_pred_schema.dataTypes.push(OrmSchemaDataType {
-                                    valType: find_first_numeric_type(&target_pred_schema.dataTypes),
+                                    valType: numeric_type,
                                     literals: Some(vec![num.to_string()]),
                                     shape: None,
                                 });
@@ -1207,7 +1206,7 @@ pub(crate) fn find_first_numeric_type_opt(types: &[OrmSchemaDataType]) -> Option
 
 pub(crate) fn find_first_numeric_type(types: &[OrmSchemaDataType]) -> OrmSchemaValType {
     find_first_numeric_type_opt(types).unwrap_or_else(|| {
-        log_err!("Invalid `where` value: Expected the value to be numeric. Defaulting to decimal.");
+        log_err!("Invalid `where` value: Expected the value to be numeric. Defaulting to decimal. Types: {:?}", types);
         OrmSchemaValType::decimal
     })
 }

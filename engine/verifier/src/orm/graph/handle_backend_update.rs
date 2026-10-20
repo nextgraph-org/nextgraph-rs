@@ -224,6 +224,21 @@ impl Verifier {
                         .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(all_patches)))
                         .await;
                 }
+            } else if root_order_patches.len() > 0 {
+                // Same origin but changes caused order change.
+
+                let order_patches = root_order_patches
+                    .into_iter()
+                    .map(|p| p.to_patch())
+                    .collect();
+
+                let _ = orm_subscription
+                    .sender
+                    .clone()
+                    .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(
+                        order_patches,
+                    )))
+                    .await;
             }
 
             // Put the subscription back.
@@ -607,7 +622,7 @@ fn materialize_orm_object_from_tormo(tormo: &TrackedOrmObject, all_changes: &Orm
 }
 
 /// Only call if order_by config is set.
-/// Create patches that effect the position of objects in ordered/paginated subscriptions.
+/// Create patches that affect the position of objects in ordered/paginated subscriptions.
 /// For ordered, unpaginated subscriptions, this includes adds, removes, moves.
 /// For pagination, this includes moving between pages to ensure page size remains stable as well.
 fn root_patches_for_ordered(
@@ -1030,15 +1045,15 @@ fn subject_of_quad(quad: &Quad) -> &str {
 /// If one of the terms is not comparable, returns false (TS OrderByConfig type guards against this).
 fn is_order_value_in_window_range(
     value: &Term,
-    lower_bound: &Term,
-    upper_bound: &Term,
+    left_bound: &Term,
+    right_bound: &Term,
     order_direction: OrderDirection,
-    check_upper_bound_only: bool,
+    check_right_bound_only: bool,
 ) -> bool {
-    if !check_upper_bound_only {
+    if !check_right_bound_only {
         if order_direction == OrderDirection::Ascending {
-            // lower_bound <= value && value <= upper_bound
-            match (term_cmp(lower_bound, value), term_cmp(value, upper_bound)) {
+            // left_bound <= value && value <= right_bound
+            match (term_cmp(left_bound, value), term_cmp(value, right_bound)) {
                 (
                     Some(Ordering::Less | Ordering::Equal),
                     Some(Ordering::Less | Ordering::Equal),
@@ -1046,8 +1061,8 @@ fn is_order_value_in_window_range(
                 _ => false,
             }
         } else {
-            // upper_bound <= value && value <= lower_bound
-            match (term_cmp(upper_bound, value), term_cmp(value, lower_bound)) {
+            // right_bound <= value && value <= left_bound
+            match (term_cmp(right_bound, value), term_cmp(value, left_bound)) {
                 (
                     Some(Ordering::Less | Ordering::Equal),
                     Some(Ordering::Less | Ordering::Equal),
@@ -1057,14 +1072,14 @@ fn is_order_value_in_window_range(
         }
     } else {
         if order_direction == OrderDirection::Ascending {
-            // value <= upper_bound
-            match term_cmp(value, upper_bound) {
+            // value <= right_bound
+            match term_cmp(value, right_bound) {
                 Some(Ordering::Less | Ordering::Equal) => true,
                 _ => false,
             }
         } else {
-            // value >= upper_bound
-            match term_cmp(value, upper_bound) {
+            // value >= right_bound
+            match term_cmp(value, right_bound) {
                 Some(Ordering::Greater | Ordering::Equal) => true,
                 _ => false,
             }

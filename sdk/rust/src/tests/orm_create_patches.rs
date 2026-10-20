@@ -83,6 +83,8 @@ async fn test_orm_patch_creation() {
 
     test_add_remove_move_in_plain_sorted(session_id).await;
 
+    test_ordered_datetime_update_moves_object(session_id).await;
+
     test_add_remove_move_in_pagination(session_id).await;
 
     test_add_remove_move_in_pagination_grow_mode(session_id).await;
@@ -2222,6 +2224,120 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     ]);
 
     add_graph_fields(&mut expected_patches, &doc_nuri);
+
+    assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
+}
+
+async fn test_ordered_datetime_update_moves_object(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <http://example.org/>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+            INSERT DATA {
+                <urn:test:orderedDate1> a ex:OrderedDateObject ;
+                    ex:updatedAt "2026-01-01T00:00:00Z"^^xsd:dateTime .
+                <urn:test:orderedDate2> a ex:OrderedDateObject ;
+                    ex:updatedAt "2026-02-01T00:00:00Z"^^xsd:dateTime .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/OrderedDateShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "http://example.org/OrderedDateShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["http://example.org/OrderedDateObject".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/updatedAt".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "updatedAt".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::dateTime,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/OrderedDateShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type,
+        session_id,
+        json!({"orderBy": [{"updatedAt": "asc"}]}),
+    )
+    .await;
+
+    let initial_ids: Vec<_> = initial
+        .as_array()
+        .expect("ordered initial result should be an array")
+        .iter()
+        .map(|object| object["@id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        initial_ids,
+        ["urn:test:orderedDate1", "urn:test:orderedDate2"]
+    );
+
+    let root = root_path(
+        &doc_nuri,
+        "urn:test:orderedDate1",
+        "http://example.org/OrderedDateShape",
+    );
+    orm_update(
+        subscription_id,
+        vec![OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{root}/updatedAt"),
+            value: Some(json!({
+                "|type": "http://www.w3.org/2001/XMLSchema#dateTime",
+                "value": "2026-03-01T00:00:00Z"
+            })),
+            ..Default::default()
+        }],
+        session_id,
+    )
+    .await
+    .expect("frontend date-time update failed");
+
+    let received_patches = await_graph_patches(&mut receiver).await;
+
+    let expected_patches = json!([
+            {
+                "op": "move",
+                "from": "/0",
+                "path": "/1"
+            },
+    ]);
 
     assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
 }
