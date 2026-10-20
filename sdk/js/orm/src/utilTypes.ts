@@ -89,13 +89,22 @@ export type OrderByConfig<T extends BaseType> =
     | NonEmptyArray<OrderByConfigObject<T>>
     | OrderByConfigObject<T>;
 export type OrderByConfigObject<T extends BaseType> = SingleKeyObject<{
-    [K in Exclude<keyof T, "@graph" | "@id">]: T[K] extends
-        | string
-        | number
-        | boolean
+    [K in Exclude<keyof T, "@graph" | "@id">]: IsSinglePrimitive<
+        T[K]
+    > extends true
         ? "asc" | "desc"
         : never;
 }>;
+
+type IsSinglePrimitive<T> = [T] extends [string]
+    ? true
+    : [T] extends [number]
+      ? true
+      : [T] extends [boolean]
+        ? true
+        : [T] extends [Date]
+          ? true
+          : false;
 
 // type SelectConfig<
 //     ST extends ShapeType<any>,

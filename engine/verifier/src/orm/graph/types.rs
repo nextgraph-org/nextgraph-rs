@@ -8,8 +8,10 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use ng_oxigraph::oxrdf::Quad;
-use std::cmp::max;
+use ng_oxigraph::oxrdf::vocab::xsd;
+use ng_oxigraph::oxrdf::{Quad, Term};
+use ng_repo::log::*;
+use std::cmp::{max, Ordering};
 use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
@@ -114,7 +116,7 @@ pub struct TrackedOrmPredicate {
     /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
     /// If schema is of type literal or the tormos are ordered by this predicate, the currently present ones.
-    pub current_literals: Option<Vec<BasicType>>,
+    pub current_literals: Option<Vec<Term>>,
 }
 
 // Used only for tracking construction of new objects and diffs
@@ -133,18 +135,15 @@ pub struct TrackedOrmObjectChange {
 pub struct TrackedOrmPredicateChanges {
     /// The tracked predicate for which those changes were recorded.
     pub tracked_predicate: Arc<RwLock<TrackedOrmPredicate>>,
-    pub values_added: Vec<BasicType>,
-    pub values_removed: Vec<BasicType>,
+    pub values_added: Vec<Term>,
+    pub values_removed: Vec<Term>,
 }
 
 impl TrackedOrmPredicateChanges {
     pub fn tracked_predicate(&self) -> RwLockReadGuard<'_, TrackedOrmPredicate> {
         return self.tracked_predicate.read().unwrap();
     }
-    pub fn first_tormo_for_subj(
-        &self,
-        subject_iri: &String,
-    ) -> Option<Arc<RwLock<TrackedOrmObject>>> {
+    pub fn first_tormo_for_subj(&self, subject_iri: &str) -> Option<Arc<RwLock<TrackedOrmObject>>> {
         if let Some(child_tormo) = self
             .tracked_predicate()
             .tracked_children
@@ -165,14 +164,6 @@ impl TrackedOrmPredicateChanges {
             None
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum Term {
-    Str(String),
-    Num(f64),
-    Bool(bool),
-    Ref(String),
 }
 
 #[derive(Debug)]
@@ -413,6 +404,8 @@ impl OrmSubscription {
             ))
         })?;
 
+        log_info!("Transforming where object: {:?}", where_obj);
+
         for (readable_pred, where_val) in where_obj {
             let source_pred_schema = source_shape
                 .predicates
@@ -467,27 +460,20 @@ impl OrmSubscription {
             for val in where_values {
                 match val {
                     serde_json::Value::Number(num) => {
-                        let n = num.as_f64().ok_or_else(|| {
-                            NgError::OrmError(format!(
-                                "Invalid numeric where value for key {}.",
-                                readable_pred
-                            ))
-                        })?;
                         Self::mutate_target_predicate(
                             schema,
                             target_shape_iri,
                             readable_pred,
                             move |target_pred_schema| {
                                 target_pred_schema.dataTypes.push(OrmSchemaDataType {
-                                    valType: OrmSchemaValType::number,
-                                    literals: Some(vec![BasicType::Num(n)]),
+                                    valType: find_first_numeric_type(&target_pred_schema.dataTypes),
+                                    literals: Some(vec![num.to_string()]),
                                     shape: None,
                                 });
                             },
                         )?;
                     }
                     serde_json::Value::Bool(b) => {
-                        let b = *b;
                         Self::mutate_target_predicate(
                             schema,
                             target_shape_iri,
@@ -495,7 +481,7 @@ impl OrmSubscription {
                             move |target_pred_schema| {
                                 target_pred_schema.dataTypes.push(OrmSchemaDataType {
                                     valType: OrmSchemaValType::boolean,
-                                    literals: Some(vec![BasicType::Bool(b)]),
+                                    literals: Some(vec![b.to_string()]),
                                     shape: None,
                                 });
                             },
@@ -503,8 +489,6 @@ impl OrmSubscription {
                     }
                     serde_json::Value::String(str_or_iri) => {
                         let str_or_iri = str_or_iri.clone();
-                        let pred_allows_iri_local = pred_allows_iri;
-                        let pred_allows_string_local = pred_allows_string;
                         // Allow that str_or_iri is added as iri _and_ string,
                         // since we can't tell for sure by the value.
                         Self::mutate_target_predicate(
@@ -512,17 +496,19 @@ impl OrmSubscription {
                             target_shape_iri,
                             readable_pred,
                             move |target_pred_schema| {
-                                if pred_allows_iri_local {
-                                    target_pred_schema.dataTypes.push(OrmSchemaDataType {
-                                        valType: OrmSchemaValType::iri,
-                                        literals: Some(vec![BasicType::Str(str_or_iri.clone())]),
-                                        shape: None,
-                                    });
+                                if pred_allows_iri {
+                                    if is_iri(&str_or_iri) {
+                                        target_pred_schema.dataTypes.push(OrmSchemaDataType {
+                                            valType: OrmSchemaValType::iri,
+                                            literals: Some(vec![str_or_iri.clone()]),
+                                            shape: None,
+                                        });
+                                    }
                                 }
-                                if pred_allows_string_local {
+                                if pred_allows_string {
                                     target_pred_schema.dataTypes.push(OrmSchemaDataType {
                                         valType: OrmSchemaValType::string,
-                                        literals: Some(vec![BasicType::Str(str_or_iri.clone())]),
+                                        literals: Some(vec![str_or_iri]),
                                         shape: None,
                                     });
                                 }
@@ -1045,7 +1031,7 @@ impl OrmSubscription {
     }
 
     /// Get the first-level order-by predicate and it's lowest and highest value + order direction
-    pub fn get_page_window_bounds(&self) -> Option<(&str, OrderDirection, BasicType, BasicType)> {
+    pub fn get_page_window_bounds(&self) -> Option<(&str, OrderDirection, Term, Term)> {
         let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
         let order_predicate_iri = &order_by.iri;
 
@@ -1076,5 +1062,186 @@ fn clone_shape(shape: &OrmSchemaShape) -> OrmSchemaShape {
             .map(|p| Arc::new(OrmSchemaPredicate::clone(p)))
             .collect(),
         is_closed: shape.is_closed,
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct OrderKey {
+    pub val_types: Vec<(Term, OrderDirection)>,
+}
+
+/// Iterate over all items in val_types.
+/// Take OrderDirection into consideration (reverses greater / less comparisons).
+/// If lengths mismatch but previous values do, the longer one is considered greater.
+fn order_key_partial_cmp(first: &OrderKey, other: &OrderKey) -> Option<std::cmp::Ordering> {
+    for i in 0..usize::max(first.val_types.len(), other.val_types.len()) {
+        let self_current_val_op: Option<&(Term, OrderDirection)> = first.val_types.get(i);
+        let other_current_val_op = other.val_types.get(i);
+
+        if let Some(self_current_val) = self_current_val_op {
+            if let Some(other_current_val) = other_current_val_op {
+                let direction = self_current_val.1.clone();
+                if direction != other_current_val.1 {
+                    // Conflicting order directions. Not comparable.
+                    return None;
+                }
+
+                let cmp_res_op = term_cmp(&self_current_val.0, &other_current_val.0);
+                if let Some(cmp_res) = cmp_res_op {
+                    if cmp_res == Ordering::Equal {
+                        // This position is equal, check secondary/next order-by values.
+                        continue;
+                    } else if direction == OrderDirection::Ascending {
+                        return Some(cmp_res);
+                    } else {
+                        // direction == OrderDirection::Descending
+                        if cmp_res == Ordering::Greater {
+                            return Some(Ordering::Less);
+                        } else {
+                            return Some(Ordering::Greater);
+                        }
+                    }
+                } else {
+                    // Compared values were of different type.
+                    return None;
+                }
+            } else {
+                // Self is longer thus greater.
+                return Some(std::cmp::Ordering::Greater);
+            }
+        } else {
+            // other_current_val_op.is_some()
+            // Self is shorter thus less.
+            return Some(std::cmp::Ordering::Less);
+        }
+    }
+
+    Some(Ordering::Equal)
+}
+impl PartialOrd for OrderKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        order_key_partial_cmp(self, other)
+    }
+}
+impl Ord for OrderKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if let Some(res) = order_key_partial_cmp(self, other) {
+            res
+        } else {
+            log_err!(
+                "Compared two incomparable values:\nself: {:?}\nother: {:?}",
+                self,
+                other
+            );
+            panic!("Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared.")
+        }
+    }
+}
+
+/// Compares two Term objects.
+/// If both types are numeric, they are parsed to f64 and compared.
+/// If both are named nodes, they are compared by their string value.
+/// If both are literals with the same datatype, they are compared by their string value.
+/// `None` otherwise.
+pub(crate) fn term_cmp(left: &Term, right: &Term) -> Option<Ordering> {
+    match (left, right) {
+        (Term::NamedNode(left_node), Term::NamedNode(right_node)) => {
+            Some(left_node.cmp(right_node))
+        }
+        (Term::Literal(left_lit), Term::Literal(right_lit)) => {
+            let left_dt = left_lit.datatype().as_str();
+            let right_dt = right_lit.datatype().as_str();
+
+            // Covers string, boolean, date, etc.
+            // Some might not be comparable but we don't use / endorse those RDF types in the ORM.
+            if left_dt == right_dt {
+                return Some(left_lit.value().cmp(right_lit.value()));
+            }
+
+            if is_numeric(left_dt) && is_numeric(right_dt) {
+                return left_lit.value().parse::<f64>().ok().and_then(|left_value| {
+                    right_lit
+                        .value()
+                        .parse::<f64>()
+                        .ok()
+                        .and_then(|right_value| left_value.partial_cmp(&right_value))
+                });
+            }
+
+            None
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn is_numeric(datatype: &str) -> bool {
+    is_whole_num(datatype)
+        || datatype == xsd::DECIMAL.as_str()
+        || datatype == xsd::DOUBLE.as_str()
+        || datatype == xsd::FLOAT.as_str()
+}
+
+#[inline]
+pub(crate) fn is_whole_num(datatype: &str) -> bool {
+    datatype == xsd::BYTE.as_str()
+        || datatype == xsd::INT.as_str()
+        || datatype == xsd::INTEGER.as_str()
+        || datatype == xsd::LONG.as_str()
+        || datatype == xsd::NEGATIVE_INTEGER.as_str()
+        || datatype == xsd::NON_NEGATIVE_INTEGER.as_str()
+        || datatype == xsd::NON_POSITIVE_INTEGER.as_str()
+        || datatype == xsd::SHORT.as_str()
+        || datatype == xsd::POSITIVE_INTEGER.as_str()
+        || datatype == xsd::UNSIGNED_BYTE.as_str()
+        || datatype == xsd::UNSIGNED_INT.as_str()
+        || datatype == xsd::UNSIGNED_LONG.as_str()
+        || datatype == xsd::UNSIGNED_SHORT.as_str()
+}
+
+pub(crate) fn find_first_numeric_type_opt(types: &[OrmSchemaDataType]) -> Option<OrmSchemaValType> {
+    types
+        .iter()
+        .find(|t| t.valType.is_numeric())
+        .map(|t| t.valType.clone())
+}
+
+pub(crate) fn find_first_numeric_type(types: &[OrmSchemaDataType]) -> OrmSchemaValType {
+    find_first_numeric_type_opt(types).unwrap_or_else(|| {
+        log_err!("Invalid `where` value: Expected the value to be numeric. Defaulting to decimal.");
+        OrmSchemaValType::decimal
+    })
+}
+
+/// Check for term equality (object and type) with (val and val_type as string)
+/// Does not distinguish between numeric types if val_type == OrmSchemaValType::number.
+/// Assumes that numeric values are canonicalized as string comparison is used.
+pub(crate) fn term_equals_val_type(term: &Term, val_type: &OrmSchemaValType, val: &str) -> bool {
+    match term {
+        Term::NamedNode(node) => *val_type == OrmSchemaValType::iri && *node.as_str() == *val,
+        Term::Literal(lit) => {
+            // Data types equal?
+            if lit.datatype().as_str() != val_type.as_str() {
+                // Data types unequal but one is the deprecated, generic number, the other numeric too.
+                if *val_type == OrmSchemaValType::number && is_numeric(lit.datatype().as_str()) {
+                    // We try to parse numbers in case their serialization happened to be different.
+                    if val_type.is_numeric() && is_numeric(lit.datatype().as_str()) {
+                        let term_val = str::parse::<f64>(lit.value());
+                        let lit_val = str::parse::<f64>(val);
+                        return term_val.is_ok() && term_val == lit_val;
+                    }
+                } else {
+                    // Data type mismatch
+                    return false;
+                }
+            }
+
+            // Values are equal?
+            if lit.value() == val {
+                return true;
+            }
+
+            false
+        }
+        _ => unreachable!(),
     }
 }

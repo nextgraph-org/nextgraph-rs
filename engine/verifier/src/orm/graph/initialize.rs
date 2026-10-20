@@ -22,8 +22,8 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use crate::orm::graph::types::*;
-use crate::orm::graph::utils::basic_type_to_json;
 use crate::orm::graph::utils::order_key_from;
+use crate::orm::graph::utils::term_to_json;
 use crate::orm::graph::utils::{assess_and_rank_children, nuri_to_string};
 use crate::orm::utils::composite_key;
 use crate::types::CancelFn;
@@ -206,8 +206,6 @@ impl Verifier {
         subscription_id: u64,
         forward: bool,
     ) -> Result<(), NgError> {
-        // log_debug!("[orm_load_page] In orm_load_page for subscription_id {subscription_id}");
-
         let mut orm_subscription =
             self.orm_subscriptions
                 .remove(&subscription_id)
@@ -532,12 +530,6 @@ impl Verifier {
                             .saturating_sub(page_size)
                     }
                 }
-                // log_debug!(
-                //     "[query_items_ordered]\nNew (limit, lower, upper): ({}, {}, {})",
-                //     limit,
-                //     lower_offset,
-                //     upper_offset
-                // )
             }
         }
 
@@ -712,14 +704,14 @@ pub(crate) fn materialize_orm_object(
                         pred_change
                             .values_added
                             .iter()
-                            .map(|v| basic_type_to_json(v))
+                            .map(|v| term_to_json(v))
                             .collect(),
                     ),
                 );
             } else {
                 // Add value as primitive, if present.
                 if let Some(val) = pred_change.values_added.get(0) {
-                    orm_obj_map.insert(property_name.clone(), basic_type_to_json(val));
+                    orm_obj_map.insert(property_name.clone(), term_to_json(val));
                 }
             }
         }

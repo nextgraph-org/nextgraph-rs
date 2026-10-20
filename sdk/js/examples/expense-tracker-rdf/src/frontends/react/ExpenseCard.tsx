@@ -37,7 +37,7 @@ export function ExpenseCard({
     const [isEditing, setIsEditing] = useState(false);
 
     const purchaseDate = expense.dateOfPurchase
-        ? new Date(expense.dateOfPurchase).toLocaleDateString()
+        ? expense.dateOfPurchase.toLocaleDateString()
         : "Date not set";
     const totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
 

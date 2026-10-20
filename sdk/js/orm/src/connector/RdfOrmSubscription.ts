@@ -790,7 +790,20 @@ export class RdfOrmSubscription<
                 // The path with its synthetic id is enough.
                 return { ...patch, path, value: undefined };
             }
-            return { ...patch, path };
+
+            // Serialize date as object literal.
+            if (patch.value instanceof Date) {
+                return {
+                    ...patch,
+                    path,
+                    value: {
+                        "|type": "dateTime",
+                        value: patch.value.toISOString(),
+                    },
+                };
+            } else {
+                return { ...patch, path };
+            }
         }) as Patch[];
 
         return ret;

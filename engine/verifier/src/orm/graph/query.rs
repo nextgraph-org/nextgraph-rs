@@ -8,6 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use ng_net::orm::OrmSchemaValType;
 use ng_repo::errors::VerifierError;
 use ng_repo::log::*;
 
@@ -16,7 +17,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 
 use crate::orm::graph::types::*;
-use crate::orm::graph::utils::{escape_sparql_string, is_iri};
+use crate::orm::graph::utils::{canonicalize_number_term, canonicalize_quad, escape_sparql_string};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
@@ -260,7 +261,7 @@ impl Verifier {
                 Some(GraphNameRef::NamedNode(graph.as_ref())),
             ) {
                 let found = found.map_err(|e| NgError::OxiGraphError(e.to_string()))?;
-                quads.push(found);
+                quads.push(canonicalize_quad(&found));
             }
         }
 
@@ -308,7 +309,7 @@ impl Verifier {
                                     Term::NamedNode(n) => n.clone(),
                                     _ => panic!(),
                                 },
-                                object: o.clone(),
+                                object: canonicalize_number_term(o),
                                 graph_name: match g {
                                     Some(Term::NamedNode(n)) => {
                                         ng_oxigraph::oxrdf::GraphName::NamedNode(n.clone())
@@ -454,35 +455,15 @@ pub fn schema_shape_to_sparql(
                 if let Some(lits) = &dt.literals {
                     for lit in lits {
                         // Convert literal value to SPARQL syntax
-                        allowed_literals.push(match lit {
-                            BasicType::Bool(b) => {
-                                if *b {
-                                    "true".to_string()
-                                } else {
-                                    "false".to_string()
-                                }
-                            }
-                            BasicType::Num(n) => n.to_string(),
-                            BasicType::Str(s) => {
-                                let schema_has_string = pred
-                                    .dataTypes
-                                    .iter()
-                                    .any(|dt| dt.valType == OrmSchemaValType::string);
-                                let schema_has_iri = pred
-                                    .dataTypes
-                                    .iter()
-                                    .any(|dt| dt.valType == OrmSchemaValType::iri);
-
-                                if schema_has_iri && schema_has_string {
-                                    match is_iri(s) {
-                                        true => format!("<{}>", s),
-                                        false => format!("\"{}\"", escape_sparql_string(s)),
-                                    }
-                                } else if schema_has_iri {
-                                    format!("<{}>", s)
-                                } else {
-                                    format!("\"{}\"", escape_sparql_string(s))
-                                }
+                        allowed_literals.push({
+                            if dt.valType == OrmSchemaValType::iri {
+                                format!("<{}>", lit)
+                            } else {
+                                format!(
+                                    "\"{}\"^^<{}>",
+                                    escape_sparql_string(lit),
+                                    dt.valType.as_str()
+                                )
                             }
                         });
                     }

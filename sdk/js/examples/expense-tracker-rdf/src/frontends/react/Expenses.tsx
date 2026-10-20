@@ -70,13 +70,13 @@ export function Expenses() {
             "@graph": `did:ng:${session.private_store_id}`,
             "@type": "did:ng:z:Expense",
             amount: obj.amount ?? 1,
-            recurrenceInterval: obj.recurrenceInterval ?? "",
+            recurrenceInterval: obj.recurrenceInterval,
             description: obj.description ?? undefined,
             totalPrice: obj.totalPrice ?? 0,
             paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
             isRecurring: obj.isRecurring ?? false,
             expenseCategory: obj.expenseCategory ?? new Set<string>(),
-            dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
+            dateOfPurchase: obj.dateOfPurchase ?? new Date(),
             title: obj.title ?? "New Expense",
         });
     }, []);

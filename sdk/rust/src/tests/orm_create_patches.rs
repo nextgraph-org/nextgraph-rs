@@ -21,8 +21,8 @@ use async_std::future::timeout;
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0};
 use ng_net::orm::{
-    BasicType, OrmPatch, OrmPatchOp, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape,
-    OrmSchemaValType, OrmShapeType,
+    OrmPatch, OrmPatchOp, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
+    OrmShapeType,
 };
 use std::hint;
 use std::time::{Duration, Instant};
@@ -443,9 +443,7 @@ async fn test_cross_graph_child_in_separate_graph(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Project".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Project".to_string()]),
                         shape: None,
                     }],
                 }
@@ -482,9 +480,7 @@ async fn test_cross_graph_child_in_separate_graph(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }
@@ -581,13 +577,13 @@ async fn test_patch_add_array(session_id: u64) {
             PREFIX ex: <http://example.org/>
             INSERT DATA {
                 <urn:test:numArrayObj1> a ex:TestObject ;
-                    ex:arr 1, 2, 3 .
+                    ex:arr 1.0, 2.0, 3.0 .
 
                 <urn:test:numArrayObj2> a ex:TestObject .
 
                 <urn:test:numArrayObj3> a ex:TestObject ;
                     ex:unrelated ex:TestObject ;
-                    ex:arr 1, 2 .
+                    ex:arr 1.0, 2.0 .
             }
             "#
         .to_string(),
@@ -610,9 +606,7 @@ async fn test_patch_add_array(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/TestObject".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/TestObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -620,7 +614,7 @@ async fn test_patch_add_array(session_id: u64) {
                 OrmSchemaPredicate {
                     iri: "http://example.org/arr".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -640,7 +634,7 @@ async fn test_patch_add_array(session_id: u64) {
         shape: "http://example.org/TestShape".to_string(),
     };
 
-    let (mut receiver, cancel_fn, subscription_id, initial) =
+    let (mut receiver, _cancel_fn, _subscription_id, _initial) =
         create_orm_connection(vec!["did:ng:i".to_string()], vec![], shape_type, session_id).await;
 
     // Add more data, remove some
@@ -650,17 +644,17 @@ async fn test_patch_add_array(session_id: u64) {
             PREFIX ex: <http://example.org/>
             INSERT DATA {
                 <urn:test:numArrayObj1>
-                    ex:arr 4 .
+                    ex:arr 4.0 .
 
                 <urn:test:numArrayObj2>
-                    ex:arr 1, 2 .
+                    ex:arr 1.0, 2.0 .
 
                 <urn:test:numArrayObj3>
-                    ex:arr 3 .
+                    ex:arr 3.0 .
 
                 <urn:test:numArrayObj4>
                     a ex:TestObject ;
-                    ex:arr 0 .
+                    ex:arr 0.0 .
             }
             "#
         .to_string(),
@@ -738,13 +732,13 @@ async fn test_patch_remove_array(session_id: u64) {
             PREFIX ex: <http://example.org/>
             INSERT DATA {
                 <urn:test:numArrayObj1> a ex:TestObject ;
-                    ex:arr 1, 2, 3 .
+                    ex:arr 1.0, 2.0, 3.0 .
 
                 <urn:test:numArrayObj2> a ex:TestObject .
 
                 <urn:test:numArrayObj3> a ex:TestObject ;
                     ex:unrelated ex:TestObject ;
-                    ex:arr 1, 2 .
+                    ex:arr 1.0, 2.0 .
             }
             "#
         .to_string(),
@@ -767,9 +761,7 @@ async fn test_patch_remove_array(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/TestObject".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/TestObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -777,7 +769,7 @@ async fn test_patch_remove_array(session_id: u64) {
                 OrmSchemaPredicate {
                     iri: "http://example.org/arr".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -807,7 +799,7 @@ async fn test_patch_remove_array(session_id: u64) {
             PREFIX ex: <http://example.org/>
             DELETE DATA {
                 <urn:test:numArrayObj1>
-                    ex:arr 1 .
+                    ex:arr 1.0 .
             }
             "#
         .to_string(),
@@ -1411,9 +1403,9 @@ INSERT DATA {
                     readablePredicate: "@type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://www.w3.org/2006/vcard/ns#Individual".to_string(),
-                        )]),
+                        literals: Some(vec![
+                            "http://www.w3.org/2006/vcard/ns#Individual".to_string()
+                        ]),
                         shape: None,
                     }],
                 }
@@ -1491,7 +1483,7 @@ INSERT DATA {
                 minCardinality: 0,
                 readablePredicate: "valueDateTime".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaValType::string,
+                    valType: OrmSchemaValType::dateTime,
                     literals: None,
                     shape: None,
                 }],
@@ -1513,15 +1505,15 @@ INSERT DATA {
     doc_sparql_update(
         session_id,
         r#"
-DELETE DATA {
-    <urn:test:name1> <did:ng:x:core#value> "Admin's friend - change4" .
-    <urn:test:upd1> <did:ng:x:core#valueDateTime> "2025-11-13T15:42:18.332Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-} ;
-INSERT DATA {
-    <urn:test:name1> <did:ng:x:core#value> "Admin's friend - change5" .
-    <urn:test:upd1> <did:ng:x:core#valueDateTime> "2025-11-13T15:49:41.013Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-}
-"#
+            DELETE DATA {
+                <urn:test:name1> <did:ng:x:core#value> "Admin's friend - change4" .
+                <urn:test:upd1> <did:ng:x:core#valueDateTime> "2025-11-13T15:42:18.332Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+            } ;
+            INSERT DATA {
+                <urn:test:name1> <did:ng:x:core#value> "Admin's friend - change5" .
+                <urn:test:upd1> <did:ng:x:core#valueDateTime> "2025-11-13T15:49:41.013Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+            }
+            "#
         .to_string(),
         Some(doc_nuri.clone()),
     )
@@ -1553,7 +1545,10 @@ INSERT DATA {
             {
                 "op": "add",
                 "path": "/urn:test:contact1/updatedAt/valueDateTime",
-                "value": "2025-11-13T15:49:41.013Z"
+                "value": {
+                        "|type": "dateTime",
+                        "value": "2025-11-13T15:49:41.013Z",
+                }
             }
         ]);
 
@@ -1635,9 +1630,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Project".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Project".to_string()]),
                         shape: None,
                     }],
                 }
@@ -1674,9 +1667,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }
@@ -1822,9 +1813,9 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/AddSeparateGraphTestPerson1".to_string(),
-                        )]),
+                        literals: Some(vec![
+                            "http://example.org/AddSeparateGraphTestPerson1".to_string()
+                        ]),
                         shape: None,
                     }],
                 }
@@ -1952,9 +1943,7 @@ async fn test_ordered_with_nested_children(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/House".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/House".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2045,23 +2034,23 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
             PREFIX ex: <did:ng:z:>
             INSERT DATA {
                 <did:ng:z:sortObj2> a ex:SortObject ;
-                                    ex:sortBy 2 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 2.0 ;
+                                    ex:sortBy2 2.0 .
                 <did:ng:z:sortObj1AndThen23> a ex:SortObject ;
-                                    ex:sortBy 1 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 1.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj4> a ex:SortObject ;
-                                    ex:sortBy 4 ;
-                                    ex:sortBy2 4 .
+                                    ex:sortBy 4.0 ;
+                                    ex:sortBy2 4.0 .
                 <did:ng:z:sortObj3> a ex:SortObject ;
-                                    ex:sortBy 3 ;
-                                    ex:sortBy2 3 .
+                                    ex:sortBy 3.0 ;
+                                    ex:sortBy2 3.0 .
                 <did:ng:z:sortObj51> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj52> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 2.0 .
             }
     "#
         .to_string(),
@@ -2083,7 +2072,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2095,7 +2084,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -2108,7 +2097,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy2".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -2154,14 +2143,14 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
                 INSERT DATA {{
                     GRAPH <{}> {{
                         ex:sortObj515 a ex:SortObject ;
-                                    ex:sortBy 5 ;
+                                    ex:sortBy 5.0 ;
                                     ex:sortBy2 1.5 .
                         ex:sortObj0 a ex:SortObject ;
-                                    ex:sortBy 0 ;
-                                    ex:sortBy2 5 .
+                                    ex:sortBy 0.0 ;
+                                    ex:sortBy2 5.0 .
                         ex:sortObj6 a ex:SortObject ;
-                                    ex:sortBy 6 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 6.0 ;
+                                    ex:sortBy2 1.0 .
                         ex:sortObj1AndThen23 ex:sortBy 2.3 .
 
                     }}
@@ -2169,7 +2158,7 @@ async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
                 DELETE WHERE {{
                     GRAPH <{}> {{
                         ex:sortObj3 ?p ?o .
-                        ex:sortObj1AndThen23 ex:sortBy 1 .
+                        ex:sortObj1AndThen23 ex:sortBy 1.0 .
 
                     }}
                 }}
@@ -2457,7 +2446,7 @@ async fn bench_nested(session_id: u64) {
     }
 
     println!(
-        "[bench_nested] Elapsed time for {} iters, 5 (partly nested) objects each: {:?} (sparql update: {:?}, waiting for patches: {:?})",
+        "[bench_nested] Elapsed time for {} iters with 5 (partly nested) objects each: {:?} (sparql update: {:?}, waiting for patches: {:?})",
         iters,
         now.elapsed(),
         update_total,
@@ -2472,23 +2461,23 @@ async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
             PREFIX ex: <did:ng:z:>
             INSERT DATA {
                 <did:ng:z:sortObj2> a ex:SortObject ;
-                                    ex:sortBy 2 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 2.0 ;
+                                    ex:sortBy2 2.0 .
                 <did:ng:z:sortObj1AndThen23> a ex:SortObject ;
-                                    ex:sortBy 1 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 1.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj4> a ex:SortObject ;
-                                    ex:sortBy 4 ;
-                                    ex:sortBy2 4 .
+                                    ex:sortBy 4.0 ;
+                                    ex:sortBy2 4.0 .
                 <did:ng:z:sortObj3> a ex:SortObject ;
-                                    ex:sortBy 3 ;
-                                    ex:sortBy2 3 .
+                                    ex:sortBy 3.0 ;
+                                    ex:sortBy2 3.0 .
                 <did:ng:z:sortObj51> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj52> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 2.0 .
             }
     "#
         .to_string(),
@@ -2510,7 +2499,7 @@ async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2522,7 +2511,7 @@ async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -2535,7 +2524,7 @@ async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy2".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -2573,52 +2562,52 @@ async fn bench_test_add_remove_move_in_plain_sorted(session_id: u64) {
                     INSERT DATA {{
                         GRAPH <{}> {{
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
                             ex:sortObj{} a ex:SortObject ;
-                                        ex:sortBy {} ;
+                                        ex:sortBy {}.0 ;
                                         ex:sortBy2 1.5 .
 
                         }}
@@ -2686,23 +2675,23 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
             PREFIX ex: <did:ng:z:>
             INSERT DATA {
                 <did:ng:z:sortObj2> a ex:SortObject ;
-                                    ex:sortBy 2 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 2.0 ;
+                                    ex:sortBy2 2.0 .
                 <did:ng:z:sortObj1> a ex:SortObject ;
-                                    ex:sortBy 1 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 1.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj4> a ex:SortObject ;
-                                    ex:sortBy 4 ;
-                                    ex:sortBy2 4 .
+                                    ex:sortBy 4.0 ;
+                                    ex:sortBy2 4.0 .
                 <did:ng:z:sortObj3> a ex:SortObject ;
-                                    ex:sortBy 3 ;
-                                    ex:sortBy2 3 .
+                                    ex:sortBy 3.0 ;
+                                    ex:sortBy2 3.0 .
                 <did:ng:z:sortObj51> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj52> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 2.0 .
             }
     "#
         .to_string(),
@@ -2724,7 +2713,7 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2736,7 +2725,7 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -2749,7 +2738,7 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy2".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -2794,14 +2783,14 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
                 INSERT DATA {{
                     GRAPH <{}> {{
                         ex:sortObj515 a ex:SortObject ;
-                                    ex:sortBy 5 ;
+                                    ex:sortBy 5.0 ;
                                     ex:sortBy2 1.5 .
                         ex:sortObj0 a ex:SortObject ;
-                                    ex:sortBy 0 ;
-                                    ex:sortBy2 5 .
+                                    ex:sortBy 0.0 ;
+                                    ex:sortBy2 5.0 .
                         ex:sortObj6 a ex:SortObject ;
-                                    ex:sortBy 6 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 6.0 ;
+                                    ex:sortBy2 1.0 .
                     }}
                 }} ;
                 DELETE WHERE {{
@@ -2831,7 +2820,7 @@ async fn test_add_remove_move_in_pagination(session_id: u64) {
                 INSERT DATA {{
                     GRAPH <{}> {{
                         ex:sortObj4 a ex:SortObject ;
-                                    ex:sortBy 5 ;
+                                    ex:sortBy 5.0 ;
                                     ex:sortBy2 1.6 .
                     }}
                 }} ;
@@ -2949,23 +2938,23 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
             PREFIX ex: <did:ng:z:>
             INSERT DATA {
                 <did:ng:z:sortObj2> a ex:SortObject ;
-                                    ex:sortBy 2 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 2.0 ;
+                                    ex:sortBy2 2.0 .
                 <did:ng:z:sortObj1> a ex:SortObject ;
-                                    ex:sortBy 1 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 1.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj4> a ex:SortObject ;
-                                    ex:sortBy 4 ;
-                                    ex:sortBy2 4 .
+                                    ex:sortBy 4.0 ;
+                                    ex:sortBy2 4.0 .
                 <did:ng:z:sortObj3> a ex:SortObject ;
-                                    ex:sortBy 3 ;
-                                    ex:sortBy2 3 .
+                                    ex:sortBy 3.0 ;
+                                    ex:sortBy2 3.0 .
                 <did:ng:z:sortObj51> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 1.0 .
                 <did:ng:z:sortObj52> a ex:SortObject ;
-                                    ex:sortBy 5 ;
-                                    ex:sortBy2 2 .
+                                    ex:sortBy 5.0 ;
+                                    ex:sortBy2 2.0 .
             }
     "#
         .to_string(),
@@ -2987,7 +2976,7 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2999,7 +2988,7 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -3012,7 +3001,7 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
                     minCardinality: 1,
                     readablePredicate: "sortBy2".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::decimal,
                         literals: None,
                         shape: None,
                     }],
@@ -3055,14 +3044,14 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
                 INSERT DATA {{
                     GRAPH <{}> {{
                         ex:sortObj515 a ex:SortObject ;
-                                    ex:sortBy 5 ;
+                                    ex:sortBy 5.0 ;
                                     ex:sortBy2 1.5 .
                         ex:sortObj0 a ex:SortObject ;
-                                    ex:sortBy 0 ;
-                                    ex:sortBy2 5 .
+                                    ex:sortBy 0.0 ;
+                                    ex:sortBy2 5.0 .
                         ex:sortObj6 a ex:SortObject ;
-                                    ex:sortBy 6 ;
-                                    ex:sortBy2 1 .
+                                    ex:sortBy 6.0 ;
+                                    ex:sortBy2 1.0 .
                     }}
                 }} ;
                 DELETE WHERE {{

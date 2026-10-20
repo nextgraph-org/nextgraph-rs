@@ -56,6 +56,8 @@ For the patch format, see the [TypeScript definitions](../../../../sdk/js/orm/sr
 
 All values (including patch `value`) use `serde_json::Value` externally for flexibility. Validation & conversion to RDF happens inside the verifier.
 
+RDF types that are not string, number-like, or boolean are serialized as strings.
+
 ## Lifecycle and data flow
 
 - Start a subscription

@@ -14,6 +14,7 @@ import {
     DeepPatch,
     DeepSignalOptions,
     addWithId,
+    effect,
 } from "../../index.ts";
 import { watch } from "../../watch.ts";
 
@@ -110,6 +111,114 @@ describe("watch", () => {
         await Promise.resolve();
         expect(versions.length).toBe(1);
         expect(versions[0]).toBeGreaterThan(0);
+    });
+});
+
+describe("Date mutations", () => {
+    it("emits an add patch when a Date property changes", async () => {
+        const initial = new Date("2026-01-01T00:00:00.000Z");
+        const state = deepSignal({ createdAt: initial });
+        const batches: DeepPatch[][] = [];
+        const { stopListening } = watch(state, ({ patches }) =>
+            batches.push(patches)
+        );
+
+        state.createdAt.getTime();
+        state.createdAt.setUTCDate(2);
+        await Promise.resolve();
+
+        expect(batches.flat()).toHaveLength(1);
+        expect(batches[0][0]).toMatchObject({
+            op: "add",
+            path: ["createdAt"],
+        });
+        expect((batches[0][0] as any).value.getTime()).toBe(
+            Date.parse("2026-01-02T00:00:00.000Z")
+        );
+        stopListening();
+    });
+
+    it("replaces a Date in a Set with remove and add patches", async () => {
+        const initial = new Date("2026-01-01T00:00:00.000Z");
+        const state = deepSignal({ dates: new Set([initial]) });
+        const batches: DeepPatch[][] = [];
+        const { stopListening } = watch(state, ({ patches }) =>
+            batches.push(patches)
+        );
+
+        const date = state.dates.first() as Date;
+        date.getTime();
+        date.setUTCDate(2);
+        await Promise.resolve();
+
+        const patches = batches.flat();
+        expect(patches).toHaveLength(2);
+        expect(patches[0].path).toHaveLength(1);
+        expect(patches[0].path).toEqual(patches[1].path);
+        expect(patches[0]).toMatchObject({
+            op: "remove",
+            type: "set",
+        });
+        expect(patches[1]).toMatchObject({
+            op: "add",
+            type: "set",
+        });
+        expect(patches[0].path[0]).toBe("dates");
+        expect((patches[0] as any).value.getTime()).toBe(
+            Date.parse("2026-01-01T00:00:00.000Z")
+        );
+        expect(patches[1].path[0]).toBe("dates");
+        expect((patches[1] as any).value.getTime()).toBe(
+            Date.parse("2026-01-02T00:00:00.000Z")
+        );
+        expect(initial.getUTCDate()).toBe(2);
+
+        stopListening();
+    });
+
+    it("add / remove patches when adding and deleting a Date", async () => {
+        const state = deepSignal({ dates: new Set<Date>() });
+        const batches: DeepPatch[][] = [];
+        const { stopListening } = watch(state, ({ patches }) =>
+            batches.push(patches)
+        );
+        const date = new Date("2026-01-01T00:00:00.000Z");
+
+        state.dates.add(date);
+        await Promise.resolve();
+        state.dates.delete(date);
+        await Promise.resolve();
+
+        const patches = batches.flat();
+        console.log(patches);
+        expect(patches).toHaveLength(2);
+        expect(patches[0]).toMatchObject({
+            op: "add",
+            path: ["dates"],
+            type: "set",
+        });
+        expect(patches[0].value[0].getTime()).toBe(date.getTime());
+        expect(patches[1]).toMatchObject({
+            op: "remove",
+            path: ["dates"],
+            type: "set",
+        });
+        expect(patches[1].value.getTime()).toBe(date.getTime());
+        stopListening();
+    });
+
+    it("signal for root Date signal", async () => {
+        const initial = new Date("2026-01-01T00:00:00.000Z");
+        const state = deepSignal(initial);
+
+        let calls = 0;
+        effect(() => {
+            state.getTime();
+            calls += 1;
+        });
+
+        state.setTime(100_000);
+        expect(calls).toBe(2);
     });
 });
 

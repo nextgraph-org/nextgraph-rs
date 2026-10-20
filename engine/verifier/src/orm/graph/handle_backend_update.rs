@@ -8,6 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use std::sync::Arc;
@@ -17,16 +18,17 @@ use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
+use ng_oxigraph::oxrdf::Term;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use wabi_tree::OSBTreeMap;
 
-use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::initialize::materialize_orm_object;
 use crate::orm::graph::types::*;
-use crate::orm::graph::utils::basic_type_to_json;
+use crate::orm::graph::utils::canonicalize_quad;
 use crate::orm::graph::utils::order_key_before_change;
 use crate::orm::graph::utils::order_key_from;
+use crate::orm::graph::utils::term_to_json;
 use crate::orm::graph::utils::GraphSubjectKey;
 use crate::orm::utils::composite_key;
 use crate::orm::utils::escape_json_pointer_segment;
@@ -157,12 +159,16 @@ impl Verifier {
                 continue;
             }
 
+            // Canonicalize quads (number values) for handling in the ORM.
+            let inserts = inserts.iter().map(|q| canonicalize_quad(q));
+            let removes = removes.iter().map(|q| canonicalize_quad(q));
+
             // Process changes for this shape
             let mut orm_changes: OrmChanges = HashMap::new();
             let res = self.process_changes_for_subscription(
                 &mut orm_subscription,
                 &Vec::from_iter(inserts),
-                &removes,
+                &Vec::from_iter(removes),
                 &mut orm_changes,
                 false,
             );
@@ -456,7 +462,7 @@ fn create_patches_for_object_change(
                                 pred_change
                                     .values_removed
                                     .iter()
-                                    .map(|v| basic_type_to_json(v))
+                                    .map(|v| term_to_json(v))
                                     .collect(),
                             )),
                             ..Default::default()
@@ -472,7 +478,7 @@ fn create_patches_for_object_change(
                                 pred_change
                                     .values_added
                                     .iter()
-                                    .map(|v| basic_type_to_json(v))
+                                    .map(|v| term_to_json(v))
                                     .collect(),
                             )),
                             ..Default::default()
@@ -486,7 +492,7 @@ fn create_patches_for_object_change(
                         let add_patch = PrelimOrmPatch {
                             op: OrmPatchOp::add,
                             path: path.clone(),
-                            value: Some(basic_type_to_json(val)),
+                            value: Some(term_to_json(val)),
                             ..Default::default()
                         };
                         ret.push(add_patch)
@@ -513,8 +519,9 @@ fn create_patches_for_object_change(
                         ret.push(remove_patch);
                     }
 
-                    if let Some(BasicType::Str(child_subj_iri)) = pred_change.values_added.get(0) {
-                        if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri)
+                    if let Some(Term::NamedNode(node)) = pred_change.values_added.first() {
+                        let child_subj_iri = node.as_str();
+                        if let Some(child_tormo) = pred_change.first_tormo_for_subj(child_subj_iri)
                         {
                             let child_tormo = child_tormo.read().unwrap();
                             let materialized_child =
@@ -533,9 +540,10 @@ fn create_patches_for_object_change(
                     // Add materialized object(s).
 
                     for removed_val in pred_change.values_removed.iter() {
-                        let BasicType::Str(removed_iri) = removed_val else {
+                        let Term::NamedNode(removed_node) = removed_val else {
                             continue;
                         };
+                        let removed_iri = removed_node.as_str();
                         let remove_patch = PrelimOrmPatch {
                             op: OrmPatchOp::remove,
                             val_type: Some(OrmPatchType::set),
@@ -547,9 +555,10 @@ fn create_patches_for_object_change(
                     }
 
                     for added_val in pred_change.values_added.iter() {
-                        let BasicType::Str(child_subj_iri) = added_val else {
+                        let Term::NamedNode(child_subject_node) = added_val else {
                             continue;
                         };
+                        let child_subj_iri = child_subject_node.as_str();
                         if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri)
                         {
                             let child_tormo = child_tormo.read().unwrap();
@@ -960,7 +969,7 @@ fn filter_quads_for_scope_and_page_bounds<'a>(
                     |(order_by_pred, is_asc, first, last)| {
                         predicate == *order_by_pred
                             && is_order_value_in_window_range(
-                                &oxrdf_term_to_orm_basic_type(&quad.object),
+                                &quad.object,
                                 first,
                                 last,
                                 *is_asc,
@@ -1017,24 +1026,48 @@ fn subject_of_quad(quad: &Quad) -> &str {
     }
 }
 
+/// Tells whether a term is situated within a window.
+/// If one of the terms is not comparable, returns false (TS OrderByConfig type guards against this).
 fn is_order_value_in_window_range(
-    value: &BasicType,
-    first_window_value: &BasicType,
-    last_window_value: &BasicType,
+    value: &Term,
+    lower_bound: &Term,
+    upper_bound: &Term,
     order_direction: OrderDirection,
-    checker_upper_bound_only: bool,
+    check_upper_bound_only: bool,
 ) -> bool {
-    if !checker_upper_bound_only {
+    if !check_upper_bound_only {
         if order_direction == OrderDirection::Ascending {
-            first_window_value <= value && value <= last_window_value
+            // lower_bound <= value && value <= upper_bound
+            match (term_cmp(lower_bound, value), term_cmp(value, upper_bound)) {
+                (
+                    Some(Ordering::Less | Ordering::Equal),
+                    Some(Ordering::Less | Ordering::Equal),
+                ) => true,
+                _ => false,
+            }
         } else {
-            last_window_value <= value && value <= first_window_value
+            // upper_bound <= value && value <= lower_bound
+            match (term_cmp(upper_bound, value), term_cmp(value, lower_bound)) {
+                (
+                    Some(Ordering::Less | Ordering::Equal),
+                    Some(Ordering::Less | Ordering::Equal),
+                ) => true,
+                _ => false,
+            }
         }
     } else {
         if order_direction == OrderDirection::Ascending {
-            value <= last_window_value
+            // value <= upper_bound
+            match term_cmp(value, upper_bound) {
+                Some(Ordering::Less | Ordering::Equal) => true,
+                _ => false,
+            }
         } else {
-            value >= last_window_value
+            // value >= upper_bound
+            match term_cmp(value, upper_bound) {
+                Some(Ordering::Greater | Ordering::Equal) => true,
+                _ => false,
+            }
         }
     }
 }

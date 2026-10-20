@@ -16,10 +16,11 @@ use std::sync::RwLock;
 use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_oxigraph::oxrdf::Quad;
+use ng_oxigraph::oxrdf::Term;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
-use crate::orm::graph::add_remove_quads::{apply_quads_for_subject, oxrdf_term_to_orm_basic_type};
+use crate::orm::graph::add_remove_quads::apply_quads_for_subject;
 use crate::orm::graph::shape_validation::NeedEvalSelf;
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::*;
@@ -273,6 +274,7 @@ impl ProcessRun {
             }
             touched.insert(gs);
         }
+
         touched
     }
 
@@ -568,7 +570,7 @@ impl Verifier {
                 // Iterate added values for object IRIs.
                 for added_val in pred_change.values_added.clone() {
                     let child_subject = match added_val {
-                        BasicType::Str(s) => s,
+                        Term::NamedNode(s) => s.into_string(),
                         _ => continue,
                     };
 
@@ -802,7 +804,12 @@ impl Verifier {
         graph_subjects.sort();
 
         let quads = self.query_quads_for_graph_subjects(&graph_subjects)?;
-        run.merge_loaded_quads(quads);
+
+        let added_grouped = group_by_graph_and_subject(&quads);
+        for (gs, quads) in added_grouped {
+            run.added.insert(gs, quads);
+        }
+
         Ok(())
     }
 
@@ -1221,7 +1228,6 @@ impl Verifier {
             let Some(predicate_schema) = predicates.get(quad.predicate.as_str()) else {
                 continue;
             };
-            let value = oxrdf_term_to_orm_basic_type(&quad.object);
 
             // The tracked predicate carries the links to the nested children, which
             // materialization walks; without it the value would be unusable anyway.
@@ -1237,7 +1243,7 @@ impl Verifier {
                     values_removed: Vec::new(),
                 })
                 .values_added
-                .push(value.clone());
+                .push(quad.object.clone());
         }
         drop(tormo);
 

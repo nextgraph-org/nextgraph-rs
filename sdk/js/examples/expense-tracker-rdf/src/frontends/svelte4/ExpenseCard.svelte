@@ -35,7 +35,7 @@
   });
 
   $: purchaseDate = expense.dateOfPurchase
-    ? new Date(expense.dateOfPurchase).toLocaleDateString()
+    ? expense.dateOfPurchase.toLocaleDateString()
     : "Date not set";
   $: totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
 

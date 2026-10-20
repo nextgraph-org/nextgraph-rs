@@ -922,7 +922,7 @@
       {
         "dataTypes": [
           {
-            "valType": "number"
+            "valType": "decimal"
           }
         ],
         "maxCardinality": 1,
@@ -933,7 +933,7 @@
       {
         "dataTypes": [
           {
-            "valType": "number"
+            "valType": "decimal"
           }
         ],
         "maxCardinality": 1,
@@ -1180,7 +1180,7 @@
       {
         "dataTypes": [
           {
-            "valType": "number"
+            "valType": "decimal"
           }
         ],
         "maxCardinality": 1,
@@ -3614,7 +3614,7 @@
       {
         "dataTypes": [
           {
-            "valType": "number"
+            "valType": "decimal"
           }
         ],
         "maxCardinality": 1,
@@ -3625,7 +3625,7 @@
       {
         "dataTypes": [
           {
-            "valType": "number"
+            "valType": "decimal"
           }
         ],
         "maxCardinality": 1,
@@ -3872,7 +3872,7 @@
       {
         "dataTypes": [
           {
-            "valType": "number"
+            "valType": "decimal"
           }
         ],
         "maxCardinality": 1,

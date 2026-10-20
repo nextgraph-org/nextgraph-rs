@@ -1,8 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use ng_net::orm::{
-    BasicType, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
-};
+use ng_net::orm::{OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType};
 
 pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
     let mut house_schema = HashMap::new();
@@ -22,9 +20,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/House".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/House".to_string()]),
                         shape: None,
                     }],
                 }
@@ -75,9 +71,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }
@@ -128,7 +122,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
+                        literals: Some(vec!["http://example.org/Cat".to_string()]),
                         shape: None,
                     }],
                 }
@@ -180,7 +174,7 @@ pub(crate) fn create_house_schema() -> HashMap<String, Arc<OrmSchemaShape>> {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("http://example.org/Toy".to_string())]),
+                        literals: Some(vec!["http://example.org/Toy".to_string()]),
                         shape: None,
                     }],
                 }

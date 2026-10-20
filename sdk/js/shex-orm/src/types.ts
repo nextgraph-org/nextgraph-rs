@@ -51,7 +51,29 @@ export type DataType = {
     /** If `valType` is `"shape"`, the IRI of the nested shape. */
     shape?: string;
     /** The type of object value for a triple constraint. */
-    valType: "number" | "string" | "boolean" | "iri" | "shape";
+    valType:
+        | "iri"
+        | "shape"
+        | "string"
+        | "dateTime"
+        | "byte"
+        | "decimal"
+        | "double"
+        | "float"
+        | "int"
+        | "integer"
+        | "long"
+        | "negativeInteger"
+        | "nonNegativeInteger"
+        | "nonPositiveInteger"
+        | "positiveInteger"
+        | "short"
+        | "unsignedLong"
+        | "unsignedInt"
+        | "unsignedShort"
+        | "unsignedByte"
+        | "boolean"
+        | ({} & string);
 };
 
 /** The schema of a property. */

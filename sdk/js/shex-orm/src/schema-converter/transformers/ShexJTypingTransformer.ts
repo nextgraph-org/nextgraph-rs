@@ -79,16 +79,30 @@ export function nameFromAnnotationOrId(obj: {
     }
 }
 
-// Helper: classify a dom.Type into categories we care about.
+function isTypedValueObject(t: dom.Type): boolean {
+    if ((t as any)?.kind !== "object") return false;
+
+    const members = (t as dom.ObjectType).members;
+    const propertyNames = members
+        .filter(
+            (member): member is dom.PropertyDeclaration =>
+                member.kind === "property"
+        )
+        .map((member) => member.name);
+
+    return propertyNames.includes("|type") && propertyNames.includes("value");
+}
+
 function isObjectLike(t: dom.Type): boolean {
     return (
-        (t as dom.ObjectType).kind === "object" ||
+        ((t as dom.ObjectType).kind === "object" && !isTypedValueObject(t)) ||
         (t as dom.InterfaceDeclaration).kind === "interface"
     );
 }
 
 function isPrimitiveLike(t: dom.Type): boolean {
     const kind = (t as any)?.kind;
+    if (isTypedValueObject(t)) return true;
     if (kind === "name") return true; // named references and intrinsic tokens
     if (kind === "union") {
         return (t as dom.UnionType).members.every(isPrimitiveLike);
@@ -677,6 +691,23 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         `Mixed plural union (object + primitive) not supported for predicate ${tripleConstraint.predicate}`
                     );
                 }
+                // Has more than one string or number type?
+                const hasMultipleStringTypes =
+                    u.members.filter((v) => v === "string").length > 1;
+                const hasMultipleNumberTypes =
+                    u.members.filter((v) => v === "number").length > 1;
+                if (hasMultipleStringTypes) {
+                    throw new Error(
+                        `Cannot have more than one type that is represented as a string since they are not distinguishable in TypeScript-land.`,
+                        { cause: u }
+                    );
+                }
+                if (hasMultipleNumberTypes) {
+                    throw new Error(
+                        `Cannot have more than one type that is represented as a number since they are not distinguishable in TypeScript-land.`,
+                        { cause: u }
+                    );
+                }
             }
 
             let finalType: dom.Type;
@@ -788,32 +819,11 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
             if (nodeConstraint.datatype) {
                 switch (nodeConstraint.datatype) {
                     case "http://www.w3.org/2001/XMLSchema#string":
-                    case "http://www.w3.org/2001/XMLSchema#ENTITIES":
-                    case "http://www.w3.org/2001/XMLSchema#ENTITY":
-                    case "http://www.w3.org/2001/XMLSchema#ID":
-                    case "http://www.w3.org/2001/XMLSchema#IDREF":
-                    case "http://www.w3.org/2001/XMLSchema#IDREFS":
-                    case "http://www.w3.org/2001/XMLSchema#language":
-                    case "http://www.w3.org/2001/XMLSchema#Name":
-                    case "http://www.w3.org/2001/XMLSchema#NCName":
-                    case "http://www.w3.org/2001/XMLSchema#NMTOKEN":
-                    case "http://www.w3.org/2001/XMLSchema#NMTOKENS":
-                    case "http://www.w3.org/2001/XMLSchema#normalizedString":
-                    case "http://www.w3.org/2001/XMLSchema#QName":
-                    case "http://www.w3.org/2001/XMLSchema#token":
-                    case "http://www.w3.org/2001/XMLSchema#date":
-                    case "http://www.w3.org/2001/XMLSchema#dateTime":
-                    case "http://www.w3.org/2001/XMLSchema#duration":
-                    case "http://www.w3.org/2001/XMLSchema#gDay":
-                    case "http://www.w3.org/2001/XMLSchema#gMonth":
-                    case "http://www.w3.org/2001/XMLSchema#gMonthDay":
-                    case "http://www.w3.org/2001/XMLSchema#gYear":
-                    case "http://www.w3.org/2001/XMLSchema#gYearMonth":
-                    case "http://www.w3.org/2001/XMLSchema#time":
-                    case "http://www.w3.org/2001/XMLSchema#hexBinary":
                         return dom.type.string;
                     case "http://www.w3.org/2001/XMLSchema#boolean":
                         return dom.type.boolean;
+                    case "http://www.w3.org/2001/XMLSchema#dateTime":
+                        return dom.create.namedTypeReference("Date");
                     case "http://www.w3.org/2001/XMLSchema#byte":
                     case "http://www.w3.org/2001/XMLSchema#decimal":
                     case "http://www.w3.org/2001/XMLSchema#double":
@@ -832,7 +842,35 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     case "http://www.w3.org/2001/XMLSchema#unsignedByte":
                         return dom.type.number;
                     default:
-                        return dom.create.namedTypeReference("IRI"); // treat others / references as IRI
+                        if (typeof nodeConstraint.datatype === "object")
+                            // Shape reference without `@` -> treat as IRI
+                            return dom.create.namedTypeReference("IRI");
+                        else {
+                            // Treat anything else (no native support) as string.
+                            return dom.type.string;
+
+                            //
+                            // Alternatively as object of the form:
+                            // let dataTypeName: string;
+                            // if (
+                            //     nodeConstraint.datatype.startsWith(
+                            //         "http://www.w3.org/2001/XMLSchema#"
+                            //     )
+                            // ) {
+                            //     dataTypeName =
+                            //         nodeConstraint.datatype.substring(33);
+                            // } else {
+                            //     dataTypeName = nodeConstraint.datatype;
+                            // }
+                            //
+                            // return dom.create.objectType([
+                            //     dom.create.property(
+                            //         "|type",
+                            //         dom.type.stringLiteral(dataTypeName)
+                            //     ),
+                            //     dom.create.property("value", dom.type.string),
+                            // ]);
+                        }
                 }
             }
 
@@ -849,6 +887,8 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         return dom.type.string;
                 }
             }
+
+            // Literal values
             if (nodeConstraint.values) {
                 const union = dom.create.union([]);
                 nodeConstraint.values.forEach((v) => {

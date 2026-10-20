@@ -16,6 +16,8 @@ import {
 import { decodePathSegment } from "./utils.ts";
 import { BaseType } from "@ng-org/shex-orm";
 
+export type ObjectLiteral = { "|type": string; value: any; "|lang"?: string };
+
 /** @ignore */
 export type Patch = {
     /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
@@ -34,7 +36,13 @@ export interface SetAddPatch {
      *  - A single primitive
      *  - An array of primitives
      */
-    value: number | string | boolean | (number | string | boolean)[];
+    value:
+        | number
+        | string
+        | boolean
+        | Date
+        | ObjectLiteral
+        | (number | string | boolean | Date | ObjectLiteral)[];
 }
 
 /** @ignore */
@@ -52,7 +60,9 @@ export interface SetRemovePatch {
         | string
         | boolean
         | object
-        | (number | string | boolean | object)[];
+        | Date
+        | ObjectLiteral
+        | (Date | number | string | boolean | object | ObjectLiteral)[];
 }
 
 /** @ignore */
@@ -66,7 +76,7 @@ export interface LiteralAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
     /** The literal value to be added at the resolved `path` */
-    value: string | number | boolean | object;
+    value: string | number | boolean | object | Date | ObjectLiteral;
 }
 
 /** @ignore Move for items in the same array currently only */
@@ -192,11 +202,22 @@ export function applyPatches(
             } else {
                 // patch.op === "remove"
 
-                if (isPrimitive(patch.value) || patch.value instanceof Set) {
+                if (
+                    isPrimitive(patch.value) ||
+                    patch.value instanceof Date ||
+                    "|type" in (patch.value as any) ||
+                    patch.value instanceof Set
+                ) {
                     if (parentVal[key] instanceof Set) {
-                        // Remove one or more primitives from set (array of objects don't exist).
+                        // Remove one or more primitives from set.
                         for (const v of flat(patch.value))
-                            parentVal[key].delete(v);
+                            if (isPrimitive(v)) {
+                                parentVal[key].delete(v);
+                            } else if (patch.value instanceof Date) {
+                                removeDateFromSet(parentVal[key], v);
+                            } else {
+                                removeLiteralObjectFromSet(parentVal[key], v);
+                            }
                     } else {
                         console.warn(
                             "Path target is not a set",
@@ -305,6 +326,29 @@ function isPrimitive(v: unknown): v is string | number | boolean {
     );
 }
 
+function removeDateFromSet(s: Set<any>, removeObj: Date) {
+    // Special treatment for dates.
+    const removeDate = new Date(removeObj).getTime();
+    for (const item of s) {
+        if (item instanceof Date && item.getTime() === removeDate) {
+            s.delete(item);
+        }
+    }
+}
+
+function removeLiteralObjectFromSet(s: Set<any>, removeObj: ObjectLiteral) {
+    for (const item of s) {
+        if (
+            removeObj.value === item.value &&
+            removeObj["|lang"] === item["|lang"] &&
+            removeObj["|type"] === item["|type"]
+        ) {
+            s.delete(item);
+            return;
+        }
+    }
+}
+
 export const parseOrmInitialObject = (obj: any): any => {
     // Regular arrays become sets.
     if (Array.isArray(obj)) {
@@ -315,8 +359,17 @@ export const parseOrmInitialObject = (obj: any): any => {
             for (const key of Object.keys(obj)) {
                 obj[key] = parseOrmInitialObject(obj[key]);
             }
+        } else if ("|type" in obj) {
+            // Object is a typed literal.
+            if (obj["|type"] === "dateTime") {
+                // Parse dates.
+                return new Date(obj.value);
+            } else {
+                // Everything else remains an object.
+                return obj;
+            }
         } else {
-            // Object does not have @id, that means it's a set of objects.
+            // Object does not have `@id` or `|type`, that means it's a set of objects.
             return new Set(Object.values(obj).map(parseOrmInitialObject));
         }
     }

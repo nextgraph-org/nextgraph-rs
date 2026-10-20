@@ -11,10 +11,11 @@
 
 #![allow(non_snake_case)]
 
-use std::{cmp::Ordering, collections::HashMap, sync::Arc};
-
+use lazy_static::lazy_static;
 use ng_repo::log::*;
-use serde::{Deserialize, Serialize};
+use regex::Regex;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmShapeType {
@@ -87,60 +88,247 @@ fn false_() -> bool {
     false
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum OrmSchemaValType {
-    number,
-    string,
-    boolean,
     iri,
+
     shape,
+
+    #[deprecated = "Available for compatibility with shex-orm schemas <= version 0.1.2-alpha.10"]
+    number,
+
+    string,
+
+    dateTime,
+
+    /// The preferred numeric type
+    decimal,
+    byte,
+    double,
+    float,
+    int,
+    integer,
+    long,
+    negativeInteger,
+    nonNegativeInteger,
+    nonPositiveInteger,
+    positiveInteger,
+    short,
+    unsignedLong,
+    unsignedInt,
+    unsignedShort,
+    unsignedByte,
+
+    boolean,
+
+    UNKNOWN(String),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BasicType {
-    Bool(bool),
-    Num(f64),
-    Str(String),
+macro_rules! xsd_iri {
+    ($value:expr; $($variant:ident),+ $(,)?) => {
+        match $value {
+            $(
+                OrmSchemaValType::$variant => concat!(
+                    "http://www.w3.org/2001/XMLSchema#",
+                    stringify!($variant)
+                ),
+            )+
+            _ => unreachable!(),
+        }
+    };
 }
 
-impl PartialEq for BasicType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (BasicType::Num(a), BasicType::Num(b)) => {
-                // Usually nan is != nan
-                if a.is_nan() && b.is_nan() {
-                    true
+impl OrmSchemaValType {
+    pub fn from_serde_str(value: &str) -> Result<Self, String> {
+        match value {
+            "iri" => Ok(Self::iri),
+            "shape" => Ok(Self::shape),
+
+            "number" => {
+                log_warn!("Numeric xsd values are interpreted as xsd:decimal. Update @ng-org/shex-orm and rebuild the schema.");
+                Ok(Self::number)
+            }
+
+            "string" => Ok(Self::string),
+
+            "dateTime" => Ok(Self::dateTime),
+
+            "byte" => Ok(Self::byte),
+            "decimal" => Ok(Self::decimal),
+            "double" => Ok(Self::double),
+            "float" => Ok(Self::float),
+            "int" => Ok(Self::int),
+            "integer" => Ok(Self::integer),
+            "long" => Ok(Self::long),
+            "negativeInteger" => Ok(Self::negativeInteger),
+            "nonNegativeInteger" => Ok(Self::nonNegativeInteger),
+            "nonPositiveInteger" => Ok(Self::nonPositiveInteger),
+            "positiveInteger" => Ok(Self::positiveInteger),
+            "short" => Ok(Self::short),
+            "unsignedLong" => Ok(Self::unsignedLong),
+            "unsignedInt" => Ok(Self::unsignedInt),
+            "unsignedShort" => Ok(Self::unsignedShort),
+            "unsignedByte" => Ok(Self::unsignedByte),
+            "boolean" => Ok(Self::boolean),
+
+            unknown => {
+                if is_iri(&unknown) {
+                    Ok(Self::UNKNOWN(unknown.to_string()))
                 } else {
-                    a == b
+                    Err(
+                        format! {"Got an unknown type which is not an IRI or xsd type shorthand: {unknown} "},
+                    )
                 }
             }
-            (BasicType::Str(a), BasicType::Str(b)) => a == b,
-            (BasicType::Bool(a), BasicType::Bool(b)) => a == b,
+        }
+    }
+
+    pub fn is_numeric(&self) -> bool {
+        match self {
+            OrmSchemaValType::number
+            | OrmSchemaValType::byte
+            | OrmSchemaValType::decimal
+            | OrmSchemaValType::double
+            | OrmSchemaValType::float
+            | OrmSchemaValType::int
+            | OrmSchemaValType::integer
+            | OrmSchemaValType::long
+            | OrmSchemaValType::negativeInteger
+            | OrmSchemaValType::nonNegativeInteger
+            | OrmSchemaValType::nonPositiveInteger
+            | OrmSchemaValType::positiveInteger
+            | OrmSchemaValType::short
+            | OrmSchemaValType::unsignedLong
+            | OrmSchemaValType::unsignedInt
+            | OrmSchemaValType::unsignedShort
+            | OrmSchemaValType::unsignedByte => true,
             _ => false,
+        }
+    }
+
+    /// Converts to an IRI string unless OrmSchemaValType::iri ("iri") or OrmSchemaValType:shape ("shape")
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::iri => "iri",
+            Self::shape => "shape",
+
+            Self::number => "http://www.w3.org/2001/XMLSchema#decimal",
+
+            Self::UNKNOWN(iri) => iri.as_str(),
+
+            _ => xsd_iri!(
+                self;
+                string,
+
+                dateTime,
+
+                byte,
+                decimal,
+                double,
+                float,
+                int,
+                integer,
+                long,
+                negativeInteger,
+                nonNegativeInteger,
+                nonPositiveInteger,
+                positiveInteger,
+                short,
+                unsignedLong,
+                unsignedInt,
+                unsignedShort,
+                unsignedByte,
+
+                boolean,
+            ),
+        }
+    }
+
+    pub fn as_serde_str(&self) -> &str {
+        match self {
+            Self::iri => "iri",
+
+            Self::shape => "shape",
+
+            Self::number => "number",
+
+            Self::string => "string",
+
+            Self::dateTime => "dateTime",
+
+            Self::byte => "byte",
+            Self::decimal => "decimal",
+            Self::double => "double",
+            Self::float => "float",
+            Self::int => "int",
+            Self::integer => "integer",
+            Self::long => "long",
+            Self::negativeInteger => "negativeInteger",
+            Self::nonNegativeInteger => "nonNegativeInteger",
+            Self::nonPositiveInteger => "nonPositiveInteger",
+            Self::positiveInteger => "positiveInteger",
+            Self::short => "short",
+            Self::unsignedLong => "unsignedLong",
+            Self::unsignedInt => "unsignedInt",
+            Self::unsignedShort => "unsignedShort",
+            Self::unsignedByte => "unsignedByte",
+
+            Self::boolean => "boolean",
+
+            Self::UNKNOWN(value) => value.as_str(),
         }
     }
 }
 
-impl Eq for BasicType {}
+impl Serialize for OrmSchemaValType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_serde_str())
+    }
+}
 
-impl PartialOrd for BasicType {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (BasicType::Num(a), BasicType::Num(b)) => a.partial_cmp(b),
-            (BasicType::Str(a), BasicType::Str(b)) => a.partial_cmp(b),
-            (BasicType::Bool(a), BasicType::Bool(b)) => a.partial_cmp(b),
-            _ => None, // Different types are not comparable.
-        }
+impl<'de> Deserialize<'de> for OrmSchemaValType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::from_serde_str(&value).map_err(serde::de::Error::custom)
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaDataType {
     pub valType: OrmSchemaValType,
-    pub literals: Option<Vec<BasicType>>,
+    /// Literals are treated as strings, as they are by oxigraph's Literal type.
+    #[serde(default, deserialize_with = "deserialize_literals")]
+    pub literals: Option<Vec<String>>,
     pub shape: Option<String>,
+}
+fn deserialize_literals<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values = Option::<Vec<serde_json::Value>>::deserialize(deserializer)?;
+
+    values
+        .map(|values| {
+            values
+                .into_iter()
+                .map(|value| match value {
+                    serde_json::Value::String(value) => Ok(value),
+                    serde_json::Value::Number(value) => Ok(value.to_string()),
+                    serde_json::Value::Bool(value) => Ok(value.to_string()),
+                    other => Err(serde::de::Error::custom(format!(
+                        "literal must be a string, number, or boolean: {other}"
+                    ))),
+                })
+                .collect()
+        })
+        .transpose()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -170,81 +358,6 @@ pub enum OrderDirection {
     Ascending,
     #[serde(rename = "desc")]
     Descending,
-}
-#[derive(PartialEq, Debug, Clone, Eq)]
-pub struct OrderKey {
-    pub val_types: Vec<(BasicType, OrderDirection)>,
-}
-
-/// Iterate over all items in val_types.
-/// Take OrderDirection in to consideration (reverses greater / less comparisons).
-/// If lengths mismatch but previous values do, the longer one is considered greater.
-fn order_key_partial_cmp(first: &OrderKey, other: &OrderKey) -> Option<std::cmp::Ordering> {
-    for i in 0..usize::max(first.val_types.len(), other.val_types.len()) {
-        let self_current_val_op = first.val_types.get(i);
-        let other_current_val_op = other.val_types.get(i);
-
-        if let Some(self_current_val) = self_current_val_op {
-            if let Some(other_current_val) = other_current_val_op {
-                let direction = self_current_val.1.clone();
-                if direction != other_current_val.1 {
-                    // Conflicting order directions. Not comparable.
-                    return None;
-                }
-
-                let cmp_res_op = self_current_val.0.partial_cmp(&other_current_val.0);
-                if let Some(cmp_res) = cmp_res_op {
-                    if cmp_res == Ordering::Equal {
-                        // This position is equal, check secondary/next order-by values.
-                        continue;
-                    } else if direction == OrderDirection::Ascending {
-                        return Some(cmp_res);
-                    } else {
-                        // direction == OrderDirection::Descending
-                        if cmp_res == Ordering::Greater {
-                            return Some(Ordering::Less);
-                        } else {
-                            return Some(Ordering::Greater);
-                        }
-                    }
-                } else {
-                    // Compared values were of different type.
-                    return None;
-                }
-            } else {
-                // Self is longer thus greater.
-                return Some(std::cmp::Ordering::Greater);
-            }
-        } else {
-            // other_current_val_op.is_some()
-            // Self is shorter thus less.
-            return Some(std::cmp::Ordering::Less);
-        }
-    }
-
-    Some(Ordering::Equal)
-}
-impl PartialOrd for OrderKey {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        order_key_partial_cmp(self, other)
-    }
-}
-impl Ord for OrderKey {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if let Some(res) = order_key_partial_cmp(self, other) {
-            res
-        } else {
-            log_err!(
-                "Compared two incomparable values:\nself: {:?}\nother: {:?}",
-                self,
-                other
-            );
-            panic!("Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared.")
-        }
-        // expect(
-        // "Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared."
-        // )
-    }
 }
 
 pub type WhereConfig = serde_json::Value;
@@ -356,7 +469,7 @@ impl OrmConfig {
             };
 
             Ok((property.clone(), is_asc))
-        };
+        }
 
         match order_by {
             serde_json::Value::Object(obj) => Ok(vec![parse_obj(obj)?]),
@@ -407,5 +520,71 @@ impl Default for OrmSchemaPredicate {
             minCardinality: 0,
             extra: None,
         }
+    }
+}
+
+/// Heuristic:
+/// Consider a string an IRI if it contains alphanumeric characters and then a colon within the first 13 characters.
+/// Then consider the following characters invalid:\
+/// // < > { } | \ <  ^ ` control-characters " blank-space
+pub fn is_iri(s: &str) -> bool {
+    lazy_static! {
+        static ref IRI_REGEX: Regex =
+            Regex::new(r#"^[A-Za-z][A-Za-z0-9+\.\-]{1,12}:[^<>"\{\}\|^`\\\x00-\x20]+\z"#).unwrap();
+    }
+    IRI_REGEX.is_match(s)
+}
+pub fn is_lang_tag(s: &str) -> bool {
+    lazy_static! {
+        static ref IRI_REGEX: Regex =
+            Regex::new(r#"^[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*\z"#).unwrap();
+    }
+    IRI_REGEX.is_match(s)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_absolute_iris() {
+        assert!(is_iri("https://xn--xmpl-loa2at.org"));
+        assert!(is_iri("urn:isbn:0451450523"));
+        assert!(is_iri("did:ng:z:foo"));
+        assert!(is_iri("mailto:告"));
+        assert!(is_iri("file:///C:/Users/file.txt"));
+    }
+
+    #[test]
+    fn test_invalid_escaped_characters() {
+        // Contains forbidden characters (<, >, ")
+        assert!(!is_iri("https://example.org<with>brackets"));
+        assert!(!is_iri("https://example.org?query=\"quotes\""));
+
+        // Contains other unsafe characters (spaces, backslashes, carets)
+        assert!(!is_iri("https://example.org with spaces"));
+        assert!(!is_iri(r"https://example.org\(\backslash\)"));
+        assert!(!is_iri("https://example.org^caret"));
+    }
+
+    #[test]
+    fn test_invalid_relative_paths() {
+        assert!(!is_iri("/just/a/relative/path"));
+        assert!(!is_iri("example.org/path"));
+    }
+
+    #[test]
+    fn test_valid_lang_tags() {
+        assert!(is_lang_tag("En-gb0-as"));
+        assert!(is_lang_tag("de"));
+        assert!(is_lang_tag("DE"));
+        assert!(is_lang_tag("D-a-a-e-5-d"));
+    }
+
+    #[test]
+    fn test_invalid_lang_tags() {
+        assert!(!is_lang_tag("0e-3"));
+        assert!(!is_lang_tag("-d"));
+        assert!(!is_lang_tag("s--d"));
     }
 }
