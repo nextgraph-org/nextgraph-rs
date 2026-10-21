@@ -1153,7 +1153,7 @@ pub(crate) fn term_cmp(left: &Term, right: &Term) -> Option<Ordering> {
 
             // Covers string, boolean, date, etc.
             // Some might not be comparable but we don't use / endorse those RDF types in the ORM.
-            if left_dt == right_dt {
+            if left_dt == right_dt && !is_numeric(left_dt) {
                 return Some(left_lit.value().cmp(right_lit.value()));
             }
 

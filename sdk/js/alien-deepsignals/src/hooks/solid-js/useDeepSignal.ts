@@ -43,7 +43,7 @@ const useDeepSignal = <T extends object>(
     return deepProxy;
 };
 
-/** Use solid-js's `from` method, to create subscriber factory callbacks. */
+/** Use solid-js's `createSignal` with an empty value, to create subscriber factory callbacks. */
 const subscriberFactory = () => {
     let [onGet, onSet] = createSignal(undefined, { equals: false });
 
