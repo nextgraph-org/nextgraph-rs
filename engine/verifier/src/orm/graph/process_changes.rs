@@ -74,7 +74,7 @@ struct ProcessRun {
     /// their entire state and no further query can add to it.
     introduced_by_diff: HashSet<GraphSubjectKey>,
     /// Quads still to be applied, per (graph, subject, shape).
-    are_quads_taken: HashSet<(GraphIri, SubjectIri, ShapeIri)>,
+    are_quads_applied: HashSet<(GraphIri, SubjectIri, ShapeIri)>,
     /// LIFO stack of what still has to be validated (nested objects first).
     stack: Vec<(Arc<OrmSchemaShape>, Vec<(GraphIri, SubjectIri)>)>,
 }
@@ -120,7 +120,7 @@ impl ProcessRun {
             removed_graphs,
             loaded: HashMap::new(),
             introduced_by_diff,
-            are_quads_taken: HashSet::new(),
+            are_quads_applied: HashSet::new(),
             stack,
         }
     }
@@ -210,7 +210,7 @@ impl ProcessRun {
     /// Otherwise empty.
     fn take_pending(&mut self, gs: &GraphSubjectKey, shape_iri: &str) -> PendingQuads {
         let is_new =
-            self.are_quads_taken
+            self.are_quads_applied
                 .insert((gs.0.clone(), gs.1.clone(), shape_iri.to_string()));
 
         if is_new {
@@ -287,7 +287,7 @@ impl ProcessRun {
             .unwrap_or(false)
     }
 
-    /// Whether a queued (graph, subject) still has to be loaded
+    /// Whether a queued (graph, subject) still has to be fetched
     /// before this shape can validate it.
     fn needs_loading(
         &self,
@@ -874,7 +874,7 @@ impl Verifier {
                 }
 
                 // Mark as currently validating this (shape, graph, subject)
-                currently_validating.insert(validation_key);
+                currently_validating.insert(validation_key.clone());
 
                 // We'll capture the child's Arc for linking to parents after dropping the mutable borrow to orm_changes
                 let mut link_children_to_eval = HashMap::new();
@@ -891,6 +891,37 @@ impl Verifier {
 
                     // If validation took place already, there's nothing more to do...
                     if change.is_validated {
+                        currently_validating.remove(&validation_key);
+                        continue;
+                    }
+
+                    let gs_key = (graph_iri.clone(), subject_iri.clone());
+
+                    // If the data is already processed and we had a tormo somewhere before, don't re-apply quads.
+                    // Only restate change, so that we can materialize.
+                    if data_already_fetched
+                        && change.prev_valid != TrackedOrmObjectValidity::Pending
+                        && orm_subscription
+                            .get_tracked_orm_object(graph_iri, subject_iri, &shape.iri)
+                            .map(|tormo| tormo.read().unwrap().is_complete)
+                            .unwrap_or(false)
+                    {
+                        change.is_validated = true;
+
+                        // Ensure materialization through feeding orm_changes.
+                        Self::restate_change(
+                            orm_subscription,
+                            orm_changes,
+                            &shape.iri,
+                            graph_iri,
+                            subject_iri,
+                            &run.added
+                                .get(&(graph_iri.clone(), subject_iri.clone()))
+                                .cloned()
+                                .unwrap_or_default(),
+                        );
+
+                        currently_validating.remove(&validation_key);
                         continue;
                     }
 
@@ -898,7 +929,7 @@ impl Verifier {
                     let child_arc = change.tracked_orm_object.clone();
 
                     // Apply the quads of this (graph, subject) that this tormo has not seen yet.
-                    let gs_key = (graph_iri.clone(), subject_iri.clone());
+
                     let pending = run.take_pending(&gs_key, &shape.iri);
                     if !pending.is_empty() {
                         apply_quads_for_subject(

@@ -811,48 +811,101 @@ impl OrmSubscription {
             .clone()
     }
 
-    /// Remove a single (graph, subject shape) across all graphs. Returns true if any removal occurred.
+    /// Remove a tracked object by graph, subject, and shape, returning it if present.
     pub fn remove_tracked_orm_object(
         &mut self,
         graph_iri: &str,
         subject_iri: &str,
         shape_iri: &str,
-    ) -> bool {
+    ) -> Option<Arc<RwLock<TrackedOrmObject>>> {
         let removed = self
             .tracked_orm_objects
             .get_mut(graph_iri)
-            .unwrap()
-            .get_mut(subject_iri)
-            .unwrap()
-            .remove(shape_iri);
+            .and_then(|subjects| subjects.get_mut(subject_iri))
+            .and_then(|shapes| shapes.remove(shape_iri));
 
-        // Remove parents map(s), if they are now empty.
         if removed.is_some() {
             if self
                 .tracked_orm_objects
-                .get_mut(graph_iri)
-                .unwrap()
-                .get_mut(subject_iri)
-                .unwrap()
-                .is_empty()
+                .get(graph_iri)
+                .and_then(|subjects| subjects.get(subject_iri))
+                .is_some_and(HashMap::is_empty)
             {
-                self.tracked_orm_objects
-                    .get_mut(graph_iri)
-                    .unwrap()
-                    .remove(subject_iri);
+                if let Some(subjects) = self.tracked_orm_objects.get_mut(graph_iri) {
+                    subjects.remove(subject_iri);
+                }
 
                 if self
                     .tracked_orm_objects
-                    .get_mut(graph_iri)
-                    .unwrap()
-                    .is_empty()
+                    .get(graph_iri)
+                    .is_some_and(HashMap::is_empty)
                 {
                     self.tracked_orm_objects.remove(graph_iri);
                 }
             }
         }
 
-        removed.is_some()
+        removed
+    }
+
+    pub fn remove_tracked_orm_object_recurse(
+        &mut self,
+        graph_iri: &str,
+        subject_iri: &str,
+        shape_iri: &str,
+    ) {
+        let Some(removed) = self.remove_tracked_orm_object(graph_iri, subject_iri, shape_iri)
+        else {
+            return;
+        };
+
+        let children: Vec<_> = removed
+            .read()
+            .unwrap()
+            .tracked_predicates
+            .values()
+            .flat_map(|tracked_pred| tracked_pred.read().unwrap().live_children())
+            .collect();
+
+        // Release children being tracked by the removed tormo (in tracked_nested_subjects).
+        // Note: Performance is not great but acceptable since it's used for pagination only currently and the number of tormos is low.
+        for shape_to_tormos in self.tracked_nested_subjects.values_mut() {
+            for parents in shape_to_tormos.values_mut() {
+                parents.retain(|(_, parent)| !Arc::ptr_eq(parent, &removed));
+            }
+        }
+
+        for child in children {
+            let child_to_remove = {
+                let mut child = child.write().unwrap();
+                let mut detached = false;
+                child.parents.retain(|parent| {
+                    let Some(parent) = parent.upgrade() else {
+                        return false;
+                    };
+                    if Arc::ptr_eq(&parent, &removed) {
+                        detached = true;
+                        false
+                    } else {
+                        true
+                    }
+                });
+
+                if detached && child.parents.is_empty() {
+                    Some((
+                        child.graph_iri.clone(),
+                        child.subject_iri.clone(),
+                        child.shape_iri(),
+                    ))
+                } else {
+                    None
+                }
+            };
+
+            if let Some((graph_iri, subject_iri, shape_iri)) = child_to_remove {
+                self.remove_tracked_orm_object_recurse(&graph_iri, &subject_iri, &shape_iri);
+            }
+        }
     }
 
     /// Collect all currently tracked shapes (may include duplicates)

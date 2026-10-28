@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{doc_sparql_update, orm_update};
+use crate::local_broker::{doc_sparql_update, new_orm_graph_next_page, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::test_schemas::create_house_schema;
 use crate::tests::{
@@ -1899,35 +1899,24 @@ INSERT DATA {
 
 /// An ordered subscription over a shape with nested objects.
 async fn test_ordered_with_nested_children(session_id: u64) {
-    log_info!("\n\n=== TEST: an ordered page carries its nested objects ===\n");
+    log_info!("\n\n=== TEST: ordered pages carry nested objects ===\n");
 
-    let doc_nuri = create_doc_with_data(
-        session_id,
-        r#"
-            PREFIX ex: <http://example.org/>
-            INSERT DATA {
-                <urn:test:orderedHouseB>
-                    a ex:House ;
-                    ex:rootColor "blue" ;
-                    ex:inhabitants <urn:test:orderedBob> .
+    let mut insert = String::from("PREFIX ex: <http://example.org/> INSERT DATA {");
+    for index in 0..70 {
+        let child = format!("urn:test:orderedChild{index:03}");
+        insert.push_str(&format!(
+            " <urn:test:orderedHouse{index:03}> a ex:House;
+                            ex:rootColor \"{index:03}\";
+                            ex:inhabitants <{child}> ."
+        ));
+        insert.push_str(&format!(
+            " <{child}> a ex:Person; ex:name \"Child {index:03}\" ."
+        ));
+    }
+    insert.push_str(" <urn:test:orderedHouse050> ex:inhabitants <urn:test:orderedChild001> .");
+    insert.push_str(" }");
 
-                <urn:test:orderedBob>
-                    a ex:Person ;
-                    ex:name "Bob" .
-
-                <urn:test:orderedHouseA>
-                    a ex:House ;
-                    ex:rootColor "amber" ;
-                    ex:inhabitants <urn:test:orderedAda> .
-
-                <urn:test:orderedAda>
-                    a ex:Person ;
-                    ex:name "Ada" .
-            }
-        "#
-        .to_string(),
-    )
-    .await;
+    let doc_nuri = create_doc_with_data(session_id, insert).await;
 
     // Use regular house schema but with `rootColor` made mandatory (for ordering).
     let mut schema = create_house_schema();
@@ -1986,37 +1975,37 @@ async fn test_ordered_with_nested_children(session_id: u64) {
         shape: "http://example.org/HouseShape".to_string(),
     };
 
-    let (_receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+    let (mut receiver, _cancel_fn, subscription_id, initial) = create_orm_connection_with_conf(
         vec![doc_nuri.clone()],
         vec![], // All objects
         shape_type,
         session_id,
-        json!({"orderBy": [{"rootColor": "asc"}]}),
+        json!({"orderBy": [{"rootColor": "asc"}], "pageSize": 50}),
     )
     .await;
 
     let mut expected = json!([
         {
-            "@id": "urn:test:orderedHouseA",
+            "@id": "urn:test:orderedHouse000",
             "type": "http://example.org/House",
-            "rootColor": "amber",
+            "rootColor": "000",
             "inhabitants": {
-                "urn:test:orderedAda": {
-                    "@id": "urn:test:orderedAda",
+                "urn:test:orderedChild000": {
+                    "@id": "urn:test:orderedChild000",
                     "type": "http://example.org/Person",
-                    "name": "Ada"
+                    "name": "Child 000"
                 }
             }
         },
         {
-            "@id": "urn:test:orderedHouseB",
+            "@id": "urn:test:orderedHouse001",
             "type": "http://example.org/House",
-            "rootColor": "blue",
+            "rootColor": "001",
             "inhabitants": {
-                "urn:test:orderedBob": {
-                    "@id": "urn:test:orderedBob",
+                "urn:test:orderedChild001": {
+                    "@id": "urn:test:orderedChild001",
                     "type": "http://example.org/Person",
-                    "name": "Bob"
+                    "name": "Child 001"
                 }
             }
         }
@@ -2024,9 +2013,50 @@ async fn test_ordered_with_nested_children(session_id: u64) {
     add_graph_fields(&mut expected, &doc_nuri);
     rewrite_expected_paths_with_graph(&mut expected, &doc_nuri);
 
-    assert_json_eq(&expected, &initial);
+    assert_eq!(initial.as_array().unwrap().len(), 50);
+    assert_json_eq(
+        &expected,
+        &serde_json::Value::Array(initial.as_array().unwrap()[..2].to_vec()),
+    );
+    let child_key = format!("{}|urn:test:orderedChild049", doc_nuri);
+    assert_eq!(initial[49]["inhabitants"][&child_key]["name"], "Child 049");
 
-    log_info!("Test passed: ordered page carries its nested objects");
+    new_orm_graph_next_page(subscription_id, session_id)
+        .await
+        .expect("Could not load the next ordered ORM page");
+    let page_patches = await_graph_patches(&mut receiver).await;
+
+    assert!(page_patches.len() == 20);
+    let page_50_patch = &page_patches[0];
+    let mut expected_patch = json!({
+        "op": "add",
+        "path": "/50",
+        "value": {
+            "@id": "urn:test:orderedHouse050",
+            "type": "http://example.org/House",
+            "rootColor": "050",
+            "inhabitants": {
+                "urn:test:orderedChild001": {
+                    "@id": "urn:test:orderedChild001",
+                    "type": "http://example.org/Person",
+                    "name": "Child 001"
+                },
+                "urn:test:orderedChild050": {
+                    "@id": "urn:test:orderedChild050",
+                    "type": "http://example.org/Person",
+                    "name": "Child 050"
+                }
+            }
+        }
+    });
+    add_graph_fields(&mut expected_patch, &doc_nuri);
+    rewrite_expected_paths_with_graph(&mut expected_patch, &doc_nuri);
+    assert_orm_json_eq_exact(
+        &expected_patch,
+        &serde_json::to_value(page_50_patch).unwrap(),
+    );
+
+    log_info!("Test passed: ordered pages carry previously loaded nested objects");
 }
 
 async fn test_add_remove_move_in_plain_sorted(session_id: u64) {

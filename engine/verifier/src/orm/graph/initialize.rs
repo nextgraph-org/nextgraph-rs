@@ -370,18 +370,6 @@ impl Verifier {
                 })
                 .cloned()
                 .collect();
-            // Filter new quads.
-            let quads = quads
-                .into_iter()
-                .filter(|q| {
-                    let (GraphName::NamedNode(g), Subject::NamedNode(s)) =
-                        (&q.graph_name, &q.subject)
-                    else {
-                        return false;
-                    };
-                    !orm_subscription.has_graph_subject(g.as_str(), s.as_str())
-                })
-                .collect::<Vec<_>>();
 
             // Add gs results to existing results.
             ordered_gs_results.extend(graph_subject_page_new_only);
@@ -457,7 +445,7 @@ impl Verifier {
                 // Remove everything above.
                 let to_remove = ordered_gs_results.split_off(n_iterated_results);
                 for (graph_iri, subject_iri) in to_remove {
-                    orm_subscription.remove_tracked_orm_object(
+                    orm_subscription.remove_tracked_orm_object_recurse(
                         &graph_iri,
                         &subject_iri,
                         &root_shape.iri,
@@ -486,7 +474,7 @@ impl Verifier {
                 let keep =
                     ordered_gs_results.split_off(ordered_gs_results.len() - n_iterated_results);
                 for (graph_iri, subject_iri) in ordered_gs_results {
-                    orm_subscription.remove_tracked_orm_object(
+                    orm_subscription.remove_tracked_orm_object_recurse(
                         &graph_iri,
                         &subject_iri,
                         &root_shape.iri,
