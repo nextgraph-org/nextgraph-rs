@@ -859,24 +859,26 @@ impl OrmSubscription {
             return;
         };
 
-        let children: Vec<_> = removed
-            .read()
-            .unwrap()
-            .tracked_predicates
-            .values()
-            .flat_map(|tracked_pred| tracked_pred.read().unwrap().live_children())
-            .collect();
+        let children: Vec<(PredIri, Arc<RwLock<TrackedOrmObject>>)> = {
+            let removed_obj = removed.read().unwrap();
+            let mut children = Vec::new();
 
-        // Release children being tracked by the removed tormo (in tracked_nested_subjects).
-        // Note: Performance is not great but acceptable since it's used for pagination only currently and the number of tormos is low.
-        for shape_to_tormos in self.tracked_nested_subjects.values_mut() {
-            for parents in shape_to_tormos.values_mut() {
-                parents.retain(|(_, parent)| !Arc::ptr_eq(parent, &removed));
+            for (pred_iri, tracked_pred) in &removed_obj.tracked_predicates {
+                children.extend(
+                    tracked_pred
+                        .read()
+                        .unwrap()
+                        .live_children()
+                        .into_iter()
+                        .map(|child| (pred_iri.clone(), child)),
+                );
             }
-        }
 
-        for child in children {
-            let child_to_remove = {
+            children
+        };
+
+        for (pred_iri, child) in children {
+            let (child_subject, child_shape, child_to_remove) = {
                 let mut child = child.write().unwrap();
                 let mut detached = false;
                 child.parents.retain(|parent| {
@@ -891,16 +893,30 @@ impl OrmSubscription {
                     }
                 });
 
-                if detached && child.parents.is_empty() {
+                let child_subject = child.subject_iri.clone();
+                let child_shape = child.shape_iri();
+                let child_to_remove = if detached && child.parents.is_empty() {
                     Some((
                         child.graph_iri.clone(),
-                        child.subject_iri.clone(),
-                        child.shape_iri(),
+                        child_subject.clone(),
+                        child_shape.clone(),
                     ))
                 } else {
                     None
-                }
+                };
+
+                (child_subject, child_shape, child_to_remove)
             };
+
+            if let Some(parents) = self
+                .tracked_nested_subjects
+                .get_mut(&child_subject)
+                .and_then(|shapes| shapes.get_mut(&child_shape))
+            {
+                parents.retain(|(tracked_pred, parent)| {
+                    tracked_pred != &pred_iri || !Arc::ptr_eq(parent, &removed)
+                });
+            }
 
             if let Some((graph_iri, subject_iri, shape_iri)) = child_to_remove {
                 self.remove_tracked_orm_object_recurse(&graph_iri, &subject_iri, &shape_iri);
