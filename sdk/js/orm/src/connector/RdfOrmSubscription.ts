@@ -235,6 +235,17 @@ export class RdfOrmSubscription<
             this.resolveReady = resolve;
         });
 
+        const optionsSanitized: Omit<RdfOrmConfig<any>, "onError"> = {
+            maxActivePages: options.maxActivePages,
+            orderBy: options.orderBy,
+            graphs: options.graphs,
+            subjects: options.subjects,
+            pageSize: options.pageSize,
+            where: options.where,
+            // @ts-expect-error
+            select: options.select,
+        };
+
         ngSession.then(async ({ ng, session }) => {
             try {
                 this.closeOrmSubscription = await ng.orm_start_graph(
@@ -242,7 +253,7 @@ export class RdfOrmSubscription<
                     options.subjects,
                     shapeType,
                     session.session_id,
-                    options,
+                    optionsSanitized,
                     this.onBackendMessage
                 );
             } catch (e) {
