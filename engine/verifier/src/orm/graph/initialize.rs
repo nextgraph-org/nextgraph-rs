@@ -13,8 +13,6 @@ use futures::SinkExt;
 use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
-use ng_oxigraph::oxrdf::GraphName;
-use ng_oxigraph::oxrdf::Subject;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -252,6 +250,7 @@ impl Verifier {
                 // Remove first items.
                 for _i in 0..excess_items {
                     let (_, removed) = page_info.tormos.pop_first().unwrap();
+                    page_info.forget_tormo(&removed.read().unwrap());
                     let g = removed.read().unwrap().graph_iri.clone();
                     let s = removed.read().unwrap().subject_iri.clone();
                     removes.push((g, s));
@@ -266,6 +265,7 @@ impl Verifier {
                 // Remove last items.
                 for i in (0..excess_items).rev() {
                     let (_, removed) = page_info.tormos.pop_last().unwrap();
+                    page_info.forget_tormo(&removed.read().unwrap());
                     let g = removed.read().unwrap().graph_iri.clone();
                     let s = removed.read().unwrap().subject_iri.clone();
                     removes.push((g, s));
@@ -433,7 +433,8 @@ impl Verifier {
 
                     let order_by = orm_subscription.config.order_by.as_ref().unwrap();
                     if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
-                        let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                        let order_key = order_key_from(order_by, &tormo.read().unwrap())
+                            .expect("valid tormos should have all values for order key");
                         new_tormos_ordered.push((order_key, tormo.clone()));
 
                         if new_tormos_ordered.len() == page_size {
@@ -460,7 +461,8 @@ impl Verifier {
                         .unwrap();
 
                     let order_by = orm_subscription.config.order_by.as_ref().unwrap();
-                    let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                    let order_key = order_key_from(order_by, &tormo.read().unwrap())
+                        .expect("valid tormos should have all values for order key");
                     if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
                         new_tormos_ordered.push((order_key, tormo.clone()));
 
@@ -534,13 +536,14 @@ impl Verifier {
                     continue;
                 }
                 let order_by = orm_subscription.config.order_by.as_ref().unwrap();
-                let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                let order_key = order_key_from(order_by, &tormo.read().unwrap())
+                    .expect("valid tormos should have all values for order key");
                 with_keys.push((order_key, tormo));
             }
 
             let order_info = orm_subscription.ordering_info.as_mut().unwrap();
             for (order_key, tormo) in with_keys {
-                order_info.tormos.insert(order_key.clone(), tormo.clone());
+                order_info.insert_tormo(order_key.clone(), tormo.clone());
 
                 // If we are doing pagination, we record where we inserted to create patches from that data.
                 if get_with_insert_pos && page_size > 0 {

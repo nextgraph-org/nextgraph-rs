@@ -1,6 +1,13 @@
+import { BaseType, insertObject, RdfOrmSubscription, ShapeType } from "../core";
+import { OrderByConfig, OrmSet, Unpersisted, WhereConfig } from "../utilTypes";
+
 function testUtilTypes() {
     type IRI = string;
-    interface TestType {
+    interface IdGraph {
+        readonly "@graph": string;
+        readonly "@id": string;
+    }
+    interface TestType extends IdGraph {
         readonly "@graph": string;
         readonly "@id": string;
         stringProp: string;
@@ -8,12 +15,13 @@ function testUtilTypes() {
         boolProp: boolean;
         setProp: Set<string>;
         set2Prop?: Set<IRI>;
-        objProp: { "@id": string; "@graph": string; foo: string };
+        objProp: IdGraph & { foo: string };
         obj2Prop: Set<{
             "@id": string;
             "@graph": string;
             bar: string | number;
         }>;
+        obj3Prop: (IdGraph & { foo: string }) | (IdGraph & { bar: string });
         enumProp: "choice1" | "choice2";
     }
 
@@ -54,6 +62,19 @@ function testUtilTypes() {
         boolProp: "asc",
         // @ts-ignore
         numProp: "desc",
+    };
+    let test1ObConf8: TestTypeOrderByConf = {
+        objProp: [{ foo: "asc" }],
+    };
+    let test1ObConf9: TestTypeOrderByConf = {
+        // @ts-expect-error
+        obj2Prop: [],
+    };
+    let test1ObConf10: TestTypeOrderByConf = {
+        // @ts-expect-error
+        obj3Prop: {
+            foo: "asc",
+        },
     };
 
     // WhereConfig type tests

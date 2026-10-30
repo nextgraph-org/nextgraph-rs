@@ -19,7 +19,8 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{
     app_protocol::*,
     orm::{
-        is_iri, is_lang_tag, OrderByConfig, OrderDirection, OrmSchemaPredicate, OrmSchemaValType,
+        is_iri, is_lang_tag, OrderByConfig, OrderByHop, OrderDirection, OrmSchemaPredicate,
+        OrmSchemaValType,
     },
 };
 
@@ -27,8 +28,7 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 
 use crate::orm::graph::types::{
-    find_first_numeric_type_opt, OrderKey, TrackedOrmObject, TrackedOrmObjectChange,
-    TrackedOrmObjectValidity,
+    find_first_numeric_type_opt, OrderKey, TrackedOrmObject, TrackedOrmObjectValidity,
 };
 
 pub type GraphSubjectKey = (String, String);
@@ -536,22 +536,77 @@ pub fn assess_and_rank_children(
     make_res(all, HeuristicUsed::All)
 }
 
+/// Resolve the tormo that a hop's predicate points to.
+///
+/// Uses the same preference order as validation (`assess_and_rank_children`), so the
+/// value we order by is the one the ORM considers the valid child for that predicate.
+fn resolve_child_for_hop(
+    parent: &TrackedOrmObject,
+    hop: &OrderByHop,
+) -> Option<Arc<RwLock<TrackedOrmObject>>> {
+    // Collect the children first (to release predicate guard again after).
+    let children: Vec<Arc<RwLock<TrackedOrmObject>>> = {
+        let tracked_pred = parent
+            .tracked_predicates
+            .get(&hop.predicate_schema.iri)?
+            .read()
+            .ok()?;
+        tracked_pred.live_children()
+    };
+
+    if children.is_empty() {
+        return None;
+    }
+
+    let assessed = assess_and_rank_children(
+        &parent.graph_iri,
+        &parent.subject_iri,
+        hop.predicate_schema.minCardinality,
+        hop.predicate_schema.maxCardinality,
+        &children,
+    );
+
+    // Get the first (and only) considered (for the chosen heuristic).
+    assessed.considered.first().cloned()
+}
+
+/// Walk an order-by path from `tormo` down to the value to order by.
+///
+/// Intermediate hops descend into the child the predicate points to; the leaf hop
+/// reads the literal from the tracked predicate. Returns `None` if any hop cannot be
+/// resolved (missing predicate, no child, or no value), in which case the term
+/// contributes no key component.
+fn order_value_for_path(path: &[OrderByHop], tormo: &TrackedOrmObject) -> Option<Term> {
+    let (hop, remaining) = path.split_first()?;
+
+    if remaining.is_empty() {
+        // Leaf hop: the predicate holds the value to order by.
+        let tracked_pred = tormo.tracked_predicates.get(&hop.predicate_schema.iri)?;
+        let tracked_pred = tracked_pred.read().ok()?;
+        return tracked_pred.current_literals.as_ref()?.first().cloned();
+    }
+
+    // Intermediate hop: descend into the child this predicate points to.
+    let child = resolve_child_for_hop(tormo, hop)?;
+    let child_guard = child.read().ok()?;
+    order_value_for_path(remaining, &child_guard)
+}
+
 /// Create an order key consisting of the values to order by and the graph and subject iris of the tormo as secondary indexes.
-pub(crate) fn order_key_from(order_by_conf: &OrderByConfig, tormo: &TrackedOrmObject) -> OrderKey {
+pub(crate) fn order_key_from(
+    order_by_conf: &OrderByConfig,
+    tormo: &TrackedOrmObject,
+) -> Option<OrderKey> {
     let vals = order_by_conf
         .iter()
-        .filter_map(|(pred_schema, order_dir)| {
-            tormo
-                .tracked_predicates
-                .get(&pred_schema.iri)?
-                .read()
-                .ok()?
-                .current_literals
-                .clone()?
-                .first()
-                .cloned()
-                .map_or(None, |v| Some((v.clone(), *order_dir)))
+        .map(|order_by_term| {
+            Some((
+                order_value_for_path(&order_by_term.path, tormo)?,
+                order_by_term.direction,
+            ))
         })
+        .collect::<Option<Vec<_>>>()?
+        .into_iter()
         .chain([
             (
                 Term::from(NamedNode::new_unchecked(tormo.graph_iri.clone())),
@@ -564,51 +619,7 @@ pub(crate) fn order_key_from(order_by_conf: &OrderByConfig, tormo: &TrackedOrmOb
         ])
         .collect();
 
-    OrderKey { val_types: vals }
-}
-
-pub(crate) fn order_key_before_change(
-    order_by_conf: &OrderByConfig,
-    tormo: &TrackedOrmObject,
-    change: &TrackedOrmObjectChange,
-) -> OrderKey {
-    OrderKey {
-        val_types: order_by_conf
-            .iter()
-            .enumerate()
-            .map(|(_i, (pred, dir))| {
-                // Get the removed value or if none there, the current one.
-                let old_or_current_val = change
-                    .predicates
-                    .get(&pred.iri)
-                    .and_then(|change_pred| change_pred.values_removed.first().cloned())
-                    .unwrap_or_else(|| {
-                        tormo
-                            .tracked_predicates
-                            .get(&pred.iri)
-                            .unwrap()
-                            .read()
-                            .unwrap()
-                            .current_literals
-                            .as_ref()
-                            .unwrap()[0]
-                            .clone()
-                    });
-
-                (old_or_current_val.clone(), dir.clone())
-            })
-            .chain([
-                (
-                    Term::from(NamedNode::new_unchecked(tormo.graph_iri.clone())),
-                    OrderDirection::Ascending,
-                ),
-                (
-                    Term::from(NamedNode::new_unchecked(tormo.subject_iri.clone())),
-                    OrderDirection::Ascending,
-                ),
-            ])
-            .collect(),
-    }
+    Some(OrderKey { val_types: vals })
 }
 
 #[cfg(test)]

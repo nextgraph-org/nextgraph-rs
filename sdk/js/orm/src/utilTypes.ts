@@ -67,14 +67,19 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
 
 /**
  * Defines how results are sorted.
- * Must contain a single property with the key being the property to sort by
- * and the value being `"asc"`, `"desc"`.
- * The property to sort by must have a cardinality of exactly 1.
+ *
+ * Each property to sort by must be specified as object with the key being the property name
+ * and the value being `"asc"`, `"desc"` or a nested orderBy object.
+ *
+ * The property to sort by must have a cardinality of exactly 1 (no optional values allowed).
  *
  * May be used as single object or array of objects if you want secondary ordering.
  *
+ * For ordering by nested properties, see the example.
+ *
+ *
  * @example
- * ```ts
+ * ```jsonc
  * {
  *   orderBy: [
  *     { firstName: "asc"},
@@ -82,6 +87,12 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
  *     { birthDate: "desc"}
  *   ],
  *   ...
+ * }
+ * // Or for sorting by nested properties:
+ * {
+ *   orderBy: {
+ *     capital: { population: "desc" }
+ *   }
  * }
  * ```
  */
@@ -93,7 +104,9 @@ export type OrderByConfigObject<T extends BaseType> = SingleKeyObject<{
         T[K]
     > extends true
         ? "asc" | "desc"
-        : never;
+        : T[K] extends BaseType
+          ? OrderByConfig<T[K]>
+          : never;
 }>;
 
 type IsSinglePrimitive<T> = [T] extends [string]

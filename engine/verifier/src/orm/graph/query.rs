@@ -523,14 +523,22 @@ pub fn schema_shape_to_sparql(
         let mut order_by_vars: Vec<(String, OrderDirection)> = vec![];
 
         // add order_by_vars to where.
-        for (order_by_p, order_dir) in order_by_preds {
-            let sparql_var = next_var();
-            // Keep order-by lookup in the same named graph scope as the main shape query.
-            where_lines.push(format!(
-                "  GRAPH ?g {{ ?s <{}> ?{} . }}",
-                order_by_p.iri, sparql_var
-            ));
-            order_by_vars.push((sparql_var, *order_dir));
+        for term in order_by_preds {
+            // Walk the path, threading the subject variable through each hop so that
+            // nested order-by values are joined through the intermediate objects.
+            // The first hop starts at the root subject `?s`.
+            let mut subj_var = "s".to_string();
+            for hop in term.path.iter() {
+                let obj_var = next_var();
+                let graph_var = next_var();
+                // Keep order-by lookup in the same named graph scope as the main shape query.
+                where_lines.push(format!(
+                    "  GRAPH ?{} {{ ?{} <{}> ?{} . }}",
+                    graph_var, subj_var, hop.predicate_schema.iri, obj_var
+                ));
+                subj_var = obj_var;
+            }
+            order_by_vars.push((subj_var, term.direction));
         }
 
         // Add order_by_str with ASC or DESC for each var.

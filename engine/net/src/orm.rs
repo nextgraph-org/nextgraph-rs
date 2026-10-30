@@ -363,7 +363,33 @@ pub enum OrderDirection {
 pub type WhereConfig = serde_json::Value;
 pub type SelectConfig = serde_json::Value;
 pub type IsAscending = bool;
-pub type OrderByConfig = Vec<(Arc<OrmSchemaPredicate>, OrderDirection)>;
+
+/// One hop of an order-by path: a predicate on a shape.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OrderByHop {
+    /// IRI of the shape the predicate belongs to (the root shape for hop 0).
+    pub shape_iri: String,
+    pub predicate_schema: Arc<OrmSchemaPredicate>,
+}
+
+/// One order-by term: a path from the root shape down to the literal to order by.
+/// Comes from a serialization like `{ country: { capital: { inhabitants: "asc" }}}`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OrderByTerm {
+    pub path: Vec<OrderByHop>,
+    pub direction: OrderDirection,
+}
+
+pub type OrderByConfig = Vec<OrderByTerm>;
+
+impl OrderByTerm {
+    pub fn leaf(&self) -> &OrderByHop {
+        self.path.last().unwrap()
+    }
+    pub fn is_nested(&self) -> bool {
+        self.path.len() > 1
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmConfig {
@@ -388,34 +414,16 @@ impl OrmConfig {
             .get("orderBy")
             .map_or(None, |ob| if ob.is_null() { None } else { Some(ob) })
         {
-            let parsed = Self::parse_order_by(order_by_obj)?;
-            let mut order_by_config: OrderByConfig = Vec::with_capacity(parsed.len());
-            let shape = shape_type
+            let root_shape = shape_type
                 .schema
                 .get(&shape_type.shape)
-                .ok_or("Main shape not found in schema")?;
-            for (readable_pred, is_asc) in parsed {
-                let found_pred = shape
-                    .predicates
-                    .iter()
-                    .find(|p| p.readablePredicate == readable_pred)
-                    .ok_or(format!(
-                        "Predicate not found in orderBy config: {}",
-                        readable_pred
-                    ))?;
-                if found_pred.maxCardinality != 1 || found_pred.minCardinality != 1 {
-                    return Err("Orm config order by properties must have cardinality 1.".into());
-                }
-                order_by_config.push((
-                    Arc::clone(found_pred),
-                    if is_asc {
-                        OrderDirection::Ascending
-                    } else {
-                        OrderDirection::Descending
-                    },
-                ));
-            }
-            Some(order_by_config)
+                .map(|arc| arc.as_ref())
+                .ok_or_else(|| format!("Main shape not found in schema: {}", shape_type.shape))?;
+            Some(parse_order_by(
+                order_by_obj,
+                root_shape,
+                &shape_type.schema,
+            )?)
         } else {
             None
         };
@@ -442,54 +450,6 @@ impl OrmConfig {
         })
     }
 
-    /// Returns a Vec<(property name, is_asc)>
-    fn parse_order_by(order_by: &serde_json::Value) -> Result<Vec<(String, bool)>, String> {
-        /// For a Value::Object {<propertyToOrderBy>: "asc" | "desc"}, return Ok("property", is_asc)
-        fn parse_obj(
-            obj: &serde_json::Map<String, serde_json::Value>,
-        ) -> Result<(String, bool), String> {
-            if obj.len() != 1 {
-                return Err(
-                    "Order by object must have exactly 1 property (key -> 'asc'|'desc')"
-                        .to_string(),
-                );
-            }
-            let (property, asc_or_desc) = obj.iter().next().unwrap();
-            let is_asc = match asc_or_desc {
-                serde_json::Value::String(str) => {
-                    if str == "asc" {
-                        true
-                    } else if str == "desc" {
-                        false
-                    } else {
-                        return Err("Order by value must be 'asc' or 'desc'.".into());
-                    }
-                }
-                _ => return Err("Order by value must be a string 'asc' or 'desc'.".into()),
-            };
-
-            Ok((property.clone(), is_asc))
-        }
-
-        match order_by {
-            serde_json::Value::Object(obj) => Ok(vec![parse_obj(obj)?]),
-            serde_json::Value::Array(items) => {
-                let mut out = Vec::with_capacity(items.len());
-                for item in items {
-                    let obj = item.as_object().ok_or_else(|| {
-                        "Each item in order by config must be an object".to_string()
-                    })?;
-                    out.push(parse_obj(obj)?);
-                }
-                Ok(out)
-            }
-            _ => Err(format!(
-                "When defined, order by config must be an object or an array of objects. Got: {:?}",
-                order_by
-            )),
-        }
-    }
-
     /// Returns Some(page_size * max_active_pages), if both are set, else None.
     pub fn max_allowed_items(&self) -> Option<usize> {
         if self.max_active_pages > 0 && self.page_size > 0 {
@@ -497,6 +457,155 @@ impl OrmConfig {
         } else {
             None
         }
+    }
+}
+
+/// Parse the `orderBy` config of an ORM subscription into a flat list of order-by terms.
+/// Mirrors the TS `OrderByConfig` type.
+/// - `{ <propertyToOrderBy>: "asc" | "desc" }`
+/// - `[{ <property>: "asc" }, { <property2>: "desc" }]`
+/// - `{ <objectProperty>: { <nestedProperty>: "asc" } }`
+/// - `{ <objectProperty>: [{ <nestedProperty1>: "asc" }, { <nestedProperty2>: "desc" }] }`
+///
+/// Each leaf produces one [`OrderByTerm`] whose path leads from the root shape down to
+/// the predicate that holds the value to order by.
+fn parse_order_by(
+    order_by: &serde_json::Value,
+    root_shape: &OrmSchemaShape,
+    schema: &OrmSchema,
+) -> Result<OrderByConfig, String> {
+    let mut terms: OrderByConfig = Vec::new();
+    parse_order_by_into(order_by, root_shape, schema, &mut Vec::new(), &mut terms)?;
+    if terms.is_empty() {
+        return Err("Order by config must contain at least one property.".into());
+    }
+    Ok(terms)
+}
+
+/// Recursively parse an `orderBy` value (a single-key object or an array of them) into `out`.
+fn parse_order_by_into(
+    order_by: &serde_json::Value,
+    shape: &OrmSchemaShape,
+    schema: &OrmSchema,
+    prefix: &mut Vec<OrderByHop>,
+    out: &mut OrderByConfig,
+) -> Result<(), String> {
+    match order_by {
+        serde_json::Value::Object(obj) => parse_order_by_object(obj, shape, schema, prefix, out),
+        serde_json::Value::Array(items) => {
+            if items.is_empty() {
+                return Err("Order by config array must not be empty.".into());
+            }
+            for item in items {
+                let obj = item.as_object().ok_or_else(|| {
+                    "Each item in order by config array must be an object.".to_string()
+                })?;
+                parse_order_by_object(obj, shape, schema, prefix, out)?;
+            }
+            Ok(())
+        }
+        _ => Err(format!(
+            "When defined, order by config must be an object or an array of objects. Got: {:?}",
+            order_by
+        )),
+    }
+}
+
+/// Parse a single-key order-by object: `{ <property>: "asc" | "desc" }` for a literal
+/// property, or `{ <objectProperty>: <nested order-by config> }` for a nested object.
+fn parse_order_by_object(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    shape: &OrmSchemaShape,
+    schema: &OrmSchema,
+    prefix: &mut Vec<OrderByHop>,
+    out: &mut OrderByConfig,
+) -> Result<(), String> {
+    if obj.len() != 1 {
+        return Err(
+            "Order by object must have exactly 1 property (key -> 'asc'|'desc')".to_string(),
+        );
+    }
+    let (property_name, value) = obj.iter().next().unwrap();
+
+    let predicate = shape
+        .predicates
+        .iter()
+        .find(|p| p.readablePredicate == *property_name)
+        .ok_or_else(|| format!("Predicate not found in orderBy config: {}", property_name))?;
+
+    if predicate.dataTypes.len() != 1 {
+        return Err(format!(
+            "Predicate {property_name} must not have more than one allowed data type."
+        ));
+    }
+
+    // Schema's cardinality must be 1, otherwise sorting is not possible.
+    if predicate.minCardinality != 1 || predicate.maxCardinality != 1 {
+        return Err(format!(
+            "Orm config order by properties must have cardinality 1. Property '{}' has cardinality {}-{}.",
+            property_name, predicate.minCardinality, predicate.maxCardinality
+        ));
+    }
+
+    let hop = OrderByHop {
+        shape_iri: shape.iri.clone(),
+        predicate_schema: Arc::clone(predicate),
+    };
+
+    match value {
+        serde_json::Value::String(dir) => {
+            let direction = match dir.as_str() {
+                "asc" => OrderDirection::Ascending,
+                "desc" => OrderDirection::Descending,
+                _ => return Err("Order by value must be 'asc' or 'desc'.".into()),
+            };
+            // Ensure that the datatype of this prop is a literal.
+            if !predicate
+                .dataTypes
+                .iter()
+                .any(|dt| dt.valType != OrmSchemaValType::shape)
+            {
+                return Err(format!(
+                    "Order by property '{}' is a nested object. Specify one of its properties to order by.",
+                    property_name
+                ));
+            }
+            let mut path = prefix.clone();
+            path.push(hop);
+            // Push the final OrderByTerm pointing to the (possibly nested) predicate.
+            out.push(OrderByTerm { path, direction });
+            Ok(())
+        }
+        serde_json::Value::Object(_) | serde_json::Value::Array(_) => {
+            // Nested: descend into the child shape.
+
+            let child_shape_iri = predicate
+                .dataTypes
+                .iter()
+                .find_map(|dt| dt.shape.clone())
+                .ok_or_else(|| {
+                    format!(
+                        "Order by property '{}' is not a nested object. Use 'asc' or 'desc'.",
+                        property_name
+                    )
+                })?;
+            let child_shape = schema
+                .get(&child_shape_iri)
+                .map(|arc| arc.as_ref())
+                .ok_or_else(|| {
+                    format!(
+                        "Shape '{}' of order by property '{}' not found in schema.",
+                        child_shape_iri, property_name
+                    )
+                })?;
+
+            // Push hop to prefix stack and recurse.
+            prefix.push(hop);
+            let result = parse_order_by_into(value, child_shape, schema, prefix, out);
+            prefix.pop();
+            result
+        }
+        _ => Err("Order by value must be 'asc' or 'desc'.".into()),
     }
 }
 
@@ -586,5 +695,257 @@ mod tests {
         assert!(!is_lang_tag("0e-3"));
         assert!(!is_lang_tag("-d"));
         assert!(!is_lang_tag("s--d"));
+    }
+
+    // ===== orderBy parsing =====
+
+    fn mk_pred(
+        iri: &str,
+        readable: &str,
+        min: i32,
+        max: i32,
+        data_types: Vec<OrmSchemaDataType>,
+    ) -> Arc<OrmSchemaPredicate> {
+        Arc::new(OrmSchemaPredicate {
+            iri: iri.to_string(),
+            readablePredicate: readable.to_string(),
+            minCardinality: min,
+            maxCardinality: max,
+            extra: Some(false),
+            dataTypes: data_types,
+        })
+    }
+
+    fn literal_dt(val_type: OrmSchemaValType) -> OrmSchemaDataType {
+        OrmSchemaDataType {
+            valType: val_type,
+            literals: None,
+            shape: None,
+        }
+    }
+
+    fn shape_dt(shape_iri: &str) -> OrmSchemaDataType {
+        OrmSchemaDataType {
+            valType: OrmSchemaValType::shape,
+            literals: None,
+            shape: Some(shape_iri.to_string()),
+        }
+    }
+
+    /// Root shape with a literal `name`, a nested `capital` (CityShape) and a
+    /// multi-valued `inhabitants` (PersonShape).
+    fn mk_schema() -> OrmShapeType {
+        let city_shape = Arc::new(OrmSchemaShape {
+            iri: "urn:CityShape".to_string(),
+            is_closed: false,
+            predicates: vec![
+                mk_pred(
+                    "urn:population",
+                    "population",
+                    1,
+                    1,
+                    vec![literal_dt(OrmSchemaValType::decimal)],
+                ),
+                mk_pred(
+                    "urn:cityName",
+                    "name",
+                    1,
+                    1,
+                    vec![literal_dt(OrmSchemaValType::string)],
+                ),
+            ],
+        });
+
+        let person_shape = Arc::new(OrmSchemaShape {
+            iri: "urn:PersonShape".to_string(),
+            is_closed: false,
+            predicates: vec![mk_pred(
+                "urn:personName",
+                "name",
+                1,
+                1,
+                vec![literal_dt(OrmSchemaValType::string)],
+            )],
+        });
+
+        let root_shape = Arc::new(OrmSchemaShape {
+            iri: "urn:CountryShape".to_string(),
+            is_closed: false,
+            predicates: vec![
+                mk_pred(
+                    "urn:name",
+                    "name",
+                    1,
+                    1,
+                    vec![literal_dt(OrmSchemaValType::string)],
+                ),
+                mk_pred(
+                    "urn:capital",
+                    "capital",
+                    1,
+                    1,
+                    vec![shape_dt("urn:CityShape")],
+                ),
+                mk_pred(
+                    "urn:inhabitants",
+                    "inhabitants",
+                    0,
+                    -1,
+                    vec![shape_dt("urn:PersonShape")],
+                ),
+            ],
+        });
+
+        let mut schema: OrmSchema = HashMap::new();
+        schema.insert("urn:CountryShape".to_string(), root_shape);
+        schema.insert("urn:CityShape".to_string(), city_shape);
+        schema.insert("urn:PersonShape".to_string(), person_shape);
+
+        OrmShapeType {
+            schema,
+            shape: "urn:CountryShape".to_string(),
+        }
+    }
+
+    fn parse(order_by: serde_json::Value) -> Result<OrderByConfig, String> {
+        let shape_type = mk_schema();
+        let root = shape_type.schema.get(&shape_type.shape).unwrap().clone();
+        parse_order_by(&order_by, &root, &shape_type.schema)
+    }
+
+    #[test]
+    fn test_parse_order_by_flat_object() {
+        let terms = parse(serde_json::json!({ "name": "asc" })).unwrap();
+        assert_eq!(terms.len(), 1);
+        assert_eq!(terms[0].path.len(), 1);
+        assert_eq!(terms[0].path[0].shape_iri, "urn:CountryShape");
+        assert_eq!(terms[0].path[0].predicate_schema.iri, "urn:name");
+        assert_eq!(terms[0].direction, OrderDirection::Ascending);
+        assert!(!terms[0].is_nested());
+    }
+
+    #[test]
+    fn test_parse_order_by_flat_array() {
+        let terms =
+            parse(serde_json::json!([{ "name": "asc" }, { "capital": { "population": "desc" } }]))
+                .unwrap();
+        assert_eq!(terms.len(), 2);
+        assert_eq!(terms[0].direction, OrderDirection::Ascending);
+        assert_eq!(terms[1].direction, OrderDirection::Descending);
+        assert!(terms[1].is_nested());
+    }
+
+    #[test]
+    fn test_parse_order_by_nested_object() {
+        let terms = parse(serde_json::json!({ "capital": { "population": "desc" } })).unwrap();
+        assert_eq!(terms.len(), 1);
+        let term = &terms[0];
+        assert_eq!(term.path.len(), 2);
+        assert_eq!(term.path[0].shape_iri, "urn:CountryShape");
+        assert_eq!(term.path[0].predicate_schema.iri, "urn:capital");
+        assert_eq!(term.path[1].shape_iri, "urn:CityShape");
+        assert_eq!(term.path[1].predicate_schema.iri, "urn:population");
+        assert_eq!(term.direction, OrderDirection::Descending);
+        assert_eq!(term.leaf().predicate_schema.iri, "urn:population");
+    }
+
+    #[test]
+    fn test_parse_order_by_nested_array_yields_shared_prefix() {
+        let terms = parse(serde_json::json!({
+            "capital": [{ "population": "desc" }, { "name": "asc" }]
+        }))
+        .unwrap();
+        assert_eq!(terms.len(), 2);
+        // Both terms share the same first hop.
+        assert_eq!(terms[0].path[0].predicate_schema.iri, "urn:capital");
+        assert_eq!(terms[1].path[0].predicate_schema.iri, "urn:capital");
+        assert_eq!(terms[0].path[1].predicate_schema.iri, "urn:population");
+        assert_eq!(terms[1].path[1].predicate_schema.iri, "urn:cityName");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_unknown_property() {
+        let err = parse(serde_json::json!({ "nope": "asc" })).unwrap_err();
+        assert!(err.contains("Predicate not found"), "got: {err}");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_non_single_cardinality() {
+        // `inhabitants` is multi-valued.
+        let err = parse(serde_json::json!({ "inhabitants": "asc" })).unwrap_err();
+        assert!(err.contains("cardinality 1"), "got: {err}");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_direction_on_object_property() {
+        let err = parse(serde_json::json!({ "capital": "asc" })).unwrap_err();
+        assert!(err.contains("nested object"), "got: {err}");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_nested_config_on_literal_property() {
+        let err = parse(serde_json::json!({ "name": { "foo": "asc" } })).unwrap_err();
+        assert!(err.contains("not a nested object"), "got: {err}");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_invalid_direction() {
+        let err = parse(serde_json::json!({ "name": "upwards" })).unwrap_err();
+        assert!(err.contains("'asc' or 'desc'"), "got: {err}");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_multi_key_object() {
+        let err = parse(serde_json::json!({ "name": "asc", "capital": "desc" })).unwrap_err();
+        assert!(err.contains("exactly 1 property"), "got: {err}");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_empty_array() {
+        let err = parse(serde_json::json!([])).unwrap_err();
+        assert!(err.contains("must not be empty"), "got: {err}");
+    }
+
+    #[test]
+    fn test_parse_order_by_rejects_non_object() {
+        let err = parse(serde_json::json!("name")).unwrap_err();
+        assert!(err.contains("object or an array"), "got: {err}");
+    }
+
+    #[test]
+    fn test_from_json_requires_order_by_for_page_size() {
+        let shape_type = mk_schema();
+        let err =
+            OrmConfig::from_json(&serde_json::json!({ "pageSize": 10 }), &shape_type).unwrap_err();
+        assert!(err.contains("orderBy must be set"), "got: {err}");
+    }
+
+    #[test]
+    fn test_from_json_parses_nested_order_by() {
+        let shape_type = mk_schema();
+        let config = OrmConfig::from_json(
+            &serde_json::json!({
+                "orderBy": { "capital": { "population": "desc" } },
+                "pageSize": 5
+            }),
+            &shape_type,
+        )
+        .unwrap();
+        let order_by = config.order_by.unwrap();
+        assert_eq!(order_by.len(), 1);
+        assert_eq!(order_by[0].path.len(), 2);
+        assert_eq!(config.page_size, 5);
+    }
+
+    #[test]
+    fn test_from_json_rejects_unknown_root_shape() {
+        let mut shape_type = mk_schema();
+        shape_type.shape = "urn:MissingShape".to_string();
+        let err = OrmConfig::from_json(
+            &serde_json::json!({ "orderBy": { "name": "asc" } }),
+            &shape_type,
+        )
+        .unwrap_err();
+        assert!(err.contains("Main shape not found"), "got: {err}");
     }
 }

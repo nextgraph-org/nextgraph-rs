@@ -81,6 +81,10 @@ async fn test_orm_patch_creation() {
 
     test_ordered_with_nested_children(session_id).await;
 
+    test_ordered_by_nested_property(session_id).await;
+
+    test_ordered_by_two_level_nested_property(session_id).await;
+
     test_add_remove_move_in_plain_sorted(session_id).await;
 
     test_ordered_datetime_update_moves_three_items(session_id).await;
@@ -88,6 +92,8 @@ async fn test_orm_patch_creation() {
     test_add_remove_move_in_pagination(session_id).await;
 
     test_add_remove_move_in_pagination_grow_mode(session_id).await;
+
+    test_ordered_two_level_nested_grow_mode(session_id).await;
 }
 
 /// An object that fails validation is not reported to the client. When a later update makes it
@@ -2059,6 +2065,403 @@ async fn test_ordered_with_nested_children(session_id: u64) {
     log_info!("Test passed: ordered pages carry previously loaded nested objects");
 }
 
+/// Ordering by a nested property: `orderBy: { capital: { population: "asc" } }`.
+///
+/// Covers both the initial ordering and the re-keying of a root when the *child's*
+/// order value changes (which lives in the child shape's changes, not the root's).
+async fn test_ordered_by_nested_property(session_id: u64) {
+    log_info!("\n\n=== TEST: ordering by a nested property ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:countryA> a ex:Country ;
+                                    ex:name "A" ;
+                                    ex:capital <did:ng:z:cityA> .
+                <did:ng:z:cityA> a ex:City ;
+                                 ex:population 300 .
+
+                <did:ng:z:countryB> a ex:Country ;
+                                    ex:name "B" ;
+                                    ex:capital <did:ng:z:cityB> .
+                <did:ng:z:cityB> a ex:City ;
+                                 ex:population 100 .
+
+                <did:ng:z:countryC> a ex:Country ;
+                                    ex:name "C" ;
+                                    ex:capital <did:ng:z:cityC> .
+                <did:ng:z:cityC> a ex:City ;
+                                 ex:population 200 .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:CountryShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:CountryShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:Country".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:capital".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "capital".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:CityShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:CityShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:CityShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:City".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:population".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "population".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::integer,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:CountryShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type,
+        session_id,
+        json!({"orderBy": {"capital": {"population": "asc"}}}),
+    )
+    .await;
+
+    // Ordered by the nested `capital.population`: B (100), C (200), A (300).
+    let ids: Vec<&str> = initial
+        .as_array()
+        .expect("ordered result must be an array")
+        .iter()
+        .map(|obj| obj["@id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![
+            "did:ng:z:countryB",
+            "did:ng:z:countryC",
+            "did:ng:z:countryA"
+        ],
+        "initial order must follow the nested population"
+    );
+
+    // Change the *child's* order value: cityB 100 -> 400. countryB must move to the end.
+    // This change is recorded under CityShape, not CountryShape, so it exercises the
+    // nested re-keying pass.
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            DELETE DATA { <did:ng:z:cityB> ex:population 100 . } ;
+            INSERT DATA { <did:ng:z:cityB> ex:population 400 . }
+        "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+    let patches = await_graph_patches(&mut receiver).await;
+    let move_patch = patches
+        .iter()
+        .find(|p| p.op == OrmPatchOp::move_)
+        .expect("changing a nested order value must emit a move patch");
+    assert_eq!(move_patch.from.as_deref(), Some("/0"));
+    assert_eq!(move_patch.path, "/2");
+
+    log_info!("Test passed: ordering by a nested property re-keys on child changes");
+}
+
+/// Ordering by a two-level nested property: `orderBy: { capital: { mayor: { age: "asc" } } }`.
+///
+/// Covers the re-keying of a root when the *grandchild's* order value changes.
+async fn test_ordered_by_two_level_nested_property(session_id: u64) {
+    log_info!("\n\n=== TEST: ordering by a two-level nested property ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:countryA> a ex:Country ;
+                                    ex:name "A" ;
+                                    ex:capital <did:ng:z:cityA> .
+                <did:ng:z:cityA> a ex:City ;
+                                 ex:mayor <did:ng:z:mayorA> .
+                <did:ng:z:mayorA> a ex:Mayor ;
+                                  ex:age 60 .
+
+                <did:ng:z:countryB> a ex:Country ;
+                                    ex:name "B" ;
+                                    ex:capital <did:ng:z:cityB> .
+                <did:ng:z:cityB> a ex:City ;
+                                 ex:mayor <did:ng:z:mayorB> .
+                <did:ng:z:mayorB> a ex:Mayor ;
+                                  ex:age 40 .
+
+                <did:ng:z:countryC> a ex:Country ;
+                                    ex:name "C" ;
+                                    ex:capital <did:ng:z:cityC> .
+                <did:ng:z:cityC> a ex:City ;
+                                 ex:mayor <did:ng:z:mayorC> .
+                <did:ng:z:mayorC> a ex:Mayor ;
+                                  ex:age 50 .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:CountryShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:CountryShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:Country".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:capital".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "capital".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:CityShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:CityShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:CityShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:City".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:mayor".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "mayor".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:MayorShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:MayorShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:MayorShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:Mayor".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:age".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "age".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::integer,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:CountryShape".to_string(),
+    };
+
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type,
+        session_id,
+        json!({"orderBy": {"capital": {"mayor": {"age": "asc"}}}}),
+    )
+    .await;
+
+    // Ordered by the nested `capital.mayor.age`: B (40), C (50), A (60).
+    let ids: Vec<&str> = initial
+        .as_array()
+        .expect("ordered result must be an array")
+        .iter()
+        .map(|obj| obj["@id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![
+            "did:ng:z:countryB",
+            "did:ng:z:countryC",
+            "did:ng:z:countryA"
+        ],
+        "initial order must follow the two-level nested age"
+    );
+
+    // Change the *grandchild's* order value: mayorB 40 -> 70. countryB must move to the end.
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            DELETE DATA { <did:ng:z:mayorB> ex:age 40 . } ;
+            INSERT DATA { <did:ng:z:mayorB> ex:age 70 . }
+        "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+    let patches = await_graph_patches(&mut receiver).await;
+    let move_patch = patches
+        .iter()
+        .find(|p| p.op == OrmPatchOp::move_)
+        .expect("changing a two-level nested order value must emit a move patch");
+    assert_eq!(move_patch.from.as_deref(), Some("/0"));
+    assert_eq!(move_patch.path, "/2");
+
+    log_info!("Test passed: ordering by a two-level nested property re-keys on grandchild changes");
+}
+
 async fn test_add_remove_move_in_plain_sorted(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
@@ -3268,4 +3671,224 @@ async fn test_add_remove_move_in_pagination_grow_mode(session_id: u64) {
     add_graph_fields(&mut expected_patches, &doc_nuri);
 
     assert_orm_json_eq_exact(&expected_patches, &json!(received_patches));
+}
+
+/// Grow-mode pagination over a two-level nested order: an insert inside the loaded window is added.
+async fn test_ordered_two_level_nested_grow_mode(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:countryA> a ex:Country ;
+                                    ex:name "A" ;
+                                    ex:capital <did:ng:z:cityA> .
+                <did:ng:z:cityA> a ex:City ;
+                                 ex:mayor <did:ng:z:mayorA> .
+                <did:ng:z:mayorA> a ex:Mayor ;
+                                  ex:age 60 .
+
+                <did:ng:z:countryB> a ex:Country ;
+                                    ex:name "B" ;
+                                    ex:capital <did:ng:z:cityB> .
+                <did:ng:z:cityB> a ex:City ;
+                                 ex:mayor <did:ng:z:mayorB> .
+                <did:ng:z:mayorB> a ex:Mayor ;
+                                  ex:age 40 .
+
+                <did:ng:z:countryC> a ex:Country ;
+                                    ex:name "C" ;
+                                    ex:capital <did:ng:z:cityC> .
+                <did:ng:z:cityC> a ex:City ;
+                                 ex:mayor <did:ng:z:mayorC> .
+                <did:ng:z:mayorC> a ex:Mayor ;
+                                  ex:age 50 .
+            }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:CountryShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:CountryShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:Country".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:capital".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "capital".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:CityShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:CityShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:CityShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:City".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:mayor".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "mayor".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("did:ng:z:MayorShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "did:ng:z:MayorShape".to_string(),
+        OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:MayorShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::iri,
+                        literals: Some(vec!["did:ng:z:Mayor".to_string()]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:z:age".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "age".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::integer,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:CountryShape".to_string(),
+    };
+
+    // Grow mode: a page size without `maxActivePages`.
+    let (mut receiver, _cancel_fn, _subscription_id, initial) = create_orm_connection_with_conf(
+        vec![doc_nuri.clone()],
+        vec![], // All objects
+        shape_type,
+        session_id,
+        json!({"orderBy": {"capital": {"mayor": {"age": "asc"}}}, "pageSize": 2}),
+    )
+    .await;
+
+    // Loaded window: B (40), C (50).
+    let ids: Vec<&str> = initial
+        .as_array()
+        .expect("ordered result must be an array")
+        .iter()
+        .map(|obj| obj["@id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["did:ng:z:countryB", "did:ng:z:countryC"],
+        "initial page must hold the two lowest ages"
+    );
+
+    // Insert D with mayor age 45, which falls inside the loaded window between B and C.
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:countryD> a ex:Country ;
+                                    ex:name "D" ;
+                                    ex:capital <did:ng:z:cityD> .
+                <did:ng:z:cityD> a ex:City ;
+                                 ex:mayor <did:ng:z:mayorD> .
+                <did:ng:z:mayorD> a ex:Mayor ;
+                                  ex:age 45 .
+            }
+        "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    let patches = json!(await_graph_patches(&mut receiver).await);
+    let add_patch = patches
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["op"] == "add" && p["path"] == "/1")
+        .expect("an in-window insert must emit an add patch at /1");
+    assert_eq!(add_patch["value"]["@id"], "did:ng:z:countryD");
+
+    log_info!("Test passed: grow-mode nested ordering adds in-window inserts");
 }

@@ -159,9 +159,13 @@ fn should_add_to_literals(
     predicate_schema: &OrmSchemaPredicate,
 ) -> bool {
     order_by_conf.map_or(false, |order_by_schemas| {
-        order_by_schemas
-            .iter()
-            .any(|order_by_schema| order_by_schema.0.iri == predicate_schema.iri)
+        // Any hop of an order-by path needs its values tracked: intermediate hops to
+        // resolve the child, the leaf hop to read the value to order by.
+        order_by_schemas.iter().any(|term| {
+            term.path
+                .iter()
+                .any(|hop| hop.predicate_schema.iri == predicate_schema.iri)
+        })
     }) || predicate_schema
         .dataTypes
         .iter()

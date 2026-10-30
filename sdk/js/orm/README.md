@@ -291,8 +291,9 @@ const contactsSubscription = RdfOrmSubscription.getOrCreate(ContactShape, {
         // the value "asc" for ascending order or "desc" for descending order.
         { lastName: "asc" },
         // You can add secondary orderBy values in the array.
-        { firstName: "asc" },
-        { birthDate: "desc" },
+        { firstName: "desc" },
+        // And order by nested properties as well.
+        { address: { streetName: "asc" } },
     ],
 });
 await contactsSubscription.readyPromise;
@@ -308,6 +309,8 @@ for (contact of contacts) {
 }
 ```
 
+You can order by all properties and nested properties with a cardinality of exactly one. Those properties must not have union or object types.
+
 Note that you cannot add, move, or remove items in the returned array. This logic is maintained internally. You can however change the items themselves.
 If you want to add an item, you can call [`insertObject()`](#insertobject) instead which will make the item appear in the array (unless in simple pagination mode, see below). Use [`removeObject()`](#removeobject) for removing an object. If you want to modify the position, just modify the properties that the data is ordered by and it will update itself.
 
@@ -316,7 +319,7 @@ If two objects have the same `oderBy` value, the ordering will be decided by the
 ### Pagination / Infinite Scroll
 
 As your dataset grows, loading all items of a ShapeType becomes computationally expensive. For that case, you are advised to use pagination.
-As a prerequisit, you must specify an ordering as described above.
+As a pre-requisit, you must specify an ordering as described above.
 
 Currently we do not support "classical pagination" by page numbers. Similar to tanstack's [`useInfiniteQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useInfiniteQuery), you can only load the next page (and depending on the mode, the previous page).
 
@@ -330,7 +333,7 @@ There are two parameters, to configure pagination:
 From that, two modes of pagination arise:
 
 - "**cumulative pagination**": Once an item was loaded, it remains loaded. `maxActivePages` is not set and you can only call `nextPage()`. On a `nextPage()` call, the data array is extended to include the new elements.
-  When an item within the loaded range becomes valid, it will appear at the correct position.
+  When an item within the loaded range is new or becomes valid, it will appear at the correct position (edge case: if ordering by nested properties and the item was not new but out of range, the item will not be loaded).
   When you implement an infinite scroll and expect a lot of data to be iterated though, keeping all items loaded might become computationally heavy. In that cases, you can use "simple pagination" instead.\
   In the RdfOrmSubscription class, the property `mode` will be set to `"orderedPaginatedCumulative"` under this configuration.
 

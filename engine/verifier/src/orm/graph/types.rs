@@ -181,6 +181,47 @@ pub struct OrmSubscriptionOrderInfo {
 
     /// The valid, ordered, actively tracked objects.
     pub tormos: OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>,
+
+    /// Reverse index of `tormos`: the key each root object is currently stored under.
+    /// Kept in sync with `tormos` so that a previous key can be looked up directly
+    /// instead of being reconstructed from change data.
+    pub key_by_gs: HashMap<(GraphIri, SubjectIri), OrderKey>,
+}
+
+impl OrmSubscriptionOrderInfo {
+    /// Insert a root object under `key`, keeping the reverse index in sync.
+    pub fn insert_tormo(&mut self, key: OrderKey, tormo: Arc<RwLock<TrackedOrmObject>>) {
+        let gs = {
+            let tormo = tormo.read().unwrap();
+            (tormo.graph_iri.clone(), tormo.subject_iri.clone())
+        };
+        self.tormos.insert(key.clone(), tormo);
+        self.key_by_gs.insert(gs, key);
+    }
+
+    /// Remove the root object stored under `key`, keeping the reverse index in sync.
+    pub fn remove_tormo(&mut self, key: &OrderKey) -> Option<Arc<RwLock<TrackedOrmObject>>> {
+        let removed = self.tormos.remove(key);
+        if let Some(tormo) = removed.as_ref() {
+            let tormo = tormo.read().unwrap();
+            self.key_by_gs
+                .remove(&(tormo.graph_iri.clone(), tormo.subject_iri.clone()));
+        }
+        removed
+    }
+
+    /// Drop the reverse-index entry for a root object that was already removed from `tormos`
+    /// (e.g. via `pop_first` / `pop_last`).
+    pub fn forget_tormo(&mut self, tormo: &TrackedOrmObject) {
+        self.key_by_gs
+            .remove(&(tormo.graph_iri.clone(), tormo.subject_iri.clone()));
+    }
+
+    /// The key a root object is currently stored under, if it is in the window.
+    pub fn key_of(&self, graph_iri: &str, subject_iri: &str) -> Option<&OrderKey> {
+        self.key_by_gs
+            .get(&(graph_iri.to_string(), subject_iri.to_string()))
+    }
 }
 
 #[derive(Debug)]
@@ -323,6 +364,7 @@ impl OrmSubscription {
         let ordering_info: Option<OrmSubscriptionOrderInfo> = if config.order_by.is_some() {
             Some(OrmSubscriptionOrderInfo {
                 tormos: OSBTreeMap::new(),
+                key_by_gs: HashMap::new(),
                 limit_lower_upper_offset: if config.page_size > 0 {
                     Some(((config.page_size as f64 * 1.5) as usize, 0, 0))
                 } else {
@@ -1098,26 +1140,56 @@ impl OrmSubscription {
         }
     }
 
-    /// Get the first-level order-by predicate and it's lowest and highest value + order direction
-    pub fn get_page_window_bounds(&self) -> Option<(&str, OrderDirection, Term, Term)> {
-        let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
-        let order_predicate_iri = &order_by.iri;
-
-        let Some(order_info) = self.ordering_info.as_ref() else {
-            return None;
-        };
-
+    /// The bounds of the currently loaded page window, taken from the first and last tracked root keys.
+    ///
+    /// Returns `None` when there is no ordering or the window is still empty — in both cases
+    /// every quad is considered relevant.
+    pub fn get_page_window_bounds(&self) -> Option<PageWindowBounds> {
+        let order_by = self.config.order_by.as_ref()?;
+        let order_info = self.ordering_info.as_ref()?;
         let first_key = order_info.tormos.first_key_value()?.0;
         let last_key = order_info.tormos.last_key_value()?.0;
-        let first_first_order_basic_type = first_key.val_types[0].0.clone();
-        let last_first_order_basic_type = last_key.val_types[0].0.clone();
 
-        Some((
-            order_predicate_iri,
-            *asc,
-            first_first_order_basic_type,
-            last_first_order_basic_type,
-        ))
+        // A key holds one value per resolved term, followed by graph and subject.
+        // An unresolved term shifts the components, so per-term bounds are only used when all resolved.
+        let aligned = first_key.val_types.len() == order_by.len() + 2
+            && last_key.val_types.len() == order_by.len() + 2;
+
+        let mut intermediate_predicates: HashSet<String> = HashSet::new();
+        let mut root_predicates: HashSet<String> = HashSet::new();
+        let mut leaves: Vec<LeafBounds> = Vec::with_capacity(order_by.len());
+        for (index, term) in order_by.iter().enumerate() {
+            let Some((leaf, intermediate_hops)) = term.path.split_last() else {
+                continue;
+            };
+            root_predicates.insert(term.path[0].predicate_schema.iri.clone());
+            intermediate_predicates.extend(
+                intermediate_hops
+                    .iter()
+                    .map(|hop| hop.predicate_schema.iri.clone()),
+            );
+
+            let (first, last) = if aligned {
+                (
+                    Some(first_key.val_types[index].0.clone()),
+                    Some(last_key.val_types[index].0.clone()),
+                )
+            } else {
+                (None, None)
+            };
+            leaves.push(LeafBounds {
+                pred_iri: leaf.predicate_schema.iri.clone(),
+                dir: term.direction,
+                first,
+                last,
+            });
+        }
+
+        Some(PageWindowBounds {
+            intermediate_predicates,
+            root_predicates,
+            leaves,
+        })
     }
 }
 
@@ -1136,6 +1208,62 @@ fn clone_shape(shape: &OrmSchemaShape) -> OrmSchemaShape {
 #[derive(PartialEq, Debug, Clone, Eq)]
 pub struct OrderKey {
     pub val_types: Vec<(Term, OrderDirection)>,
+}
+
+/// Window bounds of the loaded page, used to decide whether a quad can affect it.
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct PageWindowBounds {
+    /// Predicates of intermediate order-by hops. A quad on one relinks a child, so it is always relevant.
+    pub intermediate_predicates: HashSet<String>,
+    /// First-hop predicates of all order-by terms. Only quads on these have a root subject.
+    pub root_predicates: HashSet<String>,
+    /// One entry per order-by term.
+    pub leaves: Vec<LeafBounds>,
+}
+
+/// Bounds of the leaf value of one order-by term.
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct LeafBounds {
+    pub pred_iri: String,
+    pub dir: OrderDirection,
+    /// `None` if the window keys do not line up with the order-by terms; every value is then in range.
+    pub first: Option<Term>,
+    pub last: Option<Term>,
+}
+
+impl PageWindowBounds {
+    /// Whether a quad could affect the loaded page window.
+    pub fn is_relevant(&self, quad: &Quad) -> bool {
+        let pred = quad.predicate.as_str();
+        if self.intermediate_predicates.contains(pred) {
+            return true;
+        }
+        self.leaves
+            .iter()
+            .any(|leaf| leaf.pred_iri == pred && leaf.contains(&quad.object))
+    }
+}
+
+impl PageWindowBounds {
+    /// Whether a quad's subject is a root, so its g-s can be fetched as a root.
+    pub fn is_root_quad(&self, quad: &Quad) -> bool {
+        self.root_predicates.contains(quad.predicate.as_str())
+    }
+}
+
+impl LeafBounds {
+    /// Whether a value lies between the first and the last loaded value, inclusive.
+    fn contains(&self, value: &Term) -> bool {
+        let (Some(first), Some(last)) = (self.first.as_ref(), self.last.as_ref()) else {
+            return true;
+        };
+        let (lower, upper) = match self.dir {
+            OrderDirection::Ascending => (first, last),
+            OrderDirection::Descending => (last, first),
+        };
+        matches!(term_cmp(lower, value), Some(Ordering::Less | Ordering::Equal))
+            && matches!(term_cmp(value, upper), Some(Ordering::Less | Ordering::Equal))
+    }
 }
 
 /// Iterate over all items in val_types.
@@ -1311,5 +1439,108 @@ pub(crate) fn term_equals_val_type(term: &Term, val_type: &OrmSchemaValType, val
             false
         }
         _ => unreachable!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ng_oxigraph::oxrdf::{Literal, NamedNode, Subject};
+
+    const PRED: &str = "urn:sortBy";
+
+    fn quad_with(predicate: &str, value: i64) -> Quad {
+        Quad {
+            subject: Subject::NamedNode(NamedNode::new_unchecked("urn:s")),
+            predicate: NamedNode::new_unchecked(predicate),
+            object: Term::Literal(Literal::new_typed_literal(
+                value.to_string(),
+                NamedNode::new_unchecked(xsd::INTEGER.as_str()),
+            )),
+            graph_name: ng_oxigraph::oxrdf::GraphName::NamedNode(NamedNode::new_unchecked("urn:g")),
+        }
+    }
+
+    fn int(value: i64) -> Term {
+        Term::Literal(Literal::new_typed_literal(
+            value.to_string(),
+            NamedNode::new_unchecked(xsd::INTEGER.as_str()),
+        ))
+    }
+
+    fn leaf_bounds(dir: OrderDirection, first: i64, last: i64) -> PageWindowBounds {
+        PageWindowBounds {
+            intermediate_predicates: HashSet::new(),
+            root_predicates: HashSet::from([PRED.to_string()]),
+            leaves: vec![LeafBounds {
+                pred_iri: PRED.to_string(),
+                dir,
+                first: Some(int(first)),
+                last: Some(int(last)),
+            }],
+        }
+    }
+
+    #[test]
+    fn leaf_bounds_ascending_window() {
+        let bounds = leaf_bounds(OrderDirection::Ascending, 10, 20);
+        // Inside, including both bounds.
+        assert!(bounds.is_relevant(&quad_with(PRED, 10)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 15)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 20)));
+        // Outside.
+        assert!(!bounds.is_relevant(&quad_with(PRED, 9)));
+        assert!(!bounds.is_relevant(&quad_with(PRED, 21)));
+    }
+
+    #[test]
+    fn leaf_bounds_descending_window() {
+        // Descending: the first loaded item is the largest.
+        let bounds = leaf_bounds(OrderDirection::Descending, 20, 10);
+        assert!(bounds.is_relevant(&quad_with(PRED, 20)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 15)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 10)));
+        assert!(!bounds.is_relevant(&quad_with(PRED, 21)));
+        assert!(!bounds.is_relevant(&quad_with(PRED, 9)));
+    }
+
+    #[test]
+    fn leaf_bounds_ignore_other_predicates() {
+        let bounds = leaf_bounds(OrderDirection::Ascending, 10, 20);
+        assert!(!bounds.is_relevant(&quad_with("urn:other", 15)));
+    }
+
+    #[test]
+    fn intermediate_predicates_are_always_relevant() {
+        let bounds = PageWindowBounds {
+            intermediate_predicates: HashSet::from([PRED.to_string()]),
+            root_predicates: HashSet::new(),
+            leaves: Vec::new(),
+        };
+        assert!(bounds.is_relevant(&quad_with(PRED, 0)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 999)));
+        assert!(!bounds.is_relevant(&quad_with("urn:other", 5)));
+    }
+
+    #[test]
+    fn root_quad_check_uses_root_predicates_only() {
+        let bounds = leaf_bounds(OrderDirection::Ascending, 10, 20);
+        assert!(bounds.is_root_quad(&quad_with(PRED, 15)));
+        assert!(!bounds.is_root_quad(&quad_with("urn:other", 15)));
+    }
+
+    #[test]
+    fn unresolved_leaf_bounds_accept_any_value() {
+        let bounds = PageWindowBounds {
+            intermediate_predicates: HashSet::new(),
+            root_predicates: HashSet::new(),
+            leaves: vec![LeafBounds {
+                pred_iri: PRED.to_string(),
+                dir: OrderDirection::Ascending,
+                first: None,
+                last: None,
+            }],
+        };
+        assert!(bounds.is_relevant(&quad_with(PRED, 999)));
     }
 }
