@@ -20,12 +20,11 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 use serde_json::json;
 
-use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::handle_backend_update::get_paths_for_tormo;
 use crate::orm::graph::initialize::materialize_orm_object;
 use crate::orm::graph::types::*;
 use crate::orm::graph::utils::{
-    graph_iri_of_quad, json_to_sparql_val, quad_graph_subject, subject_iri_of_quad,
+    graph_iri_of_quad, json_to_sparql_val, quad_graph_subject, subject_iri_of_quad, term_to_json,
 };
 use crate::orm::utils::{decode_json_pointer, escape_json_pointer_segment};
 use crate::verifier::*;
@@ -129,10 +128,10 @@ impl Verifier {
         match (sparql_result, had_failed_schema_related_patches) {
             (Ok(()), false) => Ok(()),
             (Ok(()), true) => {
-                Err("Some patches were invalid due to incorrect modifications to the schema and were reverted.".into())
+                Err("Some patches were invalid due to modifications incompatible with the schema. They were reverted.".into())
             }
             (Err(sparql_err), false) => Err(sparql_err),
-            (Err(sparql_err), true) => Err(format!("Two errors occurred:\n- Some patches were invalid due to incorrect modifications to the schema and were reverted.\n- {}", sparql_err)),
+            (Err(sparql_err), true) => Err(format!("Two errors occurred:\n- Some patches were invalid due to modifications incompatible with the schema. They were reverted.\n- {}", sparql_err)),
         }
     }
 
@@ -283,7 +282,7 @@ impl Verifier {
                         });
                     }
                 } else {
-                    let val = json!(oxrdf_term_to_orm_basic_type(&insert_quad.object));
+                    let val = term_to_json(&insert_quad.object);
                     if pred_schema.is_multi() {
                         fix_patches.push(OrmPatch {
                             op: OrmPatchOp::remove,
@@ -360,7 +359,7 @@ impl Verifier {
                     });
                 } else {
                     // The removed quad carries the previous value; restore it directly.
-                    let val = json!(oxrdf_term_to_orm_basic_type(&remove_quad.object));
+                    let val = term_to_json(&remove_quad.object);
                     if pred_schema.is_multi() {
                         fix_patches.push(OrmPatch {
                             op: OrmPatchOp::add,
@@ -397,7 +396,7 @@ impl Verifier {
             let current_object_val = quad_pattern_iter
                 .next()
                 .and_then(|r| r.ok())
-                .map(|q| json!(oxrdf_term_to_orm_basic_type(&q.object)));
+                .map(|q| term_to_json(&q.object));
 
             if let Some(prev_val) = current_object_val {
                 // Restore the previous value.
@@ -764,7 +763,7 @@ impl Verifier {
                             let current_object_vals: Vec<serde_json::Value> = quad_pattern_iter
                                 .into_iter()
                                 .flat_map(|r| r.ok())
-                                .map(|q| json!(oxrdf_term_to_orm_basic_type(&q.object)))
+                                .map(|q| term_to_json(&q.object))
                                 .collect();
 
                             fix_patches.push(OrmPatch {
@@ -794,7 +793,7 @@ impl Verifier {
                     let current_value = quad_pattern_iter
                         .next()
                         .and_then(|r| r.ok())
-                        .map(|q| json!(oxrdf_term_to_orm_basic_type(&q.object)));
+                        .map(|q| term_to_json(&q.object));
 
                     if failed_patch.op == OrmPatchOp::add {
                         // An add (overwrite) failed - restore the previous value.

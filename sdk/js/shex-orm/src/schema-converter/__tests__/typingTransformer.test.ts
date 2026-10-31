@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import parser from "@shexjs/parser";
 import annotateReadablePredicates from "../util/annotateReadablePredicates.ts";
 import { shexJConverter } from "../converter.ts";
 import { Schema } from "../../ShexJTypes.ts";
@@ -136,6 +137,16 @@ async function buildTypingsText(): Promise<string> {
     return typings.typingsString;
 }
 
+/** Parse real ShEx text so the parser decides the expression shape. */
+async function buildTypingsTextFromShex(shex: string): Promise<string> {
+    // @ts-ignore
+    const schema = parser.construct("http://example.org/").parse(shex);
+    // @ts-ignore
+    annotateReadablePredicates(schema);
+    const [typings] = await shexJConverter(schema as any);
+    return typings.typingsString;
+}
+
 describe("ShexJTypingTransformer", () => {
     it("emits literal unions for rdf:type constraints", async () => {
         const typings = await buildTypingsText();
@@ -160,5 +171,37 @@ describe("ShexJTypingTransformer", () => {
         expect(typings).toMatch(/ org2_collide3_foo: string/);
         expect(typings).toMatch(/ "0__http_example_org_collide4_foo"\: string/);
         expect(typings).toMatch(/ "1__http_example_org_collide4_foo"\: string/);
+    });
+
+    it("names a lone rdf:type predicate '@type' instead of 'undefined'", async () => {
+        // A shape with a single triple constraint is parsed as a
+        // TripleConstraint (no EachOf wrapper). Regression test: the emitted
+        // property used to be named "undefined".
+        const typings = await buildTypingsTextFromShex(`
+            PREFIX ex: <http://example.org/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            ex:ExpenseShape EXTRA a {
+                a [ ex:TestObject ]
+                    // rdfs:comment "The Class of object, nothing more." ;
+            }
+        `);
+
+        expect(typings).not.toMatch(/undefined\s*:/);
+        expect(typings).toMatch(
+            /interface Expense[\s\S]*?"@type": Set<"http:\/\/example\.org\/TestObject" \| IRI & \{\s*\}>;/
+        );
+    });
+
+    it("names a lone non-type predicate after its IRI", async () => {
+        const typings = await buildTypingsTextFromShex(`
+            PREFIX ex: <http://example.org/>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+            ex:ItemShape {
+                ex:name xsd:string ;
+            }
+        `);
+
+        expect(typings).not.toMatch(/undefined\s*:/);
+        expect(typings).toMatch(/interface Item[\s\S]*?name: string;/);
     });
 });

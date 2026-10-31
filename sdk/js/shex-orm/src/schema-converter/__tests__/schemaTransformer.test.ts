@@ -221,6 +221,23 @@ describe("ShexJSchemaTransformer", () => {
         expect(item.predicates).toHaveLength(1);
         expect(item.predicates[0].iri).toBe("http://example.org/name");
         expect(item.predicates[0].dataTypes[0].valType).toBe("string");
+        // The parser emits a bare TripleConstraint (no EachOf) for
+        // single-predicate shapes; it must still get a readable name.
+        expect(item.predicates[0].readablePredicate).toBe("name");
+    });
+
+    // Single-predicate shape with rdf:type only
+    it("names a lone rdf:type predicate '@type'", async () => {
+        const schema = await buildSchema(`
+            ${PREFIXES}
+            ex:ItemShape EXTRA a {
+                a [ ex:Item ] ;
+            }
+        `);
+
+        const item = schema["http://example.org/ItemShape"];
+        expect(item.predicates).toHaveLength(1);
+        expect(item.predicates[0].readablePredicate).toBe("@type");
     });
 
     // EXTRA predicate

@@ -105,6 +105,7 @@ const useShape = <
     conf: CONF | string | undefined
 ): UseShapeResult<ST, CONF, T> => {
     const dependencies = [
+        shapeType,
         typeof conf,
         JSON.stringify((conf as CONF)?.graphs),
         JSON.stringify((conf as CONF)?.subjects),

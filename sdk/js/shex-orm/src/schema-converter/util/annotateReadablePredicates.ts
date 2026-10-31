@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { Schema, ShapeDecl, Shape, EachOf, TripleConstraint } from "shexj";
+import type { Schema, ShapeDecl, TripleConstraint } from "shexj";
 
 // Split IRI by colon, slash and hash; drop empties
 const splitIriTokens = (iri: string): string[] =>
@@ -26,15 +26,14 @@ type TCwReadable = TripleConstraint & { readablePredicate?: string };
 export default function annotateReadablePredicates(schema: Schema): void {
     const shapes = schema.shapes ?? [];
 
-    const annotateEachOf = (eachOf: EachOf): void => {
-        if (
-            !eachOf ||
-            eachOf.type !== "EachOf" ||
-            !Array.isArray(eachOf.expressions)
-        )
-            return;
-
-        const tripleConstraints = (eachOf.expressions as unknown[]).filter(
+    /**
+     * Annotate sibling triple constraints with collision-free
+     * readable predicate names. A group is either the `expressions` of an `EachOf`, or a
+     * single `TripleConstraint` used directly as a shape expression (the
+     * parser does not wrap single-property shapes in an `EachOf`).
+     */
+    const annotateGroup = (expressions: unknown[]): void => {
+        const tripleConstraints = expressions.filter(
             (e): e is TCwReadable =>
                 typeof e === "object" &&
                 e !== null &&
@@ -173,56 +172,49 @@ export default function annotateReadablePredicates(schema: Schema): void {
             // Recurse into nested valueExpr shapes of each TC
             for (const tc of tripleConstraints) {
                 const ve: any = (tc as any).valueExpr;
-                if (ve && typeof ve === "object") {
-                    const t = (ve as any).type;
-                    if (t === "Shape" && (ve as any).expression)
-                        annotateEachOf((ve as any).expression as EachOf);
-                    else if (t === "EachOf") annotateEachOf(ve as EachOf);
-                    else if (
-                        t === "ShapeOr" &&
-                        Array.isArray((ve as any).shapeExprs)
-                    ) {
-                        for (const sub of (ve as any).shapeExprs)
-                            annotateFromExpr(sub);
-                    } else if (
-                        t === "ShapeAnd" &&
-                        Array.isArray((ve as any).shapeExprs)
-                    ) {
-                        for (const sub of (ve as any).shapeExprs)
-                            annotateFromExpr(sub);
-                    }
-                }
+                if (ve && typeof ve === "object") annotateShapeExpr(ve);
             }
         }
 
-        // Also recurse into any inline sub-EachOf/Shape expressions found directly in expressions
-        for (const ex of eachOf.expressions as any[]) {
-            if (ex && typeof ex === "object") annotateFromExpr(ex);
+        // Recurse into any inline sub-shapes found directly in expressions.
+        // TripleConstraints are skipped: they were just annotated as part of
+        // this group and must not be re-annotated in isolation.
+        for (const ex of expressions) {
+            if (
+                ex &&
+                typeof ex === "object" &&
+                (ex as any).type !== "TripleConstraint"
+            )
+                annotateShapeExpr(ex);
         }
     };
 
-    const annotateFromExpr = (expr: any): void => {
+    /**
+     * Annotate a shape expression. A shape expression is a Shape, an EachOf, a
+     * single TripleConstraint (the parser does not wrap single-property shapes in
+     * an EachOf), or a ShapeOr/ShapeAnd of shape expressions.
+     */
+    const annotateShapeExpr = (expr: any): void => {
         if (!expr || typeof expr !== "object") return;
         const t = (expr as any).type;
-        if (t === "Shape" && (expr as any).expression)
-            annotateEachOf((expr as any).expression as EachOf);
-        else if (t === "EachOf") annotateEachOf(expr as EachOf);
-        else if (t === "ShapeOr" && Array.isArray((expr as any).shapeExprs)) {
-            for (const sub of (expr as any).shapeExprs) annotateFromExpr(sub);
-        } else if (
-            t === "ShapeAnd" &&
-            Array.isArray((expr as any).shapeExprs)
-        ) {
-            for (const sub of (expr as any).shapeExprs) annotateFromExpr(sub);
+        if (t === "Shape") {
+            if ((expr as any).expression)
+                annotateShapeExpr((expr as any).expression);
+        } else if (t === "EachOf") {
+            if (Array.isArray((expr as any).expressions))
+                annotateGroup((expr as any).expressions);
         } else if (t === "TripleConstraint") {
-            const ve = (expr as any).valueExpr;
-            if (ve && typeof ve === "object") annotateFromExpr(ve);
+            annotateGroup([expr]);
+        } else if (t === "ShapeOr" || t === "ShapeAnd") {
+            if (Array.isArray((expr as any).shapeExprs)) {
+                for (const sub of (expr as any).shapeExprs)
+                    annotateShapeExpr(sub);
+            }
         }
     };
 
     for (const s of shapes) {
         const sd = s as ShapeDecl;
-        const shape = (sd.shapeExpr || (sd as any)) as Shape | undefined;
-        if (shape?.expression) annotateFromExpr(shape as any);
+        annotateShapeExpr(sd.shapeExpr ?? (sd as any));
     }
 }

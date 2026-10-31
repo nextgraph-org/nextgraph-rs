@@ -41,7 +41,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const purchaseDate = computed(() =>
     expense.dateOfPurchase
-        ? new Date(expense.dateOfPurchase).toLocaleDateString()
+        ? expense.dateOfPurchase.toLocaleDateString()
         : "Date not set"
 );
 
@@ -77,12 +77,7 @@ function nameOfCategory(categoryIri: string) {
     <article class="expense-card">
         <div class="expense-header">
             <div class="header-text">
-                <input
-                    v-if="isEditing"
-                    class="header-input"
-                    v-model="expense.title"
-                    placeholder="Expense title"
-                />
+                <input v-if="isEditing" class="header-input" v-model="expense.title" placeholder="Expense title" />
                 <h3 v-else class="header-title">
                     {{ expense.title || "New expense" }}
                 </h3>
@@ -90,93 +85,44 @@ function nameOfCategory(categoryIri: string) {
                     {{ purchaseDate }}
                 </p>
             </div>
-            <button
-                type="button"
-                class="icon-btn"
-                :aria-label="isEditing ? 'Close editing' : 'Edit expense'"
-                @click="isEditing = !isEditing"
-            >
-                <svg
-                    v-if="isEditing"
-                    data-slot="icon"
-                    fill="none"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M6 18 18 6M6 6l12 12"
-                    ></path>
+            <button type="button" class="icon-btn" :aria-label="isEditing ? 'Close editing' : 'Edit expense'"
+                @click="isEditing = !isEditing">
+                <svg v-if="isEditing" data-slot="icon" fill="none" stroke-width="1.5" stroke="currentColor"
+                    viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"></path>
                 </svg>
 
-                <svg
-                    v-else
-                    data-slot="icon"
-                    fill="none"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                    ></path>
+                <svg v-else data-slot="icon" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125">
+                    </path>
                 </svg>
             </button>
         </div>
         <div class="info-grid">
             <div class="field-group">
                 <span class="field-label">Description</span>
-                <textarea
-                    v-if="isEditing"
-                    class="textarea"
-                    v-model="expense.description"
-                    placeholder="Add helpful context"
-                ></textarea>
+                <textarea v-if="isEditing" class="textarea" v-model="expense.description"
+                    placeholder="Add helpful context"></textarea>
                 <p v-else class="value-text">
                     {{ expense.description || "No description yet." }}
                 </p>
             </div>
             <div class="field-group">
                 <span class="field-label">Total price (€)</span>
-                <input
-                    v-if="isEditing"
-                    type="number"
-                    class="input"
-                    v-model="expense.totalPrice"
-                />
+                <input v-if="isEditing" type="number" class="input" v-model="expense.totalPrice" />
                 <span v-else class="value-text">{{ totalPriceDisplay }}</span>
             </div>
             <div class="field-group">
                 <span class="field-label">Quantity</span>
-                <input
-                    v-if="isEditing"
-                    type="number"
-                    min="1"
-                    class="input"
-                    v-model="expense.amount"
-                />
+                <input v-if="isEditing" type="number" min="1" class="input" v-model="expense.amount" />
                 <span v-else class="value-text">{{ expense.amount ?? 1 }}</span>
             </div>
             <div class="field-group">
                 <span class="field-label">Payment status</span>
-                <select
-                    v-if="isEditing"
-                    class="select"
-                    v-model="expense.paymentStatus"
-                >
-                    <option
-                        v-for="[statusIri, label] in paymentStatusEntries"
-                        :key="statusIri"
-                        :value="statusIri"
-                    >
+                <select v-if="isEditing" class="select" v-model="expense.paymentStatus">
+                    <option v-for="[statusIri, label] in paymentStatusEntries" :key="statusIri" :value="statusIri">
                         {{ label }}
                     </option>
                 </select>
@@ -190,27 +136,15 @@ function nameOfCategory(categoryIri: string) {
         <div class="field-group">
             <span class="field-label">Categories</span>
             <template v-if="isEditing">
-                <div
-                    v-if="props.availableCategories.size"
-                    class="category-picker"
-                >
-                    <label
-                        v-for="category in props.availableCategories"
-                        :key="category['@id']"
-                        class="category-option"
-                    >
-                        <input
-                            type="checkbox"
-                            class="checkbox"
-                            :checked="isCategorySelected(category)"
-                            @change="
-                                (e) =>
-                                    toggleCategory(
-                                        category,
-                                        (e.target as HTMLInputElement).checked
-                                    )
-                            "
-                        />
+                <div v-if="props.availableCategories.size" class="category-picker">
+                    <label v-for="category in props.availableCategories" :key="category['@id']" class="category-option">
+                        <input type="checkbox" class="checkbox" :checked="isCategorySelected(category)" @change="
+                            (e) =>
+                                toggleCategory(
+                                    category,
+                                    (e.target as HTMLInputElement).checked
+                                )
+                        " />
                         <span class="category-text">
                             <strong>
                                 {{ category.categoryName || "Unnamed" }}
@@ -227,11 +161,7 @@ function nameOfCategory(categoryIri: string) {
             </template>
             <template v-else>
                 <div v-if="expense.expenseCategory?.size" class="chip-list">
-                    <span
-                        v-for="categoryIri in expense.expenseCategory"
-                        :key="categoryIri"
-                        class="chip"
-                    >
+                    <span v-for="categoryIri in expense.expenseCategory" :key="categoryIri" class="chip">
                         {{ nameOfCategory(categoryIri) || "Unnamed" }}
                     </span>
                 </div>

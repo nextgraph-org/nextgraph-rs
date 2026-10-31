@@ -38,9 +38,6 @@ export function ExpenseCard({
 }) {
     const [isEditing, setIsEditing] = createSignal(false);
 
-    const purchaseDate = expense.dateOfPurchase
-        ? new Date(expense.dateOfPurchase).toLocaleDateString()
-        : "Date not set";
     const totalPriceDisplay = currencyFormatter.format(expense.totalPrice ?? 0);
 
     const isCategorySelected = (category: ExpenseCategory) =>
@@ -80,7 +77,11 @@ export function ExpenseCard({
                             {expense.title || "New expense"}
                         </h3>
                     )}
-                    <p class="muted small-margin">{purchaseDate}</p>
+                    <p class="muted small-margin">
+                        {expense.dateOfPurchase
+                            ? expense.dateOfPurchase.toLocaleDateString()
+                            : "Date not set"}
+                    </p>
                 </div>
                 <button
                     type="button"

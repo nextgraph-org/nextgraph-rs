@@ -960,9 +960,10 @@ async fn test_automerge_wrong_assignment(session_id: u64) {
         }],
         session_id,
     )
-    .await;
+    .await
+    .expect("discrete update failed");
 
-    let (initial_value_1, receiver_2, subscription_id_2) =
+    let (_initial_value_1, _receiver_2, subscription_id_2) =
         create_discrete_subscription(session_id, &nuri).await;
 
     let applied_patches = vec![OrmPatch {

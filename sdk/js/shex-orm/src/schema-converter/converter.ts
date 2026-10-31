@@ -71,12 +71,13 @@ export async function shexJConverter(
             .emit(declaration, {
                 rootFlags: dom.ContextFlags.InAmbientNamespace,
             })
-            .replace(/\r\n/g, "\n"),
+            .replaceAll(/"get ([^"]+)"/g, "get $1")
+            .replaceAll(/"set ([^"]+)"(.*): void/g, "set $1 $2"),
         dts: declaration,
     }));
-    const header = `export type IRI = string;\n\n`;
-    const typingsString =
-        header + typings.map((t) => `export ${t.typingString}`).join("");
+    const typingsString = typings
+        .map((t) => `export ${t.typingString}`)
+        .join("");
 
     return [{ typingsString, typings }, compactSchema];
 }

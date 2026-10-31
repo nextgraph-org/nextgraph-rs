@@ -8,7 +8,8 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { BaseType, ShapeType } from "@ng-org/shex-orm";
+import type { BaseType, ShapeType } from "../types.ts";
+import { Unpersisted } from "../utilTypes.ts";
 import { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
 import { RAW_KEY } from "@ng-org/alien-deepsignals";
 
@@ -25,16 +26,20 @@ import { RAW_KEY } from "@ng-org/alien-deepsignals";
  */
 export async function insertObject<T extends BaseType>(
     shapeType: ShapeType<T>,
-    object: T
+    object: InsertObject<T>
 ): Promise<T> {
     const connection = RdfOrmSubscription.getOrCreate(shapeType, {
         graphs: [], // Subscribe to no documents
     });
     await connection.readyPromise;
     // Makes TypeScript happy since it has limited understanding of T (ts limitation).
-    connection.signalObject.add(object as Exclude<T, undefined>);
+    connection.signalObject.add(object);
 
     connection.close();
 
+    // @ts-expect-error
     return connection.signalObject.first()![RAW_KEY];
 }
+
+/** @ignore Utility for readability */
+type InsertObject<T extends BaseType> = Unpersisted<T> & { "@graph": string };

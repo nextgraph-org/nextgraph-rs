@@ -8,8 +8,10 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use ng_oxigraph::oxrdf::Quad;
-use std::cmp::max;
+use ng_oxigraph::oxrdf::vocab::xsd;
+use ng_oxigraph::oxrdf::{Quad, Term};
+use ng_repo::log::*;
+use std::cmp::{max, Ordering};
 use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
@@ -114,7 +116,7 @@ pub struct TrackedOrmPredicate {
     /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
     /// If schema is of type literal or the tormos are ordered by this predicate, the currently present ones.
-    pub current_literals: Option<Vec<BasicType>>,
+    pub current_literals: Option<Vec<Term>>,
 }
 
 // Used only for tracking construction of new objects and diffs
@@ -133,18 +135,15 @@ pub struct TrackedOrmObjectChange {
 pub struct TrackedOrmPredicateChanges {
     /// The tracked predicate for which those changes were recorded.
     pub tracked_predicate: Arc<RwLock<TrackedOrmPredicate>>,
-    pub values_added: Vec<BasicType>,
-    pub values_removed: Vec<BasicType>,
+    pub values_added: Vec<Term>,
+    pub values_removed: Vec<Term>,
 }
 
 impl TrackedOrmPredicateChanges {
     pub fn tracked_predicate(&self) -> RwLockReadGuard<'_, TrackedOrmPredicate> {
         return self.tracked_predicate.read().unwrap();
     }
-    pub fn first_tormo_for_subj(
-        &self,
-        subject_iri: &String,
-    ) -> Option<Arc<RwLock<TrackedOrmObject>>> {
+    pub fn first_tormo_for_subj(&self, subject_iri: &str) -> Option<Arc<RwLock<TrackedOrmObject>>> {
         if let Some(child_tormo) = self
             .tracked_predicate()
             .tracked_children
@@ -167,14 +166,6 @@ impl TrackedOrmPredicateChanges {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum Term {
-    Str(String),
-    Num(f64),
-    Bool(bool),
-    Ref(String),
-}
-
 #[derive(Debug)]
 pub struct OrmSubscriptionOrderInfo {
     /// In case of pagination:
@@ -190,6 +181,47 @@ pub struct OrmSubscriptionOrderInfo {
 
     /// The valid, ordered, actively tracked objects.
     pub tormos: OSBTreeMap<OrderKey, Arc<RwLock<TrackedOrmObject>>>,
+
+    /// Reverse index of `tormos`: the key each root object is currently stored under.
+    /// Kept in sync with `tormos` so that a previous key can be looked up directly
+    /// instead of being reconstructed from change data.
+    pub key_by_gs: HashMap<(GraphIri, SubjectIri), OrderKey>,
+}
+
+impl OrmSubscriptionOrderInfo {
+    /// Insert a root object under `key`, keeping the reverse index in sync.
+    pub fn insert_tormo(&mut self, key: OrderKey, tormo: Arc<RwLock<TrackedOrmObject>>) {
+        let gs = {
+            let tormo = tormo.read().unwrap();
+            (tormo.graph_iri.clone(), tormo.subject_iri.clone())
+        };
+        self.tormos.insert(key.clone(), tormo);
+        self.key_by_gs.insert(gs, key);
+    }
+
+    /// Remove the root object stored under `key`, keeping the reverse index in sync.
+    pub fn remove_tormo(&mut self, key: &OrderKey) -> Option<Arc<RwLock<TrackedOrmObject>>> {
+        let removed = self.tormos.remove(key);
+        if let Some(tormo) = removed.as_ref() {
+            let tormo = tormo.read().unwrap();
+            self.key_by_gs
+                .remove(&(tormo.graph_iri.clone(), tormo.subject_iri.clone()));
+        }
+        removed
+    }
+
+    /// Drop the reverse-index entry for a root object that was already removed from `tormos`
+    /// (e.g. via `pop_first` / `pop_last`).
+    pub fn forget_tormo(&mut self, tormo: &TrackedOrmObject) {
+        self.key_by_gs
+            .remove(&(tormo.graph_iri.clone(), tormo.subject_iri.clone()));
+    }
+
+    /// The key a root object is currently stored under, if it is in the window.
+    pub fn key_of(&self, graph_iri: &str, subject_iri: &str) -> Option<&OrderKey> {
+        self.key_by_gs
+            .get(&(graph_iri.to_string(), subject_iri.to_string()))
+    }
 }
 
 #[derive(Debug)]
@@ -332,6 +364,7 @@ impl OrmSubscription {
         let ordering_info: Option<OrmSubscriptionOrderInfo> = if config.order_by.is_some() {
             Some(OrmSubscriptionOrderInfo {
                 tormos: OSBTreeMap::new(),
+                key_by_gs: HashMap::new(),
                 limit_lower_upper_offset: if config.page_size > 0 {
                     Some(((config.page_size as f64 * 1.5) as usize, 0, 0))
                 } else {
@@ -467,27 +500,21 @@ impl OrmSubscription {
             for val in where_values {
                 match val {
                     serde_json::Value::Number(num) => {
-                        let n = num.as_f64().ok_or_else(|| {
-                            NgError::OrmError(format!(
-                                "Invalid numeric where value for key {}.",
-                                readable_pred
-                            ))
-                        })?;
+                        let numeric_type = find_first_numeric_type(&source_pred_schema.dataTypes);
                         Self::mutate_target_predicate(
                             schema,
                             target_shape_iri,
                             readable_pred,
                             move |target_pred_schema| {
                                 target_pred_schema.dataTypes.push(OrmSchemaDataType {
-                                    valType: OrmSchemaValType::number,
-                                    literals: Some(vec![BasicType::Num(n)]),
+                                    valType: numeric_type,
+                                    literals: Some(vec![num.to_string()]),
                                     shape: None,
                                 });
                             },
                         )?;
                     }
                     serde_json::Value::Bool(b) => {
-                        let b = *b;
                         Self::mutate_target_predicate(
                             schema,
                             target_shape_iri,
@@ -495,7 +522,7 @@ impl OrmSubscription {
                             move |target_pred_schema| {
                                 target_pred_schema.dataTypes.push(OrmSchemaDataType {
                                     valType: OrmSchemaValType::boolean,
-                                    literals: Some(vec![BasicType::Bool(b)]),
+                                    literals: Some(vec![b.to_string()]),
                                     shape: None,
                                 });
                             },
@@ -503,8 +530,6 @@ impl OrmSubscription {
                     }
                     serde_json::Value::String(str_or_iri) => {
                         let str_or_iri = str_or_iri.clone();
-                        let pred_allows_iri_local = pred_allows_iri;
-                        let pred_allows_string_local = pred_allows_string;
                         // Allow that str_or_iri is added as iri _and_ string,
                         // since we can't tell for sure by the value.
                         Self::mutate_target_predicate(
@@ -512,17 +537,19 @@ impl OrmSubscription {
                             target_shape_iri,
                             readable_pred,
                             move |target_pred_schema| {
-                                if pred_allows_iri_local {
-                                    target_pred_schema.dataTypes.push(OrmSchemaDataType {
-                                        valType: OrmSchemaValType::iri,
-                                        literals: Some(vec![BasicType::Str(str_or_iri.clone())]),
-                                        shape: None,
-                                    });
+                                if pred_allows_iri {
+                                    if is_iri(&str_or_iri) {
+                                        target_pred_schema.dataTypes.push(OrmSchemaDataType {
+                                            valType: OrmSchemaValType::iri,
+                                            literals: Some(vec![str_or_iri.clone()]),
+                                            shape: None,
+                                        });
+                                    }
                                 }
-                                if pred_allows_string_local {
+                                if pred_allows_string {
                                     target_pred_schema.dataTypes.push(OrmSchemaDataType {
                                         valType: OrmSchemaValType::string,
-                                        literals: Some(vec![BasicType::Str(str_or_iri.clone())]),
+                                        literals: Some(vec![str_or_iri]),
                                         shape: None,
                                     });
                                 }
@@ -826,48 +853,117 @@ impl OrmSubscription {
             .clone()
     }
 
-    /// Remove a single (graph, subject shape) across all graphs. Returns true if any removal occurred.
+    /// Remove a tracked object by graph, subject, and shape, returning it if present.
     pub fn remove_tracked_orm_object(
         &mut self,
         graph_iri: &str,
         subject_iri: &str,
         shape_iri: &str,
-    ) -> bool {
+    ) -> Option<Arc<RwLock<TrackedOrmObject>>> {
         let removed = self
             .tracked_orm_objects
             .get_mut(graph_iri)
-            .unwrap()
-            .get_mut(subject_iri)
-            .unwrap()
-            .remove(shape_iri);
+            .and_then(|subjects| subjects.get_mut(subject_iri))
+            .and_then(|shapes| shapes.remove(shape_iri));
 
-        // Remove parents map(s), if they are now empty.
         if removed.is_some() {
             if self
                 .tracked_orm_objects
-                .get_mut(graph_iri)
-                .unwrap()
-                .get_mut(subject_iri)
-                .unwrap()
-                .is_empty()
+                .get(graph_iri)
+                .and_then(|subjects| subjects.get(subject_iri))
+                .is_some_and(HashMap::is_empty)
             {
-                self.tracked_orm_objects
-                    .get_mut(graph_iri)
-                    .unwrap()
-                    .remove(subject_iri);
+                if let Some(subjects) = self.tracked_orm_objects.get_mut(graph_iri) {
+                    subjects.remove(subject_iri);
+                }
 
                 if self
                     .tracked_orm_objects
-                    .get_mut(graph_iri)
-                    .unwrap()
-                    .is_empty()
+                    .get(graph_iri)
+                    .is_some_and(HashMap::is_empty)
                 {
                     self.tracked_orm_objects.remove(graph_iri);
                 }
             }
         }
 
-        removed.is_some()
+        removed
+    }
+
+    pub fn remove_tracked_orm_object_recurse(
+        &mut self,
+        graph_iri: &str,
+        subject_iri: &str,
+        shape_iri: &str,
+    ) {
+        let Some(removed) = self.remove_tracked_orm_object(graph_iri, subject_iri, shape_iri)
+        else {
+            return;
+        };
+
+        let children: Vec<(PredIri, Arc<RwLock<TrackedOrmObject>>)> = {
+            let removed_obj = removed.read().unwrap();
+            let mut children = Vec::new();
+
+            for (pred_iri, tracked_pred) in &removed_obj.tracked_predicates {
+                children.extend(
+                    tracked_pred
+                        .read()
+                        .unwrap()
+                        .live_children()
+                        .into_iter()
+                        .map(|child| (pred_iri.clone(), child)),
+                );
+            }
+
+            children
+        };
+
+        for (pred_iri, child) in children {
+            let (child_subject, child_shape, child_to_remove) = {
+                let mut child = child.write().unwrap();
+                let mut detached = false;
+                child.parents.retain(|parent| {
+                    let Some(parent) = parent.upgrade() else {
+                        return false;
+                    };
+                    if Arc::ptr_eq(&parent, &removed) {
+                        detached = true;
+                        false
+                    } else {
+                        true
+                    }
+                });
+
+                let child_subject = child.subject_iri.clone();
+                let child_shape = child.shape_iri();
+                let child_to_remove = if detached && child.parents.is_empty() {
+                    Some((
+                        child.graph_iri.clone(),
+                        child_subject.clone(),
+                        child_shape.clone(),
+                    ))
+                } else {
+                    None
+                };
+
+                (child_subject, child_shape, child_to_remove)
+            };
+
+            if let Some(parents) = self
+                .tracked_nested_subjects
+                .get_mut(&child_subject)
+                .and_then(|shapes| shapes.get_mut(&child_shape))
+            {
+                parents.retain(|(tracked_pred, parent)| {
+                    tracked_pred != &pred_iri || !Arc::ptr_eq(parent, &removed)
+                });
+            }
+
+            if let Some((graph_iri, subject_iri, shape_iri)) = child_to_remove {
+                self.remove_tracked_orm_object_recurse(&graph_iri, &subject_iri, &shape_iri);
+            }
+        }
     }
 
     /// Collect all currently tracked shapes (may include duplicates)
@@ -1044,26 +1140,56 @@ impl OrmSubscription {
         }
     }
 
-    /// Get the first-level order-by predicate and it's lowest and highest value + order direction
-    pub fn get_page_window_bounds(&self) -> Option<(&str, OrderDirection, BasicType, BasicType)> {
-        let (order_by, asc) = self.config.order_by.as_ref()?.first()?;
-        let order_predicate_iri = &order_by.iri;
-
-        let Some(order_info) = self.ordering_info.as_ref() else {
-            return None;
-        };
-
+    /// The bounds of the currently loaded page window, taken from the first and last tracked root keys.
+    ///
+    /// Returns `None` when there is no ordering or the window is still empty — in both cases
+    /// every quad is considered relevant.
+    pub fn get_page_window_bounds(&self) -> Option<PageWindowBounds> {
+        let order_by = self.config.order_by.as_ref()?;
+        let order_info = self.ordering_info.as_ref()?;
         let first_key = order_info.tormos.first_key_value()?.0;
         let last_key = order_info.tormos.last_key_value()?.0;
-        let first_first_order_basic_type = first_key.val_types[0].0.clone();
-        let last_first_order_basic_type = last_key.val_types[0].0.clone();
 
-        Some((
-            order_predicate_iri,
-            *asc,
-            first_first_order_basic_type,
-            last_first_order_basic_type,
-        ))
+        // A key holds one value per resolved term, followed by graph and subject.
+        // An unresolved term shifts the components, so per-term bounds are only used when all resolved.
+        let aligned = first_key.val_types.len() == order_by.len() + 2
+            && last_key.val_types.len() == order_by.len() + 2;
+
+        let mut intermediate_predicates: HashSet<String> = HashSet::new();
+        let mut root_predicates: HashSet<String> = HashSet::new();
+        let mut leaves: Vec<LeafBounds> = Vec::with_capacity(order_by.len());
+        for (index, term) in order_by.iter().enumerate() {
+            let Some((leaf, intermediate_hops)) = term.path.split_last() else {
+                continue;
+            };
+            root_predicates.insert(term.path[0].predicate_schema.iri.clone());
+            intermediate_predicates.extend(
+                intermediate_hops
+                    .iter()
+                    .map(|hop| hop.predicate_schema.iri.clone()),
+            );
+
+            let (first, last) = if aligned {
+                (
+                    Some(first_key.val_types[index].0.clone()),
+                    Some(last_key.val_types[index].0.clone()),
+                )
+            } else {
+                (None, None)
+            };
+            leaves.push(LeafBounds {
+                pred_iri: leaf.predicate_schema.iri.clone(),
+                dir: term.direction,
+                first,
+                last,
+            });
+        }
+
+        Some(PageWindowBounds {
+            intermediate_predicates,
+            root_predicates,
+            leaves,
+        })
     }
 }
 
@@ -1076,5 +1202,345 @@ fn clone_shape(shape: &OrmSchemaShape) -> OrmSchemaShape {
             .map(|p| Arc::new(OrmSchemaPredicate::clone(p)))
             .collect(),
         is_closed: shape.is_closed,
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct OrderKey {
+    pub val_types: Vec<(Term, OrderDirection)>,
+}
+
+/// Window bounds of the loaded page, used to decide whether a quad can affect it.
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct PageWindowBounds {
+    /// Predicates of intermediate order-by hops. A quad on one relinks a child, so it is always relevant.
+    pub intermediate_predicates: HashSet<String>,
+    /// First-hop predicates of all order-by terms. Only quads on these have a root subject.
+    pub root_predicates: HashSet<String>,
+    /// One entry per order-by term.
+    pub leaves: Vec<LeafBounds>,
+}
+
+/// Bounds of the leaf value of one order-by term.
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct LeafBounds {
+    pub pred_iri: String,
+    pub dir: OrderDirection,
+    /// `None` if the window keys do not line up with the order-by terms; every value is then in range.
+    pub first: Option<Term>,
+    pub last: Option<Term>,
+}
+
+impl PageWindowBounds {
+    /// Whether a quad could affect the loaded page window.
+    pub fn is_relevant(&self, quad: &Quad) -> bool {
+        let pred = quad.predicate.as_str();
+        if self.intermediate_predicates.contains(pred) {
+            return true;
+        }
+        self.leaves
+            .iter()
+            .any(|leaf| leaf.pred_iri == pred && leaf.contains(&quad.object))
+    }
+}
+
+impl PageWindowBounds {
+    /// Whether a quad's subject is a root, so its g-s can be fetched as a root.
+    pub fn is_root_quad(&self, quad: &Quad) -> bool {
+        self.root_predicates.contains(quad.predicate.as_str())
+    }
+}
+
+impl LeafBounds {
+    /// Whether a value lies between the first and the last loaded value, inclusive.
+    fn contains(&self, value: &Term) -> bool {
+        let (Some(first), Some(last)) = (self.first.as_ref(), self.last.as_ref()) else {
+            return true;
+        };
+        let (lower, upper) = match self.dir {
+            OrderDirection::Ascending => (first, last),
+            OrderDirection::Descending => (last, first),
+        };
+        matches!(term_cmp(lower, value), Some(Ordering::Less | Ordering::Equal))
+            && matches!(term_cmp(value, upper), Some(Ordering::Less | Ordering::Equal))
+    }
+}
+
+/// Iterate over all items in val_types.
+/// Take OrderDirection into consideration (reverses greater / less comparisons).
+/// If lengths mismatch but previous values do, the longer one is considered greater.
+fn order_key_partial_cmp(first: &OrderKey, other: &OrderKey) -> Option<std::cmp::Ordering> {
+    for i in 0..usize::max(first.val_types.len(), other.val_types.len()) {
+        let self_current_val_op: Option<&(Term, OrderDirection)> = first.val_types.get(i);
+        let other_current_val_op = other.val_types.get(i);
+
+        if let Some(self_current_val) = self_current_val_op {
+            if let Some(other_current_val) = other_current_val_op {
+                let direction = self_current_val.1.clone();
+                if direction != other_current_val.1 {
+                    // Conflicting order directions. Not comparable.
+                    return None;
+                }
+
+                let cmp_res_op = term_cmp(&self_current_val.0, &other_current_val.0);
+                if let Some(cmp_res) = cmp_res_op {
+                    if cmp_res == Ordering::Equal {
+                        // This position is equal, check secondary/next order-by values.
+                        continue;
+                    } else if direction == OrderDirection::Ascending {
+                        return Some(cmp_res);
+                    } else {
+                        // direction == OrderDirection::Descending
+                        if cmp_res == Ordering::Greater {
+                            return Some(Ordering::Less);
+                        } else {
+                            return Some(Ordering::Greater);
+                        }
+                    }
+                } else {
+                    // Compared values were of different type.
+                    return None;
+                }
+            } else {
+                // Self is longer thus greater.
+                return Some(std::cmp::Ordering::Greater);
+            }
+        } else {
+            // other_current_val_op.is_some()
+            // Self is shorter thus less.
+            return Some(std::cmp::Ordering::Less);
+        }
+    }
+
+    Some(Ordering::Equal)
+}
+impl PartialOrd for OrderKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        order_key_partial_cmp(self, other)
+    }
+}
+impl Ord for OrderKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if let Some(res) = order_key_partial_cmp(self, other) {
+            res
+        } else {
+            log_err!(
+                "Compared two incomparable values:\nself: {:?}\nother: {:?}",
+                self,
+                other
+            );
+            panic!("Compared two incomparable values. Either the OrderDirection mismatched in one position of the array or two non-comparable `BasicType`s were compared.")
+        }
+    }
+}
+
+/// Compares two Term objects.
+/// If both types are numeric, they are parsed to f64 and compared.
+/// If both are named nodes, they are compared by their string value.
+/// If both are literals with the same datatype, they are compared by their string value.
+/// `None` otherwise.
+pub(crate) fn term_cmp(left: &Term, right: &Term) -> Option<Ordering> {
+    match (left, right) {
+        (Term::NamedNode(left_node), Term::NamedNode(right_node)) => {
+            Some(left_node.cmp(right_node))
+        }
+        (Term::Literal(left_lit), Term::Literal(right_lit)) => {
+            let left_dt = left_lit.datatype().as_str();
+            let right_dt = right_lit.datatype().as_str();
+
+            // Covers string, boolean, date, etc.
+            // Some might not be comparable but we don't use / endorse those RDF types in the ORM.
+            if left_dt == right_dt && !is_numeric(left_dt) {
+                return Some(left_lit.value().cmp(right_lit.value()));
+            }
+
+            if is_numeric(left_dt) && is_numeric(right_dt) {
+                return left_lit.value().parse::<f64>().ok().and_then(|left_value| {
+                    right_lit
+                        .value()
+                        .parse::<f64>()
+                        .ok()
+                        .and_then(|right_value| left_value.partial_cmp(&right_value))
+                });
+            }
+
+            None
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn is_numeric(datatype: &str) -> bool {
+    is_whole_num(datatype)
+        || datatype == xsd::DECIMAL.as_str()
+        || datatype == xsd::DOUBLE.as_str()
+        || datatype == xsd::FLOAT.as_str()
+}
+
+#[inline]
+pub(crate) fn is_whole_num(datatype: &str) -> bool {
+    datatype == xsd::BYTE.as_str()
+        || datatype == xsd::INT.as_str()
+        || datatype == xsd::INTEGER.as_str()
+        || datatype == xsd::LONG.as_str()
+        || datatype == xsd::NEGATIVE_INTEGER.as_str()
+        || datatype == xsd::NON_NEGATIVE_INTEGER.as_str()
+        || datatype == xsd::NON_POSITIVE_INTEGER.as_str()
+        || datatype == xsd::SHORT.as_str()
+        || datatype == xsd::POSITIVE_INTEGER.as_str()
+        || datatype == xsd::UNSIGNED_BYTE.as_str()
+        || datatype == xsd::UNSIGNED_INT.as_str()
+        || datatype == xsd::UNSIGNED_LONG.as_str()
+        || datatype == xsd::UNSIGNED_SHORT.as_str()
+}
+
+pub(crate) fn find_first_numeric_type_opt(types: &[OrmSchemaDataType]) -> Option<OrmSchemaValType> {
+    types
+        .iter()
+        .find(|t| t.valType.is_numeric())
+        .map(|t| t.valType.clone())
+}
+
+pub(crate) fn find_first_numeric_type(types: &[OrmSchemaDataType]) -> OrmSchemaValType {
+    find_first_numeric_type_opt(types).unwrap_or_else(|| {
+        log_err!("Invalid `where` value: Expected the value to be numeric. Defaulting to decimal. Types: {:?}", types);
+        OrmSchemaValType::decimal
+    })
+}
+
+/// Check for term equality (object and type) with (val and val_type as string)
+/// Does not distinguish between numeric types if val_type == OrmSchemaValType::number.
+/// Assumes that numeric values are canonicalized as string comparison is used.
+pub(crate) fn term_equals_val_type(term: &Term, val_type: &OrmSchemaValType, val: &str) -> bool {
+    match term {
+        Term::NamedNode(node) => *val_type == OrmSchemaValType::iri && *node.as_str() == *val,
+        Term::Literal(lit) => {
+            // Data types equal?
+            if lit.datatype().as_str() != val_type.as_str() {
+                // Data types unequal but one is the deprecated, generic number, the other numeric too.
+                if *val_type == OrmSchemaValType::number && is_numeric(lit.datatype().as_str()) {
+                    // We try to parse numbers in case their serialization happened to be different.
+                    if val_type.is_numeric() && is_numeric(lit.datatype().as_str()) {
+                        let term_val = str::parse::<f64>(lit.value());
+                        let lit_val = str::parse::<f64>(val);
+                        return term_val.is_ok() && term_val == lit_val;
+                    }
+                } else {
+                    // Data type mismatch
+                    return false;
+                }
+            }
+
+            // Values are equal?
+            if lit.value() == val {
+                return true;
+            }
+
+            false
+        }
+        _ => unreachable!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ng_oxigraph::oxrdf::{Literal, NamedNode, Subject};
+
+    const PRED: &str = "urn:sortBy";
+
+    fn quad_with(predicate: &str, value: i64) -> Quad {
+        Quad {
+            subject: Subject::NamedNode(NamedNode::new_unchecked("urn:s")),
+            predicate: NamedNode::new_unchecked(predicate),
+            object: Term::Literal(Literal::new_typed_literal(
+                value.to_string(),
+                NamedNode::new_unchecked(xsd::INTEGER.as_str()),
+            )),
+            graph_name: ng_oxigraph::oxrdf::GraphName::NamedNode(NamedNode::new_unchecked("urn:g")),
+        }
+    }
+
+    fn int(value: i64) -> Term {
+        Term::Literal(Literal::new_typed_literal(
+            value.to_string(),
+            NamedNode::new_unchecked(xsd::INTEGER.as_str()),
+        ))
+    }
+
+    fn leaf_bounds(dir: OrderDirection, first: i64, last: i64) -> PageWindowBounds {
+        PageWindowBounds {
+            intermediate_predicates: HashSet::new(),
+            root_predicates: HashSet::from([PRED.to_string()]),
+            leaves: vec![LeafBounds {
+                pred_iri: PRED.to_string(),
+                dir,
+                first: Some(int(first)),
+                last: Some(int(last)),
+            }],
+        }
+    }
+
+    #[test]
+    fn leaf_bounds_ascending_window() {
+        let bounds = leaf_bounds(OrderDirection::Ascending, 10, 20);
+        // Inside, including both bounds.
+        assert!(bounds.is_relevant(&quad_with(PRED, 10)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 15)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 20)));
+        // Outside.
+        assert!(!bounds.is_relevant(&quad_with(PRED, 9)));
+        assert!(!bounds.is_relevant(&quad_with(PRED, 21)));
+    }
+
+    #[test]
+    fn leaf_bounds_descending_window() {
+        // Descending: the first loaded item is the largest.
+        let bounds = leaf_bounds(OrderDirection::Descending, 20, 10);
+        assert!(bounds.is_relevant(&quad_with(PRED, 20)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 15)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 10)));
+        assert!(!bounds.is_relevant(&quad_with(PRED, 21)));
+        assert!(!bounds.is_relevant(&quad_with(PRED, 9)));
+    }
+
+    #[test]
+    fn leaf_bounds_ignore_other_predicates() {
+        let bounds = leaf_bounds(OrderDirection::Ascending, 10, 20);
+        assert!(!bounds.is_relevant(&quad_with("urn:other", 15)));
+    }
+
+    #[test]
+    fn intermediate_predicates_are_always_relevant() {
+        let bounds = PageWindowBounds {
+            intermediate_predicates: HashSet::from([PRED.to_string()]),
+            root_predicates: HashSet::new(),
+            leaves: Vec::new(),
+        };
+        assert!(bounds.is_relevant(&quad_with(PRED, 0)));
+        assert!(bounds.is_relevant(&quad_with(PRED, 999)));
+        assert!(!bounds.is_relevant(&quad_with("urn:other", 5)));
+    }
+
+    #[test]
+    fn root_quad_check_uses_root_predicates_only() {
+        let bounds = leaf_bounds(OrderDirection::Ascending, 10, 20);
+        assert!(bounds.is_root_quad(&quad_with(PRED, 15)));
+        assert!(!bounds.is_root_quad(&quad_with("urn:other", 15)));
+    }
+
+    #[test]
+    fn unresolved_leaf_bounds_accept_any_value() {
+        let bounds = PageWindowBounds {
+            intermediate_predicates: HashSet::new(),
+            root_predicates: HashSet::new(),
+            leaves: vec![LeafBounds {
+                pred_iri: PRED.to_string(),
+                dir: OrderDirection::Ascending,
+                first: None,
+                last: None,
+            }],
+        };
+        assert!(bounds.is_relevant(&quad_with(PRED, 999)));
     }
 }

@@ -17,16 +17,16 @@ use futures::SinkExt;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Quad;
+use ng_oxigraph::oxrdf::Term;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use wabi_tree::OSBTreeMap;
 
-use crate::orm::graph::add_remove_quads::oxrdf_term_to_orm_basic_type;
 use crate::orm::graph::initialize::materialize_orm_object;
 use crate::orm::graph::types::*;
-use crate::orm::graph::utils::basic_type_to_json;
-use crate::orm::graph::utils::order_key_before_change;
+use crate::orm::graph::utils::canonicalize_quad;
 use crate::orm::graph::utils::order_key_from;
+use crate::orm::graph::utils::term_to_json;
 use crate::orm::graph::utils::GraphSubjectKey;
 use crate::orm::utils::composite_key;
 use crate::orm::utils::escape_json_pointer_segment;
@@ -157,12 +157,16 @@ impl Verifier {
                 continue;
             }
 
+            // Canonicalize quads (number values) for handling in the ORM.
+            let inserts = inserts.iter().map(|q| canonicalize_quad(q));
+            let removes = removes.iter().map(|q| canonicalize_quad(q));
+
             // Process changes for this shape
             let mut orm_changes: OrmChanges = HashMap::new();
             let res = self.process_changes_for_subscription(
                 &mut orm_subscription,
                 &Vec::from_iter(inserts),
-                &removes,
+                &Vec::from_iter(removes),
                 &mut orm_changes,
                 false,
             );
@@ -218,6 +222,21 @@ impl Verifier {
                         .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(all_patches)))
                         .await;
                 }
+            } else if root_order_patches.len() > 0 {
+                // Same origin but changes caused order change.
+
+                let order_patches = root_order_patches
+                    .into_iter()
+                    .map(|p| p.to_patch())
+                    .collect();
+
+                let _ = orm_subscription
+                    .sender
+                    .clone()
+                    .send(AppResponse::V0(AppResponseV0::GraphOrmUpdate(
+                        order_patches,
+                    )))
+                    .await;
             }
 
             // Put the subscription back.
@@ -327,7 +346,10 @@ pub(crate) fn get_paths_for_tormo(
     if tormo.parents.is_empty() {
         if let Some((order_by_conf, ordered_tormos)) = ordered_tormos.as_ref() {
             // Case ordering -> return position of tormo in window.
-            let tormo_key = order_key_from(order_by_conf, tormo);
+
+            let tormo_key = order_key_from(order_by_conf, tormo)
+                .expect("valid tormos should have all values for order key");
+
             if let Some(tormo_position) = ordered_tormos.rank_of(&tormo_key) {
                 return vec![vec![format!("{tormo_position}")]];
             } else {
@@ -456,7 +478,7 @@ fn create_patches_for_object_change(
                                 pred_change
                                     .values_removed
                                     .iter()
-                                    .map(|v| basic_type_to_json(v))
+                                    .map(|v| term_to_json(v))
                                     .collect(),
                             )),
                             ..Default::default()
@@ -472,7 +494,7 @@ fn create_patches_for_object_change(
                                 pred_change
                                     .values_added
                                     .iter()
-                                    .map(|v| basic_type_to_json(v))
+                                    .map(|v| term_to_json(v))
                                     .collect(),
                             )),
                             ..Default::default()
@@ -486,7 +508,7 @@ fn create_patches_for_object_change(
                         let add_patch = PrelimOrmPatch {
                             op: OrmPatchOp::add,
                             path: path.clone(),
-                            value: Some(basic_type_to_json(val)),
+                            value: Some(term_to_json(val)),
                             ..Default::default()
                         };
                         ret.push(add_patch)
@@ -513,8 +535,9 @@ fn create_patches_for_object_change(
                         ret.push(remove_patch);
                     }
 
-                    if let Some(BasicType::Str(child_subj_iri)) = pred_change.values_added.get(0) {
-                        if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri)
+                    if let Some(Term::NamedNode(node)) = pred_change.values_added.first() {
+                        let child_subj_iri = node.as_str();
+                        if let Some(child_tormo) = pred_change.first_tormo_for_subj(child_subj_iri)
                         {
                             let child_tormo = child_tormo.read().unwrap();
                             let materialized_child =
@@ -533,9 +556,10 @@ fn create_patches_for_object_change(
                     // Add materialized object(s).
 
                     for removed_val in pred_change.values_removed.iter() {
-                        let BasicType::Str(removed_iri) = removed_val else {
+                        let Term::NamedNode(removed_node) = removed_val else {
                             continue;
                         };
+                        let removed_iri = removed_node.as_str();
                         let remove_patch = PrelimOrmPatch {
                             op: OrmPatchOp::remove,
                             val_type: Some(OrmPatchType::set),
@@ -547,9 +571,10 @@ fn create_patches_for_object_change(
                     }
 
                     for added_val in pred_change.values_added.iter() {
-                        let BasicType::Str(child_subj_iri) = added_val else {
+                        let Term::NamedNode(child_subject_node) = added_val else {
                             continue;
                         };
+                        let child_subj_iri = child_subject_node.as_str();
                         if let Some(child_tormo) = pred_change.first_tormo_for_subj(&child_subj_iri)
                         {
                             let child_tormo = child_tormo.read().unwrap();
@@ -598,7 +623,7 @@ fn materialize_orm_object_from_tormo(tormo: &TrackedOrmObject, all_changes: &Orm
 }
 
 /// Only call if order_by config is set.
-/// Create patches that effect the position of objects in ordered/paginated subscriptions.
+/// Create patches that affect the position of objects in ordered/paginated subscriptions.
 /// For ordered, unpaginated subscriptions, this includes adds, removes, moves.
 /// For pagination, this includes moving between pages to ensure page size remains stable as well.
 fn root_patches_for_ordered(
@@ -618,12 +643,24 @@ fn root_patches_for_ordered(
 
     let mut change_ops: Vec<OrderOperation> = Vec::new();
 
-    let order_by_props = order_by_conf
-        .iter()
-        .map(|(pred, order_dir)| (&pred.iri, order_dir))
-        .collect::<Vec<_>>();
-
     let root_shape_iri = orm_subscription.shape_type.shape.clone();
+
+    // Predicates that can affect the position of a root object: every hop of every
+    // order-by path, not just the leaf. A change to an intermediate hop (e.g. the
+    // parent switching to a different child) moves the root too.
+    let order_by_props: HashSet<&str> = order_by_conf
+        .iter()
+        .flat_map(|order_by_term| {
+            order_by_term
+                .path
+                .iter()
+                .map(|hop| hop.predicate_schema.iri.as_str())
+        })
+        .collect();
+
+    // Roots already handled by the validity-transition pass below. They were added or
+    // removed and must not additionally be moved.
+    let mut handled_roots: HashSet<(GraphIri, SubjectIri)> = HashSet::new();
 
     // Collect the patch changes to be done.
     let graph_changes = orm_changes.get(&root_shape_iri);
@@ -655,19 +692,33 @@ fn root_patches_for_ordered(
                     && tormo.valid != TrackedOrmObjectValidity::Valid
                     && *tormo.shape().iri == orm_subscription.root_shape().iri
                 {
-                    let previous_key = order_key_before_change(order_by_conf, &tormo, change);
-                    change_ops.push(OrderOperation::Remove(previous_key));
+                    // Look up previous in the reverse index.
+                    if let Some(previous_key) = orm_subscription
+                        .ordering_info
+                        .as_ref()
+                        .and_then(|info| info.key_of(graph_iri, subject_iri))
+                        .cloned()
+                    {
+                        change_ops.push(OrderOperation::Remove(previous_key));
+                        handled_roots.insert((graph_iri.clone(), subject_iri.clone()));
+                    }
 
                     continue;
                 }
 
-                let new_key: OrderKey = order_key_from(order_by_conf, &tormo);
+                if tormo.valid != TrackedOrmObjectValidity::Valid {
+                    continue;
+                }
+
+                let new_key: OrderKey = order_key_from(order_by_conf, &tormo)
+                    .expect("valid tormos should have all values for order key");
 
                 // ADDs
                 if change.prev_valid != TrackedOrmObjectValidity::Valid
                     && tormo.valid == TrackedOrmObjectValidity::Valid
                 {
                     change_ops.push(OrderOperation::Add(new_key, tracked_orm_object_arc));
+                    handled_roots.insert((graph_iri.clone(), subject_iri.clone()));
 
                     continue;
                 }
@@ -678,11 +729,114 @@ fn root_patches_for_ordered(
                 {
                     if order_by_props
                         .iter()
-                        .any(|(order_by_pred, _)| change.predicates.contains_key(*order_by_pred))
+                        .any(|order_by_pred| change.predicates.contains_key(*order_by_pred))
                     {
-                        let previous_key = order_key_before_change(order_by_conf, &tormo, change);
-                        change_ops.push(OrderOperation::Move(previous_key, new_key));
+                        // Only emit a move if the key actually changed.
+                        let previous_key = orm_subscription
+                            .ordering_info
+                            .as_ref()
+                            .and_then(|info| info.key_of(graph_iri, subject_iri))
+                            .cloned();
+                        if let Some(previous_key) = previous_key {
+                            if previous_key != new_key {
+                                change_ops.push(OrderOperation::Move(previous_key, new_key));
+                                handled_roots.insert((graph_iri.clone(), subject_iri.clone()));
+                            }
+                        }
                     }
+                }
+            }
+        }
+    }
+
+    // Second pass: Update the order-keys of roots whose order value changed on a *nested* shape.
+    //
+    // A change to a leaf or intermediate hop lives in `orm_changes[<child shape>]`, not
+    // in the root shape's changes, so the pass above never sees it. Walk every change
+    // whose shape participates in an order-by path, climb to the root ancestors, and
+    // emit a move for each root whose key actually changed.
+    {
+        // Roots to re-evaluate, keyed by (graph, subject) to dedupe across hops.
+        let mut roots_to_recheck: HashSet<(GraphIri, SubjectIri)> = HashSet::new();
+
+        for (shape_iri, graph_changes) in orm_changes.iter() {
+            if *shape_iri == root_shape_iri {
+                // Root changes were handled on the first pass.
+                continue;
+            }
+
+            // Only shapes that appear in some order-by path can affect ordering.
+            let shape_is_order_relevant = order_by_conf.iter().any(|order_by_term| {
+                order_by_term
+                    .path
+                    .iter()
+                    .any(|hop| hop.shape_iri == *shape_iri)
+            });
+            if !shape_is_order_relevant {
+                continue;
+            }
+
+            for (_graph_iri, subject_changes) in graph_changes.iter() {
+                for (_subject_iri, change) in subject_changes.iter() {
+                    // Only changes to an order-relevant predicate matter.
+                    let touches_order_predicate = change
+                        .predicates
+                        .keys()
+                        .any(|pred_iri| order_by_props.contains(pred_iri.as_str()));
+                    if !touches_order_predicate {
+                        continue;
+                    }
+
+                    let tormo = change.tracked_orm_object.read().unwrap();
+
+                    // Climb to the root ancestors. A child may have several parents.
+                    let mut stack: Vec<Arc<RwLock<TrackedOrmObject>>> = tormo.live_parents();
+                    let mut seen: HashSet<(GraphIri, SubjectIri)> = HashSet::new();
+                    while let Some(parent) = stack.pop() {
+                        let parent_guard = parent.read().unwrap();
+                        let gs = (
+                            parent_guard.graph_iri.clone(),
+                            parent_guard.subject_iri.clone(),
+                        );
+                        if !seen.insert(gs.clone()) {
+                            continue;
+                        }
+                        if parent_guard.shape_iri() == root_shape_iri {
+                            roots_to_recheck.insert(gs);
+                        } else {
+                            stack.extend(parent_guard.live_parents());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update keys and create move patches for tormos with order-key changes in nested tormos.
+        for (graph_iri, subject_iri) in roots_to_recheck {
+            if handled_roots.contains(&(graph_iri.clone(), subject_iri.clone())) {
+                continue;
+            }
+            let Some(tormo_arc) =
+                orm_subscription.get_tracked_orm_object(&graph_iri, &subject_iri, &root_shape_iri)
+            else {
+                continue;
+            };
+            let tormo = tormo_arc.read().unwrap();
+            if tormo.valid != TrackedOrmObjectValidity::Valid {
+                continue;
+            }
+
+            let new_key = order_key_from(order_by_conf, &tormo)
+                .expect("valid tormos should have all values for order key");
+
+            let previous_key = orm_subscription
+                .ordering_info
+                .as_ref()
+                .and_then(|info| info.key_of(&graph_iri, &subject_iri))
+                .cloned();
+            if let Some(previous_key) = previous_key {
+                if previous_key != new_key {
+                    change_ops.push(OrderOperation::Move(previous_key, new_key));
                 }
             }
         }
@@ -733,31 +887,37 @@ fn root_patches_for_ordered(
     for op in change_ops {
         match op {
             OrderOperation::Add(new_key, tormo) => {
-                ordering.tormos.insert(new_key.clone(), tormo.clone());
-                let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
-                let graph_iri = &tormo.read().unwrap().graph_iri;
-                let subject_iri = &tormo.read().unwrap().subject_iri;
+                ordering.insert_tormo(new_key.clone(), tormo.clone());
+                let Some(insert_index) = ordering.tormos.rank_of(&new_key) else {
+                    continue;
+                };
+                let (graph_iri, subject_iri) = {
+                    let tormo = tormo.read().unwrap();
+                    (tormo.graph_iri.clone(), tormo.subject_iri.clone())
+                };
 
                 if should_skip_insert(insert_index == 0, insert_index == ordering.tormos.len() - 1)
                     && !ordering.tormos.is_empty()
                 {
-                    ordering.tormos.remove(&new_key);
-                    out_of_bounds_tormos.push((graph_iri.clone(), subject_iri.clone()));
+                    ordering.remove_tormo(&new_key);
+                    out_of_bounds_tormos.push((graph_iri, subject_iri));
                 } else {
                     // Get change object (first check overlay, then regular changes).
-                    let change = orm_changes
+                    let Some(change) = orm_changes
                         .get(&root_shape_iri)
-                        .unwrap()
-                        .get(graph_iri)
-                        .unwrap()
-                        .get(subject_iri)
-                        .unwrap();
+                        .and_then(|graph_changes| graph_changes.get(&graph_iri))
+                        .and_then(|subject_changes| subject_changes.get(&subject_iri))
+                    else {
+                        // Without a change record we cannot materialize the object.
+                        ordering.remove_tormo(&new_key);
+                        continue;
+                    };
                     let (value_change, all_changes) = materialization_overlay
                         .get(&root_shape_iri)
-                        .and_then(|graph_changes| graph_changes.get(graph_iri))
-                        .and_then(|subject_changes| subject_changes.get(subject_iri))
+                        .and_then(|graph_changes| graph_changes.get(&graph_iri))
+                        .and_then(|subject_changes| subject_changes.get(&subject_iri))
                         .map(|overlay_change| (overlay_change, materialization_overlay))
-                        .unwrap_or((&change, orm_changes));
+                        .unwrap_or((change, orm_changes));
 
                     let materialized = materialize_orm_object(value_change, false, all_changes);
 
@@ -772,8 +932,10 @@ fn root_patches_for_ordered(
                 }
             }
             OrderOperation::Remove(old_key) => {
-                let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
-                ordering.tormos.remove(&old_key);
+                let Some(remove_index) = ordering.tormos.rank_of(&old_key) else {
+                    continue;
+                };
+                ordering.remove_tormo(&old_key);
 
                 patches.push(PrelimOrmPatch {
                     op: OrmPatchOp::remove,
@@ -784,10 +946,16 @@ fn root_patches_for_ordered(
                 upper_offset_shift -= 1;
             }
             OrderOperation::Move(old_key, new_key) => {
-                let remove_index = ordering.tormos.rank_of(&old_key).unwrap();
-                let tormo = ordering.tormos.remove(&old_key).unwrap();
-                ordering.tormos.insert(new_key.clone(), tormo);
-                let insert_index = ordering.tormos.rank_of(&new_key).unwrap();
+                let Some(remove_index) = ordering.tormos.rank_of(&old_key) else {
+                    continue;
+                };
+                let Some(tormo) = ordering.remove_tormo(&old_key) else {
+                    continue;
+                };
+                ordering.insert_tormo(new_key.clone(), tormo);
+                let Some(insert_index) = ordering.tormos.rank_of(&new_key) else {
+                    continue;
+                };
 
                 // If the item was inserted at the very beginning or end,
                 // we assume that it went out of bounds and we remove / untrack it.
@@ -795,7 +963,9 @@ fn root_patches_for_ordered(
                     && !ordering.tormos.is_empty()
                 {
                     // Removed because moved out of bounds.
-                    let removed_tormo = ordering.tormos.remove(&new_key).unwrap();
+                    let Some(removed_tormo) = ordering.remove_tormo(&new_key) else {
+                        continue;
+                    };
                     out_of_bounds_tormos.push((
                         removed_tormo.read().unwrap().graph_iri.clone(),
                         removed_tormo.read().unwrap().subject_iri.clone(),
@@ -927,7 +1097,6 @@ fn filter_quads_for_scope_and_page_bounds<'a>(
                 graph_of_quad(quad).to_owned(),
                 subject_of_quad(quad).to_owned(),
             );
-            let predicate = quad.predicate.as_str();
 
             // Check if graph, subject is present in a tormo already.
             if subscription.has_graph_subject(&graph_subject.0, &graph_subject.1) {
@@ -941,45 +1110,45 @@ fn filter_quads_for_scope_and_page_bounds<'a>(
             if !is_in_subject_scope && !is_in_graph_scope {
                 return false;
             }
-
             if !is_insert {
                 return false;
             }
 
-            // Now, if this is a new quad with the order_by predicate and a value that is within the current window,
-            // the quad is of relevance and we schedule it's g-s for fetching.
+            // We have a new quad and we need to check if it affects us:
+            // - The quad might belong to an object which has it's order position within the loaded window.
+            //   In that case, we want to capture it.
+            // - We only do that in pagination grow-mode, not in "simple" pagination. All items stay loaded.
+            // - We check if the quad has a predicate that is used for ordering or on the path to a nested ordering predicate.
+            //   If it is, we consider it relevant. That way we can catch newly added items in the current range.
+            //   It does not cover the case that an existing invalid or out-of-bounds item that had a nested order_by predicate
+            //   comes into the current bounds; Otherwise we would have to find the parents for those quads.
+
             let in_grow_mode =
                 subscription.config.max_active_pages == 0 && subscription.config.page_size > 0;
-
-            // ... but only when we are tracking all items or all loaded pages (no max_active_pages).
             if !in_grow_mode && has_pagination {
                 return false;
-            } else {
-                let in_range = page_window_bounds.as_ref().map_or(
-                    true,
-                    |(order_by_pred, is_asc, first, last)| {
-                        predicate == *order_by_pred
-                            && is_order_value_in_window_range(
-                                &oxrdf_term_to_orm_basic_type(&quad.object),
-                                first,
-                                last,
-                                *is_asc,
-                                in_grow_mode,
-                            )
-                    },
-                );
-                if in_range {
-                    if subscription.subject_scope.is_empty()
-                        || subscription.subject_scope.contains(&graph_subject.1)
-                    {
-                        // This is a subject that we didn't track before because it was out of range.
-                        // Now it is and we need to fetch and validate it.
-                        graph_subject_needs_fetch.insert(graph_subject);
-                    }
-                }
-
-                in_range
             }
+
+            let relevant = page_window_bounds
+                .as_ref()
+                .map_or(true, |bounds| bounds.is_relevant(quad));
+            if !relevant {
+                return false;
+            }
+
+            // Only quads on a root-level predicate have a root as subject.
+            let is_root_quad = page_window_bounds
+                .as_ref()
+                .map_or(true, |bounds| bounds.is_root_quad(quad));
+            if is_insert
+                && is_root_quad
+                && (subscription.subject_scope.is_empty()
+                    || subscription.subject_scope.contains(&graph_subject.1))
+            {
+                graph_subject_needs_fetch.insert(graph_subject);
+            }
+
+            true
         };
 
         let filtered_inserts: Vec<Quad> = inserts
@@ -1014,28 +1183,6 @@ fn subject_of_quad(quad: &Quad) -> &str {
     match &quad.subject {
         ng_oxigraph::oxrdf::Subject::NamedNode(iri) => iri.as_str(),
         _ => panic!("Quads must have NamedNode as subject"), // Cannot happen
-    }
-}
-
-fn is_order_value_in_window_range(
-    value: &BasicType,
-    first_window_value: &BasicType,
-    last_window_value: &BasicType,
-    order_direction: OrderDirection,
-    checker_upper_bound_only: bool,
-) -> bool {
-    if !checker_upper_bound_only {
-        if order_direction == OrderDirection::Ascending {
-            first_window_value <= value && value <= last_window_value
-        } else {
-            last_window_value <= value && value <= first_window_value
-        }
-    } else {
-        if order_direction == OrderDirection::Ascending {
-            value <= last_window_value
-        } else {
-            value >= last_window_value
-        }
     }
 }
 

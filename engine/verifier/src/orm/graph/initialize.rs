@@ -13,8 +13,6 @@ use futures::SinkExt;
 use ng_net::orm::*;
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
-use ng_oxigraph::oxrdf::GraphName;
-use ng_oxigraph::oxrdf::Subject;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -22,8 +20,8 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use crate::orm::graph::types::*;
-use crate::orm::graph::utils::basic_type_to_json;
 use crate::orm::graph::utils::order_key_from;
+use crate::orm::graph::utils::term_to_json;
 use crate::orm::graph::utils::{assess_and_rank_children, nuri_to_string};
 use crate::orm::utils::composite_key;
 use crate::types::CancelFn;
@@ -206,8 +204,6 @@ impl Verifier {
         subscription_id: u64,
         forward: bool,
     ) -> Result<(), NgError> {
-        // log_debug!("[orm_load_page] In orm_load_page for subscription_id {subscription_id}");
-
         let mut orm_subscription =
             self.orm_subscriptions
                 .remove(&subscription_id)
@@ -254,6 +250,7 @@ impl Verifier {
                 // Remove first items.
                 for _i in 0..excess_items {
                     let (_, removed) = page_info.tormos.pop_first().unwrap();
+                    page_info.forget_tormo(&removed.read().unwrap());
                     let g = removed.read().unwrap().graph_iri.clone();
                     let s = removed.read().unwrap().subject_iri.clone();
                     removes.push((g, s));
@@ -268,6 +265,7 @@ impl Verifier {
                 // Remove last items.
                 for i in (0..excess_items).rev() {
                     let (_, removed) = page_info.tormos.pop_last().unwrap();
+                    page_info.forget_tormo(&removed.read().unwrap());
                     let g = removed.read().unwrap().graph_iri.clone();
                     let s = removed.read().unwrap().subject_iri.clone();
                     removes.push((g, s));
@@ -372,18 +370,6 @@ impl Verifier {
                 })
                 .cloned()
                 .collect();
-            // Filter new quads.
-            let quads = quads
-                .into_iter()
-                .filter(|q| {
-                    let (GraphName::NamedNode(g), Subject::NamedNode(s)) =
-                        (&q.graph_name, &q.subject)
-                    else {
-                        return false;
-                    };
-                    !orm_subscription.has_graph_subject(g.as_str(), s.as_str())
-                })
-                .collect::<Vec<_>>();
 
             // Add gs results to existing results.
             ordered_gs_results.extend(graph_subject_page_new_only);
@@ -447,7 +433,8 @@ impl Verifier {
 
                     let order_by = orm_subscription.config.order_by.as_ref().unwrap();
                     if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
-                        let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                        let order_key = order_key_from(order_by, &tormo.read().unwrap())
+                            .expect("valid tormos should have all values for order key");
                         new_tormos_ordered.push((order_key, tormo.clone()));
 
                         if new_tormos_ordered.len() == page_size {
@@ -459,7 +446,7 @@ impl Verifier {
                 // Remove everything above.
                 let to_remove = ordered_gs_results.split_off(n_iterated_results);
                 for (graph_iri, subject_iri) in to_remove {
-                    orm_subscription.remove_tracked_orm_object(
+                    orm_subscription.remove_tracked_orm_object_recurse(
                         &graph_iri,
                         &subject_iri,
                         &root_shape.iri,
@@ -474,7 +461,8 @@ impl Verifier {
                         .unwrap();
 
                     let order_by = orm_subscription.config.order_by.as_ref().unwrap();
-                    let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                    let order_key = order_key_from(order_by, &tormo.read().unwrap())
+                        .expect("valid tormos should have all values for order key");
                     if tormo.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
                         new_tormos_ordered.push((order_key, tormo.clone()));
 
@@ -488,7 +476,7 @@ impl Verifier {
                 let keep =
                     ordered_gs_results.split_off(ordered_gs_results.len() - n_iterated_results);
                 for (graph_iri, subject_iri) in ordered_gs_results {
-                    orm_subscription.remove_tracked_orm_object(
+                    orm_subscription.remove_tracked_orm_object_recurse(
                         &graph_iri,
                         &subject_iri,
                         &root_shape.iri,
@@ -532,12 +520,6 @@ impl Verifier {
                             .saturating_sub(page_size)
                     }
                 }
-                // log_debug!(
-                //     "[query_items_ordered]\nNew (limit, lower, upper): ({}, {}, {})",
-                //     limit,
-                //     lower_offset,
-                //     upper_offset
-                // )
             }
         }
 
@@ -554,13 +536,14 @@ impl Verifier {
                     continue;
                 }
                 let order_by = orm_subscription.config.order_by.as_ref().unwrap();
-                let order_key = order_key_from(order_by, &tormo.read().unwrap());
+                let order_key = order_key_from(order_by, &tormo.read().unwrap())
+                    .expect("valid tormos should have all values for order key");
                 with_keys.push((order_key, tormo));
             }
 
             let order_info = orm_subscription.ordering_info.as_mut().unwrap();
             for (order_key, tormo) in with_keys {
-                order_info.tormos.insert(order_key.clone(), tormo.clone());
+                order_info.insert_tormo(order_key.clone(), tormo.clone());
 
                 // If we are doing pagination, we record where we inserted to create patches from that data.
                 if get_with_insert_pos && page_size > 0 {
@@ -712,14 +695,14 @@ pub(crate) fn materialize_orm_object(
                         pred_change
                             .values_added
                             .iter()
-                            .map(|v| basic_type_to_json(v))
+                            .map(|v| term_to_json(v))
                             .collect(),
                     ),
                 );
             } else {
                 // Add value as primitive, if present.
                 if let Some(val) = pred_change.values_added.get(0) {
-                    orm_obj_map.insert(property_name.clone(), basic_type_to_json(val));
+                    orm_obj_map.insert(property_name.clone(), term_to_json(val));
                 }
             }
         }

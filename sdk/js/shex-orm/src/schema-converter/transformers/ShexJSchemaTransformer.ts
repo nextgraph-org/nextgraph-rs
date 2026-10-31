@@ -15,33 +15,13 @@ import type {
     Shape as OrmShape,
 } from "../../types.ts";
 
-const rdfDataTypeToBasic = (dataType: string) => {
+const rdfDataTypeToBasic = (dataType: string): OrmDataType["valType"] => {
     switch (dataType) {
+        case "http://www.w3.org/2001/XMLSchema#anyURI":
+            return "iri";
         case "http://www.w3.org/2001/XMLSchema#string":
-        case "http://www.w3.org/2001/XMLSchema#ENTITIES":
-        case "http://www.w3.org/2001/XMLSchema#ENTITY":
-        case "http://www.w3.org/2001/XMLSchema#ID":
-        case "http://www.w3.org/2001/XMLSchema#IDREF":
-        case "http://www.w3.org/2001/XMLSchema#IDREFS":
-        case "http://www.w3.org/2001/XMLSchema#language":
-        case "http://www.w3.org/2001/XMLSchema#Name":
-        case "http://www.w3.org/2001/XMLSchema#NCName":
-        case "http://www.w3.org/2001/XMLSchema#NMTOKEN":
-        case "http://www.w3.org/2001/XMLSchema#NMTOKENS":
-        case "http://www.w3.org/2001/XMLSchema#normalizedString":
-        case "http://www.w3.org/2001/XMLSchema#QName":
-        case "http://www.w3.org/2001/XMLSchema#token":
-            return "string";
-        case "http://www.w3.org/2001/XMLSchema#date":
+        case "http://www.w3.org/2001/XMLSchema#boolean":
         case "http://www.w3.org/2001/XMLSchema#dateTime":
-        case "http://www.w3.org/2001/XMLSchema#duration":
-        case "http://www.w3.org/2001/XMLSchema#gDay":
-        case "http://www.w3.org/2001/XMLSchema#gMonth":
-        case "http://www.w3.org/2001/XMLSchema#gMonthDay":
-        case "http://www.w3.org/2001/XMLSchema#gYear":
-        case "http://www.w3.org/2001/XMLSchema#gYearMonth":
-        case "http://www.w3.org/2001/XMLSchema#time":
-            return "string";
         case "http://www.w3.org/2001/XMLSchema#byte":
         case "http://www.w3.org/2001/XMLSchema#decimal":
         case "http://www.w3.org/2001/XMLSchema#double":
@@ -58,15 +38,15 @@ const rdfDataTypeToBasic = (dataType: string) => {
         case "http://www.w3.org/2001/XMLSchema#unsignedInt":
         case "http://www.w3.org/2001/XMLSchema#unsignedShort":
         case "http://www.w3.org/2001/XMLSchema#unsignedByte":
-            return "number";
-        case "http://www.w3.org/2001/XMLSchema#boolean":
-            return "boolean";
-        case "http://www.w3.org/2001/XMLSchema#hexBinary":
-            return "string";
-        case "http://www.w3.org/2001/XMLSchema#anyURI":
-            return "iri";
-        default:
-            return "iri";
+            return dataType.substring(33) as OrmDataType["valType"];
+        default: {
+            console.warn(
+                "\nGot an unknown data type which will be treated as string in TypeScript land:",
+                dataType
+            );
+
+            return dataType;
+        }
     }
 };
 
@@ -217,15 +197,20 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
 
     NodeConstraint: {
         transformer: async (nodeConstraint) => {
-            if (nodeConstraint.datatype) {
+            if (typeof nodeConstraint.datatype === "string") {
                 return {
                     valType: rdfDataTypeToBasic(nodeConstraint.datatype),
                 };
             }
-            if (nodeConstraint.nodeKind) {
+
+            if (
+                nodeConstraint.nodeKind === "iri" ||
+                typeof nodeConstraint.datatype === "object"
+            ) {
                 // Something reference-like.
                 return { valType: "iri" };
             }
+
             if (nodeConstraint.values) {
                 // In ShEx, [val1 val2 val3] means "one of these values" (OR semantics).
                 // Each literal value becomes a separate DataType entry.
@@ -296,7 +281,6 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 return dataTypes;
             }
 
-            // Maybe we should throw instead...
             throw {
                 error: new Error("Could not parse Node Constraint"),
                 nodeConstraint,

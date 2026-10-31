@@ -4,7 +4,9 @@
     "predicates": [
       {
         "readablePredicate": "@type",
-        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruVideoDocument"] }],
+        "dataTypes": [
+          { "valType": "iri", "literals": ["did:ng:z:MiruVideoDocument"] }
+        ],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
@@ -26,7 +28,9 @@
     "predicates": [
       {
         "readablePredicate": "@type",
-        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruMediaAsset"] }],
+        "dataTypes": [
+          { "valType": "iri", "literals": ["did:ng:z:MiruMediaAsset"] }
+        ],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
@@ -63,14 +67,19 @@
     "predicates": [
       {
         "readablePredicate": "duration",
-        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:video||did:ng:z:duration" }],
+        "dataTypes": [
+          {
+            "valType": "shape",
+            "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:video||did:ng:z:duration"
+          }
+        ],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:duration"
       },
       {
         "readablePredicate": "frameRate",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:frameRate"
@@ -82,14 +91,14 @@
     "predicates": [
       {
         "readablePredicate": "value",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:value"
       },
       {
         "readablePredicate": "rate",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:rate"
@@ -101,14 +110,14 @@
     "predicates": [
       {
         "readablePredicate": "value",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:value"
       },
       {
         "readablePredicate": "rate",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:rate"
@@ -127,14 +136,24 @@
       },
       {
         "readablePredicate": "duration",
-        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:duration" }],
+        "dataTypes": [
+          {
+            "valType": "shape",
+            "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:duration"
+          }
+        ],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:duration"
       },
       {
         "readablePredicate": "firstTimestamp",
-        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:firstTimestamp" }],
+        "dataTypes": [
+          {
+            "valType": "shape",
+            "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:firstTimestamp"
+          }
+        ],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:firstTimestamp"
@@ -146,14 +165,14 @@
     "predicates": [
       {
         "readablePredicate": "value",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:value"
       },
       {
         "readablePredicate": "rate",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:rate"
@@ -165,14 +184,14 @@
     "predicates": [
       {
         "readablePredicate": "value",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:value"
       },
       {
         "readablePredicate": "rate",
-        "dataTypes": [{ "valType": "number" }],
+        "dataTypes": [{ "valType": "decimal" }],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "did:ng:z:rate"
@@ -184,7 +203,9 @@
     "predicates": [
       {
         "readablePredicate": "@type",
-        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruVideoEffectAsset"] }],
+        "dataTypes": [
+          { "valType": "iri", "literals": ["did:ng:z:MiruVideoEffectAsset"] }
+        ],
         "maxCardinality": 1,
         "minCardinality": 1,
         "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",

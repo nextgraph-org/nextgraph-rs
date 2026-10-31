@@ -20,7 +20,7 @@ export interface ShapeType<T extends BaseType> {
 }
 
 /** The base type that all generated objects inherit from. */
-export interface BaseType extends Record<string, any> {
+export interface BaseType {
     /** The IRI of the subject. */
     "@id": string;
     /** The document NURI of the subject. By default, it will be set to the parent's graph. */
@@ -51,7 +51,29 @@ export type DataType = {
     /** If `valType` is `"shape"`, the IRI of the nested shape. */
     shape?: string;
     /** The type of object value for a triple constraint. */
-    valType: "number" | "string" | "boolean" | "iri" | "shape";
+    valType:
+        | "iri"
+        | "shape"
+        | "string"
+        | "dateTime"
+        | "byte"
+        | "decimal"
+        | "double"
+        | "float"
+        | "int"
+        | "integer"
+        | "long"
+        | "negativeInteger"
+        | "nonNegativeInteger"
+        | "nonPositiveInteger"
+        | "positiveInteger"
+        | "short"
+        | "unsignedLong"
+        | "unsignedInt"
+        | "unsignedShort"
+        | "unsignedByte"
+        | "boolean"
+        | ({} & string);
 };
 
 /** The schema of a property. */
@@ -69,3 +91,9 @@ export interface Predicate {
     /** If other (additional) values are permitted. Useful for literals. */
     extra?: boolean;
 }
+
+/** String type alias indicating that the sting is an IRI. */
+export type IRI = string;
+
+/** String type alias indicating that the sting is a NextGraph graph URI (NURI). */
+export type Nuri = string;

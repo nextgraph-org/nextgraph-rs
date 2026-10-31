@@ -1,12 +1,8 @@
-import { RAW_KEY } from "./deepSignal.ts";
 import { nonMutatingArrayFnKeys } from "./iteratorHelpers.ts";
-import { DeepSignal } from "./types.ts";
 
-const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
+const readonlyArrayProxy: ProxyHandler<any> = {
     construct() {
-        throw new Error(
-            "construct() is not supported on sealed deep signal objects."
-        );
+        throw new Error("construct() is not supported on readonly arrays.");
     },
     defineProperty() {
         throw new Error(`Cannot modify readonly array.`);
@@ -16,7 +12,7 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
     },
     get(target, p: any) {
         // Do not return functions that can mutate arrays or sets.
-        if (typeof target[RAW_KEY][p] === "function") {
+        if (typeof target[p] === "function") {
             if (!nonMutatingArrayFnKeys.has(p)) {
                 throw new Error(
                     `Readonly arrays do not expose non-mutating functions. Requested was ${p.toString()}`
@@ -39,9 +35,10 @@ const readonlyArrayProxy: ProxyHandler<DeepSignal<any>> = {
  * The returned proxy does not expose mutating functions like `push()` and will throw
  * if you try to `get` them.
  *
- * NOTE: It does not prevent modifications to its children.
+ * NOTE: It does not prevent modifications to its children or
+ * in case of deep signals the raw and meta objects.
  *
  */
-export function readOnlyArray<T>(array: DeepSignal<T[]>): ReadonlyArray<T> {
+export function readOnlyArray<T>(array: T[]): ReadonlyArray<T> {
     return new Proxy(array, readonlyArrayProxy);
 }

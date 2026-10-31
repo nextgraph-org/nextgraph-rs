@@ -19,7 +19,7 @@ import {
 } from "../../index.ts";
 import { getDeepSignalRootId, getDeepSignalVersion } from "../../deepSignal.ts";
 
-/** Base result contract for a deepSignal-backed Svelte integration. */
+/** Base result for a deepSignal-backed Svelte integration. */
 export interface UseDeepSignalResult<T> extends Readable<T> {
     /** Derive a nested selection; re-runs when the underlying tree version increments. */
     select<U>(selector: (tree: T) => U): Readable<U>;

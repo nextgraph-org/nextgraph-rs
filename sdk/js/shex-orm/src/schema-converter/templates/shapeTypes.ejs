@@ -1,11 +1,12 @@
-import type { ShapeType } from "@ng-org/shex-orm";
+import type { ShapeType } from "@ng-org/orm";
+
 import { <%- fileName %>Schema } from "./<%- fileName %>.schema.ts";
     import type {
     <% typings.forEach((typing)=> { if (!/Id$/.test(typing.dts.name)) { -%>
       <%- typing.dts.name %>,
         <% } }); -%>} from "./<%- fileName %>.typings.ts";
 
-            // ShapeTypes for <%- fileName %>
+            // ShapeTypes for <%- fileName %>.shex
 
               <% typings.forEach((typing)=> { if (!/Id$/.test(typing.dts.name)) { -%>
                 export const <%- typing.dts.name %>ShapeType: ShapeType<<%- typing.dts.name %>> = {

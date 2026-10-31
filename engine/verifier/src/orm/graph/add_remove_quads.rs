@@ -43,7 +43,6 @@ fn add_quads_for_subject(
             }
             continue;
         };
-        let obj_term = oxrdf_term_to_orm_basic_type(&quad.object);
 
         // Add get tracked predicate.
         let tracked_predicate_lock = tormo
@@ -72,14 +71,14 @@ fn add_quads_for_subject(
                     values_removed: Vec::new(),
                 });
 
-            pred_changes.values_added.push(obj_term.clone());
+            pred_changes.values_added.push(quad.object.clone());
 
             // Add to literals if the value needs to be tracked for ordering or literal restrictions.
             if should_add_to_literals(orm_subscription.config.order_by.as_ref(), predicate_schema) {
                 match &mut tracked_predicate.current_literals {
-                    Some(lits) => lits.push(obj_term.clone()),
+                    Some(lits) => lits.push(quad.object.clone()),
                     None => {
-                        tracked_predicate.current_literals = Some(vec![obj_term.clone()]);
+                        tracked_predicate.current_literals = Some(vec![quad.object.clone()]);
                     }
                 }
             }
@@ -136,8 +135,7 @@ fn remove_quads_for_subject(
                 values_removed: Vec::new(),
             });
 
-        let val_removed = oxrdf_term_to_orm_basic_type(&quad.object);
-        pred_changes.values_removed.push(val_removed.clone());
+        pred_changes.values_removed.push(quad.object.clone());
 
         // If value type is literal, we need to remove the current value from the tracked predicate.
         if should_add_to_literals(
@@ -146,7 +144,7 @@ fn remove_quads_for_subject(
         ) {
             if let Some(current_literals) = &mut tracked_predicate.current_literals {
                 // Remove obj_val from current_literals in-place
-                current_literals.retain(|val| *val != val_removed);
+                current_literals.retain(|val| *val != quad.object);
             } else {
                 panic!("tracked_predicate.current_literals must not be None.");
             }
@@ -161,9 +159,13 @@ fn should_add_to_literals(
     predicate_schema: &OrmSchemaPredicate,
 ) -> bool {
     order_by_conf.map_or(false, |order_by_schemas| {
-        order_by_schemas
-            .iter()
-            .any(|order_by_schema| order_by_schema.0.iri == predicate_schema.iri)
+        // Any hop of an order-by path needs its values tracked: intermediate hops to
+        // resolve the child, the leaf hop to read the value to order by.
+        order_by_schemas.iter().any(|term| {
+            term.path
+                .iter()
+                .any(|hop| hop.predicate_schema.iri == predicate_schema.iri)
+        })
     }) || predicate_schema
         .dataTypes
         .iter()
@@ -199,56 +201,4 @@ pub fn apply_quads_for_subject(
         orm_subscription,
         change,
     );
-}
-
-pub(crate) fn oxrdf_term_to_orm_basic_type(term: &ng_oxigraph::oxrdf::Term) -> BasicType {
-    match oxrdf_term_to_orm_term(term) {
-        Term::Str(s) => BasicType::Str(s),
-        Term::Num(n) => BasicType::Num(n),
-        Term::Bool(b) => BasicType::Bool(b),
-        Term::Ref(b) => BasicType::Str(b), // Treat IRIs as strings
-    }
-}
-
-/// Converts an oxrdf::Term to an orm::Term
-fn oxrdf_term_to_orm_term(term: &ng_oxigraph::oxrdf::Term) -> Term {
-    match term {
-        ng_oxigraph::oxrdf::Term::NamedNode(node) => Term::Ref(node.as_str().to_string()),
-        ng_oxigraph::oxrdf::Term::BlankNode(node) => Term::Ref(node.as_str().to_string()),
-        ng_oxigraph::oxrdf::Term::Literal(literal) => {
-            // Check the datatype to determine how to convert
-            match literal.datatype().as_str() {
-                // Check for string first, this is the most common.
-                "http://www.w3.org/2001/XMLSchema#string" => Term::Str(literal.value().to_string()),
-                "http://www.w3.org/2001/XMLSchema#boolean" => {
-                    match literal.value().parse::<bool>() {
-                        Ok(b) => Term::Bool(b),
-                        Err(_) => Term::Str(literal.value().to_string()),
-                    }
-                }
-                "http://www.w3.org/2001/XMLSchema#integer"
-                | "http://www.w3.org/2001/XMLSchema#decimal"
-                | "http://www.w3.org/2001/XMLSchema#double"
-                | "http://www.w3.org/2001/XMLSchema#float"
-                | "http://www.w3.org/2001/XMLSchema#int"
-                | "http://www.w3.org/2001/XMLSchema#long"
-                | "http://www.w3.org/2001/XMLSchema#short"
-                | "http://www.w3.org/2001/XMLSchema#byte"
-                | "http://www.w3.org/2001/XMLSchema#unsignedInt"
-                | "http://www.w3.org/2001/XMLSchema#unsignedLong"
-                | "http://www.w3.org/2001/XMLSchema#unsignedShort"
-                | "http://www.w3.org/2001/XMLSchema#unsignedByte" => {
-                    match literal.value().parse::<f64>() {
-                        Ok(n) => Term::Num(n),
-                        Err(_) => Term::Str(literal.value().to_string()),
-                    }
-                }
-                _ => Term::Str(literal.value().to_string()),
-            }
-        }
-        ng_oxigraph::oxrdf::Term::Triple(triple) => {
-            // For RDF-star triples, convert to string representation
-            Term::Str(triple.to_string())
-        }
-    }
 }

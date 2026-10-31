@@ -13,6 +13,7 @@ You need this utility for compiling schemas for use with the [TypeScript RDF ORM
 [RDF (Resource Description Framework)](https://en.wikipedia.org/wiki/Resource_Description_Framework) is a standard to describe data. Rather than organizing data as tables (e.g. SQL) or trees (e.g. JSON), RDF represents data as a non-hierarchical, unstructured set of triples (a graph aka network).
 
 Each triple consists of a _subject_ (about which you are describing something), a _predicate_ (the property of the relationship, e.g. the first name), and an _object_ (the value of that property or a reference). Triples belong to documents, also called _graphs_ in the context of RDF. Subjects, predicates and graphs are all _IRIs_ (the generalization of URLs). There are many specifications for describing data, to aid application interoperability.
+When referring to triples that live in a graph, we usually speak of quads (subject, predicate, object, graph).
 
 RDF's flexible and schema-less design aids in schema-evolution, interoperability, and data relationships.
 You are advised to take a moment to get yourself familiar with RDF if you are new to it.
@@ -62,15 +63,15 @@ ex:ExpenseShape {
       // rdfs:comment "This is a comment that will appear in the generated TypeScript type" ;
   ex:name xsd:string ;             # Required string
   ex:email xsd:string * ;          # Zero or more strings (set)
-  ex:height xsd:float ;            # Required number
-  ex:age xsd:integer ;             # Required integer. NOTE: TS does not support integers and you are recommended to use xsd:float unless you know what you are doing.
+  ex:height xsd:decimal ;          # Required number
+  ex:age xsd:integer ;             # Required integer. NOTE: TS does not support integers and you are recommended to use xsd:decimal unless you know what you are doing.
   ex:friends IRI * ;               # Set of IRIs
   ex:isRecurring xsd:boolean ;     # A boolean value
   ex:address @ex:AddressShape ;    # A nested object shape.
   ex:paymentStatus [ex:Paid ex:Pending ex:Overdue] ; # Enum
 }
 
-# `EXTRA a` means that the property `a` may have other values in addition to `ex.Address`
+# `EXTRA a` means that the property `a` may have other values in addition to `ex:Address`
 # `CLOSED` means that no other predicates may be present for a given address. Be careful, see performance notes below.
 ex:AddressShape CLOSED EXTRA a {
   a [ ex:Address ] ;
@@ -78,18 +79,44 @@ ex:AddressShape CLOSED EXTRA a {
 }
 ```
 
+You can see that a shape definition begins with `ex:ExpenseShape {`. In the subsequent lines, each line defines a predicate that our subjects of interest need to have. The first part, e.g. `ex:name` specifies the predicate IRI, the second part specifies the allowed type of the quad's object, e.g. `xsd:string`. The optional fourth part specifies a cardinality.
+
+Shapes, properties, and types are all IRIs but thanks to defined prefixes, e.g. `PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>`, you can write `xsd:string` instead of writing `http://www.w3.org/2001/XMLSchema#string`.
+
 See [what output was generated below](#generated-output).
 
-**SHEX Quick Reference**
+**Recommended Types**
+As types for your properties, you are recommended to use the following:
+
+| Use Case                   | SHEX definition                                        | Note                                   |
+| -------------------------- | ------------------------------------------------------ | -------------------------------------- |
+| numeric values             | `xsd:decimal`                                          |                                        |
+| integer values             | `xsd:integer`                                          | Not enforceable in TypeScript!         |
+| string values              | `xsd:string`                                           |                                        |
+| date and date time         | `xsd:dateTime`                                         | Maps to `Date` in TypeScript           |
+| boolean                    | `xsd:boolean`                                          |                                        |
+| nested objects             | `@<shape definition>`                                  | See example above                      |
+| IRIs                       | `IRI`                                                  |                                        |
+| reference to other objects | `IRI` or shape definition IRI                          | References to shapes are not validated |
+| string literals            | e.g. `"a string"`                                      |                                        |
+| number literals            | e.g. `2.5`                                             |                                        |
+| boolean literals           | e.g. `true`                                            |                                        |
+| specific IRI               | `prefix:value` or `<http://some.full/iri>`             |                                        |
+| enums                      | `[<space-separated list of literals/IRIs from above>]` | In square brackets                     |
+
+All other numeric `xsd` types are mapped to type `number` in TypeScript. Every other type is represented as `string` in TypeScript.
+A property may in theory have any type, not necessarily in the `xsd:` namespace. But you are recommended to stick to the ones listed above.
+
+**SHEX Syntax Quick Reference**
 
 | Syntax                                   | Meaning                                                                                        | TypeScript Type                                                  |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | value `xsd:string`                       | Required, exactly one                                                                          | `string`                                                         |
 | value `xsd:boolean ?`                    | Optional, zero or one                                                                          | `boolean \| undefined`                                           |
-| value `xsd:float *`                      | Zero or more                                                                                   | `Set<number>`                                                    |
+| value `xsd:decimal *`                    | Zero or more                                                                                   | `Set<number>`                                                    |
 | value `xsd:string +`                     | One or more                                                                                    | `Set<string>` (non-empty)                                        |
 | value `IRI`                              | Reference to another object                                                                    | `string` (IRI)                                                   |
-| value `xsd:string OR xsd:float`          | multiple types allowed                                                                         | `string \| number`                                               |
+| value `xsd:string OR xsd:decimal`        | multiple types allowed                                                                         | `string \| number`                                               |
 | value `@ex:PersonShape`                  | nested object                                                                                  | `Person`                                                         |
 | value `@ex:AudioAsset OR @ex:VideoAsset` | multiple nested object types allowed                                                           | `AudioAsset \| VideoAsset`                                       |
 | shape attribute `EXTRA <predicate name>` | for literal types: multiple values allowed                                                     | e.g. `Set<string \| "some literal">` instead of `"some literal"` |
@@ -112,18 +139,50 @@ The transformers for converting SHEX to schema and typings files are based on `@
 
 ### Representation in TypeScript
 
-Every type has the following two readonly properties:
+Every object has the following two readonly properties:
 
 - `@id` the subject IRI
 - `@graph` the graph (document) NURI
 
-In addition to that you will usually find the **`@type`** property: The RDF type IRI (from `rdfs:type`) is always converted to the property name `@type` by default. You are strongly encouraged to specify a type in your schema.
+In addition to that, you will usually find the **`@type`** property: The RDF type IRI (from `rdfs:type`) is always converted to the property name `@type` by default. You are strongly encouraged to specify a type in your schema.
 
-Property names are derived of the last part of the predicate IRI. In case of name collisions the 2nd, 3rd, etc. last part is used added as well.
+Property names are derived from the last part of the predicate IRI. In case of name collisions the 2nd, 3rd, etc. last part is is joined with it.
 
-Predicates with a cardinality higher than 1 (i.e., `maxCardinality > 1` or `maxCardinality === -1` for unlimited) are represented as TypeScript `Set<T>` types. Note that SHEX allows you to specify cardinalities not representable in TypeScript, for example greater than 2 and less than 4. When you modify an object so that it does not fulfil those requirements anymore, it will disappear since it doesn't match the shape anymore.
+Predicates with a cardinality greater than 1 (i.e., `maxCardinality > 1` or `maxCardinality === -1` for unlimited) are represented as sets, more specifically `OrmSet<T>` types.
 
-Currently all RDF types are mapped to string, number, or boolean, including date which is mapped to an ISO 8601 date string.
+Note that SHEX allows you to specify cardinalities not representable in TypeScript, for example greater than 2 and less than 4. When you modify an object so that it does not fulfil those requirements anymore, it will disappear since it doesn't match the shape anymore.
+
+The `OrmSet<T>` behaves like a regular set but with some additional features:
+
+- It exposes iterator helper methods like `.map()`, `.filter()`, or `.some()`
+- It exposes a method `.first()` which returns the element that was first added to the set. It can be helpful if you know that your set contains exactly one element.
+- In case it contains nested objects, you can use `.getBy()` to get an item by its `@graph` and `@id`.
+- All objects tracked in the ORM, which includes `OrmSet`, are reactive deepsignal objects - modifications are kept in sync with the engine and the frontend.
+
+While sets and child objects are reactive and provide additional functionality, you can assign regular, plain old TypeScript child objects or sets to them. They will be convert to tracked, persisted ORM objects.
+
+> If you want to create a typed object without directly adding it to the ORM, say of type `Expense`, you can utilize the generated `typings.ts` type definitions by wrapping them in the `Unpersisted<>` type:
+>
+> ```typescript
+> import type { Unpersisted } from "@ng-org/orm";
+> import type { Expense } from "../shapes/orm/expenseShapes.typings.ts"
+>
+> const newExpense: Unpersisted<Expense> = {
+>   name: "Bananas",
+>   amount: 10,
+>   // Set can be a regular non-OrmSet.
+>   categories: new Set([])
+>   // No `@id` or `@graph` prop required.
+>   ...
+> };
+> ```
+>
+> The `Unpersisted` type makes `@graph` and `@id` properties optional.
+
+Currently, all numeric xsd types (e.g. `xsd:decimal`) are mapped to `number` in TypeScript.
+`xsd:boolean` is mapped to `boolean`.
+`xsd:dateTime` is represented as `Date` object in TypeScript.
+Everything else is represented as `string`.
 
 ### Use in the ORM
 
