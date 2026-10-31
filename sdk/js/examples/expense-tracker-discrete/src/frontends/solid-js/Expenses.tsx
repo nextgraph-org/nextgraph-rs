@@ -11,14 +11,7 @@
 /** @jsxImportSource solid-js */
 
 import type { Expense } from "../../types";
-import {
-    createMemo,
-    createResource,
-    createSignal,
-    For,
-    Match,
-    Switch,
-} from "solid-js";
+import { createMemo, For, Match, Switch } from "solid-js";
 import { ExpenseCard } from "./ExpenseCard.tsx";
 import { useDocumentStore } from "./useDocumentStore.ts";
 

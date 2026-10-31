@@ -1,4 +1,4 @@
-export type IRI = string;
+import type { IRI, Nuri, Unpersisted, OrmSet } from "@ng-org/orm";
 
 /**
  * =============================================================================
@@ -13,7 +13,7 @@ export interface Root {
   /**
    * The graph NURI.
    */
-  readonly "@graph": IRI;
+  readonly "@graph": Nuri;
   /**
    * The subject IRI.
    */
@@ -59,13 +59,29 @@ export interface Root {
    *
    * Original IRI: did:ng:z:children1Or2
    */
-  children1Or2?: Set<ChildShape1 | ChildShape2>;
+  get children1Or2(): OrmSet<ChildShape1 | ChildShape2>;
+  /**
+   * Children of type Child1 or Child1
+   *
+   * Original IRI: did:ng:z:children1Or2
+   */
+  set children1Or2(
+    value: Set<
+      ChildShape1 | ChildShape2 | Unpersisted<ChildShape1 | ChildShape2>
+    >,
+  );
   /**
    * Child3 object
    *
    * Original IRI: did:ng:z:child3
    */
-  child3: ChildShape3;
+  get child3(): ChildShape3;
+  /**
+   * Child3 object
+   *
+   * Original IRI: did:ng:z:child3
+   */
+  set child3(value: ChildShape3 | Unpersisted<ChildShape3>);
 }
 
 /**
@@ -75,7 +91,7 @@ export interface ChildShape1 {
   /**
    * The graph NURI.
    */
-  readonly "@graph": IRI;
+  readonly "@graph": Nuri;
   /**
    * The subject IRI.
    */
@@ -107,7 +123,7 @@ export interface ChildShape2 {
   /**
    * The graph NURI.
    */
-  readonly "@graph": IRI;
+  readonly "@graph": Nuri;
   /**
    * The subject IRI.
    */
@@ -133,7 +149,13 @@ export interface ChildShape2 {
    *
    * Original IRI: did:ng:z:childChild
    */
-  childChild: ChildChild;
+  get childChild(): ChildChild;
+  /**
+   * Child child object
+   *
+   * Original IRI: did:ng:z:childChild
+   */
+  set childChild(value: ChildChild | Unpersisted<ChildChild>);
 }
 
 /**
@@ -143,7 +165,7 @@ export interface ChildShape3 {
   /**
    * The graph NURI.
    */
-  readonly "@graph": IRI;
+  readonly "@graph": Nuri;
   /**
    * The subject IRI.
    */
@@ -165,7 +187,13 @@ export interface ChildShape3 {
    *
    * Original IRI: did:ng:z:childChild
    */
-  childChild: ChildChild;
+  get childChild(): ChildChild;
+  /**
+   * Child child object
+   *
+   * Original IRI: did:ng:z:childChild
+   */
+  set childChild(value: ChildChild | Unpersisted<ChildChild>);
 }
 
 /**
@@ -175,7 +203,7 @@ export interface ChildChild {
   /**
    * The graph NURI.
    */
-  readonly "@graph": IRI;
+  readonly "@graph": Nuri;
   /**
    * The subject IRI.
    */
@@ -187,7 +215,7 @@ export interface ChildChild {
    */
   "@type": Set<"did:ng:z:ChildChild" | (IRI & {})>;
   /**
-   * Child child float
+   * Child child decimal
    *
    * Original IRI: did:ng:z:childChildNum
    */

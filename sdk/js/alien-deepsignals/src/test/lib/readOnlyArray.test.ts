@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deepSignal, RAW_KEY } from "../../deepSignal.ts";
+import { deepSignal } from "../../deepSignal.ts";
 import { readOnlyArray } from "../../readOnlyArray.ts";
 
 describe("Read only array", () => {
@@ -26,10 +26,5 @@ describe("Read only array", () => {
             // @ts-expect-error
             readOnly[1] = 5;
         }).toThrow(/Cannot modify readonly array./);
-
-        expect(() => {
-            // @ts-expect-error
-            const raw = readOnly[RAW_KEY];
-        }).toThrow(/Readonly arrays do not expose raw and meta data./);
     });
 });

@@ -8,17 +8,17 @@ ex:ExpenseShape {
     // rdfs:comment "The name of the expense" ;
   ex:description xsd:string ?
     // rdfs:comment "A readable description" ;
-  ex:totalPrice xsd:float
+  ex:totalPrice xsd:decimal
     // rdfs:comment "The total price" ;
   ex:amount xsd:integer
     // rdfs:comment "The number of items bought" ;
-  ex:dateOfPurchase xsd:date
+  ex:dateOfPurchase xsd:dateTime
     // rdfs:comment "The date of purchase" ;
-  ex:expenseCategory ex:ExpenseCategoryShape *
+  ex:expenseCategory IRI *
     // rdfs:comment "The use category of the product" ;  
   ex:isRecurring xsd:boolean
     // rdfs:comment "True, if this is a recurring expense (e.g. bus pass)" ;
-  ex:recurrenceInterval xsd:duration ?
+  ex:recurrenceInterval xsd:string ?
     // rdfs:comment "For recurring events, the interval of recurrence" ;
   ex:paymentStatus [ex:Paid ex:Pending ex:Overdue ex:Refunded]
     // rdfs:comment "The payment status of the expense" ;

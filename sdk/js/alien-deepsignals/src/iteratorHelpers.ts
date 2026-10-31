@@ -51,7 +51,6 @@ export const nonMutatingArrayFnKeys = new Set([
     "some",
     "reduce",
     "includes",
-    "copyWithin",
     Symbol.toString,
     Symbol.toStringTag,
 ]).union(iteratorFnKeys);

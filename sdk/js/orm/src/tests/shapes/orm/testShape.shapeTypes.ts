@@ -1,4 +1,5 @@
-import type { ShapeType } from "@ng-org/shex-orm";
+import type { ShapeType } from "@ng-org/orm";
+
 import { testShapeSchema } from "./testShape.schema.ts";
 import type {
   Root,
@@ -8,28 +9,29 @@ import type {
   ChildChild,
 } from "./testShape.typings.ts";
 
-// ShapeTypes for testShape
-export const RootShapeType = {
+// ShapeTypes for testShape.shex
+
+export const RootShapeType: ShapeType<Root> = {
   schema: testShapeSchema,
   shape: "did:ng:z:RootShape",
-} as const satisfies ShapeType<Root>;
+};
 
-export const ChildShape1ShapeType = {
+export const ChildShape1ShapeType: ShapeType<ChildShape1> = {
   schema: testShapeSchema,
   shape: "did:ng:z:ChildShape1",
-} as const satisfies ShapeType<ChildShape1>;
+};
 
-export const ChildShape2ShapeType = {
+export const ChildShape2ShapeType: ShapeType<ChildShape2> = {
   schema: testShapeSchema,
   shape: "did:ng:z:ChildShape2",
-} as const satisfies ShapeType<ChildShape2>;
+};
 
-export const ChildShape3ShapeType = {
+export const ChildShape3ShapeType: ShapeType<ChildShape3> = {
   schema: testShapeSchema,
   shape: "did:ng:z:ChildShape3",
-} as const satisfies ShapeType<ChildShape3>;
+};
 
-export const ChildChildShapeType = {
+export const ChildChildShapeType: ShapeType<ChildChild> = {
   schema: testShapeSchema,
   shape: "did:ng:z:ChildChildShape",
-} as const satisfies ShapeType<ChildChild>;
+};

@@ -10,7 +10,7 @@
 
 import { useDiscrete } from "@ng-org/orm/solid-js";
 import type { DocumentStore } from "../../types";
-import { ormSubscription, ormSubscriptionPromise } from "../../utils/ngSession";
+import { ormSubscriptionPromise } from "../../utils/ngSession";
 import { createResource } from "solid-js";
 
 export function useDocumentStore() {

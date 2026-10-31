@@ -46,7 +46,7 @@ ex:ChildShape2 EXTRA a {
 
   ex:childString xsd:string
     // rdfs:comment "Child string" ;
-  ex:childNumber: xsd:float
+  ex:childNumber: xsd:decimal
     // rdfs:comment "Child number" ;
 
   ex:childChild @ex:ChildChildShape
@@ -67,6 +67,6 @@ ex:ChildShape3 {
 ex:ChildChildShape EXTRA a {
   a [ex:ChildChild]
     // rdfs:comment "Child child type" ;
-  ex:childChildNum xsd:float
-    // rdfs:comment "Child child float" ;
+  ex:childChildNum xsd:decimal
+    // rdfs:comment "Child child decimal" ;
 }

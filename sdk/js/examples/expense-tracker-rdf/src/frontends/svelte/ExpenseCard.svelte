@@ -41,7 +41,7 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 
   const purchaseDate = $derived(
     expense.dateOfPurchase
-      ? new Date(expense.dateOfPurchase).toLocaleDateString()
+      ? expense.dateOfPurchase.toLocaleDateString()
       : "Date not set"
   );
   const totalPriceDisplay = $derived(

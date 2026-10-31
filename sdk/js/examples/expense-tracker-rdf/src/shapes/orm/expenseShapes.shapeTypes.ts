@@ -1,8 +1,9 @@
-import type { ShapeType } from "@ng-org/shex-orm";
+import type { ShapeType } from "@ng-org/orm";
+
 import { expenseShapesSchema } from "./expenseShapes.schema.ts";
 import type { Expense, ExpenseCategory } from "./expenseShapes.typings.ts";
 
-// ShapeTypes for expenseShapes
+// ShapeTypes for expenseShapes.shex
 
 export const ExpenseShapeType: ShapeType<Expense> = {
   schema: expenseShapesSchema,

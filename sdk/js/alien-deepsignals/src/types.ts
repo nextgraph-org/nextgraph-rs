@@ -11,7 +11,6 @@
 import { computed, alienSignal } from "./core.ts";
 import { deepSignal } from "./deepSignal.ts";
 import type { watch } from "./watch.ts";
-import type { readOnlyArray } from "./readOnlyArray.ts";
 
 /** Deep mutation emitted from a deepSignal root. */
 export type DeepPatch = {
@@ -189,28 +188,33 @@ export type DeepSignalObjectProps<T> = {
 /** Utility functions for sets. */
 export type DeepSignalSetProps<T> = {
     /** Get the element that was first inserted into the set. */
-    first(): undefined | (T extends object ? DeepSignal<T> : T);
+    first(): undefined | DeepSignal<T>;
+} & (T extends object
+    ? {
+          /**
+           * @internal This is only useful when you are using custom ids for sets.
+           *           You should probably use {@link DeepSignalSetProps.getBy}.
+           *
+           * Retrieve an entry from the Set by its synthetic set ID.
+           * @param id - The synthetic ID (string or number) assigned to the entry.
+           * @returns The proxied entry if found, undefined otherwise.
+           * @ignore
+           */
+          getById(id: string | number): DeepSignal<T> | undefined;
 
-    /**
-     * @internal This is only useful when you are using custom ids for sets.
-     *           You should probably use {@link DeepSignalSetProps.getBy}.
-     *
-     * Retrieve an entry from the Set by its synthetic set ID.
-     * @param id - The synthetic ID (string or number) assigned to the entry.
-     * @returns The proxied entry if found, undefined otherwise.
-     * @ignore
-     */
-    getById(id: string | number): DeepSignal<T> | undefined;
-
-    /**
-     * Retrieve an object from the Set by its `@graph` and `@id`.
-     *
-     * @param graphIri - The `@graph` NURI of the object.
-     * @param subjectIri - The `@subject` IRI of the object.
-     * @returns The proxied entry if found, undefined otherwise.
-     */
-    getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
-};
+          /**
+           * Retrieve an object from the Set by its `@graph` and `@id`.
+           *
+           * @param graphIri - The `@graph` NURI of the object.
+           * @param subjectIri - The `@subject` IRI of the object.
+           * @returns The proxied entry if found, undefined otherwise.
+           */
+          getBy(
+              graphIri: string,
+              subjectIri: string
+          ): DeepSignal<T> | undefined;
+      }
+    : {});
 
 /**
  * Type alias for `DeepSignal<Set<T>>` and reactive Set wrapper that accepts raw or proxied entries.
@@ -223,6 +227,7 @@ export type DeepSignalSetProps<T> = {
  * You can instruct TypeScript to ignore this with `parent.children = new Set() as DeepSignal<Set<any>>`.
  */
 export type DeepSignalSet<T> = DeepSignalSet_<T> &
+    DeepSignalIteratorHelpers<T> &
     DeepSignalSetProps<T> &
     DeepSignalObjectProps<T>;
 
@@ -230,27 +235,27 @@ export type DeepSignalSet<T> = DeepSignalSet_<T> &
  * Helper type to prevent excessive documentation to be generated for each property.
  * @ignore
  */
-export interface DeepSignalSet_<T>
-    extends Set<DeepSignal<T>>,
-        DeepSignalObjectProps<Set<T>>,
-        SetIterator<DeepSignal<T>>,
-        DeepSignalSetProps<T> {
-    add(value: T | DeepSignal<T>): this;
-    delete(value: T | DeepSignal<T>): boolean;
-    has(value: T | DeepSignal<T>): boolean;
-    forEach(
-        callbackfn: (
-            value: DeepSignal<T>,
-            value2: DeepSignal<T>,
-            set: DeepSignalSet<T>
-        ) => void,
-        thisArg?: any
-    ): void;
-    forEach(
-        callbackfn: (value: DeepSignal<T>, index: number) => void,
-        thisArg?: any
-    ): void;
-}
+export type DeepSignalSet_<T> = Set<DeepSignal<T>> &
+    DeepSignalObjectProps<Set<T>> &
+    DeepSignalSetProps<T> & {
+        add(value: T | DeepSignal<T>): DeepSignalSet<T>;
+        delete(value: T | DeepSignal<T>): boolean;
+        has(value: T | DeepSignal<T>): boolean;
+        forEach(
+            callbackFn: (
+                value: DeepSignal<T>,
+                value2: DeepSignal<T>,
+                set: DeepSignalSet<T>
+            ) => void,
+            thisArg?: any
+        ): void;
+    };
+
+type DeepSignalIteratorHelpers<T> = Omit<
+    IteratorObject<DeepSignal<T>>,
+    // Exclude forEach because its signature is incompatible.
+    "forEach"
+>;
 
 /**
  * The object returned by the {@link deepSignal} function.
@@ -264,18 +269,27 @@ export type DeepSignal<T> = T extends string | number | boolean
       : T extends DeepSignalObjectProps<any> | DeepSignalObjectProps<any>[]
         ? T
         : T extends Array<infer I>
-          ? DeepSignal<I>[]
+          ? DeepSignalArray<I>
           : T extends ReadonlyArray<infer I>
-            ? ReadonlyArray<DeepSignal<I>>
+            ? ReadOnlyDeepSignalArray<I>
             : T extends Set<infer S>
               ? DeepSignalSet<S>
               : T extends object
                 ? DeepSignalObject<T>
                 : T;
 
+export type DeepSignalArray<T> = Array<DeepSignal<T>>;
+export type ReadOnlyDeepSignalArray<T> = ReadonlyArray<DeepSignal<T>>;
+
 export type DeepSignalObject<T extends object> = {
     [K in keyof T]: DeepSignal<T[K]>;
-}; // & DeepSignalObjectProps<T>;
+};
+// We do not add DeepSignalObjectProps to the type even though they exist
+// because assigning new non-signal objects would break TS even though it is legal
+// (RAW and META) would be missing.
+// Mapping types to different getters and setters is not supported,
+// see https://github.com/microsoft/TypeScript/issues/43826
+// & DeepSignalObjectProps<T>;
 
 export type UnwrapDeepSignal<T> =
     T extends DeepSignalObject<infer S>

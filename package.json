@@ -21,6 +21,7 @@
     "prettier-plugin-svelte": "^3.4.0",
     "typedoc": "^0.28.17",
     "typedoc-plugin-markdown": "^4.10.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "vitest": "^4.1.10"
   },
   "engines": {

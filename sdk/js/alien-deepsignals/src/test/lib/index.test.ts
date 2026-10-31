@@ -816,12 +816,6 @@ describe("deepsignal/core", () => {
             expect(store.b).to.equal(2);
         });
 
-        it("should not wrap dates", () => {
-            const date = new Date();
-            const store = deepSignal({ date });
-            expect(store.date).to.equal(date);
-        });
-
         it("should not wrap regular expressions", () => {
             const regex = new RegExp("");
             const store = deepSignal({ regex });

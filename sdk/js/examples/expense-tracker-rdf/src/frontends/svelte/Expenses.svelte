@@ -50,26 +50,20 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
   let selectedCategoryId = $state("");
   let selectedPageSize = $state<5 | 10 | 15 | undefined>(undefined);
 
-  const categoryOptions = $derived(Array.from(categories ?? []));
-  const expenseListKey = $derived(
-    `${selectedPaymentStatus}:${selectedSortBy}:${selectedCategoryId}:${selectedPageSize}`
-  );
-
   async function createExpense(obj: Partial<Expense> = {}) {
     const session = await sessionPromise;
 
     insertObject(ExpenseShapeType, {
       "@graph": `did:ng:${session.private_store_id}`,
       "@type": "did:ng:z:Expense",
-      "@id": "",
       amount: obj.amount ?? 1,
-      recurrenceInterval: obj.recurrenceInterval ?? "",
+      recurrenceInterval: obj.recurrenceInterval,
       description: obj.description ?? undefined,
       totalPrice: obj.totalPrice ?? 0,
       paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
       isRecurring: obj.isRecurring ?? false,
       expenseCategory: obj.expenseCategory ?? new Set<string>(),
-      dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
+      dateOfPurchase: obj.dateOfPurchase ?? new Date(),
       title: obj.title ?? "New Expense",
     });
   }

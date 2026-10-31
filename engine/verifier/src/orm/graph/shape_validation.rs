@@ -160,32 +160,40 @@ impl Verifier {
 
                     // If we have literals, check if all required literals are present.
                     // At least one datatype must match.
-                    let some_valid = p_schema.dataTypes.iter().flat_map(|dt| &dt.literals).any(
-                        |required_literals| {
-                            // Early stop: If no extra values allowed but the sizes
-                            // between required and given values mismatches.
-                            if !p_schema.extra.unwrap_or(false)
-                                && ((required_literals.len() as i32)
-                                    != tracked_pred.as_ref().map_or(0, |p| p.current_cardinality))
-                            {
+                    let some_valid = p_schema.dataTypes.iter().any(|required_data_type| {
+                        let Some(required_literals) = required_data_type.literals.as_ref() else {
+                            return false;
+                        };
+
+                        // Early stop: If no extra values allowed but the sizes
+                        // between required and given values mismatches.
+                        if !p_schema.extra.unwrap_or(false)
+                            && ((required_literals.len() as i32)
+                                != tracked_pred.as_ref().map_or(0, |p| p.current_cardinality))
+                        {
+                            return false;
+                        }
+
+                        // Check that each required literal is present.
+                        for required_literal in required_literals {
+                            // Is tracked predicate present?
+                            if !tracked_pred.as_ref().map_or(false, |t| {
+                                t.current_literals.as_ref().map_or(false, |tt| {
+                                    tt.iter().any(|literal| {
+                                        term_equals_val_type(
+                                            &literal,
+                                            &required_data_type.valType,
+                                            &required_literal,
+                                        )
+                                    })
+                                })
+                            }) {
                                 return false;
                             }
-
-                            // Check that each required literal is present.
-                            for required_literal in required_literals {
-                                // Is tracked predicate present?
-                                if !tracked_pred.as_ref().map_or(false, |t| {
-                                    t.current_literals.as_ref().map_or(false, |tt| {
-                                        tt.iter().any(|literal| *literal == *required_literal)
-                                    })
-                                }) {
-                                    return false;
-                                }
-                            }
-                            // All required literals present.
-                            return true;
-                        },
-                    );
+                        }
+                        // All required literals present.
+                        return true;
+                    });
                     if !some_valid {
                         // If there are more valid children than what's allowed, break.
                         set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
@@ -247,18 +255,22 @@ impl Verifier {
                         p_schema.dataTypes.iter().map(|dt| &dt.valType).collect();
                     // For each new value, check that data type is in allowed_types.
                     for val_added in p_change.iter().map(|pc| &pc.values_added).flatten() {
-                        let matches = match val_added {
-                            BasicType::Bool(_) => allowed_types
-                                .iter()
-                                .any(|t| **t == OrmSchemaValType::boolean),
-                            BasicType::Num(_) => allowed_types
-                                .iter()
-                                .any(|t| **t == OrmSchemaValType::number),
-                            BasicType::Str(_) => allowed_types.iter().any(|t| {
-                                **t == OrmSchemaValType::string || **t == OrmSchemaValType::iri
-                            }),
-                        };
-                        if !matches {
+                        let type_matches = allowed_types.iter().any(|allowed_type| {
+                            match val_added {
+                                ng_oxigraph::oxrdf::Term::Literal(added_lit) => {
+                                    // We are generous about numeric type equality if the allowed type is the deprecated numeric.
+                                    (**allowed_type == OrmSchemaValType::number
+                                        && is_numeric(added_lit.datatype().as_str()))
+                                        // -
+                                        || (added_lit.datatype().as_str() == allowed_type.as_str())
+                                }
+                                ng_oxigraph::oxrdf::Term::NamedNode(_) => {
+                                    **allowed_type == OrmSchemaValType::iri
+                                }
+                                _ => unreachable!(),
+                            }
+                        });
+                        if !type_matches {
                             set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                             break;
                         }

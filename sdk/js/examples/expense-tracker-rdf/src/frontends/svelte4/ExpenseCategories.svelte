@@ -26,7 +26,6 @@
     $expenseCategories?.add({
       "@graph": `did:ng:${session.private_store_id}`,
       "@type": new Set(["did:ng:z:ExpenseCategory"]),
-      "@id": "",
       categoryName: "New category",
       description: "",
     });

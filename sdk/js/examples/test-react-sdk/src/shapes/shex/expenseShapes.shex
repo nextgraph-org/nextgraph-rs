@@ -8,7 +8,7 @@ ex:Expense {
     // rdfs:comment "The name of the expense" ;
   ex:description xsd:string ?
     // rdfs:comment "A readable description" ;
-  ex:totalPrice xsd:float
+  ex:totalPrice xsd:decimal
     // rdfs:comment "The total price" ;
   ex:amount xsd:integer
     // rdfs:comment "The number of items bought" ;

@@ -35,7 +35,7 @@ export const testShapeSchema = {
       {
         dataTypes: [
           {
-            valType: "number",
+            valType: "integer",
           },
         ],
         maxCardinality: 1,
@@ -46,7 +46,7 @@ export const testShapeSchema = {
       {
         dataTypes: [
           {
-            valType: "string",
+            valType: "http://www.w3.org/2001/XMLSchema#date",
           },
         ],
         maxCardinality: 1,
@@ -183,7 +183,7 @@ export const testShapeSchema = {
       {
         dataTypes: [
           {
-            valType: "number",
+            valType: "decimal",
           },
         ],
         maxCardinality: 1,
@@ -268,7 +268,7 @@ export const testShapeSchema = {
       {
         dataTypes: [
           {
-            valType: "number",
+            valType: "decimal",
           },
         ],
         maxCardinality: 1,

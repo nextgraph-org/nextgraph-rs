@@ -8,7 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::local_broker::{doc_create, doc_sparql_select, orm_update, test_remove_repo_write_cap};
+use crate::local_broker::{
+    doc_create, doc_sparql_select, doc_sparql_update, orm_update, test_remove_repo_write_cap,
+};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
     assert_has_triples, assert_json_eq, assert_orm_json_eq, augment_expected_with_graph_fields,
@@ -21,8 +23,8 @@ use async_std::stream::StreamExt;
 use futures::channel::mpsc::UnboundedReceiver;
 use ng_net::app_protocol::{AppResponse, AppResponseV0};
 use ng_net::orm::{
-    BasicType, OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate,
-    OrmSchemaShape, OrmSchemaValType, OrmShapeType,
+    OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape,
+    OrmSchemaValType, OrmShapeType,
 };
 use ng_oxigraph::oxrdf::Subject as OxSubject;
 use ng_repo::log::*;
@@ -134,6 +136,9 @@ async fn test_orm_apply_patches() {
 
     // Test 27: Revert patches for an unparsable graph nuri
     test_revert_invalid_graph_nuri(session_id).await;
+
+    // Test 28: Date types and others
+    test_other_types(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -168,9 +173,7 @@ async fn test_patch_add_single_literal(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -271,9 +274,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -310,7 +311,7 @@ INSERT DATA {
         schema,
     };
 
-    let (receiver, _cancel_fn, subscription_id, initial) =
+    let (_receiver, _cancel_fn, subscription_id, initial) =
         create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
 
     // Apply ORM patch: Remove name
@@ -394,9 +395,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -531,9 +530,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -632,9 +629,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -743,9 +738,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -790,9 +783,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Address".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Address".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -934,9 +925,9 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
+                        literals: Some(vec![
                             "http://example-test_patch_multilevel_nested.org/Person".to_string(),
-                        )]),
+                        ]),
                         shape: None,
                     }],
                 }),
@@ -984,9 +975,9 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
+                        literals: Some(vec![
                             "http://example-test_patch_multilevel_nested.org/Company".to_string(),
-                        )]),
+                        ]),
                         shape: None,
                     }],
                 }),
@@ -1047,9 +1038,9 @@ async fn test_patch_multilevel_nested(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
+                        literals: Some(vec![
                             "http://example-test_patch_multilevel_nested.org/Address".to_string(),
-                        )]),
+                        ]),
                         shape: None,
                     }],
                 }),
@@ -1203,9 +1194,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -1387,9 +1376,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -1434,9 +1421,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Address".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Address".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -1585,9 +1570,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -1632,9 +1615,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Address".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Address".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -1784,9 +1765,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -1831,9 +1810,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Address".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Address".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -1986,9 +1963,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2104,9 +2079,7 @@ INSERT DATA {
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2140,9 +2113,7 @@ INSERT DATA {
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Address".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Address".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2234,9 +2205,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2269,9 +2238,7 @@ INSERT DATA { <urn:test:personT> a ex:Person . }"#
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Address".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Address".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2393,9 +2360,7 @@ INSERT DATA { <urn:test:mv1> a ex:Person ; ex:hobby "Reading", "Swimming", "Cook
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2475,9 +2440,7 @@ INSERT DATA { <urn:test:idem1> a ex:Person ; ex:hobby "Reading" . }"#
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2691,9 +2654,7 @@ INSERT DATA { <urn:test:noopr1> a ex:Person ; ex:hobby "Reading" . }"#
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2785,9 +2746,7 @@ INSERT DATA { <urn:test:mix1> a ex:Person ; ex:hobby "Reading" ; ex:name "Ann" .
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -2909,9 +2868,7 @@ INSERT DATA { <urn:test:rar1> a ex:Person ; ex:hobby "Reading", "Swimming" . }"#
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -3005,9 +2962,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -3039,9 +2994,7 @@ INSERT DATA { <urn:test:personDL> a ex:Person ; ex:address <urn:test:addr1> . <u
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str(
-                        "http://example.org/Address".to_string(),
-                    )]),
+                    literals: Some(vec!["http://example.org/Address".to_string()]),
                     shape: None,
                 }],
             })],
@@ -3125,9 +3078,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -3159,9 +3110,7 @@ INSERT DATA { <urn:test:personCR> a ex:Person ; ex:address <urn:test:child1> . }
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str(
-                        "http://example.org/Address".to_string(),
-                    )]),
+                    literals: Some(vec!["http://example.org/Address".to_string()]),
                     shape: None,
                 }],
             })],
@@ -3241,9 +3190,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -3297,7 +3244,8 @@ INSERT DATA {
     // an `add` patch that restores the original value.
     let revert_received = timeout(Duration::from_secs(1), async {
         while let Some(response) = receiver.next().await {
-            if let AppResponse::V0(AppResponseV0::GraphOrmUpdate(patches)) = response {
+            if let AppResponse::V0(AppResponseV0::GraphOrmUpdate(patches)) = response.clone() {
+                log_info!("Received revert response: {:?}", response.clone());
                 // Should receive a revert patch that restores the original value
                 for patch in &patches {
                     if patch.op == OrmPatchOp::add
@@ -3358,9 +3306,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -3472,9 +3418,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }),
@@ -3587,9 +3531,9 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example-non-root-multi.org/Person".to_string(),
-                        )]),
+                        literals: Some(
+                            vec!["http://example-non-root-multi.org/Person".to_string()],
+                        ),
                         shape: None,
                     }],
                 }),
@@ -3634,9 +3578,9 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example-non-root-multi.org/Company".to_string(),
-                        )]),
+                        literals: Some(vec![
+                            "http://example-non-root-multi.org/Company".to_string()
+                        ]),
                         shape: None,
                     }],
                 }),
@@ -3668,9 +3612,7 @@ INSERT DATA {
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str(
-                        "http://example-non-root-multi.org/Office".to_string(),
-                    )]),
+                    literals: Some(vec!["http://example-non-root-multi.org/Office".to_string()]),
                     shape: None,
                 }],
             })],
@@ -3980,11 +3922,11 @@ async fn test_nested_nested_object_creation2(session_id: u64) {
 
         <urn:miru:mediaAsset1:video>
             <did:ng:z:duration> <urn:miru:mediaAsset1:video:duration> ;
-            <did:ng:z:frameRate> 30 .
+            <did:ng:z:frameRate> 30.0 .
 
         <urn:miru:mediaAsset1:video:duration>
-            <did:ng:z:value> 300 ;
-            <did:ng:z:rate> 1 .
+            <did:ng:z:value> 300.0 ;
+            <did:ng:z:rate> 1.0 .
 
         <urn:miru:mediaAsset1:audio>
             <did:ng:z:codec> "aac" ;
@@ -3992,12 +3934,12 @@ async fn test_nested_nested_object_creation2(session_id: u64) {
             <did:ng:z:firstTimestamp> <urn:miru:mediaAsset1:audio:firstTimestamp> .
 
         <urn:miru:mediaAsset1:audio:duration>
-            <did:ng:z:value> 300 ;
-            <did:ng:z:rate> 1 .
+            <did:ng:z:value> 300.0 ;
+            <did:ng:z:rate> 1.0 .
 
         <urn:miru:mediaAsset1:audio:firstTimestamp>
-            <did:ng:z:value> 0 ;
-            <did:ng:z:rate> 1 .
+            <did:ng:z:value> 0.0 ;
+            <did:ng:z:rate> 1.0 .
 
         <urn:miru:videoEffect1>
             a <did:ng:z:MiruVideoEffectAsset> ;
@@ -4391,6 +4333,50 @@ async fn test_remove_root_object(session_id: u64) {
     log_info!("✓ Test passed: Removing root object");
 }
 
+fn pred(
+    iri: &str,
+    readable: &str,
+    min: i32,
+    max: i32,
+    data_type: OrmSchemaDataType,
+) -> Arc<OrmSchemaPredicate> {
+    Arc::new(OrmSchemaPredicate {
+        iri: iri.to_string(),
+        extra: Some(false),
+        readablePredicate: readable.to_string(),
+        minCardinality: min,
+        maxCardinality: max,
+        dataTypes: vec![data_type],
+    })
+}
+fn type_pred(class_iri: &str) -> Arc<OrmSchemaPredicate> {
+    pred(
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        "type",
+        1,
+        1,
+        OrmSchemaDataType {
+            valType: OrmSchemaValType::iri,
+            literals: Some(vec![class_iri.to_string()]),
+            shape: None,
+        },
+    )
+}
+fn string_type() -> OrmSchemaDataType {
+    OrmSchemaDataType {
+        valType: OrmSchemaValType::string,
+        literals: None,
+        shape: None,
+    }
+}
+fn iri_type() -> OrmSchemaDataType {
+    OrmSchemaDataType {
+        valType: OrmSchemaValType::iri,
+        literals: None,
+        shape: None,
+    }
+}
+
 // ================== Revert-on-missing-permissions tests ==================
 //
 // These tests verify the revert patches sent to the frontend when parts of an
@@ -4400,45 +4386,6 @@ async fn test_remove_root_object(session_id: u64) {
 /// Schema shared by the revert tests: a person with literal predicates and
 /// nested single-valued (address) and multi-valued (contacts) AddressShape objects.
 fn create_revert_test_schema() -> OrmShapeType {
-    fn pred(
-        iri: &str,
-        readable: &str,
-        min: i32,
-        max: i32,
-        data_type: OrmSchemaDataType,
-    ) -> Arc<OrmSchemaPredicate> {
-        Arc::new(OrmSchemaPredicate {
-            iri: iri.to_string(),
-            extra: Some(false),
-            readablePredicate: readable.to_string(),
-            minCardinality: min,
-            maxCardinality: max,
-            dataTypes: vec![data_type],
-        })
-    }
-    fn type_pred(class_iri: &str) -> Arc<OrmSchemaPredicate> {
-        pred(
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-            "type",
-            1,
-            1,
-            OrmSchemaDataType {
-                valType: OrmSchemaValType::iri,
-                literals: Some(vec![BasicType::Str(class_iri.to_string())]),
-                shape: None,
-            },
-        )
-    }
-    let string_type = OrmSchemaDataType {
-        valType: OrmSchemaValType::string,
-        literals: None,
-        shape: None,
-    };
-    let iri_type = OrmSchemaDataType {
-        valType: OrmSchemaValType::iri,
-        literals: None,
-        shape: None,
-    };
     let address_shape_type = OrmSchemaDataType {
         valType: OrmSchemaValType::shape,
         literals: None,
@@ -4453,8 +4400,8 @@ fn create_revert_test_schema() -> OrmShapeType {
             iri: "did:ng:z:PersonShape".to_string(),
             predicates: vec![
                 type_pred("did:ng:z:Person"),
-                pred("did:ng:z:name", "name", 0, 1, string_type.clone()),
-                pred("did:ng:z:friend", "friend", 0, -1, iri_type),
+                pred("did:ng:z:name", "name", 0, 1, string_type()),
+                pred("did:ng:z:friend", "friend", 0, -1, iri_type()),
                 pred(
                     "did:ng:z:address",
                     "address",
@@ -4483,8 +4430,8 @@ fn create_revert_test_schema() -> OrmShapeType {
             iri: "did:ng:z:AddressShape".to_string(),
             predicates: vec![
                 type_pred("did:ng:z:Address"),
-                pred("did:ng:z:street", "street", 0, 1, string_type.clone()),
-                pred("did:ng:z:phone", "phone", 0, -1, string_type.clone()),
+                pred("did:ng:z:street", "street", 0, 1, string_type()),
+                pred("did:ng:z:phone", "phone", 0, -1, string_type()),
             ],
         }),
     );
@@ -5326,4 +5273,253 @@ async fn test_revert_invalid_graph_nuri(session_id: u64) {
     .await;
 
     log_info!("✓ Test passed: Revert patches for invalid graph nuri");
+}
+
+/// Test working with unknown and date type handling (as objects).
+async fn test_other_types(session_id: u64) {
+    log_info!("\n\n=== TEST: Date types and others ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:o1> a ex:Object ;
+                              ex:dateTime "2026-10-12T12:00:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
+                              ex:dateTimeMulti "2026-10-11T12:00:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
+                              ex:unknown "val of unknown type"^^ex:UnknownType ;
+                              ex:unknownLiteral "literal"^^ex:UnknownType2 .
+            }
+            "#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+    schema.insert(
+        "did:ng:z:ObjectShape".to_string(),
+        Arc::new(OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:ObjectShape".to_string(),
+            predicates: vec![
+                type_pred("did:ng:z:Object"),
+                pred(
+                    "did:ng:z:dateTime",
+                    "dateTime",
+                    1,
+                    1,
+                    OrmSchemaDataType {
+                        valType: OrmSchemaValType::dateTime,
+                        literals: None,
+                        shape: None,
+                    },
+                ),
+                pred(
+                    "did:ng:z:dateTimeMulti",
+                    "dateTimeMulti",
+                    1,
+                    -1,
+                    OrmSchemaDataType {
+                        valType: OrmSchemaValType::dateTime,
+                        literals: None,
+                        shape: None,
+                    },
+                ),
+                pred(
+                    "did:ng:z:unknown",
+                    "unknown",
+                    1,
+                    1,
+                    OrmSchemaDataType {
+                        valType: OrmSchemaValType::UNKNOWN("did:ng:z:UnknownType".into()),
+                        literals: None,
+                        shape: None,
+                    },
+                ),
+                pred(
+                    "did:ng:z:unknownLiteral",
+                    "unknownLiteral",
+                    1,
+                    1,
+                    OrmSchemaDataType {
+                        valType: OrmSchemaValType::UNKNOWN("did:ng:z:UnknownType2".into()),
+                        literals: Some(["literal".into()].into()),
+                        shape: None,
+                    },
+                ),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "did:ng:z:ObjectShape".to_string(),
+        schema,
+    };
+
+    let (mut receiver, _cancel_fn, subscription_id, mut initial) =
+        create_orm_connection(vec![doc_nuri.clone()], vec![], shape_type, session_id).await;
+
+    let mut expected = json!({
+        format!("{doc_nuri}|did:ng:z:o1"): {
+            "@id": "did:ng:z:o1",
+            "@graph": doc_nuri,
+            "type": "did:ng:z:Object",
+            "dateTime": { "|type": "dateTime", "value": "2026-10-12T12:00:00"},
+            "dateTimeMulti": [{ "|type": "dateTime", "value": "2026-10-11T12:00:00"}],
+            "unknown": "val of unknown type",
+            "unknownLiteral": "literal"
+        },
+
+    });
+    assert_orm_json_eq(&mut expected, &mut initial);
+
+    let root = root_path(&doc_nuri, "did:ng:z:o1", "did:ng:z:ObjectShape");
+    let frontend_patches = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{root}/unknown"),
+            value: Some(json!({
+                "|type": "did:ng:z:UnknownType",
+                "value": "updated unknown"
+            })),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{root}/dateTime"),
+            value: Some(json!({
+                "|type": "http://www.w3.org/2001/XMLSchema#dateTime",
+                "value": "2026-10-13T12:00:00"
+            })),
+            ..Default::default()
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            valType: Some(OrmPatchType::set),
+            path: format!("{root}/dateTimeMulti"),
+            value: Some(json!([
+                {
+                    "|type": "http://www.w3.org/2001/XMLSchema#dateTime",
+                    "value": "2026-10-13T12:00:00"
+                },
+                {
+                    "|type": "http://www.w3.org/2001/XMLSchema#dateTime",
+                    "value": "2026-10-14T12:00:00"
+                }
+            ])),
+            ..Default::default()
+        },
+    ];
+    orm_update(subscription_id, frontend_patches, session_id)
+        .await
+        .expect("orm_update failed");
+
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+    for (predicate, value) in [
+        ("did:ng:z:unknown", "updated unknown"),
+        ("did:ng:z:dateTime", "2026-10-13T12:00:00"),
+        ("did:ng:z:dateTimeMulti", "2026-10-13T12:00:00"),
+        ("did:ng:z:dateTimeMulti", "2026-10-14T12:00:00"),
+    ] {
+        assert!(
+            quads.iter().any(|q| {
+                q.predicate.as_str() == predicate
+                    && q.object.to_string().contains(value)
+                    && quad_has_graph(q, &doc_nuri)
+            }),
+            "Missing {predicate} value {value} after ORM patch"
+        );
+    }
+
+    doc_sparql_update(
+        session_id,
+        r#"
+            PREFIX ex: <did:ng:z:>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+            DELETE DATA {
+                <did:ng:z:o1> ex:dateTime "2026-10-13T12:00:00"^^xsd:dateTime ;
+                              ex:dateTimeMulti "2026-10-11T12:00:00"^^xsd:dateTime,
+                                                "2026-10-13T12:00:00"^^xsd:dateTime,
+                                                "2026-10-14T12:00:00"^^xsd:dateTime ;
+                              ex:unknown "updated unknown"^^ex:UnknownType .
+            } ;
+            INSERT DATA {
+                <did:ng:z:o1> ex:dateTime "2026-10-15T12:00:00"^^xsd:dateTime ;
+                              ex:dateTimeMulti "2026-10-16T12:00:00"^^xsd:dateTime,
+                                                "2026-10-17T12:00:00"^^xsd:dateTime ;
+                              ex:unknown "updated by sparql"^^ex:UnknownType .
+            }
+        "#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    let patches = await_graph_patches(&mut receiver).await;
+    let mut expected_patches = json!([
+        {
+            "op": "add",
+            "path": format!("{root}/unknown"),
+            "value": "updated by sparql",
+        },
+        {
+            "op": "add",
+            "path": format!("{root}/dateTime"),
+            "value": {"|type": "dateTime", "value": "2026-10-15T12:00:00"}
+        },
+        {
+            "op": "remove",
+            "valType": "set",
+            "path": format!("{root}/dateTimeMulti"),
+            "value": [
+                {"|type": "dateTime", "value": "2026-10-11T12:00:00"},
+                {"|type": "dateTime", "value": "2026-10-13T12:00:00"},
+                {"|type": "dateTime", "value": "2026-10-14T12:00:00"}
+            ]
+        },
+        {
+            "op": "add",
+            "valType": "set",
+            "path": format!("{root}/dateTimeMulti"),
+            "value": [
+                {"|type": "dateTime", "value": "2026-10-16T12:00:00"},
+                {"|type": "dateTime", "value": "2026-10-17T12:00:00"}
+            ]
+        }
+    ]);
+    let mut actual_patches = json!(patches);
+    assert_orm_json_eq(&mut expected_patches, &mut actual_patches);
+
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+    for (predicate, value) in [
+        ("did:ng:z:unknown", "updated by sparql"),
+        ("did:ng:z:dateTime", "2026-10-15T12:00:00"),
+        ("did:ng:z:dateTimeMulti", "2026-10-16T12:00:00"),
+        ("did:ng:z:dateTimeMulti", "2026-10-17T12:00:00"),
+    ] {
+        assert!(
+            quads.iter().any(|q| {
+                q.predicate.as_str() == predicate
+                    && q.object.to_string().contains(value)
+                    && quad_has_graph(q, &doc_nuri)
+            }),
+            "Missing {predicate} value {value} after SPARQL update"
+        );
+    }
+
+    log_info!("✓ Test passed: Date types and others");
 }

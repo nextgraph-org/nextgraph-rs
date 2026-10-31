@@ -10,7 +10,10 @@
 
 import { describe, test, expect } from "vitest";
 import { applyPatches, Patch } from "../connector/applyPatches.ts";
-import { deepSignal } from "@ng-org/alien-deepsignals";
+import {
+    deepSignal,
+    subscribeDeepMutations,
+} from "@ng-org/alien-deepsignals";
 
 let deepSignalWithIdGen = (val: any) =>
     deepSignal(val, {
@@ -98,6 +101,46 @@ describe("applyDiff - array operations", () => {
         let obj = [4, 1, 2, 3, 5];
         applyPatches(obj, [{ op: "move", path: "/3", from: "/0" }]);
         expect(obj).toEqual([1, 2, 3, 4, 5]);
+    });
+    test("updates the moved item's proxy path in a root array", async () => {
+        const raw = [
+            { id: "a" },
+            { id: "b" },
+            { id: "c" },
+            { id: "d" },
+            { id: "e" },
+            { id: "f" },
+        ];
+        const state = deepSignal(raw);
+        const batches: { patches: { path: (string | number)[] }[] }[] = [];
+        subscribeDeepMutations(state, (batch) => batches.push(batch));
+
+        expect(state.map((item) => item.id)).toEqual([
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+        ]);
+        applyPatches(state, [{ op: "move", path: "/0", from: "/4" }]);
+
+        expect(raw.map((item) => item.id)).toEqual([
+            "e",
+            "a",
+            "b",
+            "c",
+            "d",
+            "f",
+        ]);
+        await Promise.resolve();
+
+        state[0].id = "moved";
+        await Promise.resolve();
+
+        expect(batches.at(-1)?.patches).toEqual([
+            { path: ["0", "id"], op: "add", value: "moved" },
+        ]);
     });
 });
 

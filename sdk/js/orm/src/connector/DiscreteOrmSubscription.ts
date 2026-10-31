@@ -353,7 +353,7 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
         if (this.pendingPatches?.length == 0) {
             // Nothing to send to the backend.
         } else {
-            ng.discrete_orm_update(
+            await ng.discrete_orm_update(
                 this.subscriptionId!,
                 this.pendingPatches!,
                 session.session_id

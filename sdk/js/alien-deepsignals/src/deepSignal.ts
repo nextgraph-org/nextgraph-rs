@@ -17,6 +17,7 @@ import {
     DeepSignal,
     DeepSignalOptions,
     ExternalSubscriberFactory,
+    OnObjectAttachedFn,
     ProxyMeta,
     RootState,
     SetMeta,
@@ -61,7 +62,7 @@ const ignored = new WeakSet<object>();
 // TODO: We can just add this to the root directly
 const rootStates = new Map<symbol, RootState>();
 const pendingRoots = new Set<symbol>();
-const supported = new Set([Object, Array, Set]);
+const supported = new Set([Object, Array, Set, Date]);
 let blankNodeCounter = 0;
 const wellKnownSymbols = new Set<symbol>([
     Symbol.asyncDispose,
@@ -97,6 +98,78 @@ function shouldProxy(value: any): value is object {
         !ignored.has(value)
     );
 }
+
+const DATE_VALUE_KEY = Symbol("dateValue");
+
+function getDateSignal(meta: ProxyMeta, target: Date) {
+    const signals = getOrCreateSignalMap(meta.raw);
+    if (!signals.has(DATE_VALUE_KEY)) {
+        signals.set(DATE_VALUE_KEY, {
+            alienSignal: alienSignal(target.getTime()),
+            externalSubscribers: new Map(),
+        });
+    }
+    return signals.get(DATE_VALUE_KEY)!;
+}
+
+function datePath(meta: ProxyMeta) {
+    if (meta.parent?.raw instanceof Set) {
+        return resolveContainerPath(meta.parent);
+    }
+    if (!meta.parent || meta.key === undefined) return [];
+    return buildPath(meta.parent, meta.key, !!meta.isSyntheticId);
+}
+
+const dateHandlers: ProxyHandler<Date> = {
+    get(target, key) {
+        if (key === RAW_KEY) return target;
+        if (key === META_KEY) return rawToMeta.get(target);
+
+        const meta = rawToMeta.get(target)!;
+        const method = Reflect.get(target, key, target);
+
+        if (typeof method !== "function") return method;
+
+        return (...args: any[]) => {
+            const signal = getDateSignal(meta, target);
+            const oldValue = target.getTime();
+            const result = Reflect.apply(method, target, args);
+
+            if (key.toString().startsWith("set")) {
+                setValToSignalRecord(signal, target.getTime());
+
+                schedulePatch(meta, () => {
+                    const path = datePath(meta);
+                    if (meta.parent?.raw instanceof Set) {
+                        return [
+                            {
+                                path,
+                                op: "remove",
+                                type: "set",
+                                value: new Date(oldValue),
+                            },
+                            {
+                                path,
+                                op: "add",
+                                type: "set",
+                                value: snapshotLiteral(target),
+                            },
+                        ];
+                    }
+                    return {
+                        path,
+                        op: "add",
+                        value: snapshotLiteral(target),
+                    };
+                });
+            } else {
+                getValFromSignalRecord(meta, signal);
+            }
+
+            return result;
+        };
+    },
+};
 
 /**
  * Get or create the map in `proxySignals` for raw object to `Map<property key, signal>`
@@ -134,7 +207,7 @@ function setSignalValue(meta: ProxyMeta, key: PropertyKey, value: any) {
 }
 
 /** Gets the current value of a signal and notifies external subscribers about read. */
-function getValFromSignalRecord(meta: ProxyMeta, record: SignalRecord) {
+export function getValFromSignalRecord(meta: ProxyMeta, record: SignalRecord) {
     const val = record.alienSignal();
 
     // Notify external subscribers (usually frontend frameworks) about property access.
@@ -154,7 +227,7 @@ function getValFromSignalRecord(meta: ProxyMeta, record: SignalRecord) {
 }
 
 /** Sets the current value of a signal and notifies external subscribers about update. */
-function setValToSignalRecord(record: SignalRecord, value: any) {
+export function setValToSignalRecord(record: SignalRecord, value: any) {
     record.alienSignal(value);
 
     // Notify external subscribers (usually frontend frameworks) about property update.
@@ -339,29 +412,34 @@ function schedulePatch(
 /**
  * Recursively apply meta.options.onObjectAttached results to new objects, if applicable.
  * For sets, adds the synthetic ids (from prop generator, syntheticIdPropertyName or a new one).
+ * Assumes meta.parent is set.
  */
 function prepareObjectTree(
     meta: ProxyMeta,
-    rawValue: any,
-    basePath: (string | number | symbol)[] = [],
-    rawParent: any
+    basePath: (string | number | symbol)[] = []
 ) {
-    if (!rawValue || typeof rawValue !== "object") return rawValue;
+    if (!meta.raw || typeof meta.raw !== "object") return meta.raw;
 
     const idPropName = meta.options.syntheticIdPropertyName;
 
-    // Call onObjectAttached and process results.
-    const propGenRes =
-        (meta.options.onObjectAttached &&
-            meta.options.onObjectAttached({
-                path: basePath,
-                rawParent,
-                rawObject: rawValue,
-                meta,
-            })) ??
-        {};
+    const rawParent = meta.parent?.raw;
+    const rawValue = meta.raw;
 
+    let propGenRes: Partial<ReturnType<OnObjectAttachedFn>> = {};
     if (rawParent) {
+        // Call onObjectAttached and process results.
+        propGenRes =
+            (meta.options.onObjectAttached &&
+                meta.options.onObjectAttached({
+                    path: basePath,
+                    rawParent,
+                    rawObject: rawValue,
+                    meta,
+                })) ??
+            {};
+    }
+
+    if (rawParent && rawParent instanceof Set) {
         // Handle synthetic ids.
 
         const setInfo = ensureSetInfo(rawParent);
@@ -373,8 +451,8 @@ function prepareObjectTree(
             syntheticId = propGenRes.syntheticId;
         } else if (syntheticId === undefined) {
             // Otherwise, default to the syntheticIdPropertyName...
-            if (idPropName && rawValue[idPropName]) {
-                syntheticId = rawValue[idPropName];
+            if (idPropName && (rawValue as any)[idPropName]) {
+                syntheticId = (rawValue as any)[idPropName];
             } else {
                 // ...or a generated one.
                 syntheticId = `_s${++blankNodeCounter}`;
@@ -383,6 +461,7 @@ function prepareObjectTree(
 
         setInfo.objectToId.set(rawValue, syntheticId!);
         setInfo.idToObject.set(syntheticId!, rawValue);
+
         basePath = [...basePath, syntheticId!];
     }
 
@@ -394,10 +473,13 @@ function prepareObjectTree(
         rawValue.forEach((entry, idx) => {
             if (entry && typeof entry === "object") {
                 rawValue[idx] = prepareObjectTree(
-                    meta,
-                    entry,
-                    [...basePath, idx],
-                    rawValue
+                    {
+                        raw: entry,
+                        parent: meta,
+                        root: meta.root,
+                        options: meta.options,
+                    },
+                    [...basePath, idx]
                 );
             }
         });
@@ -408,9 +490,15 @@ function prepareObjectTree(
     if (rawValue instanceof Set) {
         for (const entry of rawValue) {
             if (entry && typeof entry === "object") {
-                let path = basePath;
-
-                const newVal = prepareObjectTree(meta, entry, path, rawValue);
+                const newVal = prepareObjectTree(
+                    {
+                        raw: entry,
+                        parent: meta,
+                        root: meta.root,
+                        options: meta.options,
+                    },
+                    basePath
+                );
                 if (newVal !== entry) {
                     rawValue.delete(entry);
                     rawValue.add(newVal);
@@ -429,13 +517,16 @@ function prepareObjectTree(
         const desc = Object.getOwnPropertyDescriptor(rawValue, childKey);
         if (desc && typeof desc.get === "function") return;
 
-        const child = rawValue[childKey];
+        const child = (rawValue as any)[childKey];
         if (child && typeof child === "object") {
-            rawValue[childKey] = prepareObjectTree(
-                meta,
-                child,
-                [...basePath, childKey],
-                rawValue
+            (rawValue as any)[childKey] = prepareObjectTree(
+                {
+                    raw: child,
+                    parent: meta,
+                    root: meta.root,
+                    options: meta.options,
+                },
+                [...basePath, childKey]
             );
         }
     });
@@ -519,7 +610,12 @@ function createProxy<T extends object>(
     isSyntheticId?: boolean,
     isRoot = false
 ): DeepSignal<T> {
-    const handlers = target instanceof Set ? setHandlers : objectHandlers;
+    const handlers =
+        target instanceof Date
+            ? dateHandlers
+            : target instanceof Set
+              ? setHandlers
+              : objectHandlers;
     const proxy = new Proxy(target, handlers);
     const meta: ProxyMeta = {
         raw: target,
@@ -531,7 +627,7 @@ function createProxy<T extends object>(
     };
 
     // Only prepare for new signal objects. If this is just creating a new proxy for an object already attached, do nothing.
-    if (isRoot) prepareObjectTree(meta, target, [], target);
+    if (isRoot) prepareObjectTree(meta, []);
 
     getOrCreateSignalMap(target);
     rawToMeta.set(target, meta);
@@ -540,7 +636,7 @@ function createProxy<T extends object>(
     return proxy as DeepSignal<T>;
 }
 
-/** Return primitive literals (string/number/boolean) for patch serialization. */
+/** Return primitive literals (string/number/boolean) or a date copy for patch serialization. */
 function snapshotLiteral(value: any) {
     if (
         typeof value === "string" ||
@@ -549,6 +645,10 @@ function snapshotLiteral(value: any) {
     ) {
         return value;
     }
+    if (value instanceof Date) {
+        return new Date(value);
+    }
+
     return undefined;
 }
 
@@ -576,6 +676,17 @@ function createPatchesForNew(
                 path: basePath,
                 op: "add",
                 value: literal,
+                type: inSet ? "set" : undefined,
+            },
+        ];
+    }
+    if (rawValue instanceof Date) {
+        return [
+            {
+                path: basePath,
+                op: "add",
+                type: inSet ? "set" : undefined,
+                value: snapshotLiteral(rawValue),
             },
         ];
     }
@@ -768,7 +879,7 @@ const getArrayMutationProxy = (target: any[], key: any, receiver: any[]) => {
             // Update meta.key for each item whose index shifted.
 
             // Update the keys of items whose index was shifted.
-            for (let i = start + items.length; i < target.length; i++) {
+            for (let i = start; i < target.length; i++) {
                 const rawItem = target[i];
                 const meta = rawToMeta.get(rawItem);
                 if (meta) {
@@ -941,7 +1052,15 @@ const objectHandlers: ProxyHandler<any> = {
         const result = Reflect.set(target, key, rawValue, receiver);
 
         if (meta && path && typeof rawValue === "object") {
-            prepareObjectTree(meta, rawValue, path, target);
+            prepareObjectTree(
+                {
+                    raw: rawValue,
+                    parent: meta,
+                    root: meta.root,
+                    options: meta.options,
+                },
+                path
+            );
         }
 
         // Set signal value.
@@ -1103,11 +1222,25 @@ const setHandlers: ProxyHandler<Set<any>> = {
 
                 target.add(rawValue);
 
-                if (rawValue && typeof rawValue === "object") {
+                if (
+                    rawValue &&
+                    typeof rawValue === "object" &&
+                    !(rawValue instanceof Date)
+                ) {
+                    // Recurse new object.
+
                     const valueIsDeepSignal = rawToMeta.has(rawValue);
 
                     // Case: Object in set
-                    prepareObjectTree(meta, rawValue, containerPath, target);
+                    prepareObjectTree(
+                        {
+                            raw: rawValue,
+                            parent: meta,
+                            root: meta.root,
+                            options: meta.options,
+                        },
+                        containerPath
+                    );
                     const synthetic = getSyntheticId(rawValue, target)!;
                     ensureChildProxy(rawValue, target, synthetic, true);
 
@@ -1123,7 +1256,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                         )
                     );
                 } else {
-                    // Case: Literal in set
+                    // Case: Literal or date in set
 
                     touchIterable(meta, target);
 
@@ -1145,19 +1278,19 @@ const setHandlers: ProxyHandler<Set<any>> = {
             return function deleteEntry(this: any, value: any) {
                 const rawValue = value?.[RAW_KEY] ?? value;
                 const synthetic =
-                    rawValue && typeof rawValue === "object"
-                        ? ensureSetInfo(target).objectToId.get(rawValue)
-                        : rawValue;
-
+                    rawValue &&
+                    typeof rawValue === "object" &&
+                    !(rawValue instanceof Date) &&
+                    ensureSetInfo(target).objectToId.get(rawValue);
                 const existed = target.delete(rawValue);
 
                 if (existed) {
                     touchIterable(meta, target);
                 }
 
-                if (existed && synthetic !== undefined) {
+                if (existed) {
                     const containerPath = resolveContainerPath(meta);
-                    if (rawValue && typeof rawValue === "object") {
+                    if (rawValue && typeof rawValue === "object" && synthetic) {
                         schedulePatch(meta, () => ({
                             path: [...containerPath, synthetic as string],
                             op: "remove",
@@ -1217,6 +1350,24 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 ]);
             };
         }
+        if (key === "forEach") {
+            return function forEach(
+                this: any,
+                callback: (value: any, value2: any, set: Set<any>) => void,
+                thisArg?: any
+            ) {
+                ensureIterableSignal(meta, target);
+                target.forEach((entry) => {
+                    const proxied = ensureChildProxy(
+                        entry,
+                        target,
+                        getSyntheticId(entry, target)!,
+                        true
+                    );
+                    callback.call(thisArg, proxied, proxied, receiver);
+                });
+            };
+        }
         if (typeof key === "string" && iteratorFnKeys.has(key)) {
             return function iteratorHelper(this: any, ...args: any[]) {
                 const iterator = createSetIterator(
@@ -1231,34 +1382,6 @@ const setHandlers: ProxyHandler<Set<any>> = {
                     );
                 }
                 return helper.apply(iterator, args);
-            };
-        }
-        if (key === "forEach") {
-            return function forEach(
-                this: any,
-                callback: (value: any, value2: any, set: Set<any>) => void,
-                thisArg?: any
-            ) {
-                ensureIterableSignal(meta, target);
-                let index = 0;
-                const expectsIteratorSignature = callback.length <= 2;
-                const iteratorCallback = callback as unknown as (
-                    value: any,
-                    index: number
-                ) => void;
-                target.forEach((entry) => {
-                    const proxied = ensureChildProxy(
-                        entry,
-                        target,
-                        getSyntheticId(entry, target)!,
-                        true
-                    );
-                    if (expectsIteratorSignature) {
-                        iteratorCallback.call(thisArg, proxied, index++);
-                    } else {
-                        callback.call(thisArg, proxied, proxied, receiver);
-                    }
-                });
             };
         }
         if (key === "has") {

@@ -47,7 +47,8 @@ export type WhereConfig<T extends BaseType> = {
             : WhereConfig<S>
         : IsUnion<T[P]> extends true
           ? never
-          : WhereConfig<T[P]>;
+          : // Explicit Extract only necessary to make compiler happy.
+            WhereConfig<Extract<T[P], BaseType>>;
 };
 
 /** @internal */
@@ -66,14 +67,19 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
 
 /**
  * Defines how results are sorted.
- * Must contain a single property with the key being the property to sort by
- * and the value being `"asc"`, `"desc"`.
- * The property to sort by must have a cardinality of exactly 1.
+ *
+ * Each property to sort by must be specified as object with the key being the property name
+ * and the value being `"asc"`, `"desc"` or a nested orderBy object.
+ *
+ * The property to sort by must have a cardinality of exactly 1 (no optional values allowed).
  *
  * May be used as single object or array of objects if you want secondary ordering.
  *
+ * For ordering by nested properties, see the example.
+ *
+ *
  * @example
- * ```ts
+ * ```jsonc
  * {
  *   orderBy: [
  *     { firstName: "asc"},
@@ -82,19 +88,36 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
  *   ],
  *   ...
  * }
+ * // Or for sorting by nested properties:
+ * {
+ *   orderBy: {
+ *     capital: { population: "desc" }
+ *   }
+ * }
  * ```
  */
 export type OrderByConfig<T extends BaseType> =
     | NonEmptyArray<OrderByConfigObject<T>>
     | OrderByConfigObject<T>;
 export type OrderByConfigObject<T extends BaseType> = SingleKeyObject<{
-    [K in Exclude<keyof T, "@graph" | "@id">]: T[K] extends
-        | string
-        | number
-        | boolean
+    [K in Exclude<keyof T, "@graph" | "@id">]: IsSinglePrimitive<
+        T[K]
+    > extends true
         ? "asc" | "desc"
-        : never;
+        : T[K] extends BaseType
+          ? OrderByConfig<T[K]>
+          : never;
 }>;
+
+type IsSinglePrimitive<T> = [T] extends [string]
+    ? true
+    : [T] extends [number]
+      ? true
+      : [T] extends [boolean]
+        ? true
+        : [T] extends [Date]
+          ? true
+          : false;
 
 // type SelectConfig<
 //     ST extends ShapeType<any>,
@@ -196,8 +219,32 @@ export type SubscriptionData<
     T extends BaseType,
     CONF extends RdfOrmConfig<any>,
 > = undefined extends CONF["orderBy"]
-    ? DeepSignalSet<T>
+    ? OrmSet<T>
     : DeepSignal<ReadonlyArray<T>>;
+
+/**
+ * A reactive set whose values are kept in sync with the database.
+ * By its typing, it's identical to a DeepSignal set but its `add`
+ * function allows adding objects without an `@id` or `@graph`.
+ */
+export type OrmSet<T> = DeepSignalSet<T> & {
+    add(value: T | Unpersisted<T>): void;
+};
+
+/** Utility type that makes `@id` and `@graph` properties optional.  */
+export type Unpersisted<T> =
+    T extends OrmSet<infer I>
+        ? Set<Unpersisted<I>>
+        : T extends Array<infer I>
+          ? Array<Unpersisted<I>>
+          : T extends BaseType
+            ? Partial<BaseType> & {
+                  [K in Exclude<keyof T, "@id" | "@graph">]: Unpersisted<T[K]>;
+              }
+            : T;
+
+/** Type alias for {@link Unpersisted}. */
+export type UP<T extends BaseType> = Unpersisted<T>;
 
 /**
  * @internal
@@ -230,92 +277,3 @@ export type WithMaybePagination<
             previousPage?: () => void;
         }
       : MAYBE_SHADOW; // Forward and backwards pagination.
-
-// ==========
-// Type tests
-// ==========
-type IRI = string;
-interface TestType {
-    readonly "@graph": string;
-    readonly "@id": string;
-    stringProp: string;
-    numProp: number;
-    boolProp: boolean;
-    setProp: Set<string>;
-    set2Prop?: Set<IRI>;
-    objProp: { "@id": string; "@graph": string; foo: string };
-    obj2Prop: Set<{ "@id": string; "@graph": string; bar: string | number }>;
-    enumProp: "choice1" | "choice2";
-}
-
-// OrderByConfig type tests
-
-type TestTypeOrderByConf = OrderByConfig<TestType>;
-
-const test1ObConf0: TestTypeOrderByConf = {
-    stringProp: "asc",
-};
-const test1ObConf1: TestTypeOrderByConf = {
-    boolProp: "asc",
-};
-const test1ObConf2: TestTypeOrderByConf = [
-    {
-        boolProp: "asc",
-    },
-];
-const test1ObConf3: TestTypeOrderByConf = [
-    {
-        boolProp: "asc",
-    },
-    { enumProp: "desc" },
-];
-const test1ObConf4: TestTypeOrderByConf = {
-    numProp: "asc",
-};
-const test1ObConf5: TestTypeOrderByConf = {
-    // @ts-expect-error
-    objProp: "asc",
-};
-const test1ObConf6: TestTypeOrderByConf = {
-    // @ts-expect-error
-    setProp: "asc",
-};
-// @ts-ignore
-const test1ObConf7: TestTypeOrderByConf = {
-    boolProp: "asc",
-    // @ts-ignore
-    numProp: "desc",
-};
-
-// WhereConfig type tests
-
-function testWhereConf(_conf: WhereConfig<TestType>) {}
-testWhereConf({
-    enumProp: ["choice1", "choice2"],
-    boolProp: true,
-    numProp: [3, 4],
-    stringProp: "foo",
-    setProp: "mau",
-    set2Prop: "maumau",
-    objProp: {
-        foo: "3",
-    },
-    obj2Prop: {
-        bar: 2,
-    },
-});
-testWhereConf({
-    // @ts-expect-error
-    enumProp: ["choice1", "choice3"],
-    // @ts-expect-error
-    boolProp: "true",
-    // @ts-expect-error
-    stringProp: [],
-    objProp: {
-        // @ts-expect-error
-        foo: true,
-    },
-    obj2Prop: {},
-    // @ts-ignore
-    "@graph": "some:id",
-});

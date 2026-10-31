@@ -20,8 +20,8 @@ use crate::tests::{
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    BasicType, OrmConfig, OrmSchema, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape,
-    OrmSchemaValType, OrmShapeType,
+    OrmConfig, OrmSchema, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
+    OrmShapeType,
 };
 
 use ng_repo::log::*;
@@ -425,9 +425,7 @@ async fn test_orm_query_deep_cyclic_shapes() {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Organization".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Organization".to_string()]),
                         shape: None,
                     }],
                     extra: Some(true),
@@ -473,9 +471,7 @@ async fn test_orm_query_deep_cyclic_shapes() {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Department".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Department".to_string()]),
                         shape: None,
                     }],
                     extra: Some(true),
@@ -521,9 +517,7 @@ async fn test_orm_query_deep_cyclic_shapes() {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Project".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Project".to_string()]),
                         shape: None,
                     }],
                     extra: Some(true),
@@ -711,33 +705,33 @@ async fn test_orm_big_object(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:obj1> a ex:TestObject ;
-        ex:stringValue "hello world" ;
-        ex:numValue 42 ;
-        ex:boolValue true ;
-        ex:arrayValue 1,2,3 ;
-        ex:objectValue <urn:test:obj1objVal> ;
-        ex:anotherObject <urn:test:obj1AnotherSub1>, <urn:test:obj1AnotherSub2> ;
-        ex:numOrStr "either" ;
-        ex:lit1Or2 "lit1" ;
-        ex:unrelated "some value" ;
-        ex:anotherUnrelated 4242 .
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:obj1> a ex:TestObject ;
+                    ex:stringValue "hello world" ;
+                    ex:numValue 42 ;
+                    ex:boolValue true ;
+                    ex:arrayValue 1,2,3 ;
+                    ex:objectValue <urn:test:obj1objVal> ;
+                    ex:anotherObject <urn:test:obj1AnotherSub1>, <urn:test:obj1AnotherSub2> ;
+                    ex:numOrStr "either" ;
+                    ex:lit1Or2 "lit1" ;
+                    ex:unrelated "some value" ;
+                    ex:anotherUnrelated 4242 .
 
-    <urn:test:obj2> a ex:TestObject ;
-        ex:stringValue "hello world #2" ;
-        ex:numValue 422 ;
-        ex:boolValue false ;
-        ex:arrayValue 4,5,6 ;
-        ex:objectValue <urn:test:obj2objVal> ;
-        ex:anotherObject <urn:test:obj2AnotherSub1>, <urn:test:obj2AnotherSub2> ;
-        ex:numOrStr 4 ;
-        ex:lit1Or2 "lit2:not-an-iri.ex" ;
-        ex:unrelated "some value2" ;
-        ex:anotherUnrelated 42422 .
-}
-"#
+                <urn:test:obj2> a ex:TestObject ;
+                    ex:stringValue "hello world #2" ;
+                    ex:numValue 422 ;
+                    ex:boolValue false ;
+                    ex:arrayValue 4,5,6 ;
+                    ex:objectValue <urn:test:obj2objVal> ;
+                    ex:anotherObject <urn:test:obj2AnotherSub1>, <urn:test:obj2AnotherSub2> ;
+                    ex:numOrStr 4 ;
+                    ex:lit1Or2 "lit2:not-an-iri.ex" ;
+                    ex:unrelated "some value2" ;
+                    ex:anotherUnrelated 42422 .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -745,13 +739,13 @@ INSERT DATA {
     let _doc_nuri_a = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:obj1objVal> ex:nestedString "nested" ; ex:nestedNum 7 ; ex:nestedArray 5,6 .
-    <urn:test:obj1AnotherSub1> ex:prop1 "one" ; ex:prop2 1 .
-    <urn:test:obj1AnotherSub2> ex:prop1 "two" ; ex:prop2 2 .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:obj1objVal> ex:nestedString "nested" ; ex:nestedNum 7 ; ex:nestedArray 5,6 .
+                <urn:test:obj1AnotherSub1> ex:prop1 "one" ; ex:prop2 1 .
+                <urn:test:obj1AnotherSub2> ex:prop1 "two" ; ex:prop2 2 .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -759,13 +753,13 @@ INSERT DATA {
     let _doc_nuri_b = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:obj2objVal> ex:nestedString "nested2" ; ex:nestedNum 72 ; ex:nestedArray 7,8,9 .
-    <urn:test:obj2AnotherSub1> ex:prop1 "one2" ; ex:prop2 12 .
-    <urn:test:obj2AnotherSub2> ex:prop1 "two2" ; ex:prop2 22 .
-}
-"#
+            PREFIX ex: <http://example.org/>
+            INSERT DATA {
+                <urn:test:obj2objVal> ex:nestedString "nested2" ; ex:nestedNum 72 ; ex:nestedArray 7,8,9 .
+                <urn:test:obj2AnotherSub1> ex:prop1 "one2" ; ex:prop2 12 .
+                <urn:test:obj2AnotherSub2> ex:prop1 "two2" ; ex:prop2 22 .
+            }
+            "#
         .to_string(),
     )
     .await;
@@ -966,10 +960,7 @@ fn test_basic_schema_shape_to_sparql_generation() {
         readablePredicate: "requiredLiteral".to_string(),
         dataTypes: vec![OrmSchemaDataType {
             valType: OrmSchemaValType::string,
-            literals: Some(vec![
-                BasicType::Str("A".to_string()),
-                BasicType::Str("B".to_string()),
-            ]),
+            literals: Some(vec!["A".to_string(), "B".to_string()]),
             shape: None,
         }],
         extra: None,
@@ -1070,9 +1061,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }
@@ -1107,7 +1096,7 @@ INSERT DATA {
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
+                    literals: Some(vec!["http://example.org/Cat".to_string()]),
                     shape: None,
                 }],
             }
@@ -1210,9 +1199,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }
@@ -1247,7 +1234,7 @@ INSERT DATA {
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
+                    literals: Some(vec!["http://example.org/Cat".to_string()]),
                     shape: None,
                 }],
             }
@@ -1384,9 +1371,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/TestObject".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/TestObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -1394,7 +1379,7 @@ INSERT DATA {
                 OrmSchemaPredicate {
                     iri: "http://example.org/arr".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -1642,7 +1627,7 @@ INSERT DATA {
                     readablePredicate: "lit1".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::string,
-                        literals: Some(vec![BasicType::Str("lit 1".to_string())]),
+                        literals: Some(vec!["lit 1".to_string()]),
                         shape: None,
                     }],
                 }
@@ -1655,7 +1640,7 @@ INSERT DATA {
                     readablePredicate: "lit2".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::string,
-                        literals: Some(vec![BasicType::Str("lit2:not-an-iri.ex".to_string())]),
+                        literals: Some(vec!["lit2:not-an-iri.ex".to_string()]),
                         shape: None,
                     }],
                 }
@@ -1777,7 +1762,7 @@ INSERT DATA {
                         shape: None,
                     },
                     OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     },
@@ -1982,7 +1967,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -2018,7 +2003,7 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -2308,9 +2293,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::string,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Alice".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Alice".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2353,7 +2336,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("http://example.org/Bob".to_string())]),
+                        literals: Some(vec!["http://example.org/Bob".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2388,9 +2371,7 @@ INSERT DATA {
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str(
-                        "http://example.org/Claire".to_string(),
-                    )]),
+                    literals: Some(vec!["http://example.org/Claire".to_string()]),
                     shape: None,
                 }],
             }
@@ -2522,9 +2503,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2559,7 +2538,7 @@ INSERT DATA {
                 readablePredicate: "type".to_string(),
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
+                    literals: Some(vec!["http://example.org/Cat".to_string()]),
                     shape: None,
                 }],
             }
@@ -2712,9 +2691,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/Person".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2847,7 +2824,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -2859,7 +2836,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -2872,7 +2849,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "sortBy2".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -3012,7 +2989,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3024,7 +3001,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -3038,7 +3015,7 @@ INSERT DATA {
                     readablePredicate: "required".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::string,
-                        literals: Some(vec![BasicType::Str("required".to_string())]),
+                        literals: Some(vec!["required".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3201,7 +3178,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3213,7 +3190,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -3227,7 +3204,7 @@ INSERT DATA {
                     readablePredicate: "required".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::string,
-                        literals: Some(vec![BasicType::Str("required".to_string())]),
+                        literals: Some(vec!["required".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3424,7 +3401,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:SortObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:SortObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3436,7 +3413,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "sortBy".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -3450,7 +3427,7 @@ INSERT DATA {
                     readablePredicate: "required".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::string,
-                        literals: Some(vec![BasicType::Str("required".to_string())]),
+                        literals: Some(vec!["required".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3592,7 +3569,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3604,7 +3581,7 @@ INSERT DATA {
                     minCardinality: 0,
                     readablePredicate: "val".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -3675,7 +3652,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3728,17 +3705,17 @@ async fn test_filter_shape_str_iri(session_id: u64) {
     let doc_nuri: String = create_doc_with_data(
         session_id,
         r#"
-PREFIX ex: <did:ng:z:>
-INSERT DATA {
-    <did:ng:z:noMatch> a ex:MatchObject ;
-                        ex:val "not matching" .
-    <did:ng:z:match1> a ex:MatchObject ;
-                        ex:val ex:matchingIri .
-    <did:ng:z:match2> a ex:MatchObject ;
-                        ex:val "matchingString" .
+            PREFIX ex: <did:ng:z:>
+            INSERT DATA {
+                <did:ng:z:noMatch> a ex:MatchObject ;
+                                    ex:val "not matching" .
+                <did:ng:z:match1> a ex:MatchObject ;
+                                    ex:val ex:matchingIri .
+                <did:ng:z:match2> a ex:MatchObject ;
+                                    ex:val "matchingString" .
 
-}
-"#
+            }
+        "#
         .to_string(),
     )
     .await;
@@ -3758,7 +3735,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3848,7 +3825,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -3930,7 +3907,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -4018,7 +3995,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -4145,7 +4122,7 @@ INSERT DATA {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -4292,7 +4269,7 @@ async fn test_filter_shape_nested_3(session_id: u64) {
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:MatchObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:MatchObject".to_string()]),
                         shape: None,
                     }],
                 }
@@ -4627,9 +4604,7 @@ fn create_big_schema() -> OrmSchema {
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/TestObject".to_string(),
-                        )]),
+                        literals: Some(vec!["http://example.org/TestObject".to_string()]),
                         shape: None,
                     }],
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -4652,7 +4627,7 @@ fn create_big_schema() -> OrmSchema {
                 }),
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -4676,7 +4651,7 @@ fn create_big_schema() -> OrmSchema {
                 }),
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -4724,7 +4699,7 @@ fn create_big_schema() -> OrmSchema {
                             shape: None,
                         },
                         OrmSchemaDataType {
-                            valType: OrmSchemaValType::number,
+                            valType: OrmSchemaValType::integer,
                             literals: None,
                             shape: None,
                         },
@@ -4739,12 +4714,12 @@ fn create_big_schema() -> OrmSchema {
                     dataTypes: vec![
                         OrmSchemaDataType {
                             valType: OrmSchemaValType::string,
-                            literals: Some(vec![BasicType::Str("lit1".to_string())]),
+                            literals: Some(vec!["lit1".to_string()]),
                             shape: None,
                         },
                         OrmSchemaDataType {
                             valType: OrmSchemaValType::string,
-                            literals: Some(vec![BasicType::Str("lit2:not-an-iri.ex".to_string())]),
+                            literals: Some(vec!["lit2:not-an-iri.ex".to_string()]),
                             shape: None,
                         },
                     ],
@@ -4779,7 +4754,7 @@ fn create_big_schema() -> OrmSchema {
                 }),
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -4814,7 +4789,7 @@ fn create_big_schema() -> OrmSchema {
                 }),
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -4826,7 +4801,7 @@ fn create_big_schema() -> OrmSchema {
                 }),
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::number,
+                        valType: OrmSchemaValType::integer,
                         literals: None,
                         shape: None,
                     }],
@@ -4866,7 +4841,7 @@ fn create_root_obj_two_children_schema() -> OrmSchema {
                 Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaValType::iri,
-                        literals: Some(vec![BasicType::Str("did:ng:z:RootObject".to_string())]),
+                        literals: Some(vec!["did:ng:z:RootObject".to_string()]),
                         shape: None,
                     }],
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -4910,7 +4885,7 @@ fn create_root_obj_two_children_schema() -> OrmSchema {
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str("did:ng:z:ChildObject1".to_string())]),
+                    literals: Some(vec!["did:ng:z:ChildObject1".to_string()]),
                     shape: None,
                 }],
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -4929,7 +4904,7 @@ fn create_root_obj_two_children_schema() -> OrmSchema {
             predicates: vec![Arc::new(OrmSchemaPredicate {
                 dataTypes: vec![OrmSchemaDataType {
                     valType: OrmSchemaValType::iri,
-                    literals: Some(vec![BasicType::Str("did:ng:z:ChildObject2".to_string())]),
+                    literals: Some(vec!["did:ng:z:ChildObject2".to_string()]),
                     shape: None,
                 }],
                 iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),

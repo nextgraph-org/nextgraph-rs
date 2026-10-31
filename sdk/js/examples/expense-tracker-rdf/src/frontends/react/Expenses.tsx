@@ -28,11 +28,10 @@ const paymentStatusLabels = {
 } as const;
 
 const sortByLabels = {
-	dateOfPurchase: "date",
-	amount: "quantity",
-	totalPrice: "price",
+    dateOfPurchase: "date",
+    amount: "quantity",
+    totalPrice: "price",
 } as const;
-
 
 type PaymentStatusFilter = keyof typeof paymentStatusLabels;
 type SortByFilter = keyof typeof sortByLabels;
@@ -47,9 +46,9 @@ export function Expenses() {
     const [selectedPaymentStatus, setSelectedPaymentStatus] = useState(
         "" as PaymentStatusFilter
     );
-	const [selectedSortBy, setSelectedSortBy] = useState(
-		"dateOfPurchase" as SortByFilter
-	);
+    const [selectedSortBy, setSelectedSortBy] = useState(
+        "dateOfPurchase" as SortByFilter
+    );
     const [selectedCategoryId, setSelectedCategoryId] = useState("");
     const [selectedPageSize, setSelectedPageSize] = useState(
         undefined as PageSize | undefined
@@ -60,30 +59,27 @@ export function Expenses() {
         [expenseCategories]
     );
     const expenseListKey = useMemo(
-        () => `${selectedPaymentStatus}:${selectedCategoryId}:${selectedPageSize}`,
+        () =>
+            `${selectedPaymentStatus}:${selectedCategoryId}:${selectedPageSize}`,
         [selectedCategoryId, selectedPageSize, selectedPaymentStatus]
     );
-    const createExpense = useCallback(
-        async (obj: Partial<Expense> = {}) => {
-            const session = await sessionPromise;
+    const createExpense = useCallback(async (obj: Partial<Expense> = {}) => {
+        const session = await sessionPromise;
 
-            insertObject(ExpenseShapeType, {
-                "@graph": `did:ng:${session.private_store_id}`,
-                "@type": "did:ng:z:Expense",
-                "@id": "",
-                amount: obj.amount ?? 1,
-                recurrenceInterval: obj.recurrenceInterval ?? "",
-                description: obj.description ?? undefined,
-                totalPrice: obj.totalPrice ?? 0,
-                paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
-                isRecurring: obj.isRecurring ?? false,
-                expenseCategory: obj.expenseCategory ?? new Set<string>(),
-                dateOfPurchase: obj.dateOfPurchase ?? new Date().toISOString(),
-                title: obj.title ?? "New Expense",
-            });
-        },
-        []
-    );
+        insertObject(ExpenseShapeType, {
+            "@graph": `did:ng:${session.private_store_id}`,
+            "@type": "did:ng:z:Expense",
+            amount: obj.amount ?? 1,
+            recurrenceInterval: obj.recurrenceInterval,
+            description: obj.description ?? undefined,
+            totalPrice: obj.totalPrice ?? 0,
+            paymentStatus: obj.paymentStatus ?? "did:ng:z:Paid",
+            isRecurring: obj.isRecurring ?? false,
+            expenseCategory: obj.expenseCategory ?? new Set<string>(),
+            dateOfPurchase: obj.dateOfPurchase ?? new Date(),
+            title: obj.title ?? "New Expense",
+        });
+    }, []);
 
     const paymentStatusEntries = Object.entries(paymentStatusLabels);
 
@@ -124,22 +120,24 @@ export function Expenses() {
                     </select>
                 </label>
                 <label className="field-group">
-                  <span className="field-label">Sort by</span>
-                  <select
-                    className="select"
-                    value={selectedSortBy}
-                    onChange={(event) =>
-                      setSelectedSortBy(
-                        event.target.value as SortByFilter
-                      )
-                    }
-                  >
-                    {Object.entries(sortByLabels).map(([sortField, label]) => (
-                      <option key={sortField} value={sortField}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="field-label">Sort by</span>
+                    <select
+                        className="select"
+                        value={selectedSortBy}
+                        onChange={(event) =>
+                            setSelectedSortBy(
+                                event.target.value as SortByFilter
+                            )
+                        }
+                    >
+                        {Object.entries(sortByLabels).map(
+                            ([sortField, label]) => (
+                                <option key={sortField} value={sortField}>
+                                    {label}
+                                </option>
+                            )
+                        )}
+                    </select>
                 </label>
                 <label className="field-group">
                     <span className="field-label">Category</span>
@@ -152,7 +150,10 @@ export function Expenses() {
                     >
                         <option value="">All categories</option>
                         {categoryOptions.map((category) => (
-                            <option key={category["@id"]} value={category["@id"]}>
+                            <option
+                                key={category["@id"]}
+                                value={category["@id"]}
+                            >
                                 {category.categoryName || "Unnamed category"}
                             </option>
                         ))}
@@ -177,14 +178,14 @@ export function Expenses() {
                     </select>
                 </label>
             </div>
-              <ExpenseList
-                  key={expenseListKey}
-                  paymentStatusFilter={selectedPaymentStatus || undefined}
-                  categoryFilter={selectedCategoryId || undefined}
-                  sortBy={selectedSortBy}
-                  pageSize={expensePageSize}
-                  availableCategories={expenseCategories}
-              />
+            <ExpenseList
+                key={expenseListKey}
+                paymentStatusFilter={selectedPaymentStatus || undefined}
+                categoryFilter={selectedCategoryId || undefined}
+                sortBy={selectedSortBy}
+                pageSize={expensePageSize}
+                availableCategories={expenseCategories}
+            />
         </section>
     );
 }
