@@ -263,17 +263,16 @@ impl Verifier {
                 }
             } else {
                 // Remove last items.
-                for i in (0..excess_items).rev() {
+                for _ in (0..excess_items).rev() {
                     let (_, removed) = page_info.tormos.pop_last().unwrap();
                     page_info.forget_tormo(&removed.read().unwrap());
                     let g = removed.read().unwrap().graph_iri.clone();
                     let s = removed.read().unwrap().subject_iri.clone();
                     removes.push((g, s));
 
-                    let remove_index = n_current_valid as i32 - i - 1;
                     patches.push(OrmPatch {
                         op: OrmPatchOp::remove,
-                        path: format!("/{remove_index}"),
+                        path: format!("/{max_allowed_items}"),
                         ..Default::default()
                     });
                 }

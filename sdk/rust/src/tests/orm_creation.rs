@@ -3120,7 +3120,7 @@ INSERT DATA {
             },
             {
                 "op": "remove",
-                "path": "/3",
+                "path": "/2",
             },
         ]),
         &json!(new_page_patches),
@@ -3343,7 +3343,7 @@ INSERT DATA {
             },
             {
                 "op": "remove",
-                "path": "/5",
+                "path": "/4",
             },
         ]),
         &json!(new_page_patches),
