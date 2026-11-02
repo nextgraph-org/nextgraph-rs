@@ -8,7 +8,6 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { ReactNode } from "react";
 import { useShape } from "@ng-org/orm/react";
 import { ExpenseShapeType } from "../../shapes/orm/expenseShapes.shapeTypes";
 import type {

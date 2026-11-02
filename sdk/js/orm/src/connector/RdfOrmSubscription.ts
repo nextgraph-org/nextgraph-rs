@@ -428,6 +428,13 @@ export class RdfOrmSubscription<
     }
 
     /**
+     * Increment the reference count to cancel a [close]({@link RdfOrmSubscription.close}) call.
+     */
+    public retain = () => {
+        this.refCount++;
+    };
+
+    /**
      * Stop the subscription.
      *
      * **If there is more than one subscription with the same shape type and scope, and no pagination,
@@ -752,7 +759,10 @@ export class RdfOrmSubscription<
     public nextPage = () => {
         ngSession.then(async ({ ng, session }) => {
             await this.readyPromise;
-            ng.graph_orm_next_page(this.subscriptionId, session.session_id);
+            ng.graph_orm_next_page(
+                this.subscriptionId,
+                session.session_id
+            ).catch((e) => this.onErrorCallback(e));
         });
     };
 
@@ -766,10 +776,15 @@ export class RdfOrmSubscription<
      * Only available when `orderBy`, `pageSize`, and `maxActivePages` were set in the options of {@link getOrCreate}.
      */
     public previousPage = () => {
-        ngSession.then(async ({ ng, session }) => {
-            await this.readyPromise;
-            ng.graph_orm_previous_page(this.subscriptionId, session.session_id);
-        });
+        ngSession
+            .then(async ({ ng, session }) => {
+                await this.readyPromise;
+                ng.graph_orm_previous_page(
+                    this.subscriptionId,
+                    session.session_id
+                );
+            })
+            .catch((e) => this.onErrorCallback(e));
     };
 
     // public cancelTransaction = async () => {
