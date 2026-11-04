@@ -11,7 +11,7 @@
 import { Unsynced } from "@ng-org/shex-orm";
 import type { BaseType, ShapeType } from "../types.ts";
 import { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
-import { RAW_KEY } from "@ng-org/alien-deepsignals";
+import { getRaw } from "@ng-org/alien-deepsignals";
 import { Snapshot } from "../utilTypes.ts";
 
 /**
@@ -27,7 +27,7 @@ import { Snapshot } from "../utilTypes.ts";
  */
 export async function insertObject<T extends BaseType>(
     shapeType: ShapeType<T>,
-    object: Unsynced<T>
+    object: Unsynced<T> & { "@graph": string }
 ): Promise<Snapshot<T>> {
     const connection = RdfOrmSubscription.getOrCreate(shapeType, {
         graphs: [], // Subscribe to no documents
@@ -37,7 +37,10 @@ export async function insertObject<T extends BaseType>(
     connection.signalObject.add(object);
 
     connection.close();
+    const inserted = connection.signalObject.getBy(
+        object["@graph"],
+        object["@id"]!
+    );
 
-    // @ts-expect-error
-    return connection.signalObject.first()![RAW_KEY];
+    return structuredClone(getRaw(inserted!));
 }
