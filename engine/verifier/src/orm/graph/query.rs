@@ -469,7 +469,7 @@ pub fn schema_shape_to_sparql(
                     }
                 }
             }
-            // Add possible literal constraints (like rdfs:type).
+            // Add possible literal constraints (like rdf:type).
             // At least one must match (we can't "AND" this because we need to track incomplete results too).
             if !allowed_literals.is_empty() {
                 post_graph_filters.push(format!(

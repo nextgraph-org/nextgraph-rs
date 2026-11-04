@@ -71,8 +71,11 @@ export async function shexJConverter(
             .emit(declaration, {
                 rootFlags: dom.ContextFlags.InAmbientNamespace,
             })
-            .replaceAll(/"get ([^"]+)"/g, "get $1")
-            .replaceAll(/"set ([^"]+)"(.*): void/g, "set $1 $2"),
+            .replaceAll(/"get ([A-Za-z_$][\w$]*)"/g, "get $1")
+            .replaceAll(/"get ([^"]+)"/g, 'get "$1"')
+            // dts-dom may wrap long parameter types across lines, so match across newlines
+            .replaceAll(/"set ([A-Za-z_$][\w$]*)"([\s\S]*?): void/g, "set $1$2")
+            .replaceAll(/"set ([^"]+)"([\s\S]*?): void/g, 'set "$1"$2'),
         dts: declaration,
     }));
     const typingsString = typings

@@ -224,6 +224,7 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
     isReady: boolean;
 
     /**
+     * @ignore
      * Increment the reference count to cancel a [close]({@link DiscreteOrmSubscription.close}) call.
      */
     public retain = () => {

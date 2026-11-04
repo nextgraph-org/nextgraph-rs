@@ -8,7 +8,7 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { BaseType } from "@ng-org/shex-orm";
+import type { BaseType, Unsynced } from "@ng-org/shex-orm";
 import { Scope } from "./types.ts";
 import { RdfOrmSubscription } from "./core.ts";
 import { DeepSignal, DeepSignalSet } from "@ng-org/alien-deepsignals";
@@ -100,14 +100,22 @@ export type OrderByConfig<T extends BaseType> =
     | NonEmptyArray<OrderByConfigObject<T>>
     | OrderByConfigObject<T>;
 export type OrderByConfigObject<T extends BaseType> = SingleKeyObject<{
-    [K in Exclude<keyof T, "@graph" | "@id">]: IsSinglePrimitive<
-        T[K]
-    > extends true
+    [K in OrderableKeys<T>]: IsSinglePrimitive<T[K]> extends true
         ? "asc" | "desc"
         : T[K] extends BaseType
           ? OrderByConfig<T[K]>
           : never;
 }>;
+
+type OrderableKeys<T extends BaseType> = {
+    [K in Exclude<keyof T, "@graph" | "@id">]: IsSinglePrimitive<
+        T[K]
+    > extends true
+        ? K
+        : T[K] extends BaseType
+          ? K
+          : never;
+}[Exclude<keyof T, "@graph" | "@id">];
 
 type IsSinglePrimitive<T> = [T] extends [string]
     ? true
@@ -224,27 +232,42 @@ export type SubscriptionData<
 
 /**
  * A reactive set whose values are kept in sync with the database.
- * By its typing, it's identical to a DeepSignal set but its `add`
- * function allows adding objects without an `@id` or `@graph`.
+ * By its typing, it's identical to a DeepSignal. But if `T` is an object,
+ * it allows adding `Unsynced` objects too (without `@graph` and `@id` too).
  */
 export type OrmSet<T> = DeepSignalSet<T> & {
-    add(value: T | Unpersisted<T>): void;
+    add(value: T | Unsynced<T>): void;
 };
 
-/** Utility type that makes `@id` and `@graph` properties optional.  */
-export type Unpersisted<T> =
-    T extends OrmSet<infer I>
-        ? Set<Unpersisted<I>>
-        : T extends Array<infer I>
-          ? Array<Unpersisted<I>>
-          : T extends BaseType
-            ? Partial<BaseType> & {
-                  [K in Exclude<keyof T, "@id" | "@graph">]: Unpersisted<T[K]>;
+/** Represents a detached, non-reactive snapshot of an ORM object in the database. */
+export type Snapshot<T> =
+    T extends Set<infer I>
+        ? Set<Snapshot<I>>
+        : T extends ReadonlyArray<infer I> | Array<infer I>
+          ? Array<Snapshot<I>>
+          : T extends Partial<BaseType>
+            ? BaseType & {
+                  [K in Exclude<OptionalProps<T>, "@id" | "@graph">]?:
+                      | undefined
+                      | T[K] extends Set<any>
+                      ? never
+                      : Snapshot<T[K]>;
+              } & {
+                  [K in Exclude<
+                      MandatoryProps<T>,
+                      "@id" | "@graph"
+                  >]: T[K] extends Set<any>
+                      ? Snapshot<T[K]>
+                      : undefined extends T[K]
+                        ? never
+                        : Snapshot<T[K]>;
               }
             : T;
 
-/** Type alias for {@link Unpersisted}. */
-export type UP<T extends BaseType> = Unpersisted<T>;
+type OptionalProps<T> = {
+    [K in keyof T]-?: undefined extends T[K] ? K : never;
+}[keyof T];
+type MandatoryProps<T> = Exclude<keyof T, OptionalProps<T>>;
 
 /**
  * @internal

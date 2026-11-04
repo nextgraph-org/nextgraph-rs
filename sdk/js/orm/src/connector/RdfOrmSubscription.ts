@@ -428,6 +428,7 @@ export class RdfOrmSubscription<
     }
 
     /**
+     * @ignore
      * Increment the reference count to cancel a [close]({@link RdfOrmSubscription.close}) call.
      */
     public retain = () => {
@@ -634,7 +635,14 @@ export class RdfOrmSubscription<
         meta,
     }) => {
         // Only deal with objects.
-        if (Array.isArray(rawObject) || rawObject instanceof Set) return;
+        if (
+            Array.isArray(rawObject) ||
+            rawObject instanceof Set ||
+            rawObject instanceof Date ||
+            "|type" in rawObject
+        ) {
+            return;
+        }
 
         // If we are just applying data coming from the backend,
         // `@graph` and `@id` will be set already. Just generated syntheticId, if parent is a set.

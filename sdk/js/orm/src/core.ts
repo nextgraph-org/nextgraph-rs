@@ -22,8 +22,6 @@ export type {
     SubscriptionData,
     WhereConfig,
     OrmSet,
-    Unpersisted,
-    UP,
 } from "./utilTypes.ts";
 
 export type {
