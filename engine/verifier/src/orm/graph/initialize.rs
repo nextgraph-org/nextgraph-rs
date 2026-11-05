@@ -346,17 +346,20 @@ impl Verifier {
             let returned_gs_items = graph_subject_page.len();
 
             // Query quads for this shape.
-            let quads = if orm_subscription.graph_scope == QueryScope::None {
-                vec![]
+            let (quads, fetched_scope, fetched_loaded) = if orm_subscription.graph_scope
+                == QueryScope::None
+            {
+                (vec![], QueryScope::None, HashMap::new())
             } else {
                 // Query scoped to items from ordered_page.
-                self.query_quads_for_shape(
-                    &QueryScope::from(graph_subject_page.iter().map(|(g, _s)| g.clone())),
+                let scope = QueryScope::from(graph_subject_page.iter().map(|(g, _s)| g.clone()));
+                let fetched = self.query_quads_for_shape(
+                    &scope,
                     &orm_subscription.shape_type.schema,
                     &orm_subscription.shape_type.shape,
                     Some(&graph_subject_page.iter().map(|(_g, s)| s.clone()).collect()),
-                )?
-                .quads
+                )?;
+                (fetched.quads, scope, fetched.loaded)
             };
 
             let graph_subject_page_new_only: Vec<(GraphIri, SubjectIri)> = graph_subject_page
@@ -381,6 +384,9 @@ impl Verifier {
                 &mut changes,
                 true,
             )?;
+
+            // Without this, shared nested objects stay incomplete and get their quads re-applied on the next page.
+            orm_subscription.mark_fetched_complete(&fetched_loaded, &fetched_scope);
 
             // Determine if we should extend the page-order query (because not enough valid items were returned).
             if let Some((old_limit, old_offset)) = limit_offset {
