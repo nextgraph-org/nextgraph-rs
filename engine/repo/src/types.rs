@@ -1320,7 +1320,9 @@ impl RootBranch {
     ) -> Result<Vec<u8>, NgError> {
         let ser = serde_bare::to_vec(write_cap).unwrap();
         let mut rng = crypto_box::aead::OsRng {};
-        let cipher = crypto_box::seal(&mut rng, &for_user.to_dh_slice().into(), &ser)
+        let recipient: crypto_box::PublicKey = for_user.to_dh_slice().into();
+        let cipher = recipient
+            .seal(&mut rng, &ser)
             .map_err(|_| NgError::EncryptionError)?;
         Ok(cipher)
     }
@@ -1328,7 +1330,9 @@ impl RootBranch {
         by_user: &PrivKey,
         cipher: &Vec<u8>,
     ) -> Result<RepoWriteCapSecret, NgError> {
-        let ser = crypto_box::seal_open(&(*by_user.to_dh().slice()).into(), cipher)
+        let secret: crypto_box::SecretKey = (*by_user.to_dh().slice()).into();
+        let ser = secret
+            .unseal(cipher)
             .map_err(|_| NgError::DecryptionError)?;
         let write_cap: RepoWriteCapSecret =
             serde_bare::from_slice(&ser).map_err(|_| NgError::SerializationError)?;
