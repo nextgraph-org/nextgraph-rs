@@ -1,4 +1,5 @@
 import type { IRI, Nuri, Unsynced, OrmSet } from "@ng-org/orm";
+export type { IRI, Nuri, Unsynced, OrmSet } from "@ng-org/orm";
 
 /**
  * =============================================================================
@@ -59,7 +60,7 @@ export interface Root {
    *
    * Original IRI: did:ng:z:children1Or2
    */
-  get children1Or2(): OrmSet<ChildShape1 | ChildShape2>;
+  get children1Or2(): OrmSet<ChildShape1 | ChildShape2> | undefined;
   /**
    * Children of type Child1 or Child1
    *
@@ -99,7 +100,13 @@ export interface ChildShape1 {
    *
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": Set<"did:ng:z:MiruVideoEffectAsset" | (IRI & {})>;
+  get "@type"(): OrmSet<"did:ng:z:MiruVideoEffectAsset" | (IRI & {})>;
+  /**
+   * Shape1 type, extra
+   *
+   * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
+   */
+  set "@type"(value: Set<"did:ng:z:MiruVideoEffectAsset" | (IRI & {})>);
   /**
    * Child string
    *
@@ -129,7 +136,11 @@ export interface ChildShape2 {
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": Set<"did:ng:z:Child" | "did:ng:z:Child2" | (IRI & {})>;
+  get "@type"(): OrmSet<"did:ng:z:Child" | "did:ng:z:Child2" | (IRI & {})>;
+  /**
+   * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
+   */
+  set "@type"(value: Set<"did:ng:z:Child" | "did:ng:z:Child2" | (IRI & {})>);
   /**
    * Child string
    *
@@ -211,7 +222,13 @@ export interface ChildChild {
    *
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": Set<"did:ng:z:ChildChild" | (IRI & {})>;
+  get "@type"(): OrmSet<"did:ng:z:ChildChild" | (IRI & {})>;
+  /**
+   * Child child type
+   *
+   * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
+   */
+  set "@type"(value: Set<"did:ng:z:ChildChild" | (IRI & {})>);
   /**
    * Child child decimal
    *

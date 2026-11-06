@@ -1,4 +1,6 @@
 import type { Unsynced } from "@ng-org/shex-orm";
+export type { IRI, Nuri, Unsynced, OrmSet } from "@ng-org/orm";
+
 import type * as Synced from "./testShape.syncedTypings.ts";
 
 /**

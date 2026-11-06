@@ -22,6 +22,7 @@ export type {
     SubscriptionData,
     WhereConfig,
     OrmSet,
+    OrmReadOnlyArray,
 } from "./utilTypes.ts";
 
 export type {

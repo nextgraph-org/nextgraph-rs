@@ -21,7 +21,6 @@ import {
 } from "@ng-org/alien-deepsignals";
 import type {
     OnObjectAttachedFn,
-    DeepSignalSet,
     WatchPatchEvent,
     effect,
     computed,
@@ -32,6 +31,7 @@ import type {
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 import {
     OrderByConfig,
+    OrmReadOnlyArray,
     OrmSet,
     RdfOrmConfig,
     SubscriptionData,
@@ -114,7 +114,7 @@ export class RdfOrmSubscription<
     }
     private readonly signalObject_: undefined extends CONF["orderBy"]
         ? OrmSet<T>
-        : DeepSignal<T[]>;
+        : OrmReadOnlyArray<T>;
     private readonlyItemsArray?: ReadonlyArray<T>;
 
     /** Listeners that get notified when root objects are added, updated, or removed. */
@@ -538,7 +538,9 @@ export class RdfOrmSubscription<
                 }
             } else {
                 for (const newItem of initialData) {
-                    this.signalObject_.push(parseOrmInitialObject(newItem));
+                    (this.signalObject_ as T[]).push(
+                        parseOrmInitialObject(newItem)
+                    );
                 }
             }
         });
@@ -567,14 +569,14 @@ export class RdfOrmSubscription<
             if (!match) return [];
             const syntheticIdOrIndex = match[1];
 
-            if (Array.isArray(this.signalObject_)) {
-                return this.signalObject_[
-                    Number(syntheticIdOrIndex)
-                ] as DeepSignal<T>;
-            } else {
+            if (this.signalObject_ instanceof Set) {
                 return this.signalObject_.getById(
                     syntheticIdOrIndex
                 ) as DeepSignal<T>;
+            } else {
+                return this.signalObject_[
+                    Number(syntheticIdOrIndex)
+                ] as DeepSignal<T>;
             }
         });
 

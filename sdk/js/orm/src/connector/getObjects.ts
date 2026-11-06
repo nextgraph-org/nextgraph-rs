@@ -9,9 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { BaseType, ShapeType } from "@ng-org/shex-orm";
-import { normalizeConf, Scope } from "../types.ts";
 import { RdfOrmSubscription } from "./RdfOrmSubscription.ts";
-import { RAW_KEY } from "@ng-org/alien-deepsignals";
+import { getRaw } from "@ng-org/alien-deepsignals";
 import { RdfOrmConfig, Snapshot } from "../utilTypes.ts";
 
 /**
@@ -33,7 +32,7 @@ export async function getObjects<
         connection.close();
     }, 1_000);
 
-    return structuredClone(
-        (connection.signalObject as { [RAW_KEY]: Set<T> | T[] })[RAW_KEY]
-    ) as Snapshot<(typeof connection)["signalObject"]>;
+    return structuredClone(getRaw(connection.signalObject)) as Snapshot<
+        (typeof connection)["signalObject"]
+    >;
 }

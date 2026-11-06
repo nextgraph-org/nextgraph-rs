@@ -11,7 +11,6 @@
 import type { BaseType, Unsynced } from "@ng-org/shex-orm";
 import { Scope } from "./types.ts";
 import { RdfOrmSubscription } from "./core.ts";
-import { DeepSignal, DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 type ValueOf<T> = T[keyof T];
 
@@ -226,14 +225,14 @@ export type RdfOrmConfig<
 export type SubscriptionData<
     T extends BaseType,
     CONF extends RdfOrmConfig<any>,
-> = undefined extends CONF["orderBy"]
-    ? OrmSet<T>
-    : DeepSignal<ReadonlyArray<T>>;
+> = undefined extends CONF["orderBy"] ? OrmSet<T> : OrmReadOnlyArray<T>;
+
+export type OrmReadOnlyArray<T extends BaseType> = ReadonlyArray<T>;
 
 /**
  * A reactive set whose values are kept in sync with the database.
- * By its typing, it's identical to a DeepSignal. But if `T` is an object,
- * it allows adding `Unsynced` objects too (without `@graph` and `@id` too).
+ * By its typing, it's identical to a DeepSignal (excluding the raw and meta properties).
+ * But if `T` is an object, it allows adding `Unsynced<>` objects too (without `@graph` and `@id`).
  */
 export type OrmSet<T> = OrmSet_<T> & OrmIteratorHelpers<T> & OrmSetProps<T>;
 
@@ -252,7 +251,7 @@ export type OrmSetProps<T> = {
         ? {
               /**
                * @internal This is only useful when you are using custom ids for sets.
-               *           You should probably use {@link DeepSignalSetProps.getBy}.
+               *           You should probably use {@link OrmSetProps.getBy} instead.
                *
                * Retrieve an entry from the Set by its synthetic set ID.
                * @param id - The synthetic ID (string or number) assigned to the entry.

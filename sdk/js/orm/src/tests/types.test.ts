@@ -1,6 +1,12 @@
 import { Unsynced } from "@ng-org/shex-orm";
 import { BaseType, insertObject, RdfOrmSubscription, ShapeType } from "../core";
-import { OrderByConfig, OrmSet, Snapshot, WhereConfig } from "../utilTypes";
+import {
+    OrderByConfig,
+    OrmReadOnlyArray,
+    OrmSet,
+    Snapshot,
+    WhereConfig,
+} from "../utilTypes";
 
 function testUtilTypes() {
     type IRI = string;
@@ -209,6 +215,14 @@ function typeTests() {
         const id: string = item2["@graph"];
     }
 
+    let ormArray: OrmReadOnlyArray<ChildChild> = [];
+    // @ts-expect-error
+    ormArray.push(ormSet.first()!);
+    const firstVal: ChildChild = ormArray[0]!;
+    for (const v of ormArray) {
+        const val: ChildChild = v;
+    }
+
     let ormSetUnsynced: Unsynced<OrmSet<ChildChild>>;
     ormSetUnsynced = new Set();
     ormSetUnsynced.has({
@@ -217,7 +231,11 @@ function typeTests() {
         foo: "",
     });
 
-    type FooType = BaseType & { foo: string };
+    type FooType = BaseType & {
+        foo: string;
+        get set1(): OrmSet<string> | undefined;
+        set set1(v: Set<string>);
+    };
     const fooShapeType: ShapeType<FooType> = {
         schema: {
             "some:schema": {
@@ -229,6 +247,13 @@ function typeTests() {
                         dataTypes: [{ valType: "string" }],
                         iri: "some:foo",
                         readablePredicate: "foo",
+                    },
+                    {
+                        maxCardinality: 1,
+                        minCardinality: 0,
+                        dataTypes: [{ valType: "string" }],
+                        iri: "some:set1",
+                        readablePredicate: "set1",
                     },
                 ],
             },
@@ -253,6 +278,16 @@ function typeTests() {
         "@id": "",
         foo: "",
     });
+
+    const subOrdered = RdfOrmSubscription.getOrCreate(fooShapeType, {
+        orderBy: { foo: "asc" },
+        graphs: "",
+    });
+    const arr: OrmReadOnlyArray<FooType> = subOrdered.signalObject;
+    // @ts-expect-error
+    arr.push;
+    const sub2Item: FooType = arr[0];
+    arr[0].set1 = new Set([]);
 
     // Test Unsynced type standalone.
 
