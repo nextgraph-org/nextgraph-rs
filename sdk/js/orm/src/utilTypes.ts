@@ -235,9 +235,35 @@ export type SubscriptionData<
  * By its typing, it's identical to a DeepSignal. But if `T` is an object,
  * it allows adding `Unsynced` objects too (without `@graph` and `@id` too).
  */
-export type OrmSet<T> = DeepSignalSet<T> & {
+export type OrmSet<T> = {
     add(value: T | Unsynced<T>): void;
-};
+} & {
+    /** Get the element that was first inserted into the set. */
+    first(): undefined | T;
+} & (T extends object
+        ? {
+              /**
+               * @internal This is only useful when you are using custom ids for sets.
+               *           You should probably use {@link DeepSignalSetProps.getBy}.
+               *
+               * Retrieve an entry from the Set by its synthetic set ID.
+               * @param id - The synthetic ID (string or number) assigned to the entry.
+               * @returns The proxied entry if found, undefined otherwise.
+               * @ignore
+               */
+              getById(id: string | number): T | undefined;
+
+              /**
+               * Retrieve an object from the Set by its `@graph` and `@id`.
+               *
+               * @param graphIri - The `@graph` NURI of the object.
+               * @param subjectIri - The `@subject` IRI of the object.
+               * @returns The proxied entry if found, undefined otherwise.
+               */
+              getBy(graphIri: string, subjectIri: string): T | undefined;
+          }
+        : {}) &
+    DeepSignalSet<T>;
 
 /** Represents a detached, non-reactive snapshot of an ORM object in the database. */
 export type Snapshot<T> =

@@ -181,6 +181,10 @@ function typeTests() {
         },
     });
 
+    // .first() returns child type.
+    let firstRootChild = fullRoot.child.first();
+    firstRootChild!.multi = new Set([]);
+
     let ormSet: OrmSet<ChildChild>;
     // @ts-expect-error
     ormSet = new Set();
