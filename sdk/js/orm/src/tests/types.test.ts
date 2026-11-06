@@ -190,10 +190,24 @@ function typeTests() {
     ormSet = new Set();
     ormSet.has({
         "@graph": "",
-        // @ts-expect-error
+        // missing @id is allowed because has accepts `Unsynced<T>`
         "@id": undefined,
         foo: "",
     });
+    ormSet.add({
+        "@graph": undefined,
+        "@id": undefined,
+        // @ts-ignore
+        foo: undefined,
+    });
+    ormSet.delete({
+        foo: "",
+    });
+
+    for (const item of ormSet) {
+        const item2: ChildChild = item;
+        const id: string = item2["@graph"];
+    }
 
     let ormSetUnsynced: Unsynced<OrmSet<ChildChild>>;
     ormSetUnsynced = new Set();

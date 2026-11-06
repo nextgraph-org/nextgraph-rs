@@ -235,7 +235,15 @@ export type SubscriptionData<
  * By its typing, it's identical to a DeepSignal. But if `T` is an object,
  * it allows adding `Unsynced` objects too (without `@graph` and `@id` too).
  */
-export type OrmSet<T> = {
+export type OrmSet<T> = OrmSet_<T> & OrmIteratorHelpers<T> & OrmSetProps<T>;
+
+// ======
+// The following are in analogy to DeepSignal's set type
+// that don't break separate getter and setters through type mapping.
+// ======
+
+/** @ignore */
+export type OrmSetProps<T> = {
     add(value: T | Unsynced<T>): void;
 } & {
     /** Get the element that was first inserted into the set. */
@@ -262,8 +270,29 @@ export type OrmSet<T> = {
                */
               getBy(graphIri: string, subjectIri: string): T | undefined;
           }
-        : {}) &
-    DeepSignalSet<T>;
+        : {});
+
+/**
+ * Helper type to prevent excessive documentation to be generated for each property.
+ * @ignore
+ */
+type OrmSet_<T> = Set<T> & {
+    add(value: T | Unsynced<T>): OrmSet<T>;
+    delete(value: T | Unsynced<T>): boolean;
+    has(value: T | Unsynced<T>): boolean;
+    forEach(
+        callbackFn: (value: T, value2: T, set: OrmSet<T>) => void,
+        thisArg?: any
+    ): void;
+};
+
+type OrmIteratorHelpers<T> = Omit<
+    IteratorObject<T>,
+    // Exclude forEach because its signature is incompatible.
+    "forEach"
+>;
+
+// ======
 
 /** Represents a detached, non-reactive snapshot of an ORM object in the database. */
 export type Snapshot<T> =
