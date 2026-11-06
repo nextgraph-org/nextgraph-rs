@@ -20,16 +20,25 @@ function testUtilTypes() {
         stringProp: string;
         numProp: number;
         boolProp: boolean;
-        setProp: Set<string>;
-        set2Prop?: Set<IRI>;
+        setProp: OrmSet<string>;
+        set2Prop?: OrmSet<IRI>;
         objProp: IdGraph & { foo: string };
-        obj2Prop: Set<{
+        obj2Prop: OrmSet<{
             "@id": string;
             "@graph": string;
             bar: string | number;
         }>;
         obj3Prop: (IdGraph & { foo: string }) | (IdGraph & { bar: string });
+        obj4Prop?: IdGraph & {
+            foo: number;
+        };
+        obj5Prop?: Set<
+            IdGraph & {
+                moo: number;
+            }
+        >;
         enumProp: "choice1" | "choice2";
+        optionalProp?: string | undefined;
     }
 
     // OrderByConfig type tests
@@ -83,6 +92,10 @@ function testUtilTypes() {
             foo: "asc",
         },
     };
+    let test1ObConf11: TestTypeOrderByConf = {
+        // @ts-expect-error
+        optionalProp: "asc",
+    };
 
     // WhereConfig type tests
 
@@ -100,7 +113,15 @@ function testUtilTypes() {
         obj2Prop: {
             bar: 2,
         },
+        obj4Prop: {
+            foo: 2,
+        },
+        obj5Prop: {
+            moo: 23,
+        },
+        optionalProp: ["some value"],
     });
+
     testWhereConf({
         // @ts-expect-error
         enumProp: ["choice1", "choice3"],

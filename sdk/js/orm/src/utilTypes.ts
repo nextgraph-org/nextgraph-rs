@@ -30,6 +30,7 @@ type ObjectProps<T extends BaseType> = ValueOf<{
     [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends
         | BaseType
         | Set<BaseType>
+        | undefined
         ? K
         : never;
 }>;
@@ -40,14 +41,15 @@ export type WhereConfig<T extends BaseType> = {
         ? S | NonEmptyArray<Exclude<S, undefined>>
         : T[P] | NonEmptyArray<Exclude<T[P], undefined>>;
 } & {
-    [P in ObjectProps<T>]?: T[P] extends Set<infer S extends BaseType>
-        ? IsUnion<S> extends true
+    [P in ObjectProps<T>]?: NonNullable<T[P]> extends Set<
+        infer S extends BaseType
+    >
+        ? IsUnion<NonNullable<S>> extends true
             ? never
             : WhereConfig<S>
-        : IsUnion<T[P]> extends true
+        : IsUnion<NonNullable<T[P]>> extends true
           ? never
-          : // Explicit Extract only necessary to make compiler happy.
-            WhereConfig<Extract<T[P], BaseType>>;
+          : WhereConfig<Extract<T[P], BaseType>>;
 };
 
 /** @internal */
