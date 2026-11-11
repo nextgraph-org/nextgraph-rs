@@ -73,6 +73,14 @@ struct ProcessRun {
     /// `load_introduced_subjects` reads them from the store, so from then on the run holds
     /// their entire state and no further query can add to it.
     introduced_by_diff: HashSet<GraphSubjectKey>,
+    /// (graph, subject) pairs this run's input quads already hold in full, regardless of which
+    /// shape asks. Only populated for `data_already_fetched` runs: those are fed the output of a
+    /// single `query_quads_for_shape` BFS that already walked every reachable nested shape for
+    /// every touched subject, so nothing of theirs is missing from `added`/`removed`. Root-shape
+    /// tracked-object existence is not an adequate proxy for this: a subject can have a stale or
+    /// unrelated tracked object under the root shape while still being brand new to the shape
+    /// actually being validated.
+    fetched_in_full: HashSet<GraphSubjectKey>,
     /// Quads still to be applied, per (graph, subject, shape).
     are_quads_applied: HashSet<(GraphIri, SubjectIri, ShapeIri)>,
     /// LIFO stack of what still has to be validated (nested objects first).
@@ -84,6 +92,7 @@ impl ProcessRun {
         orm_subscription: &OrmSubscription,
         quads_added: &[Quad],
         quads_removed: &[Quad],
+        data_already_fetched: bool,
     ) -> Self {
         let added = group_by_graph_and_subject(quads_added);
         let removed = group_by_graph_and_subject(quads_removed);
@@ -111,6 +120,12 @@ impl ProcessRun {
             .cloned()
             .collect();
 
+        let fetched_in_full = if data_already_fetched {
+            modified_gs.clone()
+        } else {
+            HashSet::new()
+        };
+
         let stack = Self::init_validation_stack(orm_subscription, &modified_gs);
 
         ProcessRun {
@@ -120,6 +135,7 @@ impl ProcessRun {
             removed_graphs,
             loaded: HashMap::new(),
             introduced_by_diff,
+            fetched_in_full,
             are_quads_applied: HashSet::new(),
             stack,
         }
@@ -300,14 +316,22 @@ impl ProcessRun {
         if self.already_looked_for(shape_iri, subject_iri, graph_iri) {
             return false;
         }
-        // 2) The pair was introduced by this update and read in full when it arrived.
+        // 2) This run's input quads already hold everything
+        //    that the store has for this (graph, subject), no matter which shape asks.
+        if self
+            .fetched_in_full
+            .contains(&(graph_iri.clone(), subject_iri.clone()))
+        {
+            return false;
+        }
+        // 3) The pair was introduced by this update and read in full when it arrived.
         if self
             .introduced_by_diff
             .contains(&(graph_iri.clone(), subject_iri.clone()))
         {
             return false;
         }
-        // 3) An existing tormo is marked complete.
+        // 4) An existing tormo is marked complete.
         orm_subscription
             .get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
             .map(|tormo| !tormo.read().unwrap().is_complete)
@@ -825,7 +849,12 @@ impl Verifier {
         orm_changes: &mut OrmChanges,
         data_already_fetched: bool,
     ) -> Result<OrmChanges, NgError> {
-        let mut run = ProcessRun::new(&orm_subscription, quads_added, quads_removed);
+        let mut run = ProcessRun::new(
+            &orm_subscription,
+            quads_added,
+            quads_removed,
+            data_already_fetched,
+        );
 
         if !data_already_fetched {
             // A subject the subscription never tracked is not necessarily new to the store: the
@@ -837,7 +866,9 @@ impl Verifier {
         // Track (shape_iri, subject_iri) pairs currently being validated to prevent cycles and double evaluation.
         let mut currently_validating: HashSet<ShapeGraphSubjectKey> = HashSet::new();
 
+        // Only passes that evaluate something count; settled entries re-queued by parents are no-ops.
         let mut loop_counter = 0;
+        let max_passes = 100.max(10 * orm_subscription.shape_type.schema.len());
 
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
@@ -850,6 +881,7 @@ impl Verifier {
                 HashMap::new();
             let mut parent_objects_to_eval: HashMap<ShapeIri, Vec<(GraphIri, SubjectIri)>> =
                 HashMap::new();
+            let mut did_work = false;
 
             // For each modified subject, apply changes to tracked orm objects, link nested refs, and validate.
             for (graph_iri, subject_iri) in graph_subject_to_validate.iter() {
@@ -924,6 +956,8 @@ impl Verifier {
                         currently_validating.remove(&validation_key);
                         continue;
                     }
+
+                    did_work = true;
 
                     // Capture child arc for later linking
                     let child_arc = change.tracked_orm_object.clone();
@@ -1086,8 +1120,11 @@ impl Verifier {
             }
 
             // Assertion: Prevent infinite loop.
-            loop_counter += 1;
-            if loop_counter > 100 {
+            if did_work {
+                loop_counter += 1;
+            }
+            if loop_counter > max_passes {
+                let mut change_objects_debug_str = String::new();
                 for (is_validated, validity, subject_iri, shape_iri, graph_iri) in
                     orm_changes.values().flat_map(|g| {
                         g.values().flat_map(|s| {
@@ -1110,10 +1147,10 @@ impl Verifier {
                         })
                     })
                 {
-                    log_err!("Something went wrong during validation: Too many cycles: All change objects: {is_validated}, {:?}, {subject_iri}, {shape_iri}, {graph_iri}", validity);
+                    change_objects_debug_str.push_str(&format!("validated: {is_validated}, {:?}, s: {subject_iri}, sh: {shape_iri}, g:{graph_iri}\n", validity));
                 }
                 return Err(NgError::OrmError(
-                    format!("[process_changes_for_subscription] Something went wrong during validation: Too many cycles. Please file a bug report.")
+                    format!("[process_changes_for_subscription] Something went wrong during validation: Too many cycles. Please file a bug report. All change objects:\n{}", change_objects_debug_str)
                 ));
             }
         }
@@ -1151,11 +1188,16 @@ impl Verifier {
                         continue;
                     }
                     // The update introduced the pair, so all of its quads arrived together; or
-                    // a load in this run already put the whole object into the change.
+                    // a load in this run already put the whole object into the change; or this
+                    // run's input quads already held everything for it in full (a
+                    // `data_already_fetched` run whose BFS walked this subject's shape already).
                     if run
                         .introduced_by_diff
                         .contains(&(graph_iri.clone(), subject_iri.clone()))
                         || run.already_looked_for(shape_iri, subject_iri, graph_iri)
+                        || run
+                            .fetched_in_full
+                            .contains(&(graph_iri.clone(), subject_iri.clone()))
                     {
                         continue;
                     }

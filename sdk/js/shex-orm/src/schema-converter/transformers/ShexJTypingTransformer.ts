@@ -147,6 +147,10 @@ function unionOf(types: dom.Type[]): dom.Type {
     return dom.create.union(unique);
 }
 
+function orUndefined(t: dom.Type): dom.Type {
+    return dom.create.union([t, dom.type.undefined]);
+}
+
 function setOf(inner: dom.Type): dom.NamedTypeReference {
     return {
         kind: "name",
@@ -346,10 +350,10 @@ function createProperty(
     return prop;
 }
 
-function unpersistedOf(type: dom.Type): dom.NamedTypeReference {
+function unsyncedOf(type: dom.Type): dom.NamedTypeReference {
     return {
         kind: "name",
-        name: "Unpersisted",
+        name: "Unsynced",
         typeArguments: [type],
     };
 }
@@ -639,10 +643,21 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         ]);
                         union = unionOf([union, intersectedString]);
                     }
-                    const final = isPlural ? setOf(union) : union;
+                    if (isPlural) {
+                        const accessors = createAccessors(
+                            baseName,
+                            isOptional
+                                ? orUndefined(ormSetOf(union))
+                                : ormSetOf(union),
+                            setOf(union),
+                            tripleConstraint.predicate,
+                            tripleConstraint.annotations
+                        );
+                        return dom.create.objectType(accessors);
+                    }
                     return createProperty(
                         baseName,
-                        final,
+                        union,
                         isOptional
                             ? dom.DeclarationFlags.Optional
                             : dom.DeclarationFlags.None,
@@ -741,7 +756,9 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 } else {
                     const accessors = createAccessors(
                         baseName,
-                        ormSetOf(valueType),
+                        isOptional
+                            ? orUndefined(ormSetOf(valueType))
+                            : ormSetOf(valueType),
                         setOf(valueType),
                         tripleConstraint.predicate,
                         tripleConstraint.annotations
@@ -785,10 +802,16 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         ? (finalType as any).typeArguments[0]
                         : finalType;
 
-                const getterType = isPlural ? ormSetOf(childType) : childType;
+                const getterType = isPlural
+                    ? isOptional
+                        ? orUndefined(ormSetOf(childType))
+                        : ormSetOf(childType)
+                    : isOptional
+                      ? orUndefined(childType)
+                      : childType;
                 const setterType = isPlural
-                    ? setOf(unionOf([childType, unpersistedOf(childType)]))
-                    : unionOf([childType, unpersistedOf(childType)]);
+                    ? setOf(unionOf([childType, unsyncedOf(childType)]))
+                    : unionOf([childType, unsyncedOf(childType)]);
 
                 const accessors = createAccessors(
                     baseName,

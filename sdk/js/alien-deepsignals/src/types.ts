@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { computed, alienSignal } from "./core.ts";
-import { deepSignal } from "./deepSignal.ts";
+import { type getRaw, deepSignal } from "./deepSignal.ts";
 import type { watch } from "./watch.ts";
 
 /** Deep mutation emitted from a deepSignal root. */
@@ -179,7 +179,7 @@ export type SignalLike<T = any> = WritableSignal<T> | ComputedSignal<T>;
 
 /** @ignore Raw and meta key. */
 export type DeepSignalObjectProps<T> = {
-    /** The original raw object. */
+    /** The original raw object. You are recommended to use {@link getRaw} though. */
     __raw__: T;
     /** @internal meta information @ignore */
     __meta__: ProxyMeta;

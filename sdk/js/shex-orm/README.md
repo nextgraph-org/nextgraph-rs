@@ -58,7 +58,7 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
 ex:ExpenseShape {
-  # `a` is a shorthand for the standard RDF type predicate `rdfs:type` or in the long form: `http://www.w3.org/1999/02/22-rdf-syntax-ns#type`
+  # `a` is a shorthand for the standard RDF type predicate `rdf:type` or in the long form: `http://www.w3.org/1999/02/22-rdf-syntax-ns#type`
   a [ex:Person]                    # Required type <did:ng:z:Person>
       // rdfs:comment "This is a comment that will appear in the generated TypeScript type" ;
   ex:name xsd:string ;             # Required string
@@ -104,7 +104,7 @@ As types for your properties, you are recommended to use the following:
 | specific IRI               | `prefix:value` or `<http://some.full/iri>`             |                                        |
 | enums                      | `[<space-separated list of literals/IRIs from above>]` | In square brackets                     |
 
-All other numeric `xsd` types are mapped to type `number` in TypeScript. Every other type is represented as `string` in TypeScript.
+Other numeric `xsd` types map to `number`, `xsd:boolean` to `boolean`, `xsd:dateTime` to `Date`, and every other type to `string`.
 A property may in theory have any type, not necessarily in the `xsd:` namespace. But you are recommended to stick to the ones listed above.
 
 **SHEX Syntax Quick Reference**
@@ -123,16 +123,17 @@ A property may in theory have any type, not necessarily in the `xsd:` namespace.
 | shape attribute `EXTRA <predicate name>` | for object types: invalid child objects will be ignored instead of the parent becoming invalid |                                                                  |
 | shape attribute `CLOSED`                 | Additional quads (not matching any predicate) make an object become invalid                    |                                                                  |
 
-You will then pass the shape type of a shape definition to the ng sdk:
+Pass the shape type of a shape definition to the ORM:
 
 Note: If you specify more than one allowed nested shape and the data matches both shapes, the first shape will "win". In general though, you are advised to define shapes so that this does not happen. Specify different types for each shape instead (e.g. `a [ex:DistinguishingTypeOnlyAvailableInThisData] ;`).
 
 ## Generated Output
 
-For each SHEX file, the tool creates three TypeScript files:
+For each SHEX file, the tool creates four TypeScript files:
 
 - A schema file like `person.schema.ts`
-- A typings file like `person.typings.ts`
+- A synced typings file like `person.syncedTypings.ts` which describes objects as they come from the ORM. Once an object is attached to the orm, it immediately has the properties described by a synced type.
+- A typings file like `person.typings.ts` which derives every type from the synced typings via `Unsynced<>`, for creating new objects. You can assign regular, unsynced types to synced types.
 - A shape type file like `person.shapeTypes.ts` which contains a `ShapeType` that consists of the schema, the type, and the IRI of the main shape. This is what you pass to the ORM.
 
 The transformers for converting SHEX to schema and typings files are based on `@ldo/traverser-shexj`.
@@ -144,13 +145,13 @@ Every object has the following two readonly properties:
 - `@id` the subject IRI
 - `@graph` the graph (document) NURI
 
-In addition to that, you will usually find the **`@type`** property: The RDF type IRI (from `rdfs:type`) is always converted to the property name `@type` by default. You are strongly encouraged to specify a type in your schema.
+In addition to that, you will usually find the **`@type`** property: The RDF type IRI (from `rdf:type`) is always converted to the property name `@type` by default. You are strongly encouraged to specify a type in your schema.
 
-Property names are derived from the last part of the predicate IRI. In case of name collisions the 2nd, 3rd, etc. last part is is joined with it.
+Property names are derived from the last part of the predicate IRI. In case of name collisions, the 2nd, 3rd, etc. last parts are joined with it.
 
-Predicates with a cardinality greater than 1 (i.e., `maxCardinality > 1` or `maxCardinality === -1` for unlimited) are represented as sets, more specifically `OrmSet<T>` types.
+Predicates with a cardinality greater than 1 (i.e., `maxCardinality > 1` or `maxCardinality === -1` for unlimited) are represented as sets: `OrmSet<T>` in synced typings and `Set<T>` in unsynced typings.
 
-Note that SHEX allows you to specify cardinalities not representable in TypeScript, for example greater than 2 and less than 4. When you modify an object so that it does not fulfil those requirements anymore, it will disappear since it doesn't match the shape anymore.
+Note that SHEX allows you to specify cardinalities not representable in TypeScript, for example `{3,4}`. When you modify an object so that it does not fulfil those requirements anymore, it will disappear since it doesn't match the shape anymore.
 
 The `OrmSet<T>` behaves like a regular set but with some additional features:
 
@@ -159,15 +160,14 @@ The `OrmSet<T>` behaves like a regular set but with some additional features:
 - In case it contains nested objects, you can use `.getBy()` to get an item by its `@graph` and `@id`.
 - All objects tracked in the ORM, which includes `OrmSet`, are reactive deepsignal objects - modifications are kept in sync with the engine and the frontend.
 
-While sets and child objects are reactive and provide additional functionality, you can assign regular, plain old TypeScript child objects or sets to them. They will be convert to tracked, persisted ORM objects.
+While sets and child objects are reactive and provide additional functionality, you can assign regular, plain old TypeScript child objects or sets to them. They will be converted to tracked, persisted ORM objects.
 
-> If you want to create a typed object without directly adding it to the ORM, say of type `Expense`, you can utilize the generated `typings.ts` type definitions by wrapping them in the `Unpersisted<>` type:
+> If you want to create a typed object without directly adding it to the ORM, say of type `Expense`, you can use the generated `typings.ts` type definitions, which are already wrapped in `Unsynced<>`:
 >
 > ```typescript
-> import type { Unpersisted } from "@ng-org/orm";
 > import type { Expense } from "../shapes/orm/expenseShapes.typings.ts"
 >
-> const newExpense: Unpersisted<Expense> = {
+> const newExpense: Expense = {
 >   name: "Bananas",
 >   amount: 10,
 >   // Set can be a regular non-OrmSet.
@@ -177,20 +177,15 @@ While sets and child objects are reactive and provide additional functionality, 
 > };
 > ```
 >
-> The `Unpersisted` type makes `@graph` and `@id` properties optional.
-
-Currently, all numeric xsd types (e.g. `xsd:decimal`) are mapped to `number` in TypeScript.
-`xsd:boolean` is mapped to `boolean`.
-`xsd:dateTime` is represented as `Date` object in TypeScript.
-Everything else is represented as `string`.
+> The `Unsynced` type makes `@graph`, `@id`, and all sets except those with literal values (e.g. `@type`) optional.
 
 ### Use in the ORM
 
-In the ORM, you pass the generated `ShapeType` to the respective functions (`getObjects()`, `insertObject()`, `useShape()`, `OrmSubscription.getOrCreate()`), for example:
+In the ORM, you pass the generated `ShapeType` to the respective functions (`getObjects()`, `insertObject()`, `useShape()`, `RdfOrmSubscription.getOrCreate()`), for example:
 
 ```ts
 import { useShape } from "@ng-org/orm/react";
-import { TestObjectShapeType } from "../shapes/orm/testShape.shapeTypes";
+import { TestObjectShapeType } from "../shapes/orm/testShape.shapeTypes.ts";
 
 export function TestComponent() {
     const {data: testObjects} = useShape(TestObjectShapeType, {graphs: ["did:ng:i"]});
@@ -201,7 +196,7 @@ export function TestComponent() {
 ## Nested Object Validity
 
 Note that when a nested object is invalid, the whole parent object is invalid too (i.e. it won't be loaded).
-If you want to allow for invalid children (that are then not materialized in TypeScript), you can mark the property as EXTRA, e.g.:
+If you want to allow for invalid children (that are then not materialized in TypeScript), you can add `EXTRA` with the predicate to the shape, e.g.:
 
 ```shex
 ex:ExpenseShape EXTRA ex:address {
@@ -214,7 +209,7 @@ ex:ExpenseShape EXTRA ex:address {
 In the background, the ORM converts shape types and the scope of a request into SPARQL queries.
 For performant queries, there are few things you can keep in mind:
 
-- Pass a graph and potentially subject **scope** when creating an ORM subscription: If you know in which graph or which subjects your data is, this narrow the query a lot.
+- Pass a graph and potentially subject **scope** when creating an ORM subscription: If you know in which graph or which subjects your data is, this narrows the query a lot.
 - Use mandatory predicates (e.g. `rdfs:name xsd:string ;`): When you specify a mandatory predicate, the SPARQL engine will ignore all objects without it.
 - Specify types or other mandatory predicates (e.g. `a [ ex:HomeAddress ] ;`). This will narrow the search space even more. Especially if your literals are rare.
 - Use `CLOSED` shapes **only if you have a narrow graph or subject scope**: To track excess quads for objects with closed shapes, the SPARQL query will fetch _all_ quads within the graph and subject scope. If you don't scope your request, this might cause a query to return all data in your store. Child objects with a closed shape are less affected because their SPARQL queries are always scoped (to the subject they are referenced with). Don't use closed shapes unless you are careful and have a good reason.
@@ -266,7 +261,3 @@ NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure
 [license-link]: https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/LICENSE-APACHE2
 [license-image2]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-link2]: https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/LICENSE-MIT
-
-```
-
-```

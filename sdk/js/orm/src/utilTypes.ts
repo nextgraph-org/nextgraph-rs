@@ -8,10 +8,9 @@
 // according to those terms.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { BaseType } from "@ng-org/shex-orm";
+import type { BaseType, Unsynced } from "@ng-org/shex-orm";
 import { Scope } from "./types.ts";
 import { RdfOrmSubscription } from "./core.ts";
-import { DeepSignal, DeepSignalSet } from "@ng-org/alien-deepsignals";
 
 type ValueOf<T> = T[keyof T];
 
@@ -31,6 +30,7 @@ type ObjectProps<T extends BaseType> = ValueOf<{
     [K in Exclude<keyof T, "@id" | "@graph">]: T[K] extends
         | BaseType
         | Set<BaseType>
+        | undefined
         ? K
         : never;
 }>;
@@ -41,14 +41,15 @@ export type WhereConfig<T extends BaseType> = {
         ? S | NonEmptyArray<Exclude<S, undefined>>
         : T[P] | NonEmptyArray<Exclude<T[P], undefined>>;
 } & {
-    [P in ObjectProps<T>]?: T[P] extends Set<infer S extends BaseType>
-        ? IsUnion<S> extends true
+    [P in ObjectProps<T>]?: NonNullable<T[P]> extends Set<
+        infer S extends BaseType
+    >
+        ? IsUnion<NonNullable<S>> extends true
             ? never
             : WhereConfig<S>
-        : IsUnion<T[P]> extends true
+        : IsUnion<NonNullable<T[P]>> extends true
           ? never
-          : // Explicit Extract only necessary to make compiler happy.
-            WhereConfig<Extract<T[P], BaseType>>;
+          : WhereConfig<Extract<T[P], BaseType>>;
 };
 
 /** @internal */
@@ -100,14 +101,22 @@ export type OrderByConfig<T extends BaseType> =
     | NonEmptyArray<OrderByConfigObject<T>>
     | OrderByConfigObject<T>;
 export type OrderByConfigObject<T extends BaseType> = SingleKeyObject<{
-    [K in Exclude<keyof T, "@graph" | "@id">]: IsSinglePrimitive<
-        T[K]
-    > extends true
+    [K in OrderableKeys<T>]: IsSinglePrimitive<T[K]> extends true
         ? "asc" | "desc"
         : T[K] extends BaseType
           ? OrderByConfig<T[K]>
           : never;
 }>;
+
+type OrderableKeys<T extends BaseType> = {
+    [K in Exclude<keyof T, "@graph" | "@id">]: IsSinglePrimitive<
+        T[K]
+    > extends true
+        ? K
+        : T[K] extends BaseType
+          ? K
+          : never;
+}[Exclude<keyof T, "@graph" | "@id">];
 
 type IsSinglePrimitive<T> = [T] extends [string]
     ? true
@@ -218,33 +227,103 @@ export type RdfOrmConfig<
 export type SubscriptionData<
     T extends BaseType,
     CONF extends RdfOrmConfig<any>,
-> = undefined extends CONF["orderBy"]
-    ? OrmSet<T>
-    : DeepSignal<ReadonlyArray<T>>;
+> = undefined extends CONF["orderBy"] ? OrmSet<T> : OrmReadOnlyArray<T>;
+
+export type OrmReadOnlyArray<T extends BaseType> = ReadonlyArray<T>;
 
 /**
  * A reactive set whose values are kept in sync with the database.
- * By its typing, it's identical to a DeepSignal set but its `add`
- * function allows adding objects without an `@id` or `@graph`.
+ * By its typing, it's identical to a DeepSignal (excluding the raw and meta properties).
+ * But if `T` is an object, it allows adding `Unsynced<>` objects too (without `@graph` and `@id`).
  */
-export type OrmSet<T> = DeepSignalSet<T> & {
-    add(value: T | Unpersisted<T>): void;
+export type OrmSet<T> = OrmSet_<T> & OrmIteratorHelpers<T> & OrmSetProps<T>;
+
+// ======
+// The following are in analogy to DeepSignal's set type
+// that don't break separate getter and setters through type mapping.
+// ======
+
+/** @ignore */
+export type OrmSetProps<T> = {
+    add(value: T | Unsynced<T>): void;
+} & {
+    /** Get the element that was first inserted into the set. */
+    first(): undefined | T;
+} & (T extends object
+        ? {
+              /**
+               * @internal This is only useful when you are using custom ids for sets.
+               *           You should probably use {@link OrmSetProps.getBy} instead.
+               *
+               * Retrieve an entry from the Set by its synthetic set ID.
+               * @param id - The synthetic ID (string or number) assigned to the entry.
+               * @returns The proxied entry if found, undefined otherwise.
+               * @ignore
+               */
+              getById(id: string | number): T | undefined;
+
+              /**
+               * Retrieve an object from the Set by its `@graph` and `@id`.
+               *
+               * @param graphIri - The `@graph` NURI of the object.
+               * @param subjectIri - The `@subject` IRI of the object.
+               * @returns The proxied entry if found, undefined otherwise.
+               */
+              getBy(graphIri: string, subjectIri: string): T | undefined;
+          }
+        : {});
+
+/**
+ * Helper type to prevent excessive documentation to be generated for each property.
+ * @ignore
+ */
+type OrmSet_<T> = Set<T> & {
+    add(value: T | Unsynced<T>): OrmSet<T>;
+    delete(value: T | Unsynced<T>): boolean;
+    has(value: T | Unsynced<T>): boolean;
+    forEach(
+        callbackFn: (value: T, value2: T, set: OrmSet<T>) => void,
+        thisArg?: any
+    ): void;
 };
 
-/** Utility type that makes `@id` and `@graph` properties optional.  */
-export type Unpersisted<T> =
-    T extends OrmSet<infer I>
-        ? Set<Unpersisted<I>>
-        : T extends Array<infer I>
-          ? Array<Unpersisted<I>>
-          : T extends BaseType
-            ? Partial<BaseType> & {
-                  [K in Exclude<keyof T, "@id" | "@graph">]: Unpersisted<T[K]>;
+type OrmIteratorHelpers<T> = Omit<
+    IteratorObject<T>,
+    // Exclude forEach because its signature is incompatible.
+    "forEach"
+>;
+
+// ======
+
+/** Represents a detached, non-reactive snapshot of an ORM object in the database. */
+export type Snapshot<T> =
+    T extends Set<infer I>
+        ? Set<Snapshot<I>>
+        : T extends ReadonlyArray<infer I> | Array<infer I>
+          ? Array<Snapshot<I>>
+          : T extends Partial<BaseType>
+            ? BaseType & {
+                  [K in Exclude<OptionalProps<T>, "@id" | "@graph">]?:
+                      | undefined
+                      | T[K] extends Set<any>
+                      ? never
+                      : Snapshot<T[K]>;
+              } & {
+                  [K in Exclude<
+                      MandatoryProps<T>,
+                      "@id" | "@graph"
+                  >]: T[K] extends Set<any>
+                      ? Snapshot<T[K]>
+                      : undefined extends T[K]
+                        ? never
+                        : Snapshot<T[K]>;
               }
             : T;
 
-/** Type alias for {@link Unpersisted}. */
-export type UP<T extends BaseType> = Unpersisted<T>;
+type OptionalProps<T> = {
+    [K in keyof T]-?: undefined extends T[K] ? K : never;
+}[keyof T];
+type MandatoryProps<T> = Exclude<keyof T, OptionalProps<T>>;
 
 /**
  * @internal

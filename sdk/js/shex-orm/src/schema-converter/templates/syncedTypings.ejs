@@ -1,0 +1,15 @@
+import type { IRI, Nuri, Unsynced, OrmSet } from "@ng-org/orm";
+export type { IRI, Nuri, Unsynced, OrmSet } from "@ng-org/orm";
+
+/**
+* =============================================================================
+* Typescript Typings for <%- fileName %>
+  * =============================================================================
+  */
+
+  <% typings.forEach((typing)=> { -%>
+    /**
+    * <%- typing.dts.name %> Type
+      */
+      export <%- typing.typingString -%>
+        <% }); -%>

@@ -1585,7 +1585,7 @@ export function addWithId<T extends object | Set<any> | any[]>(
     return deepSignalSet.getById(id);
 }
 
-/** Get the original, raw value of a deep signal. */
+/** Get the original, raw value of a deep signal. If not a deep signal object, returns `value` itself. */
 export function getRaw<T extends object>(value: T | DeepSignal<T>) {
     return (value as any)?.[RAW_KEY] ?? value;
 }

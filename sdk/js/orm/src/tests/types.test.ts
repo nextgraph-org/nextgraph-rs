@@ -1,5 +1,12 @@
+import { Unsynced } from "@ng-org/shex-orm";
 import { BaseType, insertObject, RdfOrmSubscription, ShapeType } from "../core";
-import { OrderByConfig, OrmSet, Unpersisted, WhereConfig } from "../utilTypes";
+import {
+    OrderByConfig,
+    OrmReadOnlyArray,
+    OrmSet,
+    Snapshot,
+    WhereConfig,
+} from "../utilTypes";
 
 function testUtilTypes() {
     type IRI = string;
@@ -13,16 +20,25 @@ function testUtilTypes() {
         stringProp: string;
         numProp: number;
         boolProp: boolean;
-        setProp: Set<string>;
-        set2Prop?: Set<IRI>;
+        setProp: OrmSet<string>;
+        set2Prop?: OrmSet<IRI>;
         objProp: IdGraph & { foo: string };
-        obj2Prop: Set<{
+        obj2Prop: OrmSet<{
             "@id": string;
             "@graph": string;
             bar: string | number;
         }>;
         obj3Prop: (IdGraph & { foo: string }) | (IdGraph & { bar: string });
+        obj4Prop?: IdGraph & {
+            foo: number;
+        };
+        obj5Prop?: Set<
+            IdGraph & {
+                moo: number;
+            }
+        >;
         enumProp: "choice1" | "choice2";
+        optionalProp?: string | undefined;
     }
 
     // OrderByConfig type tests
@@ -76,6 +92,10 @@ function testUtilTypes() {
             foo: "asc",
         },
     };
+    let test1ObConf11: TestTypeOrderByConf = {
+        // @ts-expect-error
+        optionalProp: "asc",
+    };
 
     // WhereConfig type tests
 
@@ -93,7 +113,15 @@ function testUtilTypes() {
         obj2Prop: {
             bar: 2,
         },
+        obj4Prop: {
+            foo: 2,
+        },
+        obj5Prop: {
+            moo: 23,
+        },
+        optionalProp: ["some value"],
     });
+
     testWhereConf({
         // @ts-expect-error
         enumProp: ["choice1", "choice3"],
@@ -122,17 +150,17 @@ function typeTests() {
         set multiProp(val: Set<string | ({} & "some:foo")>);
 
         get child(): OrmSet<Child>;
-        set child(value: Child | Unpersisted<Child>);
+        set child(value: Child | Unsynced<Child>);
     }
     interface Child {
         readonly "@graph": string;
         readonly "@id": string;
 
         get multi(): OrmSet<ChildChild>;
-        set multi(value: Set<ChildChild | Unpersisted<ChildChild>>);
+        set multi(value: Set<ChildChild | Unsynced<ChildChild>>);
 
         get single(): ChildChild;
-        set single(value: ChildChild | Unpersisted<ChildChild>);
+        set single(value: ChildChild | Unsynced<ChildChild>);
     }
     interface ChildChild {
         readonly "@id": string;
@@ -140,7 +168,7 @@ function typeTests() {
         foo: string;
     }
 
-    let unpersistedRoot: Unpersisted<Root> = {
+    let unsyncedRoot: Unsynced<Root> = {
         someProp: "",
         multiProp: new Set(["one"]),
         child: new Set([
@@ -151,7 +179,7 @@ function typeTests() {
         ]),
     };
 
-    unpersistedRoot.child = new Set([
+    unsyncedRoot.child = new Set([
         {
             multi: new Set([]),
             single: { foo: "" },
@@ -180,25 +208,55 @@ function typeTests() {
         },
     });
 
+    // .first() returns child type.
+    let firstRootChild = fullRoot.child.first();
+    firstRootChild!.multi = new Set([]);
+
     let ormSet: OrmSet<ChildChild>;
     // @ts-expect-error
     ormSet = new Set();
     ormSet.has({
         "@graph": "",
-        // @ts-expect-error
+        // missing @id is allowed because has accepts `Unsynced<T>`
         "@id": undefined,
         foo: "",
     });
+    ormSet.add({
+        "@graph": undefined,
+        "@id": undefined,
+        // @ts-ignore
+        foo: undefined,
+    });
+    ormSet.delete({
+        foo: "",
+    });
 
-    let ormSetUnpersisted: Unpersisted<OrmSet<ChildChild>>;
-    ormSetUnpersisted = new Set();
-    ormSetUnpersisted.has({
+    for (const item of ormSet) {
+        const item2: ChildChild = item;
+        const id: string = item2["@graph"];
+    }
+
+    let ormArray: OrmReadOnlyArray<ChildChild> = [];
+    // @ts-expect-error
+    ormArray.push(ormSet.first()!);
+    const firstVal: ChildChild = ormArray[0]!;
+    for (const v of ormArray) {
+        const val: ChildChild = v;
+    }
+
+    let ormSetUnsynced: Unsynced<OrmSet<ChildChild>>;
+    ormSetUnsynced = new Set();
+    ormSetUnsynced.has({
         "@graph": "",
         "@id": undefined,
         foo: "",
     });
 
-    type FooType = BaseType & { foo: string };
+    type FooType = BaseType & {
+        foo: string;
+        get set1(): OrmSet<string> | undefined;
+        set set1(v: Set<string>);
+    };
     const fooShapeType: ShapeType<FooType> = {
         schema: {
             "some:schema": {
@@ -210,6 +268,13 @@ function typeTests() {
                         dataTypes: [{ valType: "string" }],
                         iri: "some:foo",
                         readablePredicate: "foo",
+                    },
+                    {
+                        maxCardinality: 1,
+                        minCardinality: 0,
+                        dataTypes: [{ valType: "string" }],
+                        iri: "some:set1",
+                        readablePredicate: "set1",
                     },
                 ],
             },
@@ -235,10 +300,20 @@ function typeTests() {
         foo: "",
     });
 
-    // Test Unpersisted type standalone.
+    const subOrdered = RdfOrmSubscription.getOrCreate(fooShapeType, {
+        orderBy: { foo: "asc" },
+        graphs: "",
+    });
+    const arr: OrmReadOnlyArray<FooType> = subOrdered.signalObject;
+    // @ts-expect-error
+    arr.push;
+    const sub2Item: FooType = arr[0];
+    arr[0].set1 = new Set([]);
+
+    // Test Unsynced type standalone.
 
     // @ts-expect-error
-    const upo: Unpersisted<{
+    const upo: Unsynced<{
         "@id": string;
         "@graph": string;
         set: OrmSet<{ k: number; "@id": string; "@graph": string }>;
@@ -249,4 +324,238 @@ function typeTests() {
     const po: { set: OrmSet<{ k: number }> };
     // @ts-expect-error
     po.set = new Set();
+
+    upo.set = new Set();
+
+    const snapshotTest1: Snapshot<{
+        readonly "@id": string;
+        readonly "@graph": string;
+        set: OrmSet<{ k: number; "@id": string; "@graph": string }>;
+        set2: OrmSet<{ k: number; "@id": string; "@graph": string }>;
+    }> = {
+        // @ts-expect-error
+        "@graph": undefined,
+        "@id": "",
+        // @ts-expect-error
+        set: new Set([
+            {
+                "@graph": undefined,
+                "@id": "",
+                k: 2,
+            },
+        ]),
+        // // @ts-expect-error
+        // set2: new Set([
+        //     {
+        //         "@graph": "",
+        //         "@id": "",
+        //         k: "",
+        //     },
+        // ]),
+    };
+    // @ts-expect-error
+    snapshotTest1.set2 = undefined;
+
+    // @ts-expect-error
+    const snapshotTest2: Snapshot<{
+        readonly "@id": string;
+        readonly "@graph": string;
+        set: OrmSet<{ k: number; "@id": string; "@graph": string }>;
+        set2: OrmSet<{ k: number; "@id": string; "@graph": string }>;
+    }> = {
+        "@graph": "",
+        "@id": "",
+        set: new Set([
+            {
+                "@graph": "",
+                "@id": "",
+                k: 2,
+            },
+        ]),
+        // set2: new Set(),
+    };
+}
+
+/** Unsynced type tests, not to be executed */
+function unsyncedTypeTests() {
+    type IRI = string;
+    interface Child {
+        readonly "@id": string;
+        readonly "@graph": string;
+        label: string;
+        optLit?: string;
+    }
+    interface Parent {
+        readonly "@id": string;
+        readonly "@graph": string;
+        name: string;
+        tags: Set<IRI>;
+        optTags?: Set<IRI>;
+        optLit?: Set<"a" | "b">;
+        opt?: Child;
+        req: Child;
+
+        get kid(): Child | undefined;
+        set kid(value: Child | Unsynced<Child>);
+        get kids(): OrmSet<Child> | undefined;
+        set kids(value: Set<Child | Unsynced<Child>>);
+    }
+
+    // Mandatory properties with optional ids and optional properties may be omitted.
+    const minimal: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+    };
+    const full: Unsynced<Parent> = {
+        "@id": "",
+        "@graph": "",
+        name: "",
+        tags: new Set(["x"]),
+        optTags: new Set(["x"]),
+        optLit: new Set(["a"]),
+        opt: { label: "" },
+        req: { "@id": "", label: "" },
+        kid: { label: "" },
+        kids: new Set([{ label: "", optLit: "" }]),
+    };
+    const explicitUndefined: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+        opt: undefined,
+        optTags: undefined,
+        optLit: undefined,
+        kid: undefined,
+        kids: undefined,
+    };
+
+    // @ts-expect-error name is mandatory
+    const noName: Unsynced<Parent> = { tags: new Set(), req: { label: "" } };
+    // @ts-expect-error tags is mandatory
+    const noTags: Unsynced<Parent> = { name: "", req: { label: "" } };
+    // @ts-expect-error req is mandatory
+    const noReq: Unsynced<Parent> = { name: "", tags: new Set() };
+    const reqUndefined: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        // @ts-expect-error req does not accept undefined
+        req: undefined,
+    };
+    const badOptTags: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+        // @ts-expect-error optional set element type is checked
+        optTags: new Set([1]),
+    };
+    const badLit: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+        // @ts-expect-error literal set member is checked
+        optLit: new Set(["c"]),
+    };
+    const badChild1: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        // @ts-expect-error nested label type is checked
+        req: { label: 1 },
+    };
+    const badChild2: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        // @ts-expect-error nested label type is checked
+        req: { label: "", optLit: 2 },
+    };
+    const badOpt: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+        // @ts-expect-error nested optional object type is checked
+        opt: { label: 1 },
+    };
+    const badId: Unsynced<Parent> = {
+        // @ts-expect-error id type is checked even though it is optional
+        "@id": 5,
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+    };
+    const badOptLitChild: Unsynced<Child> = {
+        label: "",
+        // @ts-expect-error Type 'number' is not assignable to type 'string'
+        optLit: 2,
+    };
+}
+
+/** Unsynced operation tests, not to be executed */
+function unsyncedOperationTests() {
+    type IRI = string;
+    interface Child {
+        readonly "@id": string;
+        readonly "@graph": string;
+        label: string;
+        /** Opt list doc comment */
+        optLit?: string;
+    }
+    interface Parent {
+        readonly "@id": string;
+        readonly "@graph": string;
+        name: string;
+        tags: Set<IRI>;
+        optTags?: Set<IRI>;
+        opt?: Child;
+        req: Child;
+
+        get kid(): Child | undefined;
+        set kid(value: Child | Unsynced<Child>);
+        get kids(): OrmSet<Child> | undefined;
+        set kids(value: Set<Child | Unsynced<Child>>);
+    }
+
+    // Set mutations on an unsynced value.
+    const draft: Unsynced<Parent> = {
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+    };
+    draft.tags.add("x");
+    draft.tags.delete("x");
+    draft.name = "renamed";
+    draft.req = { label: "other" };
+    draft.opt = { label: "" };
+    draft.optTags = new Set(["y"]);
+    draft.optTags = undefined;
+    draft.kid = { label: "" };
+    draft.kids = new Set([
+        { label: "" },
+        { label: "", "@id": "" },
+        { label: "", optLit: "" },
+    ]);
+
+    // Optional values are readable and narrowable.
+    const opt = draft.opt;
+    if (opt !== undefined) {
+        const label: string = opt.label;
+        void label;
+    }
+    const maybeTags: Set<IRI> | undefined = draft.optTags;
+    void maybeTags;
+
+    // Spreading and passing unsynced values to functions.
+    function takesUnsynced(_p: Unsynced<Parent>) {}
+    takesUnsynced({ ...draft, name: "copy" });
+    takesUnsynced({
+        name: "",
+        tags: new Set(),
+        req: { label: "" },
+        opt: undefined,
+    });
+
+    // Child objects can be created without an id and then attached.
+    const kidOnly: Unsynced<Child> = { label: "" };
+    kidOnly.optLit = "";
+    draft.kid = kidOnly;
+    draft.req = { ...kidOnly, "@id": "" };
 }
