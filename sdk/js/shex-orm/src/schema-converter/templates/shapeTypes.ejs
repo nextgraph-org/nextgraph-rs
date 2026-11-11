@@ -4,7 +4,7 @@ import { <%- fileName %>Schema } from "./<%- fileName %>.schema.ts";
     import type {
     <% typings.forEach((typing)=> { if (!/Id$/.test(typing.dts.name)) { -%>
       <%- typing.dts.name %>,
-        <% } }); -%>} from "./<%- fileName %>.typings.ts";
+        <% } }); -%>} from "./<%- fileName %>.syncedTypings.ts";
 
             // ShapeTypes for <%- fileName %>.shex
 

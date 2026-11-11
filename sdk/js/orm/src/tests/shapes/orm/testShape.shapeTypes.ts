@@ -7,7 +7,7 @@ import type {
   ChildShape2,
   ChildShape3,
   ChildChild,
-} from "./testShape.typings.ts";
+} from "./testShape.syncedTypings.ts";
 
 // ShapeTypes for testShape.shex
 

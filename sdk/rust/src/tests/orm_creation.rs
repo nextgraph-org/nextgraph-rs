@@ -3120,7 +3120,7 @@ INSERT DATA {
             },
             {
                 "op": "remove",
-                "path": "/3",
+                "path": "/2",
             },
         ]),
         &json!(new_page_patches),
@@ -3343,7 +3343,7 @@ INSERT DATA {
             },
             {
                 "op": "remove",
-                "path": "/5",
+                "path": "/4",
             },
         ]),
         &json!(new_page_patches),
@@ -4918,6 +4918,103 @@ fn create_root_obj_two_children_schema() -> OrmSchema {
 
     return schema;
 }
+
+/// A root with many required nested shapes must not hit the validation loop limit.
+/// The stack redundantly re-queues every still-pending child shape after each parent pass,
+/// so the pop count grows with the number of nested shapes, not with the amount of data.
+#[async_std::test]
+async fn test_orm_many_nested_shapes() {
+    const CHILD_SHAPES: usize = 20;
+
+    let (_wallet, session_id) = create_or_open_wallet().await;
+
+    let mut sparql =
+        String::from("PREFIX ex: <did:ng:z:>\nINSERT DATA {\n  <did:ng:z:bigCard> a ex:BigCard");
+    for i in 0..CHILD_SHAPES {
+        sparql.push_str(&format!(" ;\n    ex:child{i} <did:ng:z:child{i}>"));
+    }
+    sparql.push_str(" .\n");
+    for i in 0..CHILD_SHAPES {
+        sparql.push_str(&format!("  <did:ng:z:child{i}> ex:text \"text{i}\" .\n"));
+    }
+    sparql.push_str("}\n");
+    let doc_nuri = create_doc_with_data(session_id, sparql).await;
+
+    let mut schema: OrmSchema = HashMap::new();
+    let mut root_predicates = vec![Arc::new(OrmSchemaPredicate {
+        iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+        readablePredicate: "@type".to_string(),
+        extra: None,
+        maxCardinality: 1,
+        minCardinality: 1,
+        dataTypes: vec![OrmSchemaDataType {
+            valType: OrmSchemaValType::iri,
+            literals: Some(vec!["did:ng:z:BigCard".to_string()]),
+            shape: None,
+        }],
+    })];
+    for i in 0..CHILD_SHAPES {
+        let child_shape_iri = format!("did:ng:z:Child{i}Shape");
+        root_predicates.push(Arc::new(OrmSchemaPredicate {
+            iri: format!("did:ng:z:child{i}"),
+            readablePredicate: format!("child{i}"),
+            extra: None,
+            maxCardinality: 1,
+            minCardinality: 1,
+            dataTypes: vec![OrmSchemaDataType {
+                valType: OrmSchemaValType::shape,
+                literals: None,
+                shape: Some(child_shape_iri.clone()),
+            }],
+        }));
+        schema.insert(
+            child_shape_iri.clone(),
+            Arc::new(OrmSchemaShape {
+                is_closed: false,
+                iri: child_shape_iri,
+                predicates: vec![Arc::new(OrmSchemaPredicate {
+                    iri: "did:ng:z:text".to_string(),
+                    readablePredicate: "text".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                })],
+            }),
+        );
+    }
+    schema.insert(
+        "did:ng:z:BigCardShape".to_string(),
+        Arc::new(OrmSchemaShape {
+            is_closed: false,
+            iri: "did:ng:z:BigCardShape".to_string(),
+            predicates: root_predicates,
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:z:BigCardShape".to_string(),
+    };
+
+    let (_receiver, _cancel_fn, _subscription_id, initial) =
+        create_orm_connection(vec![doc_nuri], vec![], shape_type, session_id).await;
+
+    let initial = initial.as_object().expect("root ORM JSON is an object");
+    let card = &initial[&find_key_for_obj(initial, "did:ng:z:bigCard")];
+    for i in 0..CHILD_SHAPES {
+        assert_eq!(
+            card[format!("child{i}")]["text"],
+            json!(format!("text{i}")),
+            "child{i} missing or incomplete in {card}"
+        );
+    }
+}
+
 pub fn create_contact_schema() -> Value {
     let schema_str = include_str!("big_contact_schema.json");
     serde_json::from_str(schema_str).unwrap()

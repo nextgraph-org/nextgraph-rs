@@ -112,6 +112,8 @@ const useShape = <
         (conf as CONF)?.maxActivePages,
         (conf as CONF)?.pageSize,
         JSON.stringify((conf as CONF)?.orderBy),
+        JSON.stringify((conf as CONF)?.where),
+        (conf as CONF)?.onError,
     ];
     const parsedConf = useMemo(
         () => (!conf ? undefined : normalizeConf(conf)),
@@ -130,16 +132,31 @@ const useShape = <
         return newOrmSubscription;
     }, dependencies);
 
+    // Subscription whose cleanup scheduled a close and whose reference is still held by this hook.
+    const closedSubscription = useRef<typeof ormSubscription>(undefined);
+
     useEffect(() => {
         if (!ormSubscription) return;
 
-        ormSubscription?.readyPromise.then(() => {
-            setIsReady(true);
+        if (closedSubscription.current === ormSubscription) {
+            // If this subscription has a pending delayed close from StrictMode remount,
+            // retain it to cancel the close.
+            ormSubscription.retain();
+            closedSubscription.current = undefined;
+        }
+
+        let isCancelled = false;
+        ormSubscription.readyPromise.then(() => {
+            if (!isCancelled) {
+                setIsReady(true);
+            }
         });
 
         return () => {
+            isCancelled = true;
             setIsReady(false);
             ormSubscription.close();
+            closedSubscription.current = ormSubscription;
         };
     }, [ormSubscription]);
 
@@ -169,7 +186,7 @@ const useShape = <
     // @ts-ignore
     return {
         data: (isReady ? state : undefined) as SUBSCRIPTION_DATA,
-        isLoading: !ormSubscription ? false : ormSubscription.isReady,
+        isLoading: !ormSubscription ? false : !ormSubscription.isReady,
         promise: ormSubscription?.readyPromise,
         subscription: ormSubscription,
         nextPage,

@@ -224,9 +224,17 @@ export class DiscreteOrmSubscription<T = DiscreteRoot> {
     isReady: boolean;
 
     /**
+     * @ignore
+     * Increment the reference count to cancel a [close]({@link DiscreteOrmSubscription.close}) call.
+     */
+    public retain = () => {
+        this.refCount++;
+    };
+
+    /**
      * Stop the subscription.
      *
-     * **If there is more than one subscription with the document ID,
+     * **If there is more than one subscription with the same document ID,
      * the orm subscription won't close yet.**
      *
      * Additionally, the closing of the subscription is delayed by a couple hundred milliseconds

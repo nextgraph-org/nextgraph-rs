@@ -22,9 +22,9 @@ export interface ShapeType<T extends BaseType> {
 /** The base type that all generated objects inherit from. */
 export interface BaseType {
     /** The IRI of the subject. */
-    "@id": string;
+    readonly "@id": string;
     /** The document NURI of the subject. By default, it will be set to the parent's graph. */
-    "@graph": string;
+    readonly "@graph": string;
 }
 
 export type Schema = {
@@ -97,3 +97,39 @@ export type IRI = string;
 
 /** String type alias indicating that the sting is a NextGraph graph URI (NURI). */
 export type Nuri = string;
+
+/** Writable, optional `@id` and `@graph` of an unsynced object. */
+type UnsyncedBase = {
+    /** The IRI of the subject. */
+    "@id"?: string;
+    /** The document NURI of the subject. By default, it will be set to the parent's graph. */
+
+    "@graph"?: string;
+};
+
+/** Utility type that makes `@id` and `@graph` optional. */
+export type Unsynced<T> =
+    T extends Set<infer I>
+        ? Set<Unsynced<I>>
+        : T extends Array<infer I>
+          ? Array<Unsynced<I>>
+          : T extends BaseType
+            ? UnsyncedBase & UnsyncedProps<Omit<T, "@id" | "@graph">>
+            : T;
+
+type UnsyncedProps<P> = {
+    [K in keyof P as IsOptionalSet<P, K> extends true ? never : K]: Unsynced<
+        P[K]
+    >;
+} & {
+    [K in keyof P as IsOptionalSet<P, K> extends true ? K : never]?: Unsynced<
+        P[K]
+    >;
+};
+
+/** Sets and nested objects that accept `undefined` are optional when unsynced. */
+type IsOptionalSet<P, K extends keyof P> = undefined extends P[K]
+    ? NonNullable<P[K]> extends Set<unknown> | BaseType
+        ? true
+        : false
+    : false;

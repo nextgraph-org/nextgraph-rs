@@ -1,14 +1,16 @@
-import type { IRI, Nuri, Unpersisted, OrmSet } from "@ng-org/orm";
+import type { Unsynced } from "@ng-org/shex-orm";
+export type { IRI, Nuri, Unsynced, OrmSet } from "@ng-org/orm";
+
+import type * as Synced from "./<%- fileName %>.syncedTypings.ts";
 
 /**
 * =============================================================================
-* Typescript Typings for <%- fileName %>
-  * =============================================================================
-  */
+* Unsynced Typescript Typings for <%- fileName %>
+* =============================================================================
+*/
 
-  <% typings.forEach((typing)=> { -%>
-    /**
-    * <%- typing.dts.name %> Type
-      */
-      export <%- typing.typingString -%>
-        <% }); -%>
+<% typings.forEach((typing) => { -%>
+/** <%- typing.dts.name %> Type, for creating objects that are not yet attached to the ORM. */
+export type <%- typing.dts.name %> = Unsynced<Synced.<%- typing.dts.name %>>;
+
+<% }); -%>

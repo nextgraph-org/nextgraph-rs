@@ -21,7 +21,6 @@ import {
 } from "@ng-org/alien-deepsignals";
 import type {
     OnObjectAttachedFn,
-    DeepSignalSet,
     WatchPatchEvent,
     effect,
     computed,
@@ -32,6 +31,7 @@ import type {
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 import {
     OrderByConfig,
+    OrmReadOnlyArray,
     OrmSet,
     RdfOrmConfig,
     SubscriptionData,
@@ -114,7 +114,7 @@ export class RdfOrmSubscription<
     }
     private readonly signalObject_: undefined extends CONF["orderBy"]
         ? OrmSet<T>
-        : DeepSignal<T[]>;
+        : OrmReadOnlyArray<T>;
     private readonlyItemsArray?: ReadonlyArray<T>;
 
     /** Listeners that get notified when root objects are added, updated, or removed. */
@@ -428,6 +428,14 @@ export class RdfOrmSubscription<
     }
 
     /**
+     * @ignore
+     * Increment the reference count to cancel a [close]({@link RdfOrmSubscription.close}) call.
+     */
+    public retain = () => {
+        this.refCount++;
+    };
+
+    /**
      * Stop the subscription.
      *
      * **If there is more than one subscription with the same shape type and scope, and no pagination,
@@ -530,7 +538,9 @@ export class RdfOrmSubscription<
                 }
             } else {
                 for (const newItem of initialData) {
-                    this.signalObject_.push(parseOrmInitialObject(newItem));
+                    (this.signalObject_ as T[]).push(
+                        parseOrmInitialObject(newItem)
+                    );
                 }
             }
         });
@@ -559,14 +569,14 @@ export class RdfOrmSubscription<
             if (!match) return [];
             const syntheticIdOrIndex = match[1];
 
-            if (Array.isArray(this.signalObject_)) {
-                return this.signalObject_[
-                    Number(syntheticIdOrIndex)
-                ] as DeepSignal<T>;
-            } else {
+            if (this.signalObject_ instanceof Set) {
                 return this.signalObject_.getById(
                     syntheticIdOrIndex
                 ) as DeepSignal<T>;
+            } else {
+                return this.signalObject_[
+                    Number(syntheticIdOrIndex)
+                ] as DeepSignal<T>;
             }
         });
 
@@ -627,7 +637,14 @@ export class RdfOrmSubscription<
         meta,
     }) => {
         // Only deal with objects.
-        if (Array.isArray(rawObject) || rawObject instanceof Set) return;
+        if (
+            Array.isArray(rawObject) ||
+            rawObject instanceof Set ||
+            rawObject instanceof Date ||
+            "|type" in rawObject
+        ) {
+            return;
+        }
 
         // If we are just applying data coming from the backend,
         // `@graph` and `@id` will be set already. Just generated syntheticId, if parent is a set.
@@ -752,7 +769,10 @@ export class RdfOrmSubscription<
     public nextPage = () => {
         ngSession.then(async ({ ng, session }) => {
             await this.readyPromise;
-            ng.graph_orm_next_page(this.subscriptionId, session.session_id);
+            ng.graph_orm_next_page(
+                this.subscriptionId,
+                session.session_id
+            ).catch((e) => this.onErrorCallback(e));
         });
     };
 
@@ -766,10 +786,15 @@ export class RdfOrmSubscription<
      * Only available when `orderBy`, `pageSize`, and `maxActivePages` were set in the options of {@link getOrCreate}.
      */
     public previousPage = () => {
-        ngSession.then(async ({ ng, session }) => {
-            await this.readyPromise;
-            ng.graph_orm_previous_page(this.subscriptionId, session.session_id);
-        });
+        ngSession
+            .then(async ({ ng, session }) => {
+                await this.readyPromise;
+                ng.graph_orm_previous_page(
+                    this.subscriptionId,
+                    session.session_id
+                );
+            })
+            .catch((e) => this.onErrorCallback(e));
     };
 
     // public cancelTransaction = async () => {

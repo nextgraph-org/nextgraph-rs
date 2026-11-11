@@ -48,7 +48,7 @@ export async function build({
     const fileTemplates: string[] = [];
 
     // Pre-annotate schema with readablePredicate to unify naming across outputs
-    fileTemplates.push("schema", "typings", "shapeTypes");
+    fileTemplates.push("schema", "syncedTypings", "typings", "shapeTypes");
 
     load.text = "Generating Schema Documents";
     await forAllShapes(inputFile, async (fileName, shexC) => {
