@@ -16,7 +16,7 @@
 
 Rust implementation of NextGraph
 
-This repository is in active development at [https://git.nextgraph.org/NextGraph/nextgraph-rs](https://git.nextgraph.org/NextGraph/nextgraph-rs), a Gitea instance. For bug reports, issues, merge requests, and in order to join the dev team, please visit the link above and create an account (you can do so with a github account). The [github repo](https://github.com/nextgraph-org/nextgraph-rs) is just a read-only mirror that does not accept issues.
+This repository is in active development at [https://git.elfaconsortium.eu/NextGraph/nextgraph](https://git.elfaconsortium.eu/NextGraph/nextgraph), a Forgejo instance. For bug reports, issues, merge requests, and in order to join the dev team, please visit the link above and create an account (you can do so with a github account). The [github repo](https://github.com/nextgraph-org/nextgraph-rs) is just a read-only mirror that does not accept issues.
 
 ## NextGraph
 
@@ -66,6 +66,6 @@ NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure
 
 [rustc-image]: https://img.shields.io/badge/rustc-1.88+-blue.svg
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
-[license-link]: https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/LICENSE-APACHE2
+[license-link]: https://git.elfaconsortium.eu/NextGraph/nextgraph/raw/branch/master/LICENSE-APACHE2
 [license-image2]: https://img.shields.io/badge/license-MIT-blue.svg
-[license-link2]: https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/LICENSE-MIT
+[license-link2]: https://git.elfaconsortium.eu/NextGraph/nextgraph/raw/branch/master/LICENSE-MIT
