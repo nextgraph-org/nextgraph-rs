@@ -4296,7 +4296,9 @@ impl InboxMsg {
     ) -> Result<Self, NgError> {
         let ser = serde_bare::to_vec(content).unwrap();
         let mut rng = crypto_box::aead::OsRng {};
-        let msg = crypto_box::seal(&mut rng, &to_inbox.to_dh_slice().into(), &ser)
+        let recipient: crypto_box::PublicKey = to_inbox.to_dh_slice().into();
+        let msg = recipient
+            .seal(&mut rng, &ser)
             .map_err(|_| NgError::EncryptionError)?;
         let body = InboxMsgBody {
             to_overlay,
@@ -4316,7 +4318,9 @@ impl InboxMsg {
     }
 
     pub fn get_content(&self, inbox_sk: &PrivKey) -> Result<InboxMsgContent, NgError> {
-        let ser = crypto_box::seal_open(&(*inbox_sk.to_dh().slice()).into(), &self.body.msg)
+        let secret: crypto_box::SecretKey = (*inbox_sk.to_dh().slice()).into();
+        let ser = secret
+            .unseal(&self.body.msg)
             .map_err(|_| NgError::DecryptionError)?;
         let content: InboxMsgContent =
             serde_bare::from_slice(&ser).map_err(|_| NgError::SerializationError)?;

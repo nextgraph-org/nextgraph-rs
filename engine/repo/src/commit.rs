@@ -14,7 +14,7 @@ use std::any::Any;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use ed25519_dalek::{PublicKey, Signature};
+use ed25519_dalek::{Signature, VerifyingKey};
 use once_cell::sync::OnceCell;
 
 use crate::errors::*;
@@ -765,13 +765,16 @@ impl Commit {
             PubKey::Ed25519PubKey(pk) => pk,
             _ => panic!("author cannot have a Montgomery key"),
         };
-        let pk = PublicKey::from_bytes(&pubkey_slice)
+        let pk = VerifyingKey::from_bytes(&pubkey_slice)
             .map_err(|_| CommitVerifyError::InvalidSignature)?;
-        let sig_bytes = match c.sig {
-            Sig::Ed25519Sig(ss) => [ss[0], ss[1]].concat(),
-        };
-        let sig =
-            Signature::from_bytes(&sig_bytes).map_err(|_| CommitVerifyError::InvalidSignature)?;
+        let mut sig_bytes = [0u8; 64];
+        match c.sig {
+            Sig::Ed25519Sig(ss) => {
+                sig_bytes[..32].copy_from_slice(&ss[0]);
+                sig_bytes[32..].copy_from_slice(&ss[1]);
+            }
+        }
+        let sig = Signature::from_bytes(&sig_bytes);
         pk.verify_strict(&content_ser, &sig)
             .map_err(|_| CommitVerifyError::InvalidSignature)
     }
